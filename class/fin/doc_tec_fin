@@ -1,0 +1,252 @@
+# Documentação Técnica - Módulo FIN (Financeiro)
+## Sistema ADM v4.5
+
+## Índice
+1. [Visão Geral](#1-visão-geral)
+2. [Arquitetura](#2-arquitetura)
+3. [Fluxos de Processo](#3-fluxos-de-processo)
+4. [Componentes](#4-componentes)
+5. [Integrações](#5-integrações)
+6. [Desenvolvimento](#6-desenvolvimento)
+7. [Manutenção](#7-manutenção)
+
+## 1. Visão Geral
+
+### 1.1 Propósito
+O módulo FIN é responsável pelo gerenciamento financeiro completo do sistema ADM v4.5. O módulo permite:
+- Lançamentos financeiros (receitas e despesas)
+- Gestão de contas bancárias
+- Remessas e retornos bancários
+- Relatórios financeiros
+- Fluxo de caixa
+- Orçamentos
+- Extratos
+- Centro de custos
+
+### 1.2 Funcionalidades Principais
+1. **Lançamentos Financeiros**
+   - Cadastro de receitas e despesas
+   - Parcelamento
+   - Baixa de títulos
+   - Agrupamento de lançamentos
+   - Rateio por centro de custo
+
+2. **Gestão Bancária**
+   - Contas bancárias
+   - Remessas bancárias
+   - Retornos bancários
+   - Conciliação bancária
+   - Cheques
+
+3. **Relatórios**
+   - Extratos
+   - Fluxo de caixa
+   - DRE
+   - Saldos
+   - Consolidados
+
+## 2. Arquitetura
+
+### 2.1 Estrutura de Diretórios
+```
+/var/www/html/admv4.5/
+├── forms/fin/                    # Formulários PHP
+│   ├── p_lancamento.php         # Controlador de lançamentos
+│   ├── p_remessa_bancaria.php   # Controlador de remessas
+│   ├── p_retorno_bancario.php   # Controlador de retornos
+│   ├── p_extrato.php            # Controlador de extratos
+│   └── p_dashboard.php          # Dashboard financeiro
+├── class/fin/                    # Classes PHP
+│   ├── c_lancamento.php         # Classe de lançamentos
+│   ├── c_saldo.php              # Classe de saldos
+│   ├── c_extrato.php            # Classe de extratos
+│   └── c_orcamento.php          # Classe de orçamentos
+├── js/fin/                      # JavaScript
+│   └── s_lancamento.js          # Lógica de lançamentos
+└── template/fin/                # Templates Smarty
+    ├── lancamento.tpl
+    └── extrato.tpl
+```
+
+## 3. Fluxos de Processo
+
+### 3.1 Fluxo de Lançamentos
+1. **Cadastro de Lançamento**
+   ```php
+   // Exemplo de lançamento
+   $lanc = new c_lancamento();
+   $lanc->setPessoa($idPessoa);
+   $lanc->setDocto($numero);
+   $lanc->setSerie($serie);
+   $lanc->setParcela($parcela);
+   $lanc->setTipolancamento($tipo);
+   $lanc->setValor($valor);
+   $lanc->incluiLancamento();
+   ```
+
+2. **Parcelamento**
+   ```php
+   // Exemplo de parcelamento
+   $lanc->setQuantParc($numParcelas);
+   $lanc->addParcelas($arrParFin, $arrParcelas);
+   ```
+
+3. **Baixa de Título**
+   ```php
+   // Exemplo de baixa
+   $lanc->setSitpgto('B'); // B=Baixado
+   $lanc->alteraLancamento();
+   ```
+
+### 3.2 Fluxo Bancário
+1. **Remessa Bancária**
+   ```php
+   // Exemplo de remessa
+   $remessa = new c_remessa_bancaria();
+   $remessa->setConta($conta);
+   $remessa->setData(date("Y-m-d"));
+   $remessa->geraRemessa();
+   ```
+
+2. **Retorno Bancário**
+   ```php
+   // Exemplo de retorno
+   $retorno = new c_retorno_bancario();
+   $retorno->processaRetorno($arquivo);
+   ```
+
+3. **Conciliação**
+   ```php
+   // Exemplo de conciliação
+   $conc = new c_conciliacao();
+   $conc->setConta($conta);
+   $conc->setData($data);
+   $conc->processaConciliacao();
+   ```
+
+## 4. Componentes
+
+### 4.1 Lançamentos (class/fin/c_lancamento.php)
+```php
+class c_lancamento extends c_user {
+    // Gerenciamento de lançamentos
+    public function incluiLancamento() {
+        // Validações
+        if ($this->getPessoa() == 0) {
+            return false;
+        }
+        // Inclusão
+    }
+
+    public function alteraLancamento() {
+        // Alteração
+    }
+
+    public function excluiLancamento() {
+        // Exclusão
+    }
+}
+```
+
+### 4.2 Saldos (class/fin/c_saldo.php)
+```php
+class c_saldo {
+    // Controle de saldos
+    public function atualizaSaldo() {
+        // Atualização
+    }
+
+    public function consultaSaldo() {
+        // Consulta
+    }
+}
+```
+
+### 4.3 Extratos (class/fin/c_extrato.php)
+```php
+class c_extrato {
+    // Gestão de extratos
+    public function geraExtrato() {
+        // Geração
+    }
+
+    public function imprimeExtrato() {
+        // Impressão
+    }
+}
+```
+
+## 5. Integrações
+
+### 5.1 Módulos Integrados
+- **Vendas**: Pedidos
+- **Estoque**: Notas fiscais
+- **CRM**: Clientes
+- **Fiscal**: Notas fiscais
+
+### 5.2 Fluxo de Dados
+```mermaid
+graph TD
+    A[FIN] --> B[Vendas]
+    A --> C[Estoque]
+    A --> D[CRM]
+    A --> E[Fiscal]
+    B --> F[Pedidos]
+    C --> G[NF]
+    D --> H[Clientes]
+    E --> I[NF-e]
+```
+
+## 6. Desenvolvimento
+
+### 6.1 Ambiente
+- PHP 7.4+
+- MySQL
+- Ambiente de homologação
+
+### 6.2 Padrões
+- PSR-4
+- PHPDoc
+- Testes unitários
+
+### 6.3 Versionamento
+- Backup de versões
+- Controle de alterações
+- Documentação
+
+## 7. Manutenção
+
+### 7.1 Logs
+- Logs de lançamentos
+- Logs bancários
+- Monitoramento
+
+### 7.2 Backup
+- Backup diário
+- Versionamento
+- Recuperação
+
+### 7.3 Troubleshooting
+1. **Problemas comuns**:
+   - Erros de lançamento
+   - Falhas na remessa
+   - Problemas de conciliação
+
+2. **Soluções**:
+   - Verificar logs
+   - Validar integrações
+   - Otimizar queries
+
+---
+
+⚠️ **Notas Importantes**:
+1. Manter backups regulares
+2. Documentar alterações
+3. Seguir padrões de código
+4. Testar em homologação
+
+Para suporte técnico: suporte@admsistema.com.br
+
+Última atualização: 12/06/2025
+
+Esta documentação é parte do sistema ADM v4.5 e deve ser mantida atualizada com as mudanças do sistema.

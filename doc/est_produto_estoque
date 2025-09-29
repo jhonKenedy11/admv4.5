@@ -1,0 +1,150 @@
+c_produto_estoque
+	->produtoQtdePeriodo
+	->produtoQtdeData - p_remessa_bloco_k
+	->produtoQtde - Situação com código fixo
+	->produtoQtdePreco
+	_>produtoReserva
+	->produtoReservaExclui
+	->produtoBaixaEstorna
+	->produtoBaixaReserva
+	->produtoBaixaPerda
+	->produtoBaixa
+	->consultaProdutoReserva
+	->selectProdutoEstoqueLetra
+	->incluiProdutoEstoque
+	->alteraProdutoEstoque
+	->produtoDisponivel
+
+
+c_produto_estoque_fracionado  ==> não utilizado
+	->produtoQtdePeriodo
+	->produtoQtdeData
+	->produtoQtde
+	->produtoQtdePreco
+	_>produtoReserva
+	->produtoReservaExclui
+	->produtoBaixaEstorna
+	->produtoBaixaReserva
+	->produtoBaixaPerda
+	->consultaProdutoReserva
+	->selectProdutoEstoqueLetra
+	->incluiProdutoEstoque
+	->alteraProdutoEstoque
+
+===========================================
+
+c_pedido_venda_pecas ???
+	->produtoReservaExclui
+	->produtoQtdePreco  - consulta est_parametro
+	
+c_pedido_venda_nf ??
+	->produtoReservaExclui
+	->produtoQtdePreco
+
+c_nota_fiscal
+	->selectNfRemessaiqvia
+	
+c_nota_fiscal_produto
+	->select_consolidacao_fiscal
+
+c_ordem_compra
+	->select_ordem_compra_item_id
+	
+c_pedido_venda
+	->select_pedido_item_id
+	
+c_pedido_venda_tools
+	->produtoQtdePreco
+	->produtoReserva
+	->produtoReservaExclui
+	
+c_produto_nf_nf_detalhes ?
+
+================================
+
+p_importa
+	->produtoBaixaPerda	
+	-> insert direto***
+	
+p_importa_tabela_preco
+	->produtoBaixaPerda	
+	-> insert direto***
+
+p_pedido_venda_telhas
+	->produtoReservaExclui
+	->produtoQtdePreco  - consulta est_parametro
+	->produtoReserva
+	
+p_produto
+	->incluiProdutoEstoque
+	->produtoBaixaPerda
+	->select_quantidade_empresa
+	->produtoQtde
+	
+
+p_produto_fracionado
+	->select_quantidade_empresa
+	->produtoBaixaPerda 2x
+	->produtoQtde
+	
+p_nota_xml_importa
+	->incluiProdutoEstoque
+	
+p_nota_fiscal
+	->produtoBaixaEstorna
+	
+p_nota_fiscal_recebimento ?
+
+p_nota_fiscal_imp_etiqueta ?
+
+p_est_rel_kardex ?
+
+p_consultas ?
+
+p_baixa_estoque
+	->incluiProdutoEstoque
+
+p_nota_fiscal_produto
+	->produtoQtdePreco
+	->incluiProdutoEstoque
+
+	
+p_pedido_venda_nf
+	->produtoReservaExclui
+	->produtoReserva
+	
+p_pedido_venda_nf_pecas
+	->produtoBaixaReserva
+	
+p_pedido_venda_compras
+	->produtoQtdePreco - consulta est_parametro
+	
+p_ordem_compra
+	->produtoQtdePreco - paramêtro 'O' ???
+	
+p_relatorios
+	->produtoQtdePeriodo
+
+p_relatorio_geral
+	->produtoQtde
+	
+p_rel_compras
+	->produtoQtde
+	
+p_rel_compras_sugestoes
+	->produtoQtde
+	
+p_rel_compras_estoque_min
+	->produtoQtde
+
+p_rel_compras_consultas
+	->produtoQtde
+		
+p_rel_curva_abc ?
+
+p_relatorio_produto_validade ?
+
+p_relatorio_gerencial ?
+
+	
+p_pedido_venda_telhas_dash ?

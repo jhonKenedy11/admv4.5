@@ -1,0 +1,682 @@
+{
+    "4119152": {
+        "homologacao": "https:\/\/pinhais-hml.ipm.com.br:8443\/ws_nfse",
+        "producao": "https:\/\/pinhais.ipm.com.br:8443\/ws_nfse",
+        "version": "1.30",
+        "homologacao_soapns": "http:\/\/pinhais-hml.ipm.com.br",
+        "producao_soapns": "http:\/\/pinhais.ipm.com.br",
+        "municipio": "Pinhais",
+        "uf": "PR",
+        "padrao": "IPM"
+    },
+    "4212502": {
+        "homologacao": "https:\/\/penha-hml.ipm.com.br:9443\/ws_nfse",
+        "producao": "https:\/\/penha.ipm.com.br:9443\/ws_nfse",
+        "version": "1.30",
+        "homologacao_soapns": "http:\/\/penha-hml.ipm.com.br",
+        "producao_soapns": "http:\/\/penha.ipm.com.br",
+        "municipio": "Penha",
+        "uf": "SC",
+        "padrao": "IPM"
+    },
+    "3501905": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Amparo",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "1500800": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Ananindeua",
+        "uf": "PA",
+        "padrao": "GINFES"
+    },
+    "3503208": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Araraquara",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3506359": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Bertioga",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3106705": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/betim.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Betim",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "3301009": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Campos dos Goytacazes",
+        "uf": "RJ",
+        "padrao": "GINFES"
+    },
+    "3510401": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Capivari",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "2604106": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Caruaru",
+        "uf": "PE",
+        "padrao": "GINFES"
+    },
+    "3115300": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Cataguases",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "3512001": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Colina",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3117504": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Conceicao do Mato Dentro",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "3118601": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Contagem",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "3513801": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Diadema",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3515103": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Embu-Guacu",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3516200": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Franca",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3518305": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Guararema",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3518701": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Guaruja",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3518800": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/guarulhos.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Guarulhos",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3519071": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Hortolandia",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3301900": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Itaborai",
+        "uf": "RJ",
+        "padrao": "GINFES"
+    },
+    "3132404": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Itajuba",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "3133808": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Itauna",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "3523909": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Itu",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3524303": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Jaboticabal",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3525102": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Jardinopolis",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3525904": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Jundiai",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3137601": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Lagoa Santa",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "2704302": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Maceio",
+        "uf": "AL",
+        "padrao": "GINFES"
+    },
+    "2704708": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Marechal Deodoro",
+        "uf": "AL",
+        "padrao": "GINFES"
+    },
+    "3302700": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Marica",
+        "uf": "RJ",
+        "padrao": "GINFES"
+    },
+    "3529302": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Matao",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3529401": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Maua",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "5213103": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Mineiros",
+        "uf": "GO",
+        "padrao": "GINFES"
+    },
+    "3530508": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Mococa",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3531902": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Morro Agudo",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3143906": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Muriae",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "3533908": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Olimpia",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3145604": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Oliveira",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "3147105": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Para de Minas",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "4118204": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Paranagua",
+        "uf": "PR",
+        "padrao": "GINFES"
+    },
+    "3536505": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Paulinia",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3540705": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Porto Ferreira",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3152501": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Pouso Alegre",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "3542602": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Registro",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3543303": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Ribeirao Pires",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3543402": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Ribeirao Preto",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3304300": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Rio Bonito",
+        "uf": "RJ",
+        "padrao": "GINFES"
+    },
+    "3543907": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Rio Claro",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3156908": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Sacramento",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "3545209": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Salto",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "2513653": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Santarem",
+        "uf": "PB",
+        "padrao": "GINFES"
+    },
+    "1506807": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Santar\u00e9m",
+        "uf": "PA",
+        "padrao": "GINFES"
+    },
+    "3547809": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Santo Andre",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3548500": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Santos",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3548708": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Sao Bernardo do Campos",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3548807": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Sao Caetano do Sul",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3548906": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Sao Carlos",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3549805": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Sao Jose do Rio Preto",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3550605": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Sao Roque",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3550704": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Sao Sebastiao",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3552502": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Suzano",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3553708": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Taquaritinga",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "3555406": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Ubatuba",
+        "uf": "SP",
+        "padrao": "GINFES"
+    },
+    "4128104": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Umuarama",
+        "uf": "PR",
+        "padrao": "GINFES"
+    },
+    "3170701": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Varginha",
+        "uf": "MG",
+        "padrao": "GINFES"
+    },
+    "3557105": {
+        "homologacao": "https:\/\/homologacao.ginfes.com.br\/ServiceGinfesImpl",
+        "producao": "https:\/\/producao.ginfes.com.br\/ServiceGinfesImpl",
+        "version": "3",
+        "homologacao_soapns": "http:\/\/homologacao.ginfes.com.br",
+        "producao_soapns": "http:\/\/producao.ginfes.com.br",
+        "municipio": "Votuporanga",
+        "uf": "SP",
+        "padrao": "GINFES"
+    }
+}

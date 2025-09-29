@@ -1,0 +1,288 @@
+# Documentação Técnica - Módulo EST (Estoque)
+## Sistema ADM v4.5
+
+## Índice
+1. [Visão Geral](#1-visão-geral)
+2. [Arquitetura](#2-arquitetura)
+3. [Fluxos de Processo](#3-fluxos-de-processo)
+4. [Componentes](#4-componentes)
+5. [Integrações](#5-integrações)
+6. [Desenvolvimento](#6-desenvolvimento)
+7. [Manutenção](#7-manutenção)
+
+## 1. Visão Geral
+
+### 1.1 Propósito
+O módulo EST é responsável pelo gerenciamento completo de estoque no sistema ADM v4.5. O módulo permite:
+- Cadastro e gestão de produtos
+- Controle de estoque
+- Gestão de notas fiscais
+- Inventário
+- Relatórios gerenciais
+- Integração fiscal
+- Gestão de preços
+
+### 1.2 Funcionalidades Principais
+1. **Gestão de Produtos**
+   - Cadastro de produtos
+   - Produtos fracionados
+   - Grupos e marcas
+   - NCM e ANP
+   - Preços e custos
+
+2. **Controle de Estoque**
+   - Movimentações
+   - Inventário
+   - Localização
+   - Curva ABC
+   - Estoque mínimo
+
+3. **Notas Fiscais**
+   - Emissão de NF-e
+   - Importação de XML
+   - Manifesto fiscal
+   - Espelho de NF-e
+   - DANFE
+
+4. **Relatórios**
+   - Movimento de estoque
+   - Inventário
+   - Compras
+   - Curva ABC
+   - Balanceamento
+
+## 2. Arquitetura
+
+### 2.1 Estrutura de Diretórios
+```
+/var/www/html/admv4.5/
+├── forms/est/                    # Formulários PHP
+│   ├── p_produto.php            # Controlador de produtos
+│   ├── p_nota_fiscal.php        # Controlador de NF
+│   ├── p_inventario.php         # Controlador de inventário
+│   ├── p_nfephp_40.php          # NF-e v4.0
+│   └── p_relatorios.php         # Relatórios
+├── class/est/                    # Classes PHP
+│   ├── c_produto.php            # Classe de produtos
+│   ├── c_produto_estoque.php    # Classe de estoque
+│   ├── c_nota_fiscal.php        # Classe de NF
+│   ├── c_inventario.php         # Classe de inventário
+│   └── c_estoque_rel.php        # Relatórios
+├── js/est/                      # JavaScript
+│   ├── s_produto.js             # Lógica de produtos
+│   └── s_nota_fiscal.js         # Lógica de NF
+└── template/est/                # Templates Smarty
+    ├── produto_cadastro.tpl
+    ├── nota_fiscal.tpl
+    └── inventario.tpl
+```
+
+## 3. Fluxos de Processo
+
+### 3.1 Fluxo de Produtos
+1. **Cadastro de Produto**
+   ```php
+   // Exemplo de cadastro de produto
+   $produto = new c_produto();
+   $produto->setCodigo("001");
+   $produto->setDescricao("Produto Teste");
+   $produto->setNcm("12345678");
+   $produto->setUnidade("UN");
+   $produto->incluiProduto();
+   ```
+
+2. **Gestão de Estoque**
+   ```php
+   // Exemplo de movimentação
+   $estoque = new c_produto_estoque();
+   $estoque->setProduto($idProduto);
+   $estoque->setQuantidade($qtd);
+   $estoque->setTipo("E"); // E=Entrada, S=Saída
+   $estoque->movimentaEstoque();
+   ```
+
+3. **Preços**
+   ```php
+   // Exemplo de tabela de preços
+   $tabela = new c_tabela_preco();
+   $tabela->setProduto($idProduto);
+   $tabela->setPreco($valor);
+   $tabela->incluiPreco();
+   ```
+
+### 3.2 Fluxo de Notas Fiscais
+1. **Emissão de NF-e**
+   ```php
+   // Exemplo de emissão
+   $nfe = new c_nota_fiscal();
+   $nfe->setNumero("001");
+   $nfe->setSerie("1");
+   $nfe->setData(date("Y-m-d"));
+   $nfe->incluiNota();
+   ```
+
+2. **Importação de XML**
+   ```php
+   // Exemplo de importação
+   $xml = new c_nota_fiscal();
+   $xml->importaXML($arquivo);
+   ```
+
+3. **Manifesto Fiscal**
+   ```php
+   // Exemplo de manifesto
+   $manifesto = new c_manifesto_fiscal();
+   $manifesto->setNota($numero);
+   $manifesto->setAcao("C"); // C=Ciência
+   $manifesto->manifesta();
+   ```
+
+### 3.3 Fluxo de Inventário
+1. **Criação**
+   ```php
+   // Exemplo de inventário
+   $inventario = new c_inventario();
+   $inventario->setData(date("Y-m-d"));
+   $inventario->criaInventario();
+   ```
+
+2. **Contagem**
+   ```php
+   // Exemplo de contagem
+   $inventario->setProduto($idProduto);
+   $inventario->setQuantidade($qtd);
+   $inventario->registraContagem();
+   ```
+
+3. **Fechamento**
+   ```php
+   // Exemplo de fechamento
+   $inventario->fechaInventario();
+   ```
+
+## 4. Componentes
+
+### 4.1 Produtos (class/est/c_produto.php)
+```php
+class c_produto extends c_user {
+    // Gerenciamento de produtos
+    public function incluiProduto() {
+        // Validações
+        if ($this->getCodigo() == '') {
+            return false;
+        }
+        // Inclusão
+    }
+
+    public function alteraProduto() {
+        // Alteração
+    }
+
+    public function excluiProduto() {
+        // Exclusão
+    }
+}
+```
+
+### 4.2 Estoque (class/est/c_produto_estoque.php)
+```php
+class c_produto_estoque {
+    // Controle de estoque
+    public function movimentaEstoque() {
+        // Movimentação
+    }
+
+    public function saldoEstoque() {
+        // Consulta saldo
+    }
+}
+```
+
+### 4.3 Notas Fiscais (class/est/c_nota_fiscal.php)
+```php
+class c_nota_fiscal {
+    // Gestão de NF
+    public function incluiNota() {
+        // Inclusão
+    }
+
+    public function cancelaNota() {
+        // Cancelamento
+    }
+}
+```
+
+## 5. Integrações
+
+### 5.1 Módulos Integrados
+- **Financeiro**: Contas a pagar/receber
+- **Vendas**: Pedidos
+- **Fiscal**: Notas fiscais
+- **Compras**: Ordens de compra
+
+### 5.2 Fluxo de Dados
+```mermaid
+graph TD
+    A[EST] --> B[Financeiro]
+    A --> C[Vendas]
+    A --> D[Fiscal]
+    A --> E[Compras]
+    B --> F[Contas]
+    C --> G[Pedidos]
+    D --> H[Notas]
+    E --> I[OC]
+```
+
+## 6. Desenvolvimento
+
+### 6.1 Ambiente
+- PHP 7.4+
+- MySQL
+- Ambiente de homologação
+
+### 6.2 Padrões
+- PSR-4
+- PHPDoc
+- Testes unitários
+
+### 6.3 Versionamento
+- Backup de versões
+- Controle de alterações
+- Documentação
+
+## 7. Manutenção
+
+### 7.1 Logs
+- Logs de movimentação
+- Logs de NF
+- Monitoramento
+
+### 7.2 Backup
+- Backup diário
+- Versionamento
+- Recuperação
+
+### 7.3 Troubleshooting
+1. **Problemas comuns**:
+   - Erros de estoque
+   - Falhas na NF-e
+   - Problemas de inventário
+
+2. **Soluções**:
+   - Verificar logs
+   - Validar integrações
+   - Otimizar queries
+
+---
+
+⚠️ **Notas Importantes**:
+1. Manter backups regulares
+2. Documentar alterações
+3. Seguir padrões de código
+4. Testar em homologação
+
+Para suporte técnico: suporte@admsistema.com
+
+Última atualização: 12/06/2025
+
+Esta documentação é parte do sistema ADM v4.5 e deve ser mantida atualizada com as mudanças do sistema.

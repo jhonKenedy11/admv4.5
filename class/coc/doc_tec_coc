@@ -1,0 +1,220 @@
+# Documentação Técnica - Módulo COC (Ordem de Compra)
+## Sistema ADM v4.5
+
+## Índice
+1. [Visão Geral do Sistema](#1-visão-geral-do-sistema)
+2. [Módulo COC](#2-módulo-coc)
+3. [Arquitetura](#3-arquitetura)
+4. [Componentes](#4-componentes)
+5. [Integrações](#5-integrações)
+6. [Desenvolvimento](#6-desenvolvimento)
+7. [Manutenção](#7-manutenção)
+8. [Referências](#8-referências)
+
+## 1. Visão Geral do Sistema
+
+### 1.1 Estrutura do Projeto
+```
+/var/www/html/admv4.5/
+├── bib/                    # Bibliotecas externas
+├── class/                  # Classes do sistema
+│   └── coc/               # Classes do módulo COC
+├── forms/                  # Formulários
+│   └── coc/               # Formulários do módulo COC
+├── js/                     # Scripts JavaScript
+│   └── coc/               # Scripts do módulo COC
+├── template/              # Templates Smarty
+│   └── coc/               # Templates do módulo COC
+├── css/                   # Estilos
+├── doc/                   # Documentação
+└── boleto/                # Módulo de boletos
+```
+
+### 1.2 Dependências do Sistema
+- PHP 7.4+
+- MySQL 5.7+
+- Apache 2.4+
+- Smarty Template Engine
+- DomPDF
+- jQuery
+- Bootstrap
+
+## 2. Módulo COC
+
+### 2.1 Visão Geral
+O módulo COC (Ordem de Compra) é responsável pelo gerenciamento completo do processo de compras no sistema ADM v4.5.
+
+### 2.2 Funcionalidades Principais
+- Criação e gestão de ordens de compra
+- Integração com estoque
+- Geração de notas fiscais
+- Controle financeiro
+- Aprovações e fluxos de trabalho
+
+## 3. Arquitetura
+
+### 3.1 Estrutura do Módulo
+```
+/var/www/html/admv4.5/
+├── forms/coc/
+│   ├── p_ordem_compra.php           # Controlador principal
+│   ├── p_ordem_compra_imprime.php   # Geração de PDF
+│   └── p_ordem_compra_22-AGOSTO-2023.php  # Backup
+├── class/coc/
+│   ├── c_ordem_compra.php           # Classe principal
+│   ├── c_ordem_compra_tools.php     # Utilitários
+│   └── c_ordem_compra_22-AGOSTO-2023.php  # Backup
+├── js/coc/
+│   └── s_ordem_compra.js            # Lógica cliente
+└── template/coc/
+    ├── ordem_compra_cadastro.tpl
+    ├── ordem_compra_mostra.tpl
+    ├── ordem_compra_imprime.tpl
+    └── ordem_compra_email_modal.tpl
+```
+
+### 3.2 Padrão de Design
+O módulo segue o padrão MVC:
+- **Model**: Classes em `/class/coc/`
+- **View**: Templates em `/template/coc/`
+- **Controller**: Formulários em `/forms/coc/`
+
+## 4. Componentes
+
+### 4.1 Controladores (forms/coc/)
+#### p_ordem_compra.php
+- Controlador principal do módulo
+- Gerencia requisições e respostas
+- Integra com outros módulos
+
+#### p_ordem_compra_imprime.php
+- Geração de PDFs
+- Relatórios
+- Impressão de documentos
+
+### 4.2 Classes (class/coc/)
+#### c_ordem_compra.php
+```php
+class c_ordem_compra {
+    // Gerenciamento de ordens
+    public function controle() { ... }
+    public function desenhaCadastroOrdemCompra() { ... }
+    public function mostraOrdemCompra() { ... }
+}
+```
+
+#### c_ordem_compra_tools.php
+```php
+class c_ordem_compra_tools {
+    // Utilitários
+    public function calculaImpostos() { ... }
+    public function validaDados() { ... }
+}
+```
+
+### 4.3 JavaScript (js/coc/)
+#### s_ordem_compra.js
+```javascript
+// Funções principais
+function submitCadastraNf() { ... }
+function submitConfirmarSmart() { ... }
+function submitIncluirItem() { ... }
+```
+
+### 4.4 Templates (template/coc/)
+#### ordem_compra_cadastro.tpl
+- Interface principal
+- Formulários
+- Grids de dados
+
+#### ordem_compra_mostra.tpl
+- Visualização
+- Detalhes
+- Histórico
+
+## 5. Integrações
+
+### 5.1 Módulos Integrados
+- **Estoque**: `class/est/c_produto.php`
+- **Financeiro**: `class/fin/c_lancamento.php`
+- **CRM**: `class/crm/c_conta.php`
+- **Fiscal**: `class/est/c_nota_fiscal.php`
+
+### 5.2 Fluxo de Dados
+```mermaid
+graph TD
+    A[COC] --> B[Estoque]
+    A --> C[Financeiro]
+    A --> D[CRM]
+    A --> E[Fiscal]
+    B --> F[Banco de Dados]
+    C --> F
+    D --> F
+    E --> F
+```
+
+## 6. Desenvolvimento
+
+### 6.1 Ambiente de Desenvolvimento
+- VS Code (configurações em `.vscode/`)
+- Git para controle de versão
+- Ambiente de homologação
+
+### 6.2 Padrões de Código
+- PSR-4 para autoload
+- Documentação PHPDoc
+- Testes unitários
+
+### 6.3 Versionamento
+- Backup de versões (ex: `*_22-AGOSTO-2023.php`)
+- Controle de alterações
+- Documentação de mudanças
+
+## 7. Manutenção
+
+### 7.1 Logs
+- Logs de erro em `/var/log/apache2/`
+- Logs de aplicação
+- Monitoramento de performance
+
+### 7.2 Backup
+- Backup diário do banco
+- Backup de arquivos
+- Versionamento de código
+
+### 7.3 Troubleshooting
+1. **Problemas comuns**:
+   - Erros de permissão
+   - Falhas de integração
+   - Problemas de performance
+
+2. **Soluções**:
+   - Verificar logs
+   - Validar integrações
+   - Otimizar queries
+
+## 8. Referências
+
+### 8.1 Documentação
+- Manual do usuário
+- Documentação técnica
+- Changelog
+
+### 8.2 Suporte
+- Equipe de desenvolvimento
+- Suporte técnico
+- Base de conhecimento
+
+---
+
+⚠️ **Notas Importantes**:
+1. Manter backups regulares
+2. Documentar alterações
+3. Seguir padrões de código
+4. Testar em homologação
+
+Para suporte técnico: suporte@admsistemas.com.br
+
+Última atualização: 12/06/2025
+
+Esta documentação é parte do sistema ADM v4.5 e deve ser mantida atualizada com as mudanças do sistema.

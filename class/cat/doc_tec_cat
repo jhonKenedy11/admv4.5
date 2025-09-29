@@ -1,0 +1,224 @@
+# Documentação Técnica - Módulo CAT (Atendimentos/Ordens de Serviço)
+## Sistema ADM v4.5
+
+## Índice
+1. [Visão Geral](#1-visão-geral)
+2. [Arquitetura](#2-arquitetura)
+3. [Fluxos de Processo](#3-fluxos-de-processo)
+4. [Componentes](#4-componentes)
+5. [Integrações](#5-integrações)
+6. [Desenvolvimento](#6-desenvolvimento)
+7. [Manutenção](#7-manutenção)
+
+## 1. Visão Geral
+
+### 1.1 Propósito
+O módulo CAT é responsável pelo gerenciamento de atendimentos e ordens de serviço (OS) no sistema ADM v4.5. O módulo permite:
+- Gerenciar atendimentos com ou sem OS
+- Gerenciar OS com ou sem pedidos
+- Integração com o módulo financeiro (opcional)
+- Acompanhamento de serviços e apontamentos
+
+### 1.2 Relacionamentos
+- **Atendimento**: Pode ter ou não OS
+- **OS**: Pode estar vinculada ou não a um pedido
+- **Financeiro**: Pode ser gerado diretamente da OS ou não
+
+## 2. Arquitetura
+
+### 2.1 Estrutura de Diretórios
+```
+/var/www/html/admv4.5/
+├── forms/cat/                    # Formulários PHP
+│   ├── p_atendimento.php        # Controlador de atendimentos
+│   ├── p_atendimento_new.php    # Novo controlador de atendimentos
+│   ├── p_atendimento_pedido.php # Controlador de atendimentos com pedidos
+│   ├── p_apontamento_os.php     # Controlador de apontamentos
+│   └── p_os_aberto.php          # Controlador de OS
+├── class/cat/                    # Classes PHP
+│   ├── c_atendimento.php        # Classe principal de atendimentos
+│   ├── c_atendimento_tools.php  # Utilitários de atendimento
+│   ├── c_atendimento_pedido.php # Classe de atendimentos com pedidos
+│   └── c_apontamento_os.php     # Classe de apontamentos
+├── js/cat/                      # JavaScript
+│   ├── s_atendimento.js         # Lógica de atendimentos
+│   ├── s_atendimento_new.js     # Nova lógica de atendimentos
+│   └── s_apontamento_os.js      # Lógica de apontamentos
+└── template/cat/                # Templates Smarty
+    ├── atendimento_cadastro.tpl
+    ├── atendimento_mostra.tpl
+    └── apontamento_os.tpl
+```
+
+## 3. Fluxos de Processo
+
+### 3.1 Fluxo de Atendimento
+1. **Criação de Atendimento**
+   - Cadastro de informações básicas
+   - Opção de gerar OS
+   - Opção de vincular pedido
+   - Definição de prioridade e prazo
+
+2. **Gestão de OS**
+   - Criação de OS (opcional)
+   - Vinculação com pedido (opcional)
+   - Apontamentos de serviços
+   - Controle de peças utilizadas
+
+3. **Apontamentos**
+   - Registro de horas
+   - Registro de serviços
+   - Registro de peças utilizadas
+   - Atualização de status
+
+4. **Financeiro**
+   - Geração direta da OS (opcional)
+   - Vinculação com pedido
+   - Controle de valores
+   - Geração de contas
+
+### 3.2 Estados do Atendimento
+1. **Aberto**
+   - Atendimento inicial
+   - Pendente de OS
+
+2. **Em Andamento**
+   - OS gerada
+   - Apontamentos em andamento
+
+3. **Aguardando Aprovação**
+   - OS concluída
+   - Pendente de aprovação
+
+4. **Aprovado**
+   - OS aprovada
+   - Financeiro gerado
+
+5. **Cancelado**
+   - Atendimento cancelado
+   - OS cancelada
+
+## 4. Componentes
+
+### 4.1 Formulários (forms/cat/)
+#### p_atendimento.php
+- Controlador principal de atendimentos
+- Gerencia requisições e respostas
+- Integra com outros módulos
+
+#### p_atendimento_pedido.php
+- Controlador de atendimentos com pedidos
+- Gestão de pedidos vinculados
+- Integração com módulo de vendas
+
+#### p_apontamento_os.php
+- Controlador de apontamentos
+- Gestão de horas e atividades
+- Vinculação com OS
+
+### 4.2 Classes (class/cat/)
+#### c_atendimento.php
+```php
+class c_atendimento {
+    // Gerenciamento de atendimentos
+    public function controle() { ... }
+    public function desenhaCadastroAtendimento() { ... }
+    public function mostraAtendimento() { ... }
+    public function geraOS() { ... }
+}
+```
+
+#### c_atendimento_pedido.php
+```php
+class c_atendimento_pedido {
+    // Gerenciamento de atendimentos com pedidos
+    public function vinculaPedido() { ... }
+    public function geraFinanceiro() { ... }
+}
+```
+
+### 4.3 JavaScript (js/cat/)
+#### s_atendimento.js
+```javascript
+// Funções principais
+function submitAtendimento() { ... }
+function submitOS() { ... }
+function submitApontamento() { ... }
+function submitFinanceiro() { ... }
+```
+
+## 5. Integrações
+
+### 5.1 Módulos Integrados
+- **Vendas**: Pedidos
+- **Financeiro**: Geração de contas
+- **CRM**: Clientes
+- **Fiscal**: Notas fiscais
+
+### 5.2 Fluxo de Dados
+```mermaid
+graph TD
+    A[Atendimento] --> B{Gera OS?}
+    B -->|Sim| C[Ordem de Serviço]
+    B -->|Não| D[Atendimento Simples]
+    C --> E{Vincula Pedido?}
+    E -->|Sim| F[Pedido]
+    E -->|Não| G[OS Independente]
+    C --> H{Gera Financeiro?}
+    H -->|Sim| I[Financeiro]
+    H -->|Não| J[Sem Financeiro]
+```
+
+## 6. Desenvolvimento
+
+### 6.1 Ambiente
+- VS Code
+- Git
+- Ambiente de homologação
+
+### 6.2 Padrões
+- PSR-4
+- PHPDoc
+- Testes unitários
+
+### 6.3 Versionamento
+- Backup de versões
+- Controle de alterações
+- Documentação
+
+## 7. Manutenção
+
+### 7.1 Logs
+- Logs de erro
+- Logs de aplicação
+- Monitoramento
+
+### 7.2 Backup
+- Backup diário
+- Versionamento
+- Recuperação
+
+### 7.3 Troubleshooting
+1. **Problemas comuns**:
+   - Erros de vinculação OS/Pedido
+   - Falhas na geração de financeiro
+   - Problemas de apontamento
+
+2. **Soluções**:
+   - Verificar logs
+   - Validar integrações
+   - Otimizar queries
+
+---
+
+⚠️ **Notas Importantes**:
+1. Manter backups regulares
+2. Documentar alterações
+3. Seguir padrões de código
+4. Testar em homologação
+
+Para suporte técnico: suporte@admsistemas.com.br
+
+Última atualização: 12/06/2025
+
+Esta documentação é parte do sistema ADM v4.5 e deve ser mantida atualizada com as mudanças do sistema.
