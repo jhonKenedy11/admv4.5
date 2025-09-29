@@ -1,0 +1,223 @@
+# Documentação Técnica - Módulo BLT (Boleto)
+## Sistema ADM v4.5
+
+## Índice
+1. [Visão Geral](#1-visão-geral)
+2. [Arquitetura](#2-arquitetura)
+3. [Fluxos de Processo](#3-fluxos-de-processo)
+4. [Componentes](#4-componentes)
+5. [Integrações](#5-integrações)
+6. [Desenvolvimento](#6-desenvolvimento)
+7. [Manutenção](#7-manutenção)
+
+## 1. Visão Geral
+
+### 1.1 Propósito
+O módulo BLT é responsável pela geração e gestão de boletos bancários no sistema ADM v4.5. O módulo permite:
+- Geração de boletos para múltiplos bancos
+- Personalização de layouts
+- Integração com o módulo financeiro
+- Emissão em lote
+- Geração de PDF
+
+### 1.2 Bancos Suportados
+| Banco | Carteira | Detalhes |
+|-------|----------|----------|
+| Banco do Brasil | 18 | Convênio de 6, 7 ou 8 Dígitos |
+| Unibanco | Especial | Sem Registro |
+| Caixa Econômica | SR | SICOB, SINCO e SIGCB |
+| Itaú | 175/174/178/104/109 | Sem Registro |
+| HSBC | CNR | Sem Registro |
+| Bradesco | 06/03 | Sem Registro |
+| Banestes | 00 | Sem Registro |
+| Real | 57 | Sem Registro |
+| Nossa Caixa | 5/1 | Cobrança Direta/Simples |
+| Santander-Banespa | 102/COB | Sem registro |
+| Bancoob | 01 | SICOOB - Sem registro |
+| BESC | 25 | Sem registro |
+| Sicredi | A | Simples |
+
+## 2. Arquitetura
+
+### 2.1 Estrutura de Diretórios
+```
+/var/www/html/admv4.5/boleto/
+├── include/                    # Arquivos de inclusão
+│   ├── funcoes_bb.php         # Funções do Banco do Brasil
+│   ├── funcoes_itau.php       # Funções do Itaú
+│   └── layout_bb.php          # Layout do Banco do Brasil
+├── imagens/                    # Imagens dos boletos
+├── html2pdf/                   # Conversor HTML para PDF
+├── boleto_bb.php              # Boleto Banco do Brasil
+├── boleto_itau.php            # Boleto Itaú
+├── boleto_bradesco.php        # Boleto Bradesco
+└── composer.json              # Dependências
+```
+
+## 3. Fluxos de Processo
+
+### 3.1 Fluxo de Geração de Boleto
+1. **Configuração Inicial**
+   ```php
+   // Exemplo de configuração do boleto
+   $dadosboleto = array(
+       "nosso_numero" => "87654",
+       "numero_documento" => "27.030195.10",
+       "data_vencimento" => date("d/m/Y"),
+       "valor_boleto" => "2950,00",
+       "sacado" => "Nome do Cliente",
+       "endereco1" => "Endereço do Cliente",
+       "endereco2" => "Cidade - Estado - CEP"
+   );
+   ```
+
+2. **Dados do Banco**
+   ```php
+   // Configurações específicas do banco
+   $dadosboleto["agencia"] = "9999";
+   $dadosboleto["conta"] = "99999";
+   $dadosboleto["convenio"] = "7777777";
+   $dadosboleto["carteira"] = "18";
+   ```
+
+3. **Geração do Boleto**
+   ```php
+   // Inclusão dos arquivos necessários
+   include("include/funcoes_bb.php");
+   include("include/layout_bb.php");
+   ```
+
+### 3.2 Fluxo de Emissão em Lote
+1. **Preparação dos Dados**
+   - Lista de clientes
+   - Valores
+   - Datas de vencimento
+
+2. **Geração**
+   - Loop de geração
+   - Validações
+   - PDF em lote
+
+3. **Distribuição**
+   - Envio por email
+   - Download em lote
+   - Impressão
+
+## 4. Componentes
+
+### 4.1 Arquivos de Boleto
+#### boleto_bb.php
+```php
+// Dados do boleto
+$dadosboleto["nosso_numero"] = "87654";
+$dadosboleto["numero_documento"] = "27.030195.10";
+$dadosboleto["data_vencimento"] = $data_venc;
+$dadosboleto["valor_boleto"] = $valor_boleto;
+
+// Dados do cliente
+$dadosboleto["sacado"] = "Nome do Cliente";
+$dadosboleto["endereco1"] = "Endereço";
+$dadosboleto["endereco2"] = "Cidade - Estado - CEP";
+```
+
+#### boleto_itau.php
+```php
+// Configurações específicas do Itaú
+$dadosboleto["agencia"] = "9999";
+$dadosboleto["conta"] = "99999";
+$dadosboleto["carteira"] = "175";
+```
+
+### 4.2 Funções de Cálculo
+#### funcoes_bb.php
+```php
+function fator_vencimento($data) {
+    // Cálculo do fator de vencimento
+}
+
+function codigo_barras($dadosboleto) {
+    // Geração do código de barras
+}
+```
+
+### 4.3 Layouts
+#### layout_bb.php
+```php
+// Estrutura HTML do boleto
+echo "<div class='boleto'>";
+echo "<div class='cabecalho'>";
+// ... estrutura do boleto
+echo "</div>";
+```
+
+## 5. Integrações
+
+### 5.1 Módulos Integrados
+- **Financeiro**: Contas a receber
+- **CRM**: Dados do cliente
+- **Fiscal**: Notas fiscais
+
+### 5.2 Fluxo de Dados
+```mermaid
+graph TD
+    A[BLT] --> B[Financeiro]
+    A --> C[CRM]
+    A --> D[Fiscal]
+    B --> E[Contas]
+    C --> F[Clientes]
+    D --> G[Notas]
+```
+
+## 6. Desenvolvimento
+
+### 6.1 Ambiente
+- PHP 7.4+
+- Composer
+- Ambiente de homologação
+
+### 6.2 Padrões
+- PSR-4
+- PHPDoc
+- Testes unitários
+
+### 6.3 Versionamento
+- Backup de versões
+- Controle de alterações
+- Documentação
+
+## 7. Manutenção
+
+### 7.1 Logs
+- Logs de geração
+- Logs de erro
+- Monitoramento
+
+### 7.2 Backup
+- Backup diário
+- Versionamento
+- Recuperação
+
+### 7.3 Troubleshooting
+1. **Problemas comuns**:
+   - Erros de cálculo
+   - Problemas de layout
+   - Falhas na geração
+
+2. **Soluções**:
+   - Verificar logs
+   - Validar dados
+   - Testar em homologação
+
+---
+
+⚠️ **Notas Importantes**:
+1. Manter backups regulares
+2. Documentar alterações
+3. Seguir padrões de código
+4. Testar em homologação
+
+Para suporte técnico: suporte@admsistema.com.br
+
+Última atualização: 12/06/2025
+
+Esta documentação é parte do sistema ADM v4.5 e deve ser mantida atualizada com as mudanças do sistema.

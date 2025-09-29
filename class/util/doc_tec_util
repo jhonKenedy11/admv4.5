@@ -1,0 +1,220 @@
+# Documentação Técnica - Módulo UTIL (Utilitários)
+
+## Índice
+1. [Visão Geral](#visão-geral)
+2. [Arquitetura](#arquitetura)
+3. [Fluxos de Processo](#fluxos-de-processo)
+4. [Componentes](#componentes)
+5. [Integrações](#integrações)
+6. [Desenvolvimento](#desenvolvimento)
+7. [Manutenção](#manutenção)
+
+## Visão Geral
+
+O módulo UTIL é responsável por gerenciar funcionalidades utilitárias do sistema ADM v4.5, fornecendo ferramentas essenciais para a operação do sistema.
+
+### Funcionalidades Principais
+
+1. **Gestão de Usuários**
+   - Cadastro e manutenção de usuários
+   - Definição de perfis e permissões
+   - Controle de acesso
+   - Configuração de e-mail e SMTP
+
+2. **Importação de Dados**
+   - Importação de tabelas de preço
+   - Importação de dados em lote
+   - Validação de dados importados
+
+3. **Configurações do Sistema**
+   - Definição de condições de pagamento
+   - Configuração de formulários
+   - Parâmetros gerais
+
+## Arquitetura
+
+### Estrutura de Diretórios
+
+```
+/var/www/html/admv4.5/
+├── forms/util/
+│   ├── p_usuario.php (51KB, 1174 linhas)
+│   ├── p_usuario_autoriza.php (8.5KB, 243 linhas)
+│   ├── p_form.php (6.8KB, 177 linhas)
+│   ├── p_password.php (5.4KB, 155 linhas)
+│   ├── p_usuario_perfil.php (8.1KB, 194 linhas)
+│   ├── p_importa.php (48KB, 1118 linhas)
+│   └── p_cond_pgto.php (7.6KB, 201 linhas)
+├── class/util/
+│   ├── c_usuario.php (17KB, 502 linhas)
+│   ├── c_usuario_autoriza.php (5.5KB, 190 linhas)
+│   ├── c_form.php (5.2KB, 206 linhas)
+│   └── c_cond_pgto.php (4.9KB, 165 linhas)
+```
+
+### Componentes Principais
+
+1. **Controladores (forms/util/)**
+   - `p_usuario.php`: Gestão de usuários
+   - `p_usuario_autoriza.php`: Autorizações
+   - `p_form.php`: Formulários dinâmicos
+   - `p_password.php`: Gestão de senhas
+   - `p_importa.php`: Importação de dados
+
+2. **Classes de Negócio (class/util/)**
+   - `c_usuario.php`: Lógica de usuários
+   - `c_usuario_autoriza.php`: Lógica de autorizações
+   - `c_form.php`: Lógica de formulários
+   - `c_cond_pgto.php`: Lógica de condições de pagamento
+
+## Fluxos de Processo
+
+### 1. Cadastro de Usuário
+
+```php
+// Exemplo de fluxo de cadastro
+$usuario = new c_usuario();
+$usuario->setUsuario($id);
+$usuario->setLogin($login);
+$usuario->setNomeReduzido($nome);
+$usuario->setCliente($cliente);
+$usuario->setSenha($senha);
+$usuario->incluiUsuario();
+```
+
+### 2. Importação de Dados
+
+```php
+// Exemplo de importação
+$importa = new p_importa();
+$importa->setArquivo($arquivo);
+$importa->setTipo($tipo);
+$importa->processaImportacao();
+```
+
+## Componentes
+
+### Classe c_usuario
+
+```php
+class c_usuario extends c_user {
+    private $usuario;
+    private $login;
+    private $nomeReduzido;
+    private $cliente;
+    private $senha;
+    private $situacao;
+    private $tipo;
+    // ... outros atributos
+
+    public function incluiUsuario() {
+        // Lógica de inclusão
+    }
+
+    public function alteraUsuario() {
+        // Lógica de alteração
+    }
+
+    public function excluiUsuario() {
+        // Lógica de exclusão
+    }
+}
+```
+
+### Classe c_form
+
+```php
+class c_form {
+    private $id;
+    private $nome;
+    private $campos;
+    
+    public function criaFormulario() {
+        // Lógica de criação
+    }
+    
+    public function validaFormulario() {
+        // Lógica de validação
+    }
+}
+```
+
+## Integrações
+
+O módulo UTIL se integra com:
+
+1. **Módulo CRM**
+   - Compartilhamento de dados de clientes
+   - Validação de informações
+
+2. **Módulo FIN**
+   - Condições de pagamento
+   - Parâmetros financeiros
+
+3. **Módulo PED**
+   - Autorizações de pedidos
+   - Perfis de usuário
+
+## Desenvolvimento
+
+### Ambiente
+
+- PHP 7.4+
+- MySQL
+- Smarty Template Engine
+
+### Padrões de Código
+
+- PSR-4 para autoloading
+- PHPDoc para documentação
+- Testes unitários
+
+### Versionamento
+
+- Git para controle de versão
+- Branching strategy:
+  - main: produção
+  - develop: desenvolvimento
+  - feature/*: novas funcionalidades
+
+## Manutenção
+
+### Logs
+
+- Logs de usuário em `logs/util/`
+- Logs de importação em `logs/import/`
+
+### Backup
+
+- Backup diário dos dados
+- Backup semanal completo
+- Retenção por 30 dias
+
+### Troubleshooting
+
+1. **Problemas de Importação**
+   - Verificar formato do arquivo
+   - Validar permissões
+   - Checar logs de erro
+
+2. **Problemas de Usuário**
+   - Verificar permissões
+   - Validar credenciais
+   - Checar logs de acesso
+
+3. **Problemas de Formulário**
+   - Validar estrutura
+   - Verificar campos obrigatórios
+   - Checar regras de negócio
+
+**Notas Importantes**:
+1. Manter backups regulares
+2. Documentar alterações
+3. Seguir padrões de código
+4. Testar em homologação
+
+Para suporte técnico: suporte@admsistema.com.br
+
+Última atualização: 12/06/2025
+
+Esta documentação é parte do sistema ADM v4.5 e deve ser mantida atualizada com as mudanças do sistema.

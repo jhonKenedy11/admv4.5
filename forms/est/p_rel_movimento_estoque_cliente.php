@@ -1,0 +1,134 @@
+<?php
+/**
+ * @package   astec
+ * @name      p_rel_compras
+ * @version   3.0.00
+ * @copyright 2016
+ * @link      http://www.admservice.com.br/
+ * @author    Marcio Sergio da Silvao<marcio.sergio@admservice.com.br>
+ * @date      27/04/2018
+ */
+// Evita que usuários acesse este arquivo diretamente
+if (!defined('ADMpath')): exit; endif;
+
+$dir = dirname(__FILE__);
+
+require_once($dir."/../../../smarty/libs/Smarty.class.php");
+require_once($dir."/../../class/est/c_estoque_rel.php");
+
+//Class p_rel_movimento_estoque_cliente
+Class p_rel_movimento_estoque_cliente extends c_estoque_rel {
+
+    private $m_submenu = null;
+    private $m_opcao = null;
+
+    public $m_grupo = null;
+    public $m_letra = null;
+    
+    function __construct() {
+
+        //Assim obtém os dados passando pelo filtro contra INJECTION ( segurança PHP )
+        $parmPost = filter_input_array(INPUT_POST, FILTER_DEFAULT);
+        $parmGet = filter_input_array(INPUT_GET, FILTER_DEFAULT);  
+        
+       // Cria uma instancia variaveis de sessao
+        session_start();
+        c_user::from_array($_SESSION['user_array']);
+
+        // Cria uma instancia do Smarty
+        $this->smarty = new Smarty;
+
+        // caminhos absolutos para todos os diretorios do Smarty
+        $this->smarty->template_dir = ADMraizFonte . "/template/est";
+        $this->smarty->compile_dir = ADMraizCliente . "/smarty/templates_c/";
+        $this->smarty->config_dir = ADMraizCliente . "/smarty/configs/";
+        $this->smarty->cache_dir = ADMraizCliente . "/smarty/cache/";
+
+        // inicializa variaveis de controle
+        $this->m_submenu=(isset($parmGet['submenu']) ? $parmGet['submenu'] : (isset($parmPost['submenu']) ? $parmPost['submenu'] : ''));
+        $this->m_letra=(isset($parmGet['letra']) ? $parmGet['letra'] : (isset($parmPost['letra']) ? $parmPost['letra'] : ''));
+        $this->m_opcao=(isset($parmGet['opcao']) ? $parmGet['opcao'] : (isset($parmPost['opcao']) ? $parmPost['opcao'] : ''));
+        $this->m_grupo=(isset($parmGet['grupoSelected']) ? $parmGet['grupoSelected'] : (isset($parmPost['grupoSelected']) ? $parmPost['grupoSelected'] : ''));
+		        
+        $this->m_par = explode("|", $this->m_letra);
+
+        // caminhos absolutos para todos os diretorios biblioteca e sistema
+        $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
+        $this->smarty->assign('bootstrap', ADMbootstrap);
+        $this->smarty->assign('admClass', ADMclass);
+        $this->smarty->assign('raizCliente', $this->raizCliente);
+
+        // dados para exportacao e relatorios
+        if ($this->m_opcao=="pesquisar"):
+            $this->smarty->assign('titulo', "Produtos");
+            $this->smarty->assign('colVis', "[ 0,1,2,3,4,5 ]"); 
+            $this->smarty->assign('disableSort', "[ 5 ]"); 
+            $this->smarty->assign('numLine', "25"); 
+        else:
+            $this->smarty->assign('titulo', "Produtos");
+            $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6,7,8 ]"); 
+            $this->smarty->assign('disableSort', "[ 0 ]"); 
+            $this->smarty->assign('numLine', "25"); 
+        endif;
+    
+        if($this->m_par[0] == "") $this->smarty->assign('dataIni', date("01/m/Y"));
+        else $this->smarty->assign('dataIni', $this->m_par[0]);
+    
+        if($this->m_par[1] == "") {
+            $dia = date("d");
+            $mes = date("m");
+            $ano = date("Y");
+            $data = date("d/m/Y", mktime(0, 0, 0, $mes+1, 0, $ano));
+            $this->smarty->assign('dataFim', $data);
+        }
+        else $this->smarty->assign('dataFim', $this->m_par[1]);
+            
+    }
+
+//---------------------------------------------------------------
+//---------------------------------------------------------------
+    function controle() {
+        switch ($this->m_submenu) {
+            default:
+                $this->relatorioMovEstoqueCliente('');
+        } //switch
+    }
+
+// fim controle
+//---------------------------------------------------------------
+//---------------------------------------------------------------
+function relatorioMovEstoqueCliente($mensagem){
+    $this->smarty->assign('dataAtual', strftime('%A, %d de %B de %Y', strtotime('today')));
+    $this->smarty->assign('pathImagem', ADMimg);
+    $this->smarty->assign('subMenu', $this->m_submenu);
+    $this->smarty->assign('letra', $this->m_letra);
+    $this->smarty->assign('mensagem', $mensagem);
+    $this->smarty->assign('dataImp', date("d/m/Y H:i:s"));
+
+    //$lancEntrada = $this->movimento_estoque_entrada();
+    //$lancSaida = $this->movimento_estoque_saida();
+    $lanc = $this->select_relatorio_mov_estoque($this->m_letra);
+
+    $cliente = new c_conta();
+    $cliente->setId($this->m_par[4]);
+    $clienteSelecionado = $cliente->select_conta();    
+   
+    $this->smarty->assign('cliente', $clienteSelecionado[0]['NOME']);
+
+    $this->smarty->assign('pedido', $lanc);
+    $this->smarty->assign('periodoIni', $this->m_par[0]);
+    $this->smarty->assign('periodoFim', $this->m_par[1]);
+    
+    $this->smarty->display('relatorio_movimento_estoque_cliente.tpl');
+}
+
+//fim mostraProdutos
+//-------------------------------------------------------------
+}
+
+//	END OF THE CLASS
+// Rotina principal - cria classe
+$produto = new p_rel_movimento_estoque_cliente();
+
+$produto->controle();
+?>

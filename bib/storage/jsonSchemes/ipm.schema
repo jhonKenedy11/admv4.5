@@ -1,0 +1,219 @@
+{
+    "title": "NFS-e IPM",
+    "description": "Schema baseado no Layout para Emissão (seção 4.1) do manual de integração da IPM Sistemas.",
+    "type": "object",
+    "properties": {
+        "nfse": {
+            "type": "object",
+            "required": true,
+            "properties": {
+                "identificador": {
+                    "description": "Utilizado para identificação do arquivo a ser processado. Arquivos com mesmo identificador não serão processados mais de uma vez. ",
+                    "type": ["string", "null"],
+                    "maxLength": 80
+                },
+                "rps": {
+                    "description": "Informações referentes ao recibo provisório de serviço. ",
+                    "type": ["object", "null"],
+                    "properties": {
+                        "nro_recibo_provisorio": {
+                            "type": "integer",
+                            "maximum": 999999999
+                        },
+                        "serie_recibo_provisorio": {
+                            "type": "integer",
+                            "maximum": 99
+                        },
+                        "data_emissao_recibo_provisorio": {
+                            "type": "string",
+                            "pattern": "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/([0-9]{4})$"
+                        },
+                        "hora_emissao_recibo_provisorio": {
+                            "type": "string",
+                            "pattern": "^(2[0-3]|[01][0-9]):[0-5][0-9]:[0-5][0-9]$"
+                        }
+                    }
+                },
+                "nf": {
+                    "description": "Informações referentes ao valor da NFSe. ",
+                    "type": "object",
+                    "required": true,
+                    "properties": {
+                        "valor_total": {
+                            "description": "Valor Total da NFS-e. ",
+                            "type": "number",
+                            "required": true
+                        },
+                        "valor_desconto": { "type": ["number", "null"] },
+                        "valor_ir": { "type": ["number", "null"] },
+                        "valor_inss": { "type": ["number", "null"] },
+                        "valor_contribuicao_social": { "type": ["number", "null"] },
+                        "valor_rps": { "type": ["number", "null"] },
+                        "valor_pis": { "type": ["number", "null"] },
+                        "valor_cofins": { "type": ["number", "null"] },
+                        "observacao": {
+                            "description": "Observações da NFS-e. ",
+                            "type": ["string", "null"],
+                            "maxLength": 1000
+                        }
+                    }
+                },
+                "prestador": {
+                    "description": "Dados do Prestador (emissor da nota). ",
+                    "type": "object",
+                    "required": true,
+                    "properties": {
+                        "cpfcnpj": {
+                            "description": "CPF/CNPJ do emissor da nota, apenas números. ",
+                            "type": "string",
+                            "pattern": "^[0-9]{11,14}$",
+                            "required": true
+                        },
+                        "cidade": {
+                            "description": "Código da cidade onde o emissor está estabelecido (código TOM). ",
+                            "type": "string",
+                            "pattern": "^[0-9]{1,9}$",
+                            "required": true
+                        }
+                    }
+                },
+                "tomador": {
+                    "description": "Dados do Tomador dos Serviços, recebedor da nota. ",
+                    "type": "object",
+                    "required": true,
+                    "properties": {
+                        "tipo": {
+                            "description": "Tipo da pessoa: J para Jurídica, F para Física, E para Estrangeiro. ",
+                            "type": "string",
+                            "pattern": "^[JFE]{1}$",
+                            "required": true
+                        },
+                        "cpfcnpj": {
+                            "description": "CPF/CNPJ do Tomador do(s) Serviço(s). ",
+                            "type": ["string", "null"],
+                            "pattern": "^[0-9]{11,14}$"
+                        },
+                        "nome_razao_social": {
+                            "description": "Nome do Tomador do(s) Serviço(s). ",
+                            "type": "string",
+                            "maxLength": 100,
+                            "required": true
+                        },
+                        "sobrenome_nome_fantasia": {
+                            "description": "Sobrenome ou Nome Fantasia do Tomador. ",
+                            "type": ["string", "null"],
+                            "maxLength": 100
+                        },
+                        "logradouro": {
+                            "description": "Logradouro do endereço do Tomador. ",
+                            "type": "string",
+                            "maxLength": 70,
+                            "required": true
+                        },
+                        "numero_residencia": { "type": ["string", "null"], "maxLength": 8 },
+                        "complemento": { "type": ["string", "null"], "maxLength": 50 },
+                        "bairro": { "type": ["string", "null"], "maxLength": 30 },
+                        "cidade": {
+                            "description": "Código da cidade do endereço do Tomador (código TOM). ",
+                            "type": "string",
+                            "pattern": "^[0-9]{1,9}$",
+                            "required": true
+                        },
+                        "cep": {
+                            "type": ["string", "null"],
+                            "pattern": "^[0-9]{8}$"
+                        },
+                        "email": {
+                            "description": "E-mail do tomador, separados por (;) ou (,) ",
+                             "type": ["string", "null"], "maxLength": 100 }
+                    }
+                },
+                "itens": {
+                    "description": "Itens da Nota Fiscal. ",
+                    "type": "object",
+                    "required": true,
+                    "properties": {
+                        "lista": {
+                            "type": "array",
+                            "required": true,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "tributa_municipio_prestador": {
+                                        "description": "Informa onde será recolhido o imposto ('0' ou 'N' para local da prestação, '1' ou 'S' para município do prestador). ",
+                                        "type": "string",
+                                        "pattern": "^[01NS]$",
+                                        "required": true
+                                    },
+                                    "codigo_local_prestacao_servico": {
+                                        "description": "Código da cidade onde o serviço foi prestado (Código Tom). ",
+                                        "type": "string",
+                                        "pattern": "^[0-9]{1,9}$",
+                                        "required": true
+                                    },
+                                    "codigo_item_lista_servico": {
+                                        "description": "Código do subitem da lista de serviços (LC 116/2003). ",
+                                        "type": "string",
+                                        "pattern": "^[0-9]{1,9}$",
+                                        "required": true
+                                    },
+                                    "descritivo": {
+                                        "description": "Descritivo coloquial do serviço prestado. ",
+                                        "type": "string",
+                                        "maxLength": 1000,
+                                        "required": true
+                                    },
+                                    "aliquota_item_lista_servico": {
+                                        "description": "Alíquota que irá incidir sobre a base de cálculo. ",
+                                        "type": "number",
+                                        "required": true
+                                    },
+                                    "situacao_tributaria": {
+                                        "description": "Código da Situação Tributária. ",
+                                        "type": "integer",
+                                        "enum": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15],
+                                        "required": true
+                                    },
+                                    "valor_tributavel": {
+                                        "description": "Valor do item que servirá de base de cálculo para o imposto. ",
+                                        "type": "number",
+                                        "required": true
+                                    },
+                                    "valor_deducao": { "type": ["number", "null"] },
+                                    "valor_issrf": { "type": ["number", "null"] }
+                                }
+                            }
+                        }
+                    }
+                },
+                "forma_pagamento": {
+                    "description": "Informações complementares referentes a forma de pagamento e parcelas. ",
+                    "type": ["object", "null"],
+                    "properties": {
+                        "tipo_pagamento": {
+                            "description": "1-À vista, 2-A prazo, 3-Na Apresentação, 4-Cartão de Débito, 5-Cartão de Crédito. ",
+                            "type": "integer",
+                            "enum": [1, 2, 3, 4, 5]
+                        },
+                        "parcelas": {
+                            "type": "object",
+                            "properties": {
+                                "parcela": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "numero": { "type": "integer", "minimum": 1, "maximum": 24 },
+                                            "valor": { "type": "number" },
+                                            "data_vencimento": { "type": "string", "pattern": "^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/([0-9]{4})$" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

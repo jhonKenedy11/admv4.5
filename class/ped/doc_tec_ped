@@ -1,0 +1,260 @@
+# Documentação Técnica - Módulo PED (Pedidos)
+## Sistema ADM v4.5
+
+## Índice
+1. [Visão Geral](#1-visão-geral)
+2. [Arquitetura](#2-arquitetura)
+3. [Fluxos de Processo](#3-fluxos-de-processo)
+4. [Componentes](#4-componentes)
+5. [Integrações](#5-integrações)
+6. [Desenvolvimento](#6-desenvolvimento)
+7. [Manutenção](#7-manutenção)
+
+## 1. Visão Geral
+
+### 1.1 Propósito
+O módulo PED é o núcleo central do sistema ADM v4.5, responsável pelo gerenciamento completo de pedidos. O módulo permite:
+- Cadastro e gestão de pedidos
+- Integração com múltiplos módulos
+- Fluxos específicos por tipo de pedido
+- Gestão de aprovações
+- Emissão de notas fiscais
+- Ordem de serviço
+- Relatórios gerenciais
+
+### 1.2 Funcionalidades Principais
+1. **Gestão de Pedidos**
+   - Cadastro de pedidos
+   - Tipos específicos (Telhas, Peças, Farma, etc.)
+   - Aprovações
+   - Conferência
+   - Orçamentos
+
+2. **Fluxos Específicos**
+   - Pedido -> NF
+   - Pedido -> Aprovação -> NF
+   - Pedido -> OS -> Aprovação -> NF
+   - Pedido -> Entrega
+   - Pedido -> Financeiro
+
+3. **Integrações**
+   - Financeiro (FIN)
+   - Estoque (EST)
+   - Atendimento (CAT)
+   - CRM
+   - Fiscal
+
+## 2. Arquitetura
+
+### 2.1 Estrutura de Diretórios
+```
+/var/www/html/admv4.5/
+├── forms/ped/                    # Formulários PHP
+│   ├── p_pedido_venda.php       # Controlador principal
+│   ├── p_pedido_venda_telhas.php # Controlador telhas
+│   ├── p_pedido_venda_nf.php    # Controlador NF
+│   ├── p_pedido_aprovacao.php   # Controlador aprovação
+│   └── p_pedido_relatorios.php  # Relatórios
+├── class/ped/                    # Classes PHP
+│   ├── c_pedido_venda.php       # Classe principal
+│   ├── c_pedido_venda_tools.php # Ferramentas
+│   ├── c_pedido_aprovacao.php   # Aprovações
+│   └── c_pedido_orcamento.php   # Orçamentos
+├── js/ped/                      # JavaScript
+│   └── s_pedido_venda.js        # Lógica de pedidos
+└── template/ped/                # Templates Smarty
+    ├── pedido.tpl
+    └── aprovacao.tpl
+```
+
+## 3. Fluxos de Processo
+
+### 3.1 Fluxo Principal de Pedido
+1. **Cadastro de Pedido**
+   ```php
+   // Exemplo de cadastro
+   $pedido = new c_pedido_venda();
+   $pedido->setCliente($idCliente);
+   $pedido->setSituacao('A'); // A=Aberto
+   $pedido->setEmissao(date("Y-m-d"));
+   $pedido->incluiPedido();
+   ```
+
+2. **Inclusão de Itens**
+   ```php
+   // Exemplo de item
+   $pedido->setNrItem($nrItem);
+   $pedido->setItemEstoque($produto);
+   $pedido->setQtSolicitada($quantidade);
+   $pedido->setUnitario($valor);
+   $pedido->IncluiPedidoItem();
+   ```
+
+3. **Aprovação**
+   ```php
+   // Exemplo de aprovação
+   $pedido->setSituacao('P'); // P=Pendente
+   $pedido->setUsrAprovacao($usuario);
+   $pedido->alteraPedidoSituacao();
+   ```
+
+### 3.2 Fluxo Pedido -> NF
+1. **Geração de NF**
+   ```php
+   // Exemplo de NF
+   $pedido->setSituacao('F'); // F=Faturado
+   $pedido->alteraPedidoNf();
+   ```
+
+2. **Integração Fiscal**
+   ```php
+   // Exemplo de integração
+   $pedido->setCfop($cfop);
+   $pedido->setNcm($ncm);
+   $pedido->setCsosn($csosn);
+   ```
+
+### 3.3 Fluxo Pedido -> OS
+1. **Criação de OS**
+   ```php
+   // Exemplo de OS
+   $pedido->setSituacao('O'); // O=OS
+   $pedido->alteraPedidoSituacao();
+   ```
+
+2. **Acompanhamento**
+   ```php
+   // Exemplo de acompanhamento
+   $pedido->setAtendimento(date("Y-m-d"));
+   $pedido->setQtAtendida($quantidade);
+   ```
+
+## 4. Componentes
+
+### 4.1 Pedido (class/ped/c_pedido_venda.php)
+```php
+class c_pedido_venda extends c_user {
+    // Gerenciamento de pedidos
+    public function incluiPedido() {
+        // Validações
+        if ($this->getCliente() == 0) {
+            return false;
+        }
+        // Inclusão
+    }
+
+    public function alteraPedido() {
+        // Alteração
+    }
+
+    public function excluiPedido() {
+        // Exclusão
+    }
+}
+```
+
+### 4.2 Aprovação (class/ped/c_pedido_aprovacao.php)
+```php
+class c_pedido_aprovacao {
+    // Gestão de aprovações
+    public function aprovaPedido() {
+        // Aprovação
+    }
+
+    public function rejeitaPedido() {
+        // Rejeição
+    }
+}
+```
+
+### 4.3 Orçamento (class/ped/c_pedido_orcamento.php)
+```php
+class c_pedido_orcamento {
+    // Gestão de orçamentos
+    public function criaOrcamento() {
+        // Criação
+    }
+
+    public function convertePedido() {
+        // Conversão
+    }
+}
+```
+
+## 5. Integrações
+
+### 5.1 Módulos Integrados
+- **Financeiro**: Geração de títulos
+- **Estoque**: Controle de produtos
+- **CAT**: Ordem de serviço
+- **CRM**: Clientes
+- **Fiscal**: Notas fiscais
+
+### 5.2 Fluxo de Dados
+```mermaid
+graph TD
+    A[PED] --> B[FIN]
+    A --> C[EST]
+    A --> D[CAT]
+    A --> E[CRM]
+    A --> F[Fiscal]
+    B --> G[Títulos]
+    C --> H[Produtos]
+    D --> I[OS]
+    E --> J[Clientes]
+    F --> K[NF-e]
+```
+
+## 6. Desenvolvimento
+
+### 6.1 Ambiente
+- PHP 7.4+
+- MySQL
+- Ambiente de homologação
+
+### 6.2 Padrões
+- PSR-4
+- PHPDoc
+- Testes unitários
+
+### 6.3 Versionamento
+- Backup de versões
+- Controle de alterações
+- Documentação
+
+## 7. Manutenção
+
+### 7.1 Logs
+- Logs de pedidos
+- Logs de aprovações
+- Monitoramento
+
+### 7.2 Backup
+- Backup diário
+- Versionamento
+- Recuperação
+
+### 7.3 Troubleshooting
+1. **Problemas comuns**:
+   - Erros de aprovação
+   - Falhas na NF
+   - Problemas de integração
+
+2. **Soluções**:
+   - Verificar logs
+   - Validar integrações
+   - Otimizar queries
+
+---
+
+⚠️ **Notas Importantes**:
+1. Manter backups regulares
+2. Documentar alterações
+3. Seguir padrões de código
+4. Testar em homologação
+
+Para suporte técnico: suporte@admsistema.com.br
+
+Última atualização: 12/06/2025
+
+Esta documentação é parte do sistema ADM v4.5 e deve ser mantida atualizada com as mudanças do sistema.
