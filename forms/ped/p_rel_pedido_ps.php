@@ -18,6 +18,7 @@ require_once($dir . "/../../class/ped/c_pedido_venda_nf.php");
 require_once($dir . "/../../class/est/c_produto.php");
 require_once($dir . "/../../class/est/c_cond_pgto.php");
 require_once($dir . "/../../class/fin/c_lancamento.php");
+require_once($dir . "/../../class/ped/c_pedido_ps.php");
 
 
 
@@ -129,6 +130,17 @@ Class p_rel_pedido_ps extends c_pedido_ps {
         $lancServicos = $this->select_servicos_atendimento();
         $empresa = $this->busca_dadosEmpresaCC($this->m_empresacentrocusto);
 
+        if ($lanc[0]['ENDERECOENTREGA'] !== '') {
+            $objPedido = new c_pedido_ps();
+            $enderecoEntrega = $objPedido->buscarEnderecosCliente($lanc[0]['CLIENTE']);
+            foreach ($enderecoEntrega as $endereco) {
+                if ($endereco['ID'] == $lanc[0]['ENDERECOENTREGA']) {
+                    $enderecoEntrega = [$endereco];
+                    break;
+                }
+            }
+            $this->smarty->assign('enderecoEntrega', $enderecoEntrega);
+        }
         // busca descrição condição pagamento
         if (($lanc[0]['CONDPG'] == '') or ($lanc[0]['CONDPG'] == '0') or ($lanc[0]['CONDPG'] == 0)):
             $descCondPgto = '';

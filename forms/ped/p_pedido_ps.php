@@ -103,7 +103,7 @@ class p_pedido_ps extends c_pedido_ps
 
         // dados para exportacao e relatorios
         $this->smarty->assign('titulo', "Pedido");
-        $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6,7]");
+        $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6]");
         $this->smarty->assign('disableSort', "[ 0 ]");
         $this->smarty->assign('numLine', "25");
 
@@ -134,6 +134,8 @@ class p_pedido_ps extends c_pedido_ps
         $this->setCentroCustoEntrega(isset($parmPost['centroCustoEntrega']) ? $parmPost['centroCustoEntrega'] : $this->m_empresacentrocusto);
         $this->setSituacao(isset($parmPost['situacao']) ? $parmPost['situacao'] : '');
         $this->setObra(isset($parmPost['obra']) ? $parmPost['obra'] : NULL);
+        $this->setResponsavelTecnico(isset($parmPost['responsavel_tecnico']) ? $parmPost['responsavel_tecnico'] : NULL);
+        $this->setEnderecoEntrega(isset($parmPost['endereco_entrega']) ? $parmPost['endereco_entrega'] : NULL);
 
 
         //=========================PECAS==================================
@@ -481,8 +483,26 @@ class p_pedido_ps extends c_pedido_ps
             case 'ajax_obra':
                 $cliente_id = $_POST['cliente_id'];
                 $obras = $this->comboObra($cliente_id);
+                $responsaveis = $this->comboResponsavelTecnico();
+                
+                $response = [
+                    'obras' => $obras,
+                    'responsaveis' => $responsaveis
+                ];
+                
                 header('Content-Type: application/json');
-                echo json_encode($obras);
+                echo json_encode($response);
+                break;
+            case 'ajax_enderecos':
+                $cliente_id = $_POST['cliente_id'];
+                $enderecos = $this->buscarEnderecosCliente($cliente_id);
+                
+                $response = [
+                    'enderecos' => $enderecos
+                ];
+                
+                header('Content-Type: application/json');
+                echo json_encode($response);
                 break;
             case 'simulaImpostos':
                 $dadosRelatorio = $this->getRelatorioImpostosPedido($this->getId());
@@ -730,18 +750,54 @@ class p_pedido_ps extends c_pedido_ps
         $this->smarty->assign('obsServicos', $this->getObsServicos());
 
         // pedido já existente selecionar obra ou alterar.
+        $obra_ids = [];
+        $obra_names = [];
+        $responsavel_tecnico_ids = [];
+        $responsavel_tecnico_names = [];
+        
         if ($this->getCliente()) {
-
             $obras = $this->comboObra($this->getCliente());
-            if (is_array($obras)) {
-            $obra_ids = array_column($obras, 'ID');
-            $obra_names = array_column($obras, 'PROJETO');
+            if (is_array($obras) && count($obras) > 0) {
+                $obra_ids = array_column($obras, 'ID');
+                $obra_names = array_column($obras, 'PROJETO');
+                
+                // Se tem obra selecionada, carrega responsáveis técnicos
+                if ($this->getObra() && $this->getObra() != '') {
+                    $responsaveis = $this->comboResponsavelTecnico();
+                    if (is_array($responsaveis) && count($responsaveis) > 0) {
+                        $responsavel_tecnico_ids = array_column($responsaveis, 'ID');
+                        $responsavel_tecnico_names = array_column($responsaveis, 'NOME');
+                    }
+                }
             }
         }
+        
         $this->smarty->assign([
             'obra_ids' => $obra_ids,
             'obra_names' => $obra_names,
-            'obra_id' => $this->getObra()
+            'obra_id' => $this->getObra(),
+            'responsavel_tecnico_ids' => $responsavel_tecnico_ids,
+            'responsavel_tecnico_names' => $responsavel_tecnico_names,
+            'responsavel_tecnico_id' => $this->getResponsavelTecnico()
+        ]);
+
+        // Endereços de entrega
+        $endereco_ids = [];
+        $endereco_names = [];
+        $endereco_entrega_selecionado = $this->getEnderecoEntrega();
+        
+        if ($this->getCliente()) {
+            $enderecos = $this->buscarEnderecosCliente($this->getCliente());
+            foreach ($enderecos as $endereco) {
+                $endereco_ids[] = $endereco['ID'];
+                $endereco_names[] = $endereco['ENDERECO_ENTREGA'];
+            }
+        }
+        
+        $this->smarty->assign([
+            'endereco_ids' => $endereco_ids,
+            'endereco_names' => $endereco_names,
+            'endereco_entrega_id' => $endereco_entrega_selecionado
         ]);
 
 
@@ -813,9 +869,12 @@ class p_pedido_ps extends c_pedido_ps
         }
         $this->smarty->assign('usrAbertura_ids',   $usrAbertura_ids);
         $this->smarty->assign('usrAbertura_names', $usrAbertura_names);
+
         if ($this->getUsrAbertura() == '') {
             $this->setUsrAbertura($this->m_userid);
         }
+
+
         $this->smarty->assign('usrAbertura', $this->getUsrAbertura());
 
         // COMBOBOX SITUACAO

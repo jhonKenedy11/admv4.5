@@ -59,8 +59,8 @@
                             <input name=imgBtn        type=hidden value="{$imgBtn}">
 
                         <div class="form-group col-md-2 col-sm-12 col-xs-12">
-                            <label>C&oacute;d. Fabricante</label>
-                            <input class="form-control" id="codFabricante" autofocus name="codFabricante" placeholder="Código do Fabricante."  value={$codFabricante} >
+                          <label>C&oacute;d. Fabricante / EAN</label>
+                          <input class="form-control" id="codFabricante" name="codFabricante" placeholder="Cód. Fab. ou EAN"  value={$codFabricante} >
                         </div>
                         <div class="form-group col-md-8 col-sm-12 col-xs-12">
                             <label>Descri&ccedil;&atilde;o</label>

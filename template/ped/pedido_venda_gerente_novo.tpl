@@ -106,7 +106,7 @@
                             <input name=dadosPed type=hidden value={$dadosPed}>
 
                             <!-- INCLUDES DE MODAL -->
-                            {include file="pedido_venda_gerente_agrupa_ped_modal.tpl"}
+
                         </form>
                         <table id="datatable-buttons" class="table table-bordered jambo_table">
                             <thead>
@@ -237,29 +237,3 @@
 
 
     {include file="template/database.inc"}
-
-    <script src="https://cdn.rawgit.com/plentz/jquery-maskmoney/master/dist/jquery.maskMoney.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            $(".money").maskMoney({
-                decimal: ",",
-                thousands: ".",
-                allowZero: true
-            });
-        });
-    </script>
-
-    <script src="{$bootstrap}/select2-master/dist/js/select2.full.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            $("#condPgto.js-example-basic-single").select2({
-                theme: "classic",
-                width: '100%'
-            });
-        });
-    </script>
-    <script>
-        //Remove Classe do checkbox que possui um icone
-        const removeClass = document.querySelector("#checkBox");
-        removeClass.className = "";
-</script>

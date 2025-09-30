@@ -419,7 +419,8 @@ function fechaFornecedorPar(id, nome) {
     window.close();
 }
 
-async function fechaLancamento(id, nome, opcao, credito = '', cep='', codMunicipio='', bloqueado='', from='') {
+async function fechaLancamento(id, nome, opcao, credito = '', cep='', codMunicipio='', bloqueado='', id_representante='') {
+    debugger
     f = window.opener.document.lancamento;
      
     if (bloqueado == "BLOQUEADO") {
@@ -469,6 +470,11 @@ async function fechaLancamento(id, nome, opcao, credito = '', cep='', codMunicip
                         if (f.credito != undefined) {
                             f.credito.value = credito;
                         }
+                    }
+                    
+                    // Se existe id_representante e existe a combo usrAbertura, seta o valor
+                    if(id_representante != '' && f.usrAbertura != undefined) {
+                        f.usrAbertura.value = id_representante;
                     }
                 }
             }

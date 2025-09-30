@@ -59,6 +59,8 @@ class c_pedido_ps extends c_user
     private $catEquipamentoId   = NULL;
     private $idNatop            = NULL;
     private $prazoEntregaOs     = NULL;
+    private $responsavelTecnico = NULL;
+    private $enderecoEntrega = NULL;
 
     //FAT_PEDIDO_ITEM
 
@@ -144,6 +146,33 @@ class c_pedido_ps extends c_user
             return 'NULL';
         }else {
             return $this->obra;
+        }
+    }
+
+    function setResponsavelTecnico($responsavelTecnico)
+    {
+        $this->responsavelTecnico = $responsavelTecnico;
+    }
+
+    function getResponsavelTecnico()
+    {
+        if ($this->responsavelTecnico == '' || $this->responsavelTecnico == NULL){
+            return 'NULL';
+        } else {
+            return $this->responsavelTecnico;
+        }
+    }
+
+    function setEnderecoEntrega($enderecoEntrega)
+    {
+        $this->enderecoEntrega = $enderecoEntrega;
+    }
+    function getEnderecoEntrega()
+    {
+        if ($this->enderecoEntrega == '' || $this->enderecoEntrega == NULL){
+            return 'NULL';
+        } else {
+            return $this->enderecoEntrega;
         }
     }
 
@@ -1087,6 +1116,8 @@ class c_pedido_ps extends c_user
         $this->setEspecie($atendimento[0]['ESPECIE']);
 
         $this->setObra($atendimento[0]['OBRA_ID']);
+        $this->setResponsavelTecnico($atendimento[0]['RESP_TECNICO']);
+        $this->setEnderecoEntrega($atendimento[0]['ENDERECOENTREGA']);
 
         $this->setCatEquipamentoId($atendimento[0]['CAT_EQUIPAMENTO_ID']);
         $this->setDescEquipamento($atendimento[0]['DESCEQUIPAMENTO']);
@@ -1827,7 +1858,7 @@ class c_pedido_ps extends c_user
         // $banco->sqlStrtoupper = false;
 
         $sql = "INSERT INTO FAT_PEDIDO (";
-        $sql .= "CLIENTE, CONTATO, USRFATURA,  TOTALPRODUTOS, VALORSERVICOS, FRETE, DESPACESSORIAS, DESCONTO, EMISSAO,  PRAZOENTREGA,  OBS, CONDPG, OBRA_ID, SITUACAO, ESPECIE, CCUSTO, CENTROCUSTOENTREGA, IDNATOP, USERINSERT, DATEINSERT )";
+        $sql .= "CLIENTE, CONTATO, USRFATURA,  TOTALPRODUTOS, VALORSERVICOS, FRETE, DESPACESSORIAS, DESCONTO, EMISSAO,  PRAZOENTREGA,  OBS, CONDPG, OBRA_ID, RESP_TECNICO, SITUACAO, ESPECIE, CCUSTO, CENTROCUSTOENTREGA, IDNATOP, ENDERECOENTREGA, USERINSERT, DATEINSERT )";
 
         $sql .= "VALUES ('";
         $sql .=   $this->getCliente() . "','"
@@ -1842,12 +1873,14 @@ class c_pedido_ps extends c_user
         $sql .= $this->getPrazoEntrega('B') . "', '"
             . $this->getObs() . "', '"
             . $this->getCondPgto() . "', "
-            . $this->getObra() . ", '"
+            . $this->getObra() . ", "
+            . $this->getResponsavelTecnico() . ", '"
             . $this->getSituacao() . "', '"
             . $this->getEspecie() . "', "
             . $this->getCentroCusto() . ", "
             . $this->getCentroCustoEntrega() . ", "
-            . $this->getIdNatop() . ", '";
+            . $this->getIdNatop() . ", "
+            . $this->getEnderecoEntrega() . ", '";
         $sql .= $this->m_userid . "','" . date("Y-m-d H:i:s") . "' );";
         //echo strtoupper($sql) . "<BR>";
         $result = $banco->exec_sql($sql);
@@ -1885,7 +1918,9 @@ class c_pedido_ps extends c_user
         $sql .= "FRETE = '" . $this->getValorFrete('B') . "', ";
         $sql .= "DESPACESSORIAS = '" . $this->getValorDespAcessorias('B') . "', ";
         $sql .= "Desconto = '" . $this->getValorDesconto('B') . "', ";
-        $sql .= "OBRA_ID = " . $this->getObra() . " ";
+        $sql .= "OBRA_ID = " . $this->getObra() . ", ";
+        $sql .= "RESP_TECNICO = " . $this->getResponsavelTecnico() . ", ";
+        $sql .= "ENDERECOENTREGA = " . $this->getEnderecoEntrega() . " ";
         $sql .= "WHERE id = " . $this->getId() . ";";
 
         $banco = new c_banco;
@@ -1991,7 +2026,7 @@ class c_pedido_ps extends c_user
                  TRANSPORTADORA,TABELAVENDA,USRPEDIDO,DTULTPEDIDOCLIENTE,PERCDESCONTO,DESCONTONF,STATUS,TOTALPRODUTOS,
                  FRETE,DTVALIDADE,PRAZOENTREGA,OBS,OS,PROTOCOLOPARCEIRO,CUSTOTOTAL,CREDITO,DESPESATOTAL, ";
         $sql .= "LUCROBRUTO,MARGEMLIQUIDA,MARKUP,DESCONTOGERAL,DESPACESSORIAS,PLACAVEICULO,VOLPESOLIQ,VOLPESOBRUTO,CENTROCUSTOENTREGA,VOLMARCA,VOLESPECIE,VOLUME,MODFRETE,
-                 VALORSERVICOS) ";
+                 VALORSERVICOS, USERINSERT, DATEINSERT) ";
         $sql .= "SELECT 
                  CLIENTE,PEDIDO,NUMOPORTUNIDADE," . $situacao . " as SITUACAO,'" . $emissao . "' as EMISSAO, ENTREGADOR,USRFATURA,IDNATOP,TABPRECO,ENTRADATABPRECO,
                  TAXAFIN,CONDPG,ENTRADACONDPG,VENCIMENTO1,DESCONTO,TOTAL,MOEDA,CONTADEPOSITO,ESPECIE,SERIE,'" . $horaEmissao . "' as HORAEMISSAO,
@@ -1999,7 +2034,8 @@ class c_pedido_ps extends c_user
         $sql .= "TRANSPORTADORA,TABELAVENDA,USRPEDIDO,DTULTPEDIDOCLIENTE,PERCDESCONTO,DESCONTONF,STATUS,TOTALPRODUTOS,
                  FRETE,DTVALIDADE,PRAZOENTREGA,OBS,OS,PROTOCOLOPARCEIRO,CUSTOTOTAL,CREDITO,DESPESATOTAL,
                  LUCROBRUTO,MARGEMLIQUIDA,MARKUP,DESCONTOGERAL,DESPACESSORIAS,PLACAVEICULO,VOLPESOLIQ,VOLPESOBRUTO,
-                 CENTROCUSTOENTREGA,VOLMARCA,VOLESPECIE,VOLUME,MODFRETE, VALORSERVICOS";
+                 CENTROCUSTOENTREGA,VOLMARCA,VOLESPECIE,VOLUME,MODFRETE, VALORSERVICOS, ";
+        $sql .= $this->m_userid . " as USERINSERT, '" . date("Y-m-d H:i:s") . "' as DATEINSERT ";
         $sql .= "  ";
         $sql .= "FROM FAT_PEDIDO ";
         $sql .= "WHERE ID = '" . $this->getId() . "'";
@@ -2372,6 +2408,74 @@ class c_pedido_ps extends c_user
         $result = $consulta->resultado;
 
         return $result; // Retorna o array diretamente
+    }
+
+    /**
+     * Popula o combo de responsáveis técnicos (todos os responsáveis cadastrados).
+     */
+    public function comboResponsavelTecnico()
+    {
+        $consulta = new c_banco();
+        $sql = "SELECT ID, NOME 
+                FROM AMB_RESPONSAVEL_TECNICO
+                ORDER BY NOME";
+        $consulta->exec_sql($sql);
+        $consulta->close_connection();
+        $result = $consulta->resultado;
+
+        return $result;
+    }
+
+    /**
+     * Busca endereços de entrega do cliente
+     * @param int $clienteId
+     * @return array endereços do cliente
+     */
+    public function buscarEnderecosCliente($clienteId)
+    {
+        if (!$clienteId) {
+            return [];
+        }
+
+        $sql = "SELECT ID, CONCAT(TITULOEND, ' - ', ENDERECO, ' ', NUMERO, ' ', CIDADE) AS ENDERECO_ENTREGA FROM FIN_CLIENTE_ENDERECO 
+                WHERE CLIENTE = " . $clienteId . " 
+                AND STATUS = 'A'
+                ORDER BY ENDENTREGAPADRAO DESC, ENDERECO_ENTREGA";
+        
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        
+        return $banco->resultado;
+    }
+
+    /**
+     * Busca endereço de entrega do pedido para a nota fiscal
+     * @param int $idPedido
+     * @return array endereço de entrega do pedido
+     */
+    public function enderecoEntregaNf($idPedido)
+    {
+        $sql = "SELECT 
+                P.ENDERECOENTREGA,  
+                E.ENDERECO,
+                E.NUMERO,
+                E.COMPLEMENTO,
+                E.BAIRRO,
+                E.CIDADE,
+                E.UF,
+                E.CEP
+            FROM FAT_PEDIDO P
+            LEFT JOIN FIN_CLIENTE_ENDERECO E ON (E.ID = P.ENDERECOENTREGA)
+            WHERE P.ID = " . $idPedido . " ";
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        if (empty($banco->resultado)) {
+            return null;
+        }else{
+            return $banco->resultado;
+        }
     }
 
     /**

@@ -63,8 +63,8 @@ class p_contrato extends c_contrato
         $this->m_letra = (isset($parmGet['letra']) ? $parmGet['letra'] : (isset($parmPost['letra']) ? $parmPost['letra'] : ''));
         $this->m_situacoesAtendimento = (isset($parmGet['situacoesAtendimento']) ? $parmGet['situacoesAtendimento'] : (isset($parmPost['situacoesAtendimento']) ? $parmPost['situacoesAtendimento'] : ''));
         $this->m_opcao = (isset($parmGet['opcao']) ? $parmGet['opcao'] : (isset($parmPost['opcao']) ? $parmPost['opcao'] : ''));
-        $this->dataIni = $parmPost['dataIni'];
-        $this->dataFim = $parmPost['dataFim'];
+        $this->dataIni = (isset($parmGet['dataIni']) ? $parmGet['dataIni'] : (isset($parmPost['dataIni']) ? $parmPost['dataIni'] : ''));
+        $this->dataFim = (isset($parmGet['dataFim']) ? $parmGet['dataFim'] : (isset($parmPost['dataFim']) ? $parmPost['dataFim'] : ''));
         $this->numAtendimento = $parmPost['numAtendimento'];
         $this->nome = $parmPost['nome'];
         $this->id_pedido = (isset($parmGet['id_pedido']) ? $parmGet['id_pedido'] : (isset($parmPost['id_pedido']) ? $parmPost['id_pedido'] : ''));
@@ -126,6 +126,17 @@ class p_contrato extends c_contrato
 
                     $this->cadastraOrdemServico($this->gerencia_ordem_servico);
                     $this->mostraAcompanhamento('');
+                }
+                break;
+            case 'relatorioAcompanhamento':
+
+                if ($this->verificaDireitoUsuario('PedGerente', 'S')) {
+
+                    $lanc =$this->relatorioAcompanhamento($this->id_pedido, $this->dataIni, $this->dataFim);
+                    $this->smarty->assign('lanc', $lanc);
+                    $this->smarty->assign('dataIni', $this->dataIni);
+                    $this->smarty->assign('dataFim', $this->dataFim);
+                    $this->smarty->display('relatorio_acompanhamento.tpl');
                 }
                 break;
             default:
@@ -241,6 +252,47 @@ class p_contrato extends c_contrato
 
         $this->smarty->assign('pedido', $pedido);
         $this->smarty->display('contrato.tpl');
+    }
+
+    /**
+     * <b> Mostra detalhes do contrato </b>
+     * @param VARCHAR $id_pedido
+     * @return vazio
+     */
+    function mostraDetalhesContrato($id_pedido)
+    {
+        // Busca dados detalhados do contrato/pedido
+        $objPedidoVenda = new c_pedidoVenda();
+        $dadosContrato = $objPedidoVenda->select_pedidoVenda_id($id_pedido);
+        
+        if (!empty($dadosContrato)) {
+            $contrato = $dadosContrato[0];
+            
+            // Busca serviços do contrato
+            $servicos = $this->buscarServicosDoPedido($id_pedido);
+            
+            // Busca OS cadastradas para este contrato
+            $ordensServico = $this->select_servicos_pedido($id_pedido);
+            
+            // Atribui variáveis para o template
+            $this->smarty->assign('contrato', $contrato);
+            $this->smarty->assign('servicos', $servicos);
+            $this->smarty->assign('ordensServico', $ordensServico);
+            $this->smarty->assign('id_pedido', $id_pedido);
+            
+            // Dados para exportação e relatórios
+            $this->smarty->assign('titulo', "Detalhes do Contrato - " . $contrato['PEDIDO']);
+            $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6,7 ]");
+            $this->smarty->assign('disableSort', "[ 0, 6, 7 ]");
+            $this->smarty->assign('numLine', "25");
+            
+            // Exibe template de detalhes
+            $this->smarty->display('detalhes_contrato.tpl');
+        } else {
+            // Contrato não encontrado
+            $this->smarty->assign('erro', 'Contrato não encontrado.');
+            $this->smarty->display('erro_contrato.tpl');
+        }
     }
 }
 

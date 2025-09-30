@@ -55,6 +55,12 @@ public function setDesc($desc){
 public function getDesc(){
          return $this->desc;
 }
+public function setGrupo($grupo){
+         $this->grupo = $grupo;
+}
+public function getGrupo(){
+         return $this->grupo;
+}
 public function setComissaoVendas($comissao) {
     $this->comissao = $comissao;
 }
@@ -112,9 +118,9 @@ public function existeDocumento(){
  * @return ARRAY de todas as colunas da table
  */
 public function select_grupo(){
-	$sql  = "SELECT DISTINCT * ";
+	$sql  = "SELECT * ";
    	$sql .= "FROM est_grupo ";
-   	$sql .= "WHERE (grupo = '".$this->getId()."') ";
+   	$sql .= "WHERE (id = '".$this->getId()."') ";
         // echo strtoupper($sql);
 	$banco = new c_banco();
 	$banco->exec_sql($sql);
@@ -128,10 +134,10 @@ public function select_grupo(){
  * @return ARRAY de todas as colunas da table
  */
 public function select_grupo_geral(){
-	$sql  = "SELECT DISTINCT a.*, s.padrao as tipogrupo ";
-   	$sql .= "FROM est_grupo a ";
-        $sql .= "inner join amb_ddm s on ((s.alias='EST_MENU') and (s.campo='TIPOGRUPO') and (s.tipo = a.tipo)) ";
-   	$sql .= "ORDER BY grupo, nivel";
+	$sql  = "SELECT G.GRUPO, G.DESCRICAO, A.PADRAO, G.NIVEL, G.ID FROM EST_GRUPO G
+		INNER JOIN AMB_DDM A ON A.ALIAS = 'EST_MENU' AND A.CAMPO = 'TIPOGRUPO' AND A.TIPO = G.TIPO
+		ORDER BY G.GRUPO, G.NIVEL"
+	;
         // echo strtoupper($sql);
 	$banco = new c_banco;
 	$banco->exec_sql($sql);
@@ -170,9 +176,11 @@ public function incluiGrupo(){
 		$grupo = $this->getId();	
 	}
 	
-	$sql  = "INSERT INTO est_grupo (descricao, Tipo, nivel, COMISSAOVENDAS, USERINSERT) ";
-	$sql .= "VALUES ('".$this->getDesc()."', 
-	'".$this->getTipo()."', '".$this->getNivel()."','".$this->getComissaoVendas('B')."','".$this->m_userid."'); ";
+	$sql  = "INSERT INTO est_grupo (GRUPO, descricao, Tipo, nivel, COMISSAOVENDAS, USERINSERT) ";
+	$sql .= "VALUES 
+		('".$this->getGrupo()."',
+		'".$this->getDesc()."', 
+		'".$this->getTipo()."', '".$this->getNivel()."','".$this->getComissaoVendas('B')."','".$this->m_userid."'); ";
         // echo strtoupper($sql);
 	$banco = new c_banco;
 	$resgrupo =  $banco->exec_sql($sql);
@@ -197,13 +205,15 @@ public function alteraGrupo(){
 	$comissaoVendas = str_replace(',', '.', $this->getComissaoVendas());
 
 	$sql  = "UPDATE est_grupo ";
-	$sql .= "SET  descricao = '".$this->getDesc()."', " ;
+	$sql .= "SET ";
+	$sql .= "grupo = '".$this->getGrupo()."', " ;
+	$sql .= "descricao = '".$this->getDesc()."', " ;
 	$sql .= "tipo = '".$this->getTipo()."', ";
 	$sql .= "nivel= '".$this->getNivel()."', ";
 	$sql .= "COMISSAOVENDAS = ".$comissaoVendas.", ";
 	$sql .= "userchange = '".$this->m_userid."', ";
 	$sql .= "datechange = now() ";
-	$sql .= "WHERE grupo = '".$this->getId()."';";
+	$sql .= "WHERE id = '".$this->getId()."';";
 	$banco = new c_banco;
 	$resgrupo =  $banco->exec_sql($sql);
 	$lastReg = mysqli_affected_rows($banco->id_connection);
@@ -226,7 +236,7 @@ public function alteraGrupo(){
 */
 public function excluiGrupo(){
 	$sql  = "DELETE FROM est_grupo ";
-	$sql .= "WHERE grupo = '".$this->getId()."';";
+	$sql .= "WHERE id = '".$this->getId()."';";
 	$banco = new c_banco;
 	$resgrupo =  $banco->exec_sql($sql);
 	$banco->close_connection();

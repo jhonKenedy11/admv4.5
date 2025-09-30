@@ -354,6 +354,69 @@ class c_contrato extends c_user
 
         return true;
     }
+
+    public function relatorioAcompanhamento($id_pedido, $dataIni, $dataFim)
+    {
+        try {
+            // Validação dos parâmetros
+            if (empty($id_pedido)) {
+                throw new Exception("ID do pedido não pode ser vazio.");
+            }
+
+            $obj_banco = new c_banco_pdo;
+            
+            // Converte datas de DD/MM/AAAA para AAAA-MM-DD se fornecidas
+            if (!empty($dataIni) && !empty($dataFim)) {
+                $dataIni_sql = DateTime::createFromFormat('d/m/Y', $dataIni)->format('Y-m-d');
+                $dataFim_sql = DateTime::createFromFormat('d/m/Y', $dataFim)->format('Y-m-d');
+                
+                $sql = "SELECT 
+                            cas.ID,
+                            cas.DESCSERVICO,
+                            cas.UNIDADE,
+                            cas.QUANTIDADE,
+                            FS.QUANTIDADE as QUANTIDADE_CONTRATADA,
+                            cas.QUANTIDADE_EXECUTADA,
+                            cas.VALUNITARIO,
+                            cas.TOTALSERVICO,
+                            cat.ID as CAT_ATENDIMENTO_ID,
+                            cat.PEDIDO_ID,
+                            fp.TOTAL,
+                            cat.CLIENTE,
+                            cat.DATAABERATEND,
+                            cat.CAT_SITUACAO_ID,
+                            cat.DATAFECHATEND,
+                            cat.PRAZOENTREGA,
+                            cat.VALORSERVICOS,
+                            cat.VALORTOTAL,
+                            cli.NOME as NOME_CLIENTE,
+                            cs.DESCRICAO AS SITUACAO,
+                            cs.ID AS SITUACAO_ID
+                        FROM CAT_AT_SERVICOS cas
+                        INNER JOIN CAT_ATENDIMENTO cat ON cat.ID = cas.CAT_ATENDIMENTO_ID
+                        LEFT JOIN FIN_CLIENTE cli ON cli.CLIENTE = cat.CLIENTE
+                        LEFT JOIN CAT_SITUACAO cs ON cs.ID = cat.CAT_SITUACAO_ID
+                        LEFT JOIN FAT_PEDIDO fp ON fp.ID = cat.PEDIDO_ID
+                        LEFT JOIN FAT_PEDIDO_SERVICO FS ON FS.FAT_PEDIDO_ID = fp.ID AND FS.CAT_SERVICOS_ID = cas.CAT_SERVICOS_ID
+                        WHERE cat.PEDIDO_ID = ? 
+                        AND DATE(cat.DATAABERATEND) BETWEEN ? AND ?
+                        ORDER BY cat.DATAABERATEND DESC, cas.ID";
+                $obj_banco->prepare($sql);
+                $obj_banco->bindParam(1, $id_pedido);
+                $obj_banco->bindParam(2, $dataIni_sql);
+                $obj_banco->bindParam(3, $dataFim_sql);
+            }
+            $obj_banco->execute();
+            return $obj_banco->fetchAll(PDO::FETCH_ASSOC);
+            
+        } catch (Exception $e) {
+            // Log do erro (opcional)
+            error_log("Erro em relatorioAcompanhamento: " . $e->getMessage());
+            return [];
+        }
+    }
 }
+
+
 
 //	END OF THE CLASS

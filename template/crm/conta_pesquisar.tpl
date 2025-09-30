@@ -167,7 +167,7 @@
 
                                         {if $lanc[i].BLOQUEADO neq 'BLOQUEADO'}
                                             <button type="button" class="btn btn-success btn-xs" 
-                                            onclick="javascript:fechaLancamento('{$lanc[i].CLIENTE}', '{$lanc[i].NOME}', '{$opcao}' , '{$lanc[i].CREDITO|number_format:2:",":"."}', '{$lanc[i].CEP}', '{$lanc[i].CODMUNICIPIO}', '{$lanc[i].BLOQUEADO}' );">
+                                            onclick="javascript:fechaLancamento('{$lanc[i].CLIENTE}', '{$lanc[i].NOME}', '{$opcao}' , '{$lanc[i].CREDITO|number_format:2:",":"."}', '{$lanc[i].CEP}', '{$lanc[i].CODMUNICIPIO}', '{$lanc[i].BLOQUEADO}', '{$lanc[i].ID_REPRESENTANTE}' );">
                                             <span class="glyphicon glyphicon-ok" aria-hidden="true"></span></button>
                                         {/if}
 

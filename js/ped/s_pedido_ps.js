@@ -1013,34 +1013,167 @@ function submitVendaPerdida(id) {
     f.submit();
 }
 
-// Função para carregar obras via AJAX (agora retornando uma Promise)
+// Função para carregar obras e responsáveis técnicos via AJAX
 function carregarObras(clienteId) {
-     
-        $.ajax({
-            type: "POST",
-            url: "index.php?mod=ped&form=pedido_ps&submenu=ajax_obra&opcao=blank",
-            data: {
-                cliente_id: clienteId
-            },
-            success: function(response) {
-                 
-                if (response === null){
-                    $('#obra').html('<option value="">Selecione a Obra</option>');
-                    return false;
+    $.ajax({
+        type: "POST",
+        url: "index.php?mod=ped&form=pedido_ps&submenu=ajax_obra&opcao=blank",
+        data: {
+            cliente_id: clienteId
+        },
+        success: function(response) {
+            // Controla visibilidade e carrega obras
+            if (response.obras === null || response.obras.length === 0) {
+                $('#obra').html('<option value="">Nenhuma obra encontrada</option>');
+                $('#div_obra').hide(); // Esconde o campo de obra
+            } else {
+                $('#obra').html('<option value="">Selecione a Obra</option>');
+                for(var i = 0; i < response.obras.length; i++) {
+                    $('<option>').val(response.obras[i].ID).text(response.obras[i].PROJETO).appendTo('#obra');
                 }
-
-                for(var i= 0; i < response.length; i++){
-                    //popula o campo acao
-                    $('<option>').val(response[i].ID).text(response[i].PROJETO).appendTo('#obra');
-                }
-            
-            
-            },
-            error: function() {
-                alert("Erro ao carregar obras. Por favor, tente novamente.");
+                $('#div_obra').show(); // Mostra o campo de obra
+                // Ajusta tamanho da condição de pagamento quando há obras
+                $('#div_cond_pgto').removeClass('col-lg-6').addClass('col-lg-2');
             }
-        });
+            
+            // Carrega responsáveis técnicos (sempre carrega, mas controla visibilidade)
+            if (response.responsaveis === null || response.responsaveis.length === 0) {
+                $('#responsavel_tecnico').html('<option value="">Nenhum responsável técnico encontrado</option>');
+            } else {
+                $('#responsavel_tecnico').html('<option value="">Selecione o Responsável Técnico</option>');
+                for(var i = 0; i < response.responsaveis.length; i++) {
+                    $('<option>').val(response.responsaveis[i].ID).text(response.responsaveis[i].NOME).appendTo('#responsavel_tecnico');
+                }
+            }
+            
+            // Esconde o campo de responsável técnico inicialmente
+            $('#div_responsavel_tecnico').hide();
+            
+            // Carrega endereços de entrega com posicionamento baseado na presença de obras
+            carregarEnderecos(clienteId, response.obras);
+        },
+        error: function() {
+            alert("Erro ao carregar dados. Por favor, tente novamente.");
+        }
+    });
 }
+
+// Função para controlar visibilidade do campo de responsável técnico
+function carregarResponsaveisTecnicos(obraId) {
+    if (obraId === '' || obraId === null) {
+        // Se não há obra selecionada, esconde o campo de responsável técnico
+        $('#div_responsavel_tecnico').hide();
+    } else {
+        // Se há obra selecionada, mostra o campo de responsável técnico
+        $('#div_responsavel_tecnico').show();
+    }
+}
+
+// Função para inicializar a visibilidade dos campos baseada nos dados do PHP
+function inicializarCamposObra() {
+    // Verifica se há obras carregadas
+    var obraSelect = document.getElementById('obra');
+    if (obraSelect && obraSelect.options.length > 1) {
+        $('#div_obra').show();
+        
+        // Verifica se há obra selecionada
+        var obraSelecionada = obraSelect.value;
+        if (obraSelecionada && obraSelecionada !== '') {
+            $('#div_responsavel_tecnico').show();
+        }
+    } else {
+        $('#div_obra').hide();
+        $('#div_responsavel_tecnico').hide();
+    }
+    
+    // Inicializar visibilidade do campo de endereço de entrega
+    var pessoaSelect = document.getElementById('pessoa');
+    if (pessoaSelect && pessoaSelect.value !== '') {
+        // Verifica se há obras para determinar posicionamento
+        var obraSelect = document.getElementById('obra');
+        var temObras = obraSelect && obraSelect.options.length > 1;
+        
+        // Ajusta tamanho da condição de pagamento baseado na presença de obras
+        if (temObras) {
+            $('#div_cond_pgto').removeClass('col-lg-6').addClass('col-lg-2');
+        }
+        
+        carregarEnderecos(pessoaSelect.value, temObras ? [{ID: 1}] : []);
+    } else {
+        $('#div_endereco_entrega_lado').hide();
+        $('#div_endereco_entrega_baixo').hide();
+        // Restaura tamanho original da condição de pagamento
+        $('#div_cond_pgto').removeClass('col-lg-2').addClass('col-lg-6');
+    }
+}
+
+
+// Função para carregar endereços via AJAX
+function carregarEnderecos(clienteId, obras) {
+    if (!clienteId || clienteId === '') {
+        $('#div_endereco_entrega_lado').hide();
+        $('#div_endereco_entrega_baixo').hide();
+        return;
+    }
+    
+    $.ajax({
+        type: "POST",
+        url: "index.php?mod=ped&form=pedido_ps&submenu=ajax_enderecos&opcao=blank",
+        data: {
+            cliente_id: clienteId
+        },
+        success: function(response) {
+            if (response.enderecos && response.enderecos.length > 0) {
+                // Determina se deve mostrar ao lado (sem obras) ou embaixo (com obras)
+                var temObras = obras && obras.length > 0;
+                
+                if (temObras) {
+                    // Mostra embaixo (div_baixo)
+                    $('#div_endereco_entrega_lado').hide();
+                    $('#endereco_entrega_baixo').html('<option value="">Selecione o Endereço de Entrega</option>');
+                    for(var i = 0; i < response.enderecos.length; i++) {
+                        var endereco = response.enderecos[i];
+                        $('<option>').val(endereco.ID).text(endereco.ENDERECO_ENTREGA).appendTo('#endereco_entrega_baixo');
+                    }
+                    // Seleciona o endereço já cadastrado se existir
+                    var enderecoSelecionado = $('input[name="endereco_entrega"]').val();
+                    if (enderecoSelecionado && enderecoSelecionado !== '') {
+                        $('#endereco_entrega_baixo').val(enderecoSelecionado);
+                    }
+                    $('#div_endereco_entrega_baixo').show();
+                } else {
+                    // Mostra ao lado (div_lado) - ajusta condição de pagamento para col-lg-2
+                    $('#div_endereco_entrega_baixo').hide();
+                    $('#div_cond_pgto').removeClass('col-lg-6').addClass('col-lg-2');
+                    $('#endereco_entrega_lado').html('<option value="">Selecione o Endereço de Entrega</option>');
+                    for(var i = 0; i < response.enderecos.length; i++) {
+                        var endereco = response.enderecos[i];
+                        $('<option>').val(endereco.ID).text(endereco.ENDERECO_ENTREGA).appendTo('#endereco_entrega_lado');
+                    }
+                    // Seleciona o endereço já cadastrado se existir
+                    var enderecoSelecionado = $('input[name="endereco_entrega"]').val();
+                    if (enderecoSelecionado && enderecoSelecionado !== '') {
+                        $('#endereco_entrega_lado').val(enderecoSelecionado);
+                    }
+                    $('#div_endereco_entrega_lado').show();
+                }
+            } else {
+                $('#div_endereco_entrega_lado').hide();
+                $('#div_endereco_entrega_baixo').hide();
+                // Restaura tamanho original da condição de pagamento se não há endereços
+                if (!obras || obras.length === 0) {
+                    $('#div_cond_pgto').removeClass('col-lg-2').addClass('col-lg-6');
+                }
+            }
+        },
+        error: function() {
+            $('#div_endereco_entrega_lado').hide();
+            $('#div_endereco_entrega_baixo').hide();
+        }
+    });
+}
+
+
 
 
 function abrirRelatorioImpostos(id) {

@@ -11,89 +11,14 @@ function submitConfirmar(formulario) {
     f = document.lancamento;
     f.mod.value = 'fin';
     f.form.value = formulario;
-    if(formulario == 'conta_banco'){
+    if (confirm('Deseja realmente ' + f.submenu.value + ' este item') == true) {
+        if (f.submenu.value == "cadastrar") {
+           f.submenu.value = 'inclui'; }
+        else {
+           f.submenu.value = 'altera'; }
 
-        if(f.nomeInterno.value == ''){
-            swal.fire({
-                icon: 'warning',
-                title: "O Campo Nome Interno é Obrigatório!",
-                timer: 1000,
-                showConfirmButton: false
-            });
-            return false;
-        }
-
-        if(f.nomeContaBanco.value == ''){
-            swal.fire({
-                icon: 'warning',
-                title: "O Campo Nome Conta é Obrigatório!",
-                timer: 1000,
-                showConfirmButton: false
-            });
-            return false;
-        }
-
-        if(f.banco.value == ''){
-            swal.fire({
-                icon: 'warning',
-                title: "O Campo Banco é Obrigatório!",
-                timer: 1000,
-                showConfirmButton: false
-            });
-            return false;
-        }
-
-        if(f.agencia.value == ''){
-            swal.fire({
-                icon: 'warning',
-                title: "O Campo Agencia é Obrigatório!",
-                timer: 1000,
-                showConfirmButton: false
-            });
-            return false;
-        }
-
-        if(f.contaCorrente.value == ''){
-            swal.fire({
-                icon: 'warning',
-                title: "O Campo Código Conta é Obrigatório!",
-                timer: 1000,
-                showConfirmButton: false
-            });
-            return false;
-        }
-
-        if(f.contato.value == ''){
-            swal.fire({
-                icon: 'warning',
-                title: "O Campo Contato é Obrigatório!",
-                timer: 1000,
-                showConfirmButton: false
-            });
-            return false;
-        }
-    }
-
-    swal.fire({
-        title: 'Confirmação',
-        text: 'Deseja realmente ' + f.submenu.value + ' este item?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Sim',
-        cancelButtonText: 'Não'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            if (f.submenu.value == "cadastrar") {
-                f.submenu.value = 'inclui';
-            } else {
-                f.submenu.value = 'altera';
-            }
-            f.submit();
-        }
-    });
-
-    // f.submit();
-    // } // if
+    f.submit();
+    } // if
 } // fim submitConfirmar
 
 
@@ -110,43 +35,25 @@ function submitCadastro(formulario) {
 
 function submitAlterar(formulario, id) {
 
-    swal.fire({
-        title: 'Confirmação',
-        text: 'Deseja realmente Alterar este item?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Sim',
-        cancelButtonText: 'Não'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            f = document.lancamento;
-            f.mod.value = 'fin';
-            f.form.value = formulario;
-            f.submenu.value = 'alterar';
-            f.id.value = id;
-            f.submit();
-        }
-    });
+    if (confirm('Deseja realmente Alterar este item') == true) {
+        f = document.lancamento;
+        f.mod.value = 'fin';
+        f.form.value = formulario;
+        f.submenu.value = 'alterar';
+        f.id.value = id;
+        f.submit();
+    }
 } // submitAlterar
 
 function submitExcluir(formulario, id) {
-    swal.fire({
-        title: 'Confirmação',
-        text: 'Deseja realmente Excluir este item?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sim',
-        cancelButtonText: 'Não'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            f = document.lancamento;
-            f.mod.value = 'fin';
-            f.form.value = formulario;
-            f.submenu.value = 'exclui';
-            f.id.value = id;
-            f.submit();
-        }
-    });
+    if (confirm('Deseja realmente Excluir este item') == true) {
+        f = document.lancamento;
+        f.mod.value = 'fin';
+        f.form.value = formulario;
+        f.submenu.value = 'exclui';
+        f.id.value = id;
+        f.submit();
+    }
 } // submitExcluir
 
 function submitLetra(formulario, letra_pesquisa) {
@@ -195,12 +102,7 @@ function submitRemessaConfere() {
         f.submit();
         }    
     else {
-        swal.fire({
-            icon: 'warning',
-            title: 'Selecione as opções desejada.',
-            timer: 1000,
-            showConfirmButton: false
-        });
+        alert('Selecione as opções desejada.');
     }    
    
 }
@@ -218,12 +120,7 @@ function submitRetornoConfere() {
         f.submit();
         }    
     else {
-        swal.fire({
-            icon: 'warning',
-            title: 'Selecione as opções desejada.',
-            timer: 1000,
-            showConfirmButton: false
-        });
+        alert('Selecione as opções desejada.');
     }    
    
 }
@@ -241,12 +138,7 @@ function submitLetraRetorno() {
         f.submit();
         }    
     else {
-        swal.fire({
-            icon: 'warning',
-            title: 'Selecione as opções desejada.',
-            timer: 1000,
-            showConfirmButton: false
-        });
+        alert('Selecione o arquivo de retorno e o centro de custo');
     }    
    
 }
@@ -255,21 +147,14 @@ function submitConfirmaRetorno() {
     f = document.retorno;
     f.mod.value = 'fin';
     f.form.value = 'retorno_bancario';
-    swal.fire({
-        title: 'Deseja realmente processar os registros de Retorno Bancário?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Sim',
-        cancelButtonText: 'Não'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            f.submenu.value = 'retorno';
-            f.submit();
-        } else {
-            f.submenu.value = 'mostra';
-        }
-    });
-}
+    if (confirm('Deseja realmente processar os registros de Retorno Bancário?') == true) {
+        f.submenu.value = 'retorno'; 
+        f.submit();
+    }    
+    else{
+        f.submenu.value = 'mostra'; }
+
+} // fim submitConfirmarRemessa
 
 
 function submitLetraRemessa() {
@@ -283,12 +168,7 @@ function submitLetraRemessa() {
         f.submit();
         }    
     else {
-        swal.fire({
-            icon: 'warning',
-            title: 'Selecione as opções desejada.',
-            timer: 1000,
-            showConfirmButton: false
-        });
+        alert('Selecione as opções desejada.');
     }    
    
 }
@@ -297,31 +177,27 @@ function submitConfirmaRemessa() {
     f = document.remessa;
     f.mod.value = 'fin';
     f.form.value = 'remessa_bancaria';
-    swal.fire({
-        title: 'Deseja realmente gerar arquivo de remessa'+f.form.value,
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Sim',
-        cancelButtonText: 'Não'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            f.submenu.value = 'gerar'+f.banco.value; 
+    
+    // Verifica se há problemas de validação do nosso número
+    var alertasErro = document.querySelectorAll('.alert-danger');
+    if (alertasErro.length > 0) {
+        alert('Existem problemas na validação do nosso número. Corrija os problemas antes de gerar a remessa bancária.');
+        return;
+    }
+    
+    if (confirm('Deseja realmente gerar arquivo de remessa'+f.form.value) == true) {
+        f.submenu.value = 'gerar'+f.banco.value; 
+        // f.submenu.value = 'gerar'; 
         if ((f.contaBanco.value != '') && (f.filial.value != '')) {
             f.letra.value = f.dataConsulta.value + "|" + f.filial.value + "|" + f.contaBanco.value;
             f.submit();
             }    
         else {
-            swal.fire({
-                icon: 'warning',
-                title: 'Selecione as opções desejada.',
-                timer: 1000,
-                showConfirmButton: false
-            });
+            alert('Selecione as opções desejada.');
         }    
     }    
     else{
         f.submenu.value = 'mostra'; }
-    });
 
 } // fim submitConfirmarRemessa
 

@@ -32,6 +32,7 @@
         border-radius: 5px !important;
     }
 </style>
+
 <script type="text/javascript" src="{$pathJs}/crm/s_contas_acompanhamento.js"> </script>
 <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <!-- page content -->

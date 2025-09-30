@@ -329,7 +329,6 @@ async function submitConfirmar(formulario) {
             }
         }
     } catch(error) {
-        debugger
         console.error(error);
         await Swal.fire({
             title: "Erro!",

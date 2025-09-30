@@ -84,10 +84,18 @@
                       class="required"></span>
                   </label>
                   <div class="col-md-6 col-sm-6 col-xs-12 has-feedback">
-                    <input class="form-control has-feedback" type="text" maxlength="15" name="grupoBase" disabled value={$grupoBase}>
+                    <input class="form-control has-feedback" type="text" maxlength="15" name="id" disabled value={$id}>
                   </div>
                 </div>
               {/if}
+              <div class="form-group">
+                <label class="control-label col-md-3 col-sm-3 col-xs-12" for="grupo">Grupo <span
+                    class="required"></span>
+                </label>
+                <div class="col-md-6 col-sm-6 col-xs-12">
+                  <input class="form-control" type="text" maxlength="15" id="grupo" name="grupo" value={$grupoBase}>
+                </div>
+              </div>
               <div class="form-group">
                 <label class="control-label col-md-3 col-sm-3 col-xs-12" for="descricao">Descri&ccedil;&atilde;o <span
                     class="required"></span>

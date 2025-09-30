@@ -490,3 +490,66 @@ function limpaModal(){
     $('#modalAcompanhamentoOS [name="usuario_equipe"]').val('').trigger('change');
     $('#modalAcompanhamentoOS [name="obs_servico"]').val('');
 }
+
+function pesquisarContrato(id_pedido) {
+    // Função para acompanhamento e relatório do contrato
+    // Abre modal para seleção de período antes de mostrar detalhes
+    
+    // Armazena o ID do pedido para uso posterior
+    window.contratoSelecionado = id_pedido;
+    
+    // Recupera o último período selecionado do localStorage
+    const ultimoPeriodo = localStorage.getItem('periodo_acompanhamento_contrato');
+    if (ultimoPeriodo) {
+        $('#modalSelecaoPeriodo [name="dataConsulta"]').val(ultimoPeriodo);
+    }
+    
+    // Abre modal de seleção de período
+    $('#modalSelecaoPeriodo').modal('show');
+}
+
+function confirmarPeriodoContrato() {
+    // Função para confirmar período selecionado e abrir detalhes do contrato
+    
+    const periodoCompleto = $('#modalSelecaoPeriodo [name="dataConsulta"]').val();
+    const idPedido = window.contratoSelecionado;
+    
+    // Validação do campo
+    if (!periodoCompleto) {
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Por favor, selecione o período.',
+            icon: 'warning',
+            confirmButtonText: 'Ok'
+        });
+        return false;
+    }
+    
+    // Extrai as datas do período selecionado (formato: DD/MM/AAAA - DD/MM/AAAA)
+    const datas = periodoCompleto.split(' - ');
+    if (datas.length !== 2) {
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Período inválido. Selecione um período válido.',
+            icon: 'warning',
+            confirmButtonText: 'Ok'
+        });
+        return false;
+    }
+    
+    const dataIni = datas[0].trim();
+    const dataFim = datas[1].trim();
+    
+    // Salva o período selecionado no localStorage para uso futuro
+    localStorage.setItem('periodo_acompanhamento_contrato', periodoCompleto);
+    
+    // Fecha a modal
+    $('#modalSelecaoPeriodo').modal('hide');
+    
+    // Abre nova aba com detalhes do contrato incluindo período
+    let url = document.URL + '?mod=ped&form=contrato&opcao=imprimir&submenu=relatorioAcompanhamento&id_pedido=' + idPedido + 
+              '&dataIni=' + encodeURIComponent(dataIni) + 
+              '&dataFim=' + encodeURIComponent(dataFim);
+    window.open(url, '_blank');
+ 
+}

@@ -158,9 +158,13 @@
       </div>
       <div class="row invoice-info">
             <div class="col-md-12 col-sm-12 col-xs-12 form-group">
+            {if $enderecoEntrega neq ''}
+                  Endereço: <strong>{$enderecoEntrega[0].ENDERECO_ENTREGA}</strong>
+            {else}
                   Endereço: <strong>{$pedido[0].ENDERECO}</strong>, <strong>{$pedido[0].NUMERO}</strong>,
                         <strong>{$pedido[0].COMPLEMENTO}</strong> <strong>{$pedido[0].BAIRRO}</strong>
                         <strong>{$pedido[0].CIDADE}</strong>, <strong>{$pedido[0].UF}</strong> <strong>{$pedido[0].CEP}</strong>
+            {/if}
             </div>
       </div>
       <div class="row invoice-info">

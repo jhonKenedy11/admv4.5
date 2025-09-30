@@ -131,6 +131,7 @@
         line-height: 20px;
     }
 </style>
+
 <div class="right_col" role="main">
     <div class="">
         <html>

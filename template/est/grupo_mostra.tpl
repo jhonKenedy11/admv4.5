@@ -62,12 +62,12 @@
                                 <tr class="even pointer">
                                     <td> {$lanc[i].GRUPO} </td>
                                     <td> {$lanc[i].DESCRICAO} </td>
-                                    <td> {$lanc[i].TIPOGRUPO} </td>
+                                    <td> {$lanc[i].PADRAO} </td>
                                     <td> {$lanc[i].NIVEL} </td>
                                     <td class=" last">
                                         <button type="button" class="btn btn-warning btn-xs" onclick="javascript:submitCadastro('{$lanc[i].GRUPO}',{$lanc[i].NIVEL});"><span class="glyphicon glyphicon-plus-sign" aria-hidden="true"></span></button>
-                                        <button type="button" class="btn btn-primary btn-xs" onclick="javascript:submitAlterar('{$lanc[i].GRUPO}');"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></button>
-                                        <button type="button" class="btn btn-danger btn-xs" onclick="javascript:submitExcluir('{$lanc[i].GRUPO}');"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></button>
+                                        <button type="button" class="btn btn-primary btn-xs" onclick="javascript:submitAlterar('{$lanc[i].ID}');"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></button>
+                                        <button type="button" class="btn btn-danger btn-xs" onclick="javascript:submitExcluir('{$lanc[i].ID}');"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></button>
                                     </td>
                                 </tr>
                         {/section} 

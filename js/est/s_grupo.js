@@ -1,5 +1,4 @@
 function submitConfirmar() {
-    debugger
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'grupo';

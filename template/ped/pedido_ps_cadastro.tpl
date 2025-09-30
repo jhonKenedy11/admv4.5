@@ -138,6 +138,7 @@
             <input name=opcao_item type=hidden value={$opcao_item}>
             <input name=centroCusto type=hidden value={$centroCusto}>
             <input name=centroCustoEntrega type=hidden value={$centroCustoEntrega}>
+            <input name=endereco_entrega type=hidden value={$endereco_entrega_id}>
 
             <div class="row">
                 <div class="col-md-12 col-sm-12 col-xs-12">
@@ -268,7 +269,7 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-lg-3 col-sm-6 col-xs-6 text-left line-formated">
+                                <div class="col-lg-6 col-sm-6 col-xs-6 text-left line-formated" id="div_cond_pgto">
                                     <label>Condição de Pagamento</label>
                                     <div class="panel panel-default small line-formated">
                                         <select id="condPgto" name="condPgto" class="input-sm form-control"
@@ -277,13 +278,45 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-lg-3 col-sm-6 col-xs-6 text-left line-formated">
+                                <div class="col-lg-4 col-sm-6 col-xs-6 text-left line-formated" id="div_endereco_entrega_lado" style="display: none;">
+                                    <label>Endereço de Entrega</label>
+                                    <div class="panel panel-default small line-formated">
+                                        <select id="endereco_entrega_lado" name="endereco_entrega" class="input-sm form-control" title="Endereço de Entrega"
+                                            alt="Endereço de Entrega">
+                                            <option value="">Selecione o Endereço de Entrega</option>
+                                            {html_options values=$endereco_ids selected=$endereco_entrega_id output=$endereco_names}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-lg-2 col-sm-6 col-xs-6 text-left line-formated" id="div_obra" style="display: none;">
                                     <label>Obra</label>
                                     <div class="panel panel-default small line-formated">
                                         <select id="obra" name="obra" class="input-sm form-control" title="Obra"
-                                            alt="Obra">
+                                            alt="Obra" onchange="carregarResponsaveisTecnicos(this.value)">
                                             <option value="">Selecione a Obra</option>
                                             {html_options values=$obra_ids selected=$obra_id output=$obra_names}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-lg-2 col-sm-6 col-xs-6 text-left line-formated" id="div_responsavel_tecnico" style="display: none;">
+                                    <label>Responsável Técnico</label>
+                                    <div class="panel panel-default small line-formated">
+                                        <select id="responsavel_tecnico" name="responsavel_tecnico" class="input-sm form-control" title="Responsável Técnico"
+                                            alt="Responsável Técnico">
+                                            <option value="">Selecione o Responsável Técnico</option>
+                                            {html_options values=$responsavel_tecnico_ids selected=$responsavel_tecnico_id output=$responsavel_tecnico_names}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group line-formated">
+                                <div class="col-lg-6 col-sm-6 col-xs-6 text-left line-formated" id="div_endereco_entrega_baixo" style="display: none;">
+                                    <label>Endereço de Entrega</label>
+                                    <div class="panel panel-default small line-formated">
+                                        <select id="endereco_entrega_baixo" name="endereco_entrega_baixo" class="input-sm form-control" title="Endereço de Entrega"
+                                            alt="Endereço de Entrega">
+                                            <option value="">Selecione o Endereço de Entrega</option>
+                                            {html_options values=$endereco_ids selected=$endereco_entrega_id output=$endereco_names}
                                         </select>
                                     </div>
                                 </div>
@@ -858,5 +891,27 @@ window.addEventListener('DOMContentLoaded', function() {
     check();
     valorTotal.addEventListener('input', check);
     valorTotal.addEventListener('change', check);
+});
+</script>
+<script>
+
+// Inicializa os campos quando a página carrega
+$(document).ready(function() {
+    inicializarCamposObra();
+    
+    // Adiciona evento para carregar endereços quando o cliente for selecionado
+    $('#pessoa').on('change', function() {
+        var clienteId = $(this).val();
+        carregarEnderecos(clienteId, []);
+    });
+    
+    // Sincroniza os valores dos campos de endereço
+    $(document).on('change', '#endereco_entrega_lado', function() {
+        $('#endereco_entrega_baixo').val($(this).val());
+    });
+    
+    $(document).on('change', '#endereco_entrega_baixo', function() {
+        $('#endereco_entrega_lado').val($(this).val());
+    });
 });
 </script>

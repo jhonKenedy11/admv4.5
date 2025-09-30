@@ -221,7 +221,7 @@
                                             <td style="text-align: center;">{$lanc[i].EMISSAO|date_format:"%d/%m/%Y"} </td>
 
                                             <td>
-                                                <div style="display: flex; justify-content: center;">
+                                                <div style="display: flex; justify-content: center; gap: 5px;">
                                                     <button type="button" name="pedidoChecked" id="{$lanc[i].PEDIDO}"
                                                         class="btn btn-primary btn-xs"
                                                         onclick="controlFunctionModal('{$lanc[i].PEDIDO}');">OS</button>
@@ -229,6 +229,12 @@
                                                         class="btn btn-primary btn-xs"
                                                         onclick="abrirMedicao('{$lanc[i].PEDIDO}');">
                                                         <span class="glyphicon glyphicon-list-alt"></span>
+                                                    </button>
+                                                    <button type="button" name="pesquisar_contrato" id="pesquisar_{$lanc[i].PEDIDO}"
+                                                        class="btn btn-info btn-xs"
+                                                        onclick="javascript:pesquisarContrato('{$lanc[i].PEDIDO}');"
+                                                        title="Acompanhamento do Contrato">
+                                                        <span class="glyphicon glyphicon-stats"></span>
                                                     </button>
                                                 </div>
                                             </td>
@@ -247,6 +253,31 @@
                     </div>
                 </div>
 
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Seleção de Período para Acompanhamento -->
+<div class="modal fade" id="modalSelecaoPeriodo" role="dialog" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog" style="width: 40% !important; margin-top: 12% !important;">
+        <div class="modal-content">
+            <div class="modal-header" style="padding: 8px 12px;">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h6 class="modal-title" style="margin: 0; font-size: 13px;">Período</h6>
+            </div>
+            <div class="modal-body" style="padding: 12px;">
+                <div class="form-group" style="margin-bottom: 8px;">
+                    <input type="text" name="dataConsulta" id="dataConsulta" 
+                           class="form-control input-sm" placeholder="Selecione o período" 
+                           style="font-size: 11px; height: 28px;">
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 8px 12px; text-align: right;">
+                <button type="button" class="btn btn-default btn-xs" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-xs" onclick="confirmarPeriodoContrato()">
+                    OK
+                </button>
             </div>
         </div>
     </div>

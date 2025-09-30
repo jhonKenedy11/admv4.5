@@ -140,6 +140,24 @@
                   white-space: normal;
             }
 
+            .div-table-cell {
+                  max-width: 60px !important;
+                  font-size: 7px !important;
+                  padding: 1px !important;
+                  line-height: 1.0 !important;
+            }
+
+            .div-table-header {
+                  font-size: 7px !important;
+                  padding: 1px !important;
+                  line-height: 1.0 !important;
+            }
+
+            .table-responsive {
+                  overflow: visible !important;
+                  width: 100% !important;
+            }
+
             .x_panel {
                   page-break-inside: avoid !important;
                   border: none !important;
@@ -304,16 +322,20 @@
                                                 </strong>{$cabecalho.ART}</div>
                                     </div>
                                     <div class="div-table-row">
-                                          <div class="div-table-cell"><strong>Responsavel: </strong>
-                                                {$cabecalho.CLIENTE}
-                                          </div>
-                                          <div class="div-table-cell"><strong>Email: </strong>
-                                                {$cabecalho.EMAIL.CLIENTE}
-                                          </div>
-                                          <div class="div-table-cell"><strong>Contato: </strong>
-                                                {$cabecalho.FONE_CLIENTE}
-                                          </div>
+                                          <div class="div-table-cell"><strong>Responsável Técnico: </strong>
+                                                {$cabecalho.NOME_RESPONSAVEL_TECNICO}</div>
+                                          <div class="div-table-cell"><strong>CREA: </strong>
+                                                {$cabecalho.CREA_RESPONSAVEL_TECNICO}</div>
+                                          <div class="div-table-cell"><strong>CPF: </strong>
+                                                {$cabecalho.CPF_RESPONSAVEL_TECNICO}</div>
                                     </div>
+                                    <div class="div-table-row">
+                                          <div class="div-table-cell"><strong>Telefone: </strong>
+                                                {$cabecalho.TELEFONE_RESPONSAVEL_TECNICO}</div>
+                                          <div class="div-table-cell"><strong>Email: </strong>
+                                                {$cabecalho.EMAIL_RESPONSAVEL_TECNICO}</div>
+                                          <div class="div-table-cell"></div>
+                                    </div>                                    
                               {/if}
                         </div>
                   </div>
@@ -326,93 +348,96 @@
                         {assign var="global_total" value=0}
                         {assign var="os_item_count" value=0}
                         {foreach $lanc as $item}
-                              {if $item.NUM_OS != $current_os}
-                                    {if !$is_first_table}
+                              {* Verifica se a OS não está cancelada (STATUSDESC != "Cancelado") *}
+                              {if $item.STATUSDESC != "Cancelado"}
+                                    {if $item.NUM_OS != $current_os}
+                                          {if !$is_first_table}
+                                          </div>
+                                    </div>
+                              {/if}
+
+                              <div class="table-responsive">
+                                    <div class="div-table">
+                                          <div class="div-table-row">
+                                                <div class="div-table-header" style="width: 5%"><strong>OS: {$item.NUM_OS}</strong>
+                                                </div>
+                                                <div class="div-table-header" style="width: 45%">Descrição do Serviço</div>
+                                                <div class="div-table-header" style="width: 8%">Unidade</div>
+                                                <div class="div-table-header" style="width: 8%">Quantidade Contratada</div>
+                                                <div class="div-table-header" style="width: 8%">Quantidade OS</div>
+                                                <div class="div-table-header" style="width: 8%">Total Executado</div>
+                                                <div class="div-table-header" style="width: 8%">Quantidade Pendente</div>
+                                                <div class="div-table-header" style="width: 8%">% Exec.</div>
+                                                <div class="div-table-header" style="width: 10%">V. Unitário</div>
+                                                <div class="div-table-header" style="width: 10%">V. Total</div>
+                                          </div>
+
+
+                                          {assign var="current_os" value=$item.NUM_OS}
+                                          {assign var="is_first_table" value=false}
+                                          {assign var="os_total" value=0}
+                                          {assign var="os_item_count" value=1}
+                                    {/if}
+
+                                    {if $item.tipo != 'cabecalho'}
+                                          {assign var="item_total" value=$item.QUANTIDADE_EXECUTADA*$item.VALUNITARIO}
+                                          {assign var="global_total" value=$global_total+$item_total}
+                                          {assign var="valor_total" value=$global_total-$cabecalho.VALOR_DESCONTO}
+                                          {assign var="os_total" value=$os_total+$item_total}
+
+
+                                          <div class="div-table-row">
+                                                <div class="div-table-cell">{$os_item_count}</div>
+                                                <div class="div-table-cell desc-servico">{$item.DESCSERVICO}</div>
+                                                <div class="div-table-cell" style="text-align: center;">{$item.UNIDADE}</div>
+                                                <div class="div-table-cell" style="text-align: right;">{$item.QUANTIDADE_CONTRATADA}</div>
+                                                <div class="div-table-cell" style="text-align: right;">{$item.QUANTIDADE}</div>
+                                                <div class="div-table-cell" style="text-align: right;">{$item.QUANTIDADE_EXECUTADA}
+                                                </div>
+                                                <div class="div-table-cell" style="text-align: right;">{($item.QUANTIDADE - $item.QUANTIDADE_EXECUTADA)|number_format:2:",":"."}</div>
+                                                <div class="div-table-cell" style="text-align: right;">{$item.PERCENTUAL_EXECUCAO}%
+                                                </div>
+                                                <div class="div-table-cell" style="text-align: right;">{if $item.VALUNITARIO}R$
+                                                      {$item.VALUNITARIO|number_format:2:",":"."}{else}-
+                                                      {/if}</div>
+                                                <div class="div-table-cell" style="text-align: right;">R$
+                                                      {$item_total|number_format:2:",":"."}</div>
+                                          </div>
+                                          {assign var="os_item_count" value=$os_item_count+1}
+                                    {/if}
+
+                                    {if $item.subtotal}
+                                          <div class="div-table-row subtotal-row">
+                                                <div class="div-table-cell" colspan="7" style="text-align: right;">Subtotal
+                                                      {$item.grupo}:
+                                                </div>
+                                                <div class="div-table-cell" style="text-align: right;">R$
+                                                      {$item.subtotal|number_format:2:",":"."}</div>
+                                          </div>
+                                    {/if}
+
+                                    {if $item@last || ($item@index + 1 < $lanc|@count && $lanc[$item@index + 1].NUM_OS != $current_os && $lanc[$item@index + 1].STATUSDESC != "Cancelado")}
+                                          <div class="div-table-row total-os-row">
+                                                <div class="div-table-cell"></div>
+                                                <div class="div-table-cell"></div>
+                                                <div class="div-table-cell"></div>
+                                                <div class="div-table-cell"></div>
+                                                <div class="div-table-cell"></div>
+                                                <div class="div-table-cell"></div>
+                                                <div class="div-table-cell"></div>
+                                                <div class="div-table-cell"></div>
+                                                <div class="div-table-cell total-os-cell" colspan="2">Total OS {$item.NUM_OS}: </div>
+                                                <div class="div-table-cell" style="text-align: right;">R$
+                                                      {$os_total|number_format:2:",":"."}</div>
+                                          </div>
+                                    {/if}
+
+                                    {if $item@last}
                                     </div>
                               </div>
                         {/if}
-
-                        <div class="table-responsive">
-                              <div class="div-table">
-                                    <div class="div-table-row">
-                                          <div class="div-table-header" style="width: 5%"><strong>OS: {$item.NUM_OS}</strong>
-                                          </div>
-                                          <div class="div-table-header" style="width: 45%">Descrição do Serviço</div>
-                                          <div class="div-table-header" style="width: 8%">Unidade</div>
-                                          <div class="div-table-header" style="width: 8%">Quantidade Contratada</div>
-                                          <div class="div-table-header" style="width: 8%">Quantidade OS</div>
-                                          <div class="div-table-header" style="width: 8%">Total Executado</div>
-                                          <div class="div-table-header" style="width: 8%">Quantidade Pendente</div>
-                                          <div class="div-table-header" style="width: 8%">% Exec.</div>
-                                          <div class="div-table-header" style="width: 10%">V. Unitário</div>
-                                          <div class="div-table-header" style="width: 10%">V. Total</div>
-                                    </div>
-
-
-                                    {assign var="current_os" value=$item.NUM_OS}
-                                    {assign var="is_first_table" value=false}
-                                    {assign var="os_total" value=0}
-                                    {assign var="os_item_count" value=1}
                               {/if}
-
-                              {if $item.tipo != 'cabecalho'}
-                                    {assign var="item_total" value=$item.QUANTIDADE_EXECUTADA*$item.VALUNITARIO}
-                                    {assign var="global_total" value=$global_total+$item_total}
-                                    {assign var="valor_total" value=$global_total-$cabecalho.VALOR_DESCONTO}
-                                    {assign var="os_total" value=$os_total+$item_total}
-
-
-                                    <div class="div-table-row">
-                                          <div class="div-table-cell">{$os_item_count}</div>
-                                          <div class="div-table-cell desc-servico">{$item.DESCSERVICO}</div>
-                                          <div class="div-table-cell" style="text-align: center;">{$item.UNIDADE}</div>
-                                          <div class="div-table-cell" style="text-align: right;">{$item.QUANTIDADE_CONTRATADA}</div>
-                                          <div class="div-table-cell" style="text-align: right;">{$item.QUANTIDADE}</div>
-                                          <div class="div-table-cell" style="text-align: right;">{$item.QUANTIDADE_EXECUTADA}
-                                          </div>
-                                          <div class="div-table-cell" style="text-align: right;">{($item.QUANTIDADE - $item.QUANTIDADE_EXECUTADA)|number_format:2:",":"."}</div>
-                                          <div class="div-table-cell" style="text-align: right;">{$item.PERCENTUAL_EXECUCAO}%
-                                          </div>
-                                          <div class="div-table-cell" style="text-align: right;">{if $item.VALUNITARIO}R$
-                                                {$item.VALUNITARIO|number_format:2:",":"."}{else}-
-                                                {/if}</div>
-                                          <div class="div-table-cell" style="text-align: right;">R$
-                                                {$item_total|number_format:2:",":"."}</div>
-                                    </div>
-                                    {assign var="os_item_count" value=$os_item_count+1}
-                              {/if}
-
-                              {if $item.subtotal}
-                                    <div class="div-table-row subtotal-row">
-                                          <div class="div-table-cell" colspan="7" style="text-align: right;">Subtotal
-                                                {$item.grupo}:
-                                          </div>
-                                          <div class="div-table-cell" style="text-align: right;">R$
-                                                {$item.subtotal|number_format:2:",":"."}</div>
-                                    </div>
-                              {/if}
-
-                              {if $item@last || ($item@index + 1 < $lanc|@count && $lanc[$item@index + 1].NUM_OS != $current_os)}
-                                    <div class="div-table-row total-os-row">
-                                          <div class="div-table-cell"></div>
-                                          <div class="div-table-cell"></div>
-                                          <div class="div-table-cell"></div>
-                                          <div class="div-table-cell"></div>
-                                          <div class="div-table-cell"></div>
-                                          <div class="div-table-cell"></div>
-                                          <div class="div-table-cell"></div>
-                                          <div class="div-table-cell"></div>
-                                          <div class="div-table-cell total-os-cell" colspan="2">Total OS {$item.NUM_OS}: </div>
-                                          <div class="div-table-cell" style="text-align: right;">R$
-                                                {$os_total|number_format:2:",":"."}</div>
-                                    </div>
-                              {/if}
-
-                              {if $item@last}
-                              </div>
-                        </div>
-                  {/if}
-            {/foreach}
+                        {/foreach}
 
             <div class="table-responsive">
                   <div class="div-table">

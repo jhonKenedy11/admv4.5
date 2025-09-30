@@ -66,11 +66,12 @@ Class p_grupo extends c_grupo {
         $this->m_submenu= (isset($parmPost['submenu']) ? $parmPost['submenu'] : '');
         $this->m_letra= (isset($parmPost['letra']) ? $parmPost['letra'] : '');
         $this->m_opcao= (isset($parmPost['opcao']) ? $parmPost['opcao'] : '');
+        $this->setId(isset($parmPost['id']) ? $parmPost['id'] : '');
+        $this->setGrupo(isset($parmPost['grupo']) ? $parmPost['grupo'] : '');
         $this->setDesc(isset($parmPost['descricao']) ? $parmPost['descricao'] : '');
         $this->setTipo(isset($parmPost['tipo']) ? $parmPost['tipo'] : '');
         $this->setNivel(isset($parmPost['nivel']) ? $parmPost['nivel'] : '');
         $this->setComissaoVendas(isset($parmPost['comissao']) ? $parmPost['comissao'] : '' );
-        $this->setId(isset($parmPost['id']) ? $parmPost['id'] : '');
         $this->setGrupoBase(isset($parmPost['grpBase']) ? $parmPost['grpBase'] : '');
         // include do javascript
         // include ADMjs . "/est/s_grupo.js";
@@ -107,7 +108,6 @@ Class p_grupo extends c_grupo {
                         $this->desenhaCadastroGrupo("Já existe registro com este código, por favor altere o codigo do grupo.",'alerta');
                     } else {
                         $id = $this->incluiGrupo();
-                        $id = 'texto';
                         if($id > 0){
                             $this->mostraGrupo('Registro inserido.','Sucesso');
                         }
@@ -130,8 +130,13 @@ Class p_grupo extends c_grupo {
                 break;
             case 'exclui':
                 if ($this->verificaDireitoUsuario('EstGrupo', 'E')) {
-                    $this->excluiGrupo();
-                    $this->mostraGrupo('Registro excluido.','Sucesso');
+                    $excluido = $this->excluiGrupo();
+                    if ($excluido == '') {
+                        $this->mostraGrupo('Registro excluido.','Sucesso');
+                    }
+                    else {
+                        $this->mostraGrupo($excluido,'Alerta');
+                    }
                 }
                 break;
             default:

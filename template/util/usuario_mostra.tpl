@@ -4,6 +4,7 @@
     border-radius: 5px;
   }
 </style>
+
 <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <script type="text/javascript" src="{$pathJs}/util/s_usuario.js"> </script>
 <!-- page content -->
