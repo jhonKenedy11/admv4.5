@@ -222,14 +222,14 @@ function abrir(pag, form = null) {
         //     return false;
         // }
 
-        if (document.lancamento.pedido_id.value == '') {
-            swal.fire({
-                title: "Atenção!",
-                text: "Selecione o Equipamento antes de fazer a pesquisa",
-                icon: "warning"
-            });
-            return false;
-        }
+        // if (document.lancamento.pedido_id.value == '') {
+        //     swal.fire({
+        //         title: "Atenção!",
+        //         text: "Selecione o Equipamento antes de fazer a pesquisa",
+        //         icon: "warning"
+        //     });
+        //     return false;
+        // }
 
         screenWidth = screen.width;
         screenHeight = screen.height;

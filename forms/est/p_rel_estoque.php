@@ -190,6 +190,11 @@ class p_rel_estoque extends c_estoque_relatorio
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_tabela_precos.tpl');
                 break;
+            case 'notas_fiscais':
+                $resultado = $this->selectRelatorioNotasFiscais();
+                $this->smarty->assign('resultado', $resultado);
+                $this->smarty->display('rel_estoque_notas_fiscais.tpl');
+                break;
             default:
                 $resultado = $this->selectRelatorioMovimentacaoEstoque();
                 $this->smarty->assign('resultado', $resultado);

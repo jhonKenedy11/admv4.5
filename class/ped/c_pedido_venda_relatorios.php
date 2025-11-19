@@ -257,6 +257,10 @@ class c_pedido_venda_relatorios extends c_user
             $sql .= "AND (P.TIPOENTREGA = '" . $this->m_tipo_entrega . "') ";
         }
 
+        if (!empty($params->obra)) {
+            $sql .= empty($params->obra) ? '' : " $cond (P.OBRA_ID IN (" . $params->obra . ")) ";
+        }
+
         if ($entrega == 'ENTREGA') {
             $sql .= "ORDER BY P.PRAZOENTREGA ";
         } else if ($params->tipo_relatorio == 'relatorioCondPagamento') {

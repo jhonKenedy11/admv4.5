@@ -601,8 +601,12 @@ class c_conta extends c_user
         $this->responsavelTecnico = $responsavelTecnico;
     }
     public function getResponsavelTecnico()
-    {
-        return $this->responsavelTecnico;
+    {   
+        if ($this->responsavelTecnico == "" ) {
+            return NULL;
+        } else {
+            return $this->responsavelTecnico;
+        }
     }
     public function setNumArt($numArt)
     {
@@ -1024,7 +1028,7 @@ class c_conta extends c_user
             $count .= " ";
             $sql = $count . $where . "GROUP BY u.nomereduzido";
         } else {
-            $sql = "SELECT c.*, u.nomereduzido as representante, ";
+            $sql = "SELECT c.*, u.nomereduzido as representante, c.representante AS id_representante, ";
             $sql .= "IF(A.BLOQUEADO = 'S', 'BLOQUEADO', 'ATIVO') AS BLOQUEADO, ";
             $sql .= "(SELECT (Sum(VALOR)-Sum(UTILIZADO)) FROM FIN_CLIENTE_CREDITO ";
             $sql .= "WHERE (CLIENTE = c.CLIENTE) AND  ISNULL(PEDIDOUTILIZADO) ) as CREDITO ";
@@ -1489,7 +1493,7 @@ class c_conta extends c_user
         $sql .= "'" . $this->getDescProjeto() . "', ";
         $sql .= "'" . $this->getNumCno() . "', ";
         $sql .= "'" . $this->getNumCrea() . "', ";
-        $sql .= "'" . $this->getResponsavelTecnico() . "', ";
+        $sql .= ($this->getResponsavelTecnico() === NULL ? "NULL" : $this->getResponsavelTecnico()) . ", ";
         $sql .= "'" . $this->m_userid . "');";
 
         $banco->exec_sql($sql);
@@ -1517,7 +1521,7 @@ class c_conta extends c_user
         $sql .= "PROJETO = '" . $this->getDescProjeto() . "', ";
         $sql .= "CNO = '" . $this->getNumCno() . "', ";
         $sql .= "CREA = '" . $this->getNumCrea() . "', ";
-        $sql .= "RESPONSAVEL_TECNICO = '" . $this->getResponsavelTecnico() . "', ";
+        $sql .= "RESPONSAVEL_TECNICO = " . ($this->getResponsavelTecnico() === NULL ? "NULL" : $this->getResponsavelTecnico()) . ", ";
         $sql .= "STATUS = '" . $this->getStatusObra() . "', ";
         $sql .= "USERCHANGE = " . $this->m_userid . " ";
         $sql .= "WHERE CLIENTE = " . $this->getIdCliente() . " ";

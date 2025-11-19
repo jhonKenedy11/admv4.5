@@ -120,7 +120,6 @@
             <input name=opcao type=hidden value={$opcao}>
             <input name=letra type=hidden value={$letra}>
             <input name=submenu type=hidden value={$subMenu}>
-            <input name=pesCnpjCpf type=hidden value="">
             <input name=pesCidade type=hidden value="">
             <input name=idEstado type=hidden value="">
             <input name=idVendedor type=hidden value="">
@@ -131,10 +130,16 @@
             <input name=checkPedido type=hidden value="">
             <input name=data_previous type=hidden value={$data_previous}>
 
-            <div class="form-group col-md-12 col-sm-12 col-xs-12">
+            <div class="form-group col-md-6 col-sm-12 col-xs-12">
               <label>Pessoa</label>
               <input class="form-control" id="pesNome" name="pesNome" placeholder="Digite o nome do Pessoa."
                 value={$pesNome}>
+            </div>
+            <div class="form-group col-md-6 col-sm-12 col-xs-12">
+              <label>CNPJ/CPF</label>
+                <input class="form-control" type="text" id="pesCnpjCpf"
+                  name="pesCnpjCpf" placeholder="Digite o CNPJ/CPF."
+                  value={$pesCnpjCpf}>
             </div>
 
             <div class="col-md-12 col-sm-12 col-xs-12 text-center">

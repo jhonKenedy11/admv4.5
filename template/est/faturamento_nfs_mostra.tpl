@@ -139,6 +139,7 @@
                             <input name=id type=hidden value="">
                             <input name=submenu type=hidden value={$subMenu}>
                             <input name=cliente_id type=hidden value={$cliente_id}>
+                            <input name=situacao_pagamento type=hidden value={$situacao_pagamento}>
 
                             <!-- Painel de Pesquisa -->
                             <div class="search-panel">
@@ -312,6 +313,11 @@ $(document).ready(function() {
     garantirMesAtual();
 
 });
+
+// Exportar variáveis do PHP para JavaScript
+window.situacoesPagamento = {$situacao_pagamento|@json_encode};
+window.contasRecebimento = {$conta|@json_encode};
+window.tiposDocumento = {$tipo_documento|@json_encode};
 </script>
 
 

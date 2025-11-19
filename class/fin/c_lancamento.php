@@ -32,6 +32,7 @@ class c_lancamento extends c_user
         private $docto = NULL;         //integer not null,
         private $serie = NULL;         //char(3) not null,
         private $parcela = NULL;        // char(3) not null,
+        private $totalParcelas = NULL;  // total de parcelas (calculado)
         private $agrupamento = NULL;        // integer,
         private $tipolancamento = NULL;         //char(1) not null,
         private $tipodocto = NULL;         //char(1) not null,
@@ -165,6 +166,15 @@ class c_lancamento extends c_user
         public function getParcela()
         {
                 return $this->parcela;
+        }
+
+        public function setTotalParcelas($totalParcelas)
+        {
+                $this->totalParcelas = $totalParcelas;
+        }
+        public function getTotalParcelas()
+        {
+                return $this->totalParcelas;
         }
 
         public function setAgrupamento($agrupamento)
@@ -1135,7 +1145,7 @@ class c_lancamento extends c_user
         {
 
                 $sql  = "SELECT L.*, G.DESCRICAO AS DESCGENERO, P.NOME AS NOMEPESSOA, ";
-                $sql .= "(select count(F.DOCTO) from FIN_LANCAMENTO F WHERE F.DOCTO = L.DOCTO AND F.PESSOA=L.PESSOA)  as totalparcelas ";
+                $sql .= "(select count(F.DOCTO) from FIN_LANCAMENTO F WHERE F.DOCTO = L.DOCTO AND F.PESSOA=L.PESSOA AND F.SITPGTO <> 'C')  as totalparcelas ";
                 $sql .= "FROM FIN_LANCAMENTO L ";
                 $sql .= "LEFT JOIN FIN_CLIENTE P ON P.CLIENTE=L.PESSOA ";
                 $sql .= "LEFT JOIN FIN_GENERO G ON G.GENERO=L.GENERO ";
@@ -1570,14 +1580,16 @@ class c_lancamento extends c_user
                 // $sqlCentrocusto .= "inner join fin_Centrocusto r on r.Centrocusto = a.Centrocusto ";
                 if ($total == 3) {
                         $sqln  = "SELECT X.CENTROCUSTO AS CC, Y.SALDO AS SALDOCC, (a.total * (x.percentual / 100)) as totalrateio, x.percentual, a.*, c.nomereduzido, c.nome, c.cidade, s.padrao as situacaopgto, r.descricao as filial, t.padrao as tipolancamento, g.descricao as descgenero, r.descricao as desccentrocusto, ";
-                        $sqln .= "c.pessoa, c.cnpjcpf, CONCAT(c.tipoend,' ',c.tituloend,' ',c.endereco,',',c.numero) as endereco, C.CEP ";
+                        $sqln .= "c.pessoa, c.cnpjcpf, CONCAT(c.tipoend,' ',c.tituloend,' ',c.endereco,',',c.numero) as endereco, C.CEP, ";
+                        $sqln .= "(SELECT COUNT(F.DOCTO) FROM FIN_LANCAMENTO F WHERE F.DOCTO = a.DOCTO AND F.PESSOA = a.PESSOA AND F.SITPGTO <> 'C') AS TOTALPARCELAS ";
                         $sqln .= "FROM FIN_LANCAMENTO a ";
                         $sqln .= "inner join fin_lancamento_rateio x on (a.id = x.id) and (x.percentual > 0) ";
                         $sqln .= "inner join fin_centro_custo r on x.centrocusto = r.centrocusto ";
                         $sqln .= "left join fin_centro_custo_saldo y on (y.centrocusto = x.centrocusto) and (y.data ='" . $dataIni . "') ";
                 } else {
                         $sqln  = "SELECT a.*, a.pessoa as pessoaId, c.nomereduzido, c.nome, c.cidade, s.padrao as situacaopgto, r.descricao as filial, t.padrao as tipolancamento, g.descricao as descgenero, r.descricao as desccentrocusto, ";
-                        $sqln .= "c.pessoa, c.cnpjcpf, CONCAT(c.tipoend,' ',c.tituloend,' ',c.endereco,',',c.numero) as endereco, C.CEP, a." . $dateOrder . " AS DATEORDER, '" . $dateOrder . "' AS FIELDORDER, u_insert.nomereduzido AS NOMEREDUZIDO_INSERT, u_alter.nomereduzido AS NOMEREDUZIDOALTERACAO  ";
+                        $sqln .= "c.pessoa, c.cnpjcpf, CONCAT(c.tipoend,' ',c.tituloend,' ',c.endereco,',',c.numero) as endereco, C.CEP, a." . $dateOrder . " AS DATEORDER, '" . $dateOrder . "' AS FIELDORDER, u_insert.nomereduzido AS NOMEREDUZIDO_INSERT, u_alter.nomereduzido AS NOMEREDUZIDOALTERACAO, ";
+                        $sqln .= "(SELECT COUNT(F.DOCTO) FROM FIN_LANCAMENTO F WHERE F.DOCTO = a.DOCTO AND F.PESSOA = a.PESSOA AND F.SITPGTO <> 'C') AS TOTALPARCELAS ";
                         $sqln .= "FROM FIN_LANCAMENTO a ";
                         $sqln .= "inner join fin_centro_custo r on a.centrocusto = r.centrocusto ";
                 }

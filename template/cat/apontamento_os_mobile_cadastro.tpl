@@ -190,7 +190,7 @@
                           <td>
                             <input type="hidden" name="id_servico" value="{$lanc[i].ID}">
                             <input class="form-control money input-sm" name="quantidade_executada"
-                              onchange="validateExecutada(event)">
+                              value="{$lanc[i].QUANTIDADE_EXECUTADA}" onchange="validateExecutada(event)">
                           </td>
                         </tr>
                       {/section}

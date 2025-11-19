@@ -73,6 +73,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
         // inicializa variaveis de controle
 
         // NEW versao 4.5
+        $this->m_obra = (isset($parmGet['obra']) ? $parmGet['obra'] : (isset($parmPost['obra']) ? $parmPost['obra'] : ''));
         $this->m_situacao = (isset($parmGet['situacao']) ? $parmGet['situacao'] : (isset($parmPost['situacao']) ? $parmPost['situacao'] : ''));
         $this->m_cliente_nome = (isset($parmGet['cliente_nome']) ? $parmGet['cliente_nome'] : (isset($parmPost['cliente_nome']) ? $parmPost['cliente_nome'] : ''));
         $this->m_cliente_id = (isset($parmGet['cliente_id']) ? $parmGet['cliente_id'] : (isset($parmPost['cliente_id']) ? $parmPost['cliente_id'] : ''));
@@ -123,6 +124,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
             case 'relatorioVendas':
 
                 $this->m_object = (object) array(
+                    "obra" => $this->m_obra,
                     "situacao" => $this->m_situacao,
                     "cliente_nome" => $this->m_cliente_nome,
                     "cliente_id" => $this->m_cliente_id,
@@ -141,6 +143,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
             case 'relatorioDetalhado':
 
                 $this->m_object = (object) array(
+                    "obra" => $this->m_obra,
                     "situacao" => $this->m_situacao,
                     "cliente_nome" => $this->m_cliente_nome,
                     "cliente_id" => $this->m_cliente_id,
@@ -159,6 +162,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
             case 'relatorioItem':
 
                 $this->m_object = (object) array(
+                    "obra" => $this->m_obra,
                     "situacao" => $this->m_situacao,
                     "cliente_nome" => $this->m_cliente_nome,
                     "cliente_id" => $this->m_cliente_id,
@@ -179,6 +183,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
             case 'relatorioEntrega':
 
                 $this->m_object = (object) array(
+                    "obra" => $this->m_obra,
                     "situacao" => $this->m_situacao,
                     "cliente_nome" => $this->m_cliente_nome,
                     "cliente_id" => $this->m_cliente_id,
@@ -198,6 +203,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
             case 'relatorioMotivo':
 
                 $this->m_object = (object) array(
+                    "obra" => $this->m_obra,
                     "cliente_nome" => $this->m_cliente_nome,
                     "cliente_id" => $this->m_cliente_id,
                     "centro_custo" => $this->m_centro_custo,
@@ -211,6 +217,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
             case 'relatorioFaturaGeral':
 
                 $this->m_object = (object) array(
+                    "obra" => $this->m_obra,
                     "situacao" => $this->m_situacao,
                     "cliente_nome" => $this->m_cliente_nome,
                     "cliente_id" => $this->m_cliente_id,
@@ -225,6 +232,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
             case 'relatorioFaturaGeralA':
 
                 $this->m_object = (object) array(
+                    "obra" => $this->m_obra,
                     "situacao" => $this->m_situacao,
                     "cliente_nome" => $this->m_cliente_nome,
                     "cliente_id" => $this->m_cliente_id,
@@ -241,6 +249,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
             default:
 
                 $this->m_object = (object) array(
+                    "obra" => $this->m_obra,
                     "situacao" => $this->m_situacao,
                     "cliente_nome" => $this->m_cliente_nome,
                     "cliente_id" => $this->m_cliente_id,

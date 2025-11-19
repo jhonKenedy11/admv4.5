@@ -1398,4 +1398,69 @@ class c_estoque_relatorio extends c_user
         return $banco->resultado;
     }
 
+    /**
+     * Função para gerar relatório de Notas Fiscais
+     * Campos: Cliente, Número Nota, Série, Emissão, CFOP, Cond. Pagamento, Valor
+     * Filtros aceitos: dataIni, dataFim, idCliente, idGrupo, situacaoNota
+     * @return array
+     */
+    public function selectRelatorioNotasFiscais()
+    {
+        // Filtros de data
+        $dataIni = c_date::convertDateTxt($this->getDataIni());
+        $dataFim = c_date::convertDateTxt($this->getDataFim());
+        
+        $sql = "SELECT 
+                    NF.ID,
+                    C.NOME as CLIENTE,
+                    NF.NUMERO,
+                    NF.SERIE,
+                    NF.EMISSAO,
+                    NFP.CFOP,
+                    CP.DESCRICAO as COND_PAGAMENTO,
+                    NF.TOTALNF as VALOR_TOTAL
+                FROM EST_NOTA_FISCAL NF
+                INNER JOIN EST_NOTA_FISCAL_PRODUTO NFP ON (NFP.IDNF = NF.ID)
+                LEFT JOIN FIN_CLIENTE C ON (C.CLIENTE = NF.PESSOA)
+                LEFT JOIN FAT_COND_PGTO CP ON (CP.ID = NF.CONDPGTO)
+                WHERE NF.SITUACAO = 'B' 
+                AND NF.SERIE != 'INV' 
+                AND NF.EMISSAO BETWEEN '$dataIni 00:00:00' AND '$dataFim 23:59:59'";
+        
+        // Filtro por cliente
+        if (!empty($this->getIdCliente())) {
+            $sql .= " AND C.CLIENTE = '" . $this->getIdCliente() . "'";
+        }
+        
+        // Filtro por grupo (através do produto)
+        if (!empty($this->getIdGrupo())) {
+            $sql .= " AND EXISTS (
+                SELECT 1 FROM EST_PRODUTO P 
+                WHERE P.CODIGO = NFP.CODPRODUTO 
+                AND P.GRUPO = '" . $this->getIdGrupo() . "'
+            )";
+        }
+        
+        // Filtro por situação da nota
+        if (!empty($this->getSituacaoNota())) {
+            $sql .= " AND NF.SITUACAO = '" . $this->getSituacaoNota() . "'";
+        }
+        
+        // Filtro por centro de custo
+        if (!empty($this->getCentroCusto())) {
+            $sql .= " AND NF.CENTROCUSTO = '" . $this->getCentroCusto() . "'";
+        }
+        
+        // Agrupar por nota fiscal para evitar duplicatas
+        $sql .= " GROUP BY NF.ID, C.NOMEREDUZIDO, NF.NUMERO, NF.SERIE, NF.EMISSAO, NFP.CFOP, CP.DESCRICAO, NF.TOTALNF";
+        
+        // Ordenar por data de emissão (mais recente primeiro)
+        $sql .= " ORDER BY NF.EMISSAO DESC, NF.NUMERO DESC";
+        
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        return $banco->resultado;
+    }
+
 } 

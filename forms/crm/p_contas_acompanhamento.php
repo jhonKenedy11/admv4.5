@@ -74,6 +74,8 @@ Class p_acompanhamento extends c_contas_acompanhamento {
         // build calendar
         $this->smarty->assign('pathBuild',  ADMhttpBib);
 
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
+
           // dados para exportacao e relatorios
         $this->smarty->assign('titulo', "Bancos");
         $this->smarty->assign('colVis', "[ 0, 1 ]"); 

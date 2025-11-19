@@ -87,7 +87,6 @@ function submitTodosPedidosMes() {
 } // fim submit
 
 function submitAgruparPedidos(){
-    debugger
     f = document.lancamento;
     f.pedidoAgrupado.value = '';
     f.dadosPed.value = '';
@@ -121,33 +120,37 @@ function submitAgruparPedidos(){
 }
 
 function agrupaPedidoModal(){
-    debugger
     f = document.lancamento;
     f.pessoa.value = '';
     var table = document.getElementById("datatable-buttons");
     var r = table.rows.length;
     var pessoa = '';
     var condPg = '';
+    var pedidosSelecionados = 0; // Contador de pedidos selecionados
     totalFrete          = 0;
     totalDespAcessorias = 0;
     totalDesconto       = 0; 
     totalPedido         = 0;
 
+    var idPessoaSelecionada = ''; // Armazena o ID da pessoa
+    
     for (i = 1; i < r; i++) {
         
         var row = table.rows.item(i).getElementsByTagName("input");        
         
         if (row.pedidoChecked.checked == true) {
+            pedidosSelecionados++; // Incrementa contador
             var cells = table.rows[i].getElementsByTagName("td");
 
             novaPessoa = cells[1].childNodes[0].data;    
             dados   = cells[5].childNodes[0].data; 
             arrDados = dados.split("|");
 
-            idPessoa   = arrDados[3].trim();; 
+            idPessoa   = arrDados[3].trim(); 
 
             if (pessoa === ''){
                 pessoa = novaPessoa;
+                idPessoaSelecionada = idPessoa; // Salva o ID da pessoa
                 f.pessoa.value = idPessoa;
             }
             if(condPg === ''){
@@ -172,18 +175,48 @@ function agrupaPedidoModal(){
                 totalDesconto       += desconto;
 
             }else{
-                alert("Selecione a mesma Pessoa para fazer o Agrupamento de Pedido.");
+                Swal.fire({
+                    title: 'Atenção',
+                    text: 'Selecione a mesma Pessoa para fazer o Agrupamento de Pedido.',
+                    icon: 'warning',
+                    showCancelButton: false,
+                    confirmButtonText: 'OK'
+                });
                 return false;
             }
         }
     }
     
-    f.mPessoa.value         = pessoa
+    // Validação: verifica se pelo menos um pedido foi selecionado
+    if (pedidosSelecionados === 0) {
+        Swal.fire({
+            title: 'Atenção',
+            text: 'Selecione pelo menos um pedido para agrupar.',
+            icon: 'warning',
+            showCancelButton: false,
+            confirmButtonText: 'OK'
+        });
+        return false;
+    }
+    if(pedidosSelecionados < 2){
+        Swal.fire({
+            title: 'Atenção',
+            text: 'Você selecionou menos de 2 pedidos para agrupar',
+            icon: 'warning',
+            showCancelButton: false,
+            confirmButtonText: 'OK'
+        });
+        return false; // Impede que continue executando e abra o modal
+    }
+    
+    // f.pessoa já foi preenchido com o ID dentro do loop (linha 152)
+    // Não sobrescrever aqui! O campo hidden 'pessoa' deve ter o ID, não o nome
+    f.mPessoa.value         = pessoa; // Campo de exibição no modal recebe o NOME
     f.mFrete.value          = currencyFormat(totalFrete);
     f.mDespAcessorias.value = currencyFormat(totalDespAcessorias);
     f.mDesconto.value       = currencyFormat(totalDesconto);
     f.mTotal.value          = currencyFormat(totalPedido);
-    f.condPgto.value        = condPg
+    f.condPgto.value        = condPg;
     $('#modalAgrupamentoPed').modal('show');
 }
 

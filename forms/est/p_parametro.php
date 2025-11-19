@@ -1,163 +1,258 @@
 <?php
-
 /**
- * @package   astec
- * @name      p_parametro
- * @version   3.0.00
- * @copyright 2016
- * @link      http://www.admservice.com.br/
- * @author    Lucas tortola da Silva Bucko<lucas.tortola@admservice.com.br>
- * @date      18/05/2016
+ * Formulário para administração dos parâmetros de estoque
+ * Arquivo: forms/est/p_parametro.php
+ * Atualizado seguindo padrões ADM v4.5 com telas separadas
  */
-// Evita que usuários acesse este arquivo diretamente
-if (!defined('ADMpath')): exit;
-endif;
+
+if (!defined('ADMpath')) exit;
+
 $dir = dirname(__FILE__);
 require_once($dir . "/../../../smarty/libs/Smarty.class.php");
 require_once($dir . "/../../class/est/c_parametro.php");
 
-//Class P_situacao
-Class p_parametro extends c_parametros {
+class p_parametro extends c_parametro
+{
+    public $smarty = null;
+    protected $m_submenu = null;
 
-    private $m_submenu = NULL;
-    private $m_letra = NULL;
-    public $smarty = NULL;
-
-    /**
-     * <b> Função magica construct </b>
-     * @param VARCHAR $submenu
-     * @param VARCHAR $letra
-     * 
-     */
-    function __construct($submenu, $letra) {
-// Cria uma instancia variaveis de sessao
+    function __construct()
+    {
         session_start();
         c_user::from_array($_SESSION['user_array']);
 
-        // Cria uma instancia do Smarty
+        $parmPost = filter_input_array(INPUT_POST, FILTER_DEFAULT);
+        $parmGet = filter_input_array(INPUT_GET, FILTER_DEFAULT);
+
+        // Atribuição direta das propriedades
+        $this->id                       = $parmPost['id'] ?? $parmGet['id'] ?? '';
+        $this->cfop                     = $parmPost['cfop'] ?? $parmGet['cfop'] ?? '';
+        $this->natoperacao              = $parmPost['natoperacao'] ?? $parmGet['natoperacao'] ?? '';
+        $this->condpgto                 = $parmPost['condpgto'] ?? $parmGet['condpgto'] ?? '';
+        $this->generomovimento          = $parmPost['generomovimento'] ?? $parmGet['generomovimento'] ?? '';
+        $this->genero                   = $parmPost['genero'] ?? $parmGet['genero'] ?? '';
+        $this->conta                    = $parmPost['conta'] ?? $parmGet['conta'] ?? '';
+        $this->serie                    = $parmPost['serie'] ?? $parmGet['serie'] ?? '';
+        $this->modofin                  = $parmPost['modofin'] ?? $parmGet['modofin'] ?? '';
+        $this->tipodoc                  = $parmPost['tipodoc'] ?? $parmGet['tipodoc'] ?? '';
+        $this->natopentrada             = $parmPost['natopentrada'] ?? $parmGet['natopentrada'] ?? '';
+        $this->clientepadrao            = $parmPost['clientepadrao'] ?? $parmGet['clientepadrao'] ?? '1';
+        $this->modelo                   = $parmPost['modelo'] ?? $parmGet['modelo'] ?? '55';
+        $this->grupopadrao              = $parmPost['grupopadrao'] ?? $parmGet['grupopadrao'] ?? '';
+        $this->consultaestoquezero      = $parmPost['consultaestoquezero'] ?? $parmGet['consultaestoquezero'] ?? 'S';
+        $this->controlaestoque          = $parmPost['controlaestoque'] ?? $parmGet['controlaestoque'] ?? 'S';
+        $this->integrafin               = $parmPost['integrafin'] ?? $parmGet['integrafin'] ?? 'S';
+        $this->validanfauto             = $parmPost['validanfauto'] ?? $parmGet['validanfauto'] ?? 'S';
+        $this->centrocusto              = $parmPost['centrocusto'] ?? $parmGet['centrocusto'] ?? '';
+        $this->tipovalidacao            = $parmPost['tipovalidacao'] ?? $parmGet['tipovalidacao'] ?? 'N';
+        $this->percdescmaximo           = $parmPost['percdescmaximo'] ?? $parmGet['percdescmaximo'] ?? '0.0000';
+        $this->precobase                = $parmPost['precobase'] ?? $parmGet['precobase'] ?? 'C';
+        $this->percalculo               = $parmPost['percalculo'] ?? $parmGet['percalculo'] ?? '0.0000';
+        $this->nfs_serie                = $parmPost['nfs_serie'] ?? $parmGet['nfs_serie'] ?? '';
+        $this->nfs_situacao_tributaria  = $parmPost['nfs_situacao_tributaria'] ?? $parmGet['nfs_situacao_tributaria'] ?? '';
+        
+        // Novos campos
+        $this->servico                  = $parmPost['servico'] ?? $parmGet['servico'] ?? '';
+        $this->situacao_tributaria      = $parmPost['situacao_tributaria'] ?? $parmGet['situacao_tributaria'] ?? '';
+        $this->inss                     = $parmPost['inss'] ?? $parmGet['inss'] ?? '0.00';
+        $this->pis                      = $parmPost['pis'] ?? $parmGet['pis'] ?? '0.00';
+        $this->cofins                   = $parmPost['cofins'] ?? $parmGet['cofins'] ?? '0.00';
+        $this->ir                       = $parmPost['ir'] ?? $parmGet['ir'] ?? '0.00';
+        $this->contribuicao_social      = $parmPost['contribuicao_social'] ?? $parmGet['contribuicao_social'] ?? '0.00';
+        $this->parcela                  = $parmPost['parcela'] ?? $parmGet['parcela'] ?? '';
+        
+        // Campos de controle
+        $this->filtro_empresa           = $parmPost['filtro_empresa'] ?? $parmGet['filtro_empresa'] ?? '';
+
         $this->smarty = new Smarty;
-
-        // caminhos absolutos para todos os diretorios do Smarty
         $this->smarty->template_dir = ADMraizFonte . "/template/est";
-        $this->smarty->compile_dir = ADMraizCliente . "/smarty/templates_c/";
-        $this->smarty->config_dir = ADMraizCliente . "/smarty/configs/";
-        $this->smarty->cache_dir = ADMraizCliente . "/smarty/cache/";
+        $this->smarty->compile_dir  = ADMraizCliente . "/smarty/templates_c/";
+        $this->smarty->config_dir   = ADMraizCliente . "/smarty/configs/";
+        $this->smarty->cache_dir    = ADMraizCliente . "/smarty/cache/";
 
-        // inicializa variaveis de controle
-        $this->m_submenu = $submenu;
-        $this->m_letra = $letra;
-        $this->m_par = explode("|", $this->m_letra);
+        $this->m_submenu = $parmGet['submenu'] ?? $parmPost['submenu'] ?? '';
 
         // caminhos absolutos para todos os diretorios biblioteca e sistema
-        $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
+        $this->smarty->assign('pathJs',  ADMhttpBib . '/js');
+        $this->smarty->assign('pathBibImagens',  ADMhttpBib . '/bib/imagens');
+        //ADMraizFonte
         $this->smarty->assign('bootstrap', ADMbootstrap);
-        $this->smarty->assign('raizCliente', $this->raizCliente);
         $this->smarty->assign('admClass', ADMclass);
+        $this->smarty->assign('raizCliente', $this->raizCliente);
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
 
-        // include do javascript
-        // include ADMjs . "/est/s_parametro.js";
+
+        $this->smarty->assign('titulo', "Parametros");
+        $this->smarty->assign('colVis', "[ 0,1,2,3,4,5 ]");
+        $this->smarty->assign('disableSort', "[ 5 ]");
+        $this->smarty->assign('numLine', "25");
     }
 
-/**
-* <b> É responsavel para indicar para onde o sistema ira executar </b>
-* @name controle
-* @param VARCHAR submenu 
-* @return vazio
-*/
-    function controle() {
+    function controle()
+    {
         switch ($this->m_submenu) {
+            case 'inclui':
+                $dados = $this->montarArrayDados();
+                $resultado = $this->incluiParametro($dados);
+                
+                if ($resultado === true) {
+                    echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script>";
+                    echo "<script>Swal.fire({icon: 'success',title: 'Sucesso',width: 510,text: 'Parâmetros cadastrados com sucesso!',timer: 3000,showConfirmButton: false}).then(function(){window.location='?mod=est&form=parametro';});</script>";
+                    exit;
+                } else {
+                    echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script>";
+                    echo "<script>Swal.fire({icon: 'warning',title: 'Atenção',width: 510,text: '".addslashes($resultado)."',confirmButtonText: 'OK'});</script>";
+                }
+                $this->desenhaCadastroParametros();
+                break;
+
             case 'altera':
-                if ($this->verificaDireitoUsuario('EstGrupo', 'A')) {
-                    $this->alteraGrupo();
-                    $this->desenhaCadastroParametros('Registro salvo.', 'sucesso');
-                    
+                $dados = $this->montarArrayDados();
+                $resultado = $this->alteraParametro($dados);
+                
+                if ($resultado === true) {
+                    echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script>";
+                    echo "<script>Swal.fire({icon: 'success',title: 'Sucesso',width: 510,text: 'Parâmetros alterados com sucesso!',timer: 3000,showConfirmButton: false}).then(function(){window.location='?mod=est&form=parametro';});</script>";
+                    exit;
+                } else {
+                    echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script>";
+                    echo "<script>Swal.fire({icon: 'warning',title: 'Atenção',width: 510,text: '".addslashes($resultado)."',confirmButtonText: 'OK'});</script>";
+                }
+                $this->desenhaCadastroParametros();
+                break;
+
+            case 'excluir':
+                $resultado = $this->excluiParametro($this->filial, $this->modelo);
+                
+                if ($resultado === true) {
+                    echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script>";
+                    echo "<script>Swal.fire({icon: 'success',title: 'Sucesso',width: 510,text: 'Parâmetro excluído com sucesso!',timer: 3000,showConfirmButton: false}).then(function(){window.location='?mod=est&form=parametro';});</script>";
+                    exit;
+                } else {
+                    echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script>";
+                    echo "<script>Swal.fire({icon: 'warning',title: 'Atenção',width: 510,text: '".addslashes($resultado)."',confirmButtonText: 'OK'}).then(function(){window.location='?mod=est&form=parametro';});</script>";
+                    exit;
                 }
                 break;
+
+            case 'cadastro':
+                $this->desenhaCadastroParametros();
+                break;
+
+            case 'alterar':
+                $this->desenhaCadastroParametros();
+                break;
+
+            case 'consulta':
+                $this->desenhaMostraParametros();
+                break;
+
             default:
-                if ($this->verificaDireitoUsuario('EstGrupo', 'C')) {
-                    $this->setParametro();
-                    $this->desenhaCadastroParametros('');
-                }
+                $this->desenhaMostraParametros();
         }
     }
 
-
-    function desenhaCadastroParametros($mensagem = NULL,$tipoMsg=NULL) {
-
-        $this->smarty->assign('pathImagem', $this->img);
-        $this->smarty->assign('subMenu', $this->m_submenu);
-        $this->smarty->assign('letra', $this->m_letra);
+    /**
+     * Desenha tela de listagem/mostra dos parâmetros
+     */
+    function desenhaMostraParametros($mensagem = null, $tipoMsg = null)
+    {
+        // Buscar dados para listagem
+        if ($this->id) {
+            $dados = $this->selecionaParametrosFiltrados($this->id);
+        } else {
+            $dados = $this->selecionaTodosParametros();
+        }
+        
+        // Usar $lanc seguindo padrão ADM v4.5
+        $this->smarty->assign('lanc', $dados);
+        $this->smarty->assign('filtro_empresa', $this->filtro_empresa);
         $this->smarty->assign('mensagem', $mensagem);
         $this->smarty->assign('tipoMsg', $tipoMsg);
+        
+        // Passar variáveis de contexto para o template
+        $this->smarty->assign('mod', 'est');
+        $this->smarty->assign('form', 'parametro');
+        $this->smarty->assign('SCRIPT_NAME', $_SERVER['SCRIPT_NAME']);
+        $this->smarty->assign('letra', $_GET['letra'] ?? '');
+        $this->smarty->assign('subMenu', $this->m_submenu);
+        
+        $this->smarty->display('parametro_mostra.tpl');
+    }
 
-        $this->smarty->assign('id', $this->getId());
-        $this->smarty->assign('cfop', $this->getCfop());
-        $this->smarty->assign('natOperacao', $this->getNatOp());
-        $this->smarty->assign('serie', $this->getSerie());
+    /**
+     * Desenha tela de cadastro/alteração dos parâmetros
+     */
+    function desenhaCadastroParametros($mensagem = null, $tipoMsg = null, $dados = null)
+    {
+        if ($dados === null) {
 
-        // COMBOBOX CONDICAO PAGAMENTO
-        $consulta = new c_banco();
-        $sql = "SELECT * FROM fat_cond_pgto;";
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
-        $result = $consulta->resultado;
-        for ($i = 0; $i < count($result); $i++) {
-            $condPgto_ids[$i] = $result[$i]['ID'];
-            $condPgto_names[$i] = $result[$i]['DESCRICAO'];
+            if ($this->id) {
+                // Modo alteração - buscar dados específicos
+                $dados = $this->selecionaParametro($this->id);
+                $this->smarty->assign('dados',  $dados ?? []);
+            } else {
+                // Modo cadastro
+                $this->smarty->assign('dados', []);
+            }
         }
-        $this->smarty->assign('condPgto_ids', $condPgto_ids);
-        $this->smarty->assign('condPgto_names', $condPgto_names);
-        $this->smarty->assign('condPgto_id', $this->getCondPgto());
+
+        // ######## Buscar dados para os combos ########
+
+        // Buscar dados para o combo de empresas
+        $empresa = $this->selecionaEmpresas();
+        $this->smarty->assign('empresas_ids', $empresa['id']);
+        $this->smarty->assign('empresas_names', $empresa['text']);
+        $this->smarty->assign('empresa_id', $dados['ID'] ?? '');
+
+        // Buscar dados para o combo de serviços
+        $servicos = $this->selecionaServicos();
+        $this->smarty->assign('servicos_ids', $servicos['id']);
+        $this->smarty->assign('servicos_names', $servicos['text']);
+        $this->smarty->assign('servico_id', $dados['NFS_SERVICO'] ?? '');
+
+        // Buscar dados para o combo de situações tributárias
+        $situacoes_tributarias = $this->selecionaSituacaoTributaria();
+        $this->smarty->assign('situacao_tributaria_ids', $situacoes_tributarias['id']);
+        $this->smarty->assign('situacao_tributaria_names', $situacoes_tributarias['text']);
+        $this->smarty->assign('situacao_tributaria_id', $dados['NFS_SITUACAO_TRIBUTARIA'] ?? '');
+
+        // Buscar dados para o combo de parcelas
+        $parcelas = $this->selecionaParcelas();
+        $this->smarty->assign('parcelas_ids', $parcelas['id']);
+        $this->smarty->assign('parcelas_names', $parcelas['text']);
+        $this->smarty->assign('parcela_id', $dados['NFS_PARCELA'] ?? '');
+
+
+        // FALTA AJUSTAR OS COMBOS 
+        $condicoes_pagamento = $this->selecionaCondicoesPagamento();
+        $generos = $this->selecionaGeneros();
+        $contas = $this->selecionaContas();
+        $grupos = $this->selecionaGrupos();
+        $clientes = $this->selecionaClientes();
+        $centros_custo = $this->selecionaCentrosCusto();
+
+
+        $this->smarty->assign('condicoes_pagamento', $condicoes_pagamento);
+        $this->smarty->assign('generos', $generos);
+        $this->smarty->assign('contas', $contas);
+        $this->smarty->assign('grupos', $grupos);
+        $this->smarty->assign('clientes', $clientes);
+        $this->smarty->assign('centros_custo', $centros_custo);
+        $this->smarty->assign('parcelas', $parcelas);
         
+        $this->smarty->assign('mensagem', $mensagem);
+        $this->smarty->assign('tipoMsg', $tipoMsg);
         
-        // COMBOBOX GENERO
-        $consulta = new c_banco();
-        $sql = "SELECT GENERO AS ID, DESCRICAO FROM fin_genero ORDER BY descricao;";
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
-        $result = $consulta->resultado;
-        for ($i = 0; $i < count($result); $i++) {
-            $genero_ids[$i] = $result[$i]['ID'];
-            $genero_names[$i] = $result[$i]['DESCRICAO'];
-        }
-        $this->smarty->assign('genero_ids', $genero_ids);
-        $this->smarty->assign('genero_names', $genero_names);
-        $this->smarty->assign('genero_id', $this->getGenero());
-        
-        // COMBOBOX CONTA
-        $consulta = new c_banco();
-        $sql = "SELECT conta as id, nomeinterno as descricao FROM fin_conta ORDER BY nomeinterno;";
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
-        $result = $consulta->resultado;
-        for ($i = 0; $i < count($result); $i++) {
-            $conta_ids[$i] = $result[$i]['ID'];
-            $conta_names[$i] = $result[$i]['DESCRICAO'];
-        }
-        $this->smarty->assign('conta_ids', $conta_ids);
-        $this->smarty->assign('conta_names', $conta_names);
-        $this->smarty->assign('conta_id', $this->getConta());
+        // Passar variáveis de contexto para o template
+        $this->smarty->assign('mod', 'est');
+        $this->smarty->assign('form', 'parametro');
+        $this->smarty->assign('submenu', $this->m_submenu);
         
         $this->smarty->display('parametro_cadastro.tpl');
     }
-
-
-
-//fim mostragrupos
-//-------------------------------------------------------------
 }
 
-//	END OF THE CLASS
-// Rotina principal - cria classe
-$par = new p_parametro($_POST['submenu'], $_POST['letra']);
-
-if (isset($_POST['id'])) { $par->setId($_POST['id']); } else {$par->setId('');};
-if (isset($_POST['cfop'])) { $par->setCfop($_POST['cfop']); } else {$par->setCfop('');};
-if (isset($_POST['natOperacao'])) { $par->setNatOp($_POST['natOperacao']); } else {$par->setNatOp('');};
-if (isset($_POST['condPgto'])) { $par->setCondPgto($_POST['CondPgto']); } else {$par->setCondPgto('');};
-if (isset($_POST['genero'])) { $par->setGenero($_POST['genero']); } else {$par->setGenero('');};
-if (isset($_POST['conta'])) { $par->setConta($_POST['conta']); } else {$par->setConta('');};
-if (isset($_POST['serie'])) { $par->setSerie($_POST['serie']); } else {$par->setserie('');};
-
-$par->controle();
-?>
+// Execução principal
+$parametro = new p_parametro();
+$parametro->controle();

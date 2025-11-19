@@ -31,6 +31,7 @@ class p_pedido_ps extends c_pedido_ps
     private $m_vlrVisita    = NULL;
     private $m_vlrDesconto  = NULL;
     private $m_situacoesAtendimento  = NULL;
+    private $m_vendedorSelected  = NULL;
     public $smarty          = NULL;
     public $m_letra_peca    = NULL;
     public $m_letra_servico = NULL;
@@ -86,6 +87,8 @@ class p_pedido_ps extends c_pedido_ps
         $this->m_letra_peca    = $parmPost['letra_peca'];
         $this->m_letra_servico = $parmPost['letra_servico'];
         $this->m_situacoesAtendimento = $parmPost['situacoesAtendimento'];
+        $this->m_vendedorSelected = $parmPost['vendedorSelected'];
+        $this->m_condPagSelected = $parmPost['condPagamentoSelected'];
         $this->m_param = $parmPost['param'];
         $this->m_cliente = isset($parmPost['pessoa']) ? $parmPost['pessoa'] : ''; // Add this line
 
@@ -136,7 +139,7 @@ class p_pedido_ps extends c_pedido_ps
         $this->setObra(isset($parmPost['obra']) ? $parmPost['obra'] : NULL);
         $this->setResponsavelTecnico(isset($parmPost['responsavel_tecnico']) ? $parmPost['responsavel_tecnico'] : NULL);
         $this->setEnderecoEntrega(isset($parmPost['endereco_entrega']) ? $parmPost['endereco_entrega'] : NULL);
-
+        $this->setUsrAbertura(isset($parmPost['usrAbertura']) ? $parmPost['usrAbertura'] : '');
 
         //=========================PECAS==================================
         $this->setNrItem(isset($parmPost['nrItem']) ? $parmPost['nrItem'] : '');
@@ -295,6 +298,12 @@ class p_pedido_ps extends c_pedido_ps
                     $this->setDesconto($desconto);
                     $this->desenhaCadastroPedidoPs();
                 }
+                break;
+            
+            case 'prosseguirComDesconto':
+                $situacao = $this->prosseguirComDesconto();
+                $response = array('situacao' => $situacao);
+                echo json_encode($response);
                 break;
             case 'cadastrarCarrinho':
                 if ($this->verificaDireitoUsuario('PedVendas', 'I')) {
@@ -573,7 +582,18 @@ class p_pedido_ps extends c_pedido_ps
                     $this->setEspecie("D");
                     $this->setIdNatop("1");
                     $idPedido = $this->incluiPedido();
-                    $this->setId($idPedido);
+                    if (intval($idPedido) > 0) {
+                        $this->setId($idPedido);
+                    } else {
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro ao incluir',
+                                text: 'Ocorreu um erro ao cadastrar o pedido. Tente novamente.'
+                            });
+                        </script>";
+                        return;
+                    }
                     $this->updateField("PEDIDO", $this->getId(), "FAT_PEDIDO");
                     $this->smarty->assign('id', $this->getId());
                 } else {
@@ -863,9 +883,13 @@ class p_pedido_ps extends c_pedido_ps
         $consulta->exec_sql($sql);
         $consulta->close_connection();
         $result = $consulta->resultado;
+        // Primeira posição vazia
+        $usrAbertura_ids[0] = '';
+        $usrAbertura_names[0] = '';
+        
         for ($i = 0; $i < count($result); $i++) {
             $usrAbertura_ids[$i + 1] = $result[$i]['USUARIO'];
-            $usrAbertura_names[$i] = $result[$i]['NOME'];
+            $usrAbertura_names[$i + 1] = $result[$i]['NOME'];
         }
         $this->smarty->assign('usrAbertura_ids',   $usrAbertura_ids);
         $this->smarty->assign('usrAbertura_names', $usrAbertura_names);
@@ -945,6 +969,13 @@ class p_pedido_ps extends c_pedido_ps
         $casasDecimais = $parametros->getCasasDecimais();
         $this->smarty->assign('casasDecimais', $casasDecimais);
 
+        // Busca parâmetro CONTROLEVENDEDOR
+        $controleVendedor = $parametros->getControleVendedor();
+        $this->smarty->assign('controleVendedor', $controleVendedor);
+         // Verifica se o usuário tem permissão para alterar vendedor (admin/gerente)
+        $permiteAlterarVendedor = $this->verificaDireitoUsuario('PEDPERMITEALTERARVENDEDOR', 'S', 'N');
+        $this->smarty->assign('permiteAlterarVendedor', $permiteAlterarVendedor);
+
         $this->smarty->display('pedido_ps_cadastro.tpl');
     }
 
@@ -960,7 +991,7 @@ class p_pedido_ps extends c_pedido_ps
 
         $cliente = '';
         if ($this->m_letra != ''):
-            $lanc = $this->select_pedido_letra($this->m_letra, $this->m_situacoesAtendimento);
+            $lanc = $this->select_pedido_letra($this->m_letra, $this->m_situacoesAtendimento, $this->m_vendedorSelected, $this->m_condPagSelected);
         endif;
 
         if ($this->m_par[0] == "") $this->smarty->assign('dataIni', date("01/m/Y"));
@@ -1048,8 +1079,20 @@ class p_pedido_ps extends c_pedido_ps
         } else {
             //$sql = "SELECT USUARIO AS ID, NOME AS DESCRICAO FROM AMB_USUARIO WHERE TIPO = 'V'";
             $sql = "SELECT USUARIO AS ID, NOME AS DESCRICAO FROM AMB_USUARIO ";
+            
+            // Prepara vendedores selecionados
+            $vendedorSelecionado = array();
+            if (!empty($this->m_vendedorSelected)) {
+                $parVend = explode("|", $this->m_vendedorSelected);
+                for ($i = 1; $i < count($parVend); $i++) {
+                    if (!empty($parVend[$i])) {
+                        $vendedorSelecionado[] = $parVend[$i];
+                    }
+                }
+            }
+            
             $this->comboSql($sql, $this->m_par[5], $vendedor_id, $vendedor_ids, $vendedor_names);
-            $this->smarty->assign('vendedor_id', $vendedor_id);
+            $this->smarty->assign('vendedor_id', !empty($vendedorSelecionado) ? $vendedorSelecionado : $vendedor_id);
             $this->smarty->assign('vendedor_ids',   $vendedor_ids);
             $this->smarty->assign('vendedor_names', $vendedor_names);
         }

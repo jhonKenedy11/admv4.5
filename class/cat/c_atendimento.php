@@ -88,6 +88,8 @@ class c_atendimento extends c_user
     private $descServico         = NULL;
     private $valorTotalServico = NULL;
     private $quantidadeExecutada = NULL;
+    private $fatPedidoServicoId = NULL;
+
 
 
     //construtor
@@ -957,6 +959,15 @@ class c_atendimento extends c_user
         }
     }
 
+    function setFatPedidoServicoId($fatPedidoServicoId)
+    {
+        $this->fatPedidoServicoId = $fatPedidoServicoId;
+    }
+
+    function getFatPedidoServicoId()
+    {
+        return $this->fatPedidoServicoId;
+    }
     //===============FIM-SERVICO=========================
 
 
@@ -1367,6 +1378,7 @@ class c_atendimento extends c_user
             'DESCSERVICO'          => $this->getDescricaoServico(),
             'TOTALSERVICO'         => $this->getTotalServico('N'),
             'CAT_ATENDIMENTO_ID'   => $this->getIdAtendimentoServico(),
+            'FAT_PEDIDO_SERVICO_ID' => $this->getFatPedidoServicoId(),
             'CREATED_USER'          => $this->m_userid
         ];
 

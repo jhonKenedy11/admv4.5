@@ -184,7 +184,7 @@ class admMail{
         // }
     }
 
-    public function SendMail2($host, $remetente, $nomeRemetente, $senha, $mensagem, $assunto, $emailDestinatario, $nomeDestinatario, $emailCC, $nomeCC, $Attachment1, $Attachment2 ){
+    public function SendMail2($host, $remetente, $nomeRemetente, $senha, $mensagem, $assunto, $emailDestinatario, $nomeDestinatario, $emailCC = null, $nomeCC = null, $Attachment1, $Attachment2, $Attachment3 = null, $port = null, $param = null){
 
         //Authenticate via POP3.
         //After this you should be allowed to submit messages over SMTP for a few minutes.
@@ -204,27 +204,48 @@ class admMail{
             $mail->Username = $remetente;                         // SMTP username
             $mail->Password = $senha;                             // SMTP password
             $mail->SMTPSecure = 'TLS';                            // Enable TLS encryption, `ssl` also accepted
-            $mail->Port = 587;                                    // TCP port to connect to
+            $mail->Port = $port;                                    // TCP port to connect to
+            if ($emailCC != ""){
+                $mail->addBCC($emailCC, $nomeCC);               // Name is optional
+            }
         //  $mail->Port = 25;                                    // TCP port to connect to
 
             //Recipients
             $mail->setFrom($remetente, $nomeRemetente);
-            $mail->addAddress($emailDestinatario, $nomeDestinatario);     // Add a recipient
-            //$mail->addAddress($emailCC, $nomeCC);               // Name is optional
+            
+            // Suporte para múltiplos destinatários separados por ;
+            if($param == 'several'){
+                $destis = explode(';', $emailDestinatario);
+                foreach($destis as $dest){
+                    $destinatario = trim($dest);
+                    if (!empty($destinatario)) {
+                        $mail->addAddress($destinatario);
+                    }
+                }
+            } else {
+                $mail->addAddress($emailDestinatario, $nomeDestinatario);
+            }
+                 // Add a recipient
+            //$mail->addAddress($emailCC, $nomeCC);       
+            // Name is optional
+        //    $mail->addBCC('email1@exemplo.com.br');
         //    $mail->addReplyTo('info@example.com', 'Information');
         //    $mail->addCC('cc@example.com');
-        //    $mail->addBCC('bcc@example.com');
 
             //Attachments
-            $mail->addAttachment($Attachment1);         // Add attachments
+            $mail->addAttachment($Attachment1);    // Add attachments
             $mail->addAttachment($Attachment2);    // Optional name
+            if ($Attachment3) {
+                // Garante que o arquivo existe e está acessível antes de anexar
+                clearstatcache(true, $Attachment3);
+                $mail->addAttachment($Attachment3);    // Terceiro anexo - boleto
+            }
 
             //Content
             $mail->isHTML(false);                                  // Set email format to HTML / alterado para false 02/07/2019
             $mail->Subject = $assunto;
             $mail->Body    = $mensagem;
             $mail->AltBody = $assunto;
-
             $result = $mail->send();
             return $result;
         } catch (Exception $e) {

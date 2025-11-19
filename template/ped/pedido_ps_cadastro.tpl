@@ -263,10 +263,16 @@
                                 <div class="col-lg-2 col-sm-6 col-xs-6 text-left line-formated">
                                     <label>Vendedor</label>
                                     <div class="panel panel-default small line-formated">
-                                        <select name="usrAbertura" class="form-control input-sm" title="Atendente"
-                                            alt="Atendente">
-                                            {html_options values=$usrAbertura_ids selected=$usrAbertura output=$usrAbertura_names}
-                                        </select>
+                                        {if $controleVendedor == 1 && $permiteAlterarVendedor == false}
+                                            <select name="usrAberturaDisabled" class="form-control input-sm" title="Atendente" alt="Atendente" disabled>
+                                                <option value="{$usrAbertura}" selected>{$usrAbertura_names[$usrAbertura]}</option>
+                                            </select>
+                                            <input type="hidden" name="usrAbertura" value="{$usrAbertura}">
+                                        {else}
+                                            <select name="usrAbertura" class="form-control input-sm" title="Atendente" alt="Atendente">
+                                                {html_options values=$usrAbertura_ids selected=$usrAbertura output=$usrAbertura_names}
+                                            </select>
+                                        {/if}
                                     </div>
                                 </div>
                                 <div class="col-lg-6 col-sm-6 col-xs-6 text-left line-formated" id="div_cond_pgto">
@@ -380,16 +386,19 @@
                             </div>
 
                             <div class="col-md-2 col-sm-6 col-xs-6">
-                                <label for="desconto">Desconto</label>
+                                <label for="desconto">Desconto 
+                                    <i class="fa fa-info-circle" style="color: #6c757d; cursor: help;" 
+                                       data-toggle="tooltip" 
+                                       title="Não é possível aplicar desconto nas seguinte situações: Pedido ou Emitir NF! E se o valor total for zero"></i>
+                                </label>
                                 <div class="input-group">
                                     <span class="input-group-btn">
                                         <button class="btn btn-default btn-sm not-active" tabindex="-1"
                                             type="button">R$</button>
                                     </span>
                                     <input class="form-control input-sm money" placeholder="Desconto."
-                                        id="valorDesconto" name="valorDesconto" {if $situacao == 6 or $situacao == 3}
-                                        readonly {else} onClick="javascript:guardaValorAnt();"
-                                        onchange="javascript:atualizarInfo();" {/if} value="{$valorDesconto}">
+                                        id="valorDesconto" name="valorDesconto"  onClick="javascript:guardaValorAnt();"
+                                        onchange="javascript:atualizarInfo();" value="{$valorDesconto}">
                                 </div>
                             </div>
                             <div class="col-md-2 col-sm-6 col-xs-6">
@@ -828,6 +837,8 @@
         $('#prazoEntrega').daterangepicker({
             singleDatePicker: true,
             calender_style: "picker_1",
+            autoUpdateInput: false,
+            autoApply: true,
             locale: {
                 format: 'DD/MM/YYYY',
                 daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
@@ -836,6 +847,16 @@
                 ],
             }
 
+        });
+
+        // Preenche o campo apenas quando o usuário selecionar uma data
+        $('#prazoEntrega').on('apply.daterangepicker', function(ev, picker) {
+            $(this).val(picker.startDate.format('DD/MM/YYYY'));
+        });
+
+        // Limpa o campo quando o usuário cancelar
+        $('#prazoEntrega').on('cancel.daterangepicker', function(ev, picker) {
+            $(this).val('');
         });
 
         $('#prazoEntregaOs').daterangepicker({
@@ -882,15 +903,42 @@
 
 <script>
 window.addEventListener('DOMContentLoaded', function() {
+    // Ativa tooltips do Bootstrap
+    $('[data-toggle="tooltip"]').tooltip();
+    
     var valorTotal = document.getElementById('valorTotal');
     var valorDesconto = document.getElementById('valorDesconto');
+    var situacaoSelect = document.querySelector('select[name="situacao"]');
+    
     function check() {
         var v = valorTotal.value.replace(/\./g, '').replace(',', '.');
-        valorDesconto.readOnly = (v === '' || isNaN(parseFloat(v)) || parseFloat(v) === 0);
+        var totalZerado = (v === '' || isNaN(parseFloat(v)) || parseFloat(v) === 0);
+        
+        // Verifica se a situação é Faturado ou Emitir NF
+        var situacaoAtual = situacaoSelect ? situacaoSelect.value : '0';
+        var situacaoBloqueada = (situacaoAtual == '6' || situacaoAtual == '3');
+        
+        // Campo fica readonly se: total zerado OU situação bloqueada
+        valorDesconto.readOnly = (totalZerado || situacaoBloqueada);
+        
+        // Adiciona classe visual quando bloqueado por situação
+        if (situacaoBloqueada) {
+            $(valorDesconto).addClass('not-active').css('background-color', '#f5f5f5');
+        } else if (totalZerado) {
+            $(valorDesconto).addClass('not-active').css('background-color', '#f5f5f5');
+        } else {
+            $(valorDesconto).removeClass('not-active').css('background-color', '');
+        }
     }
+    
     check();
     valorTotal.addEventListener('input', check);
     valorTotal.addEventListener('change', check);
+    
+    // Monitora mudança na situação
+    if (situacaoSelect) {
+        situacaoSelect.addEventListener('change', check);
+    }
 });
 </script>
 <script>

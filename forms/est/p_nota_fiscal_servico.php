@@ -49,6 +49,8 @@ class p_nota_fiscal_servico extends c_nota_fiscal_servico
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('admClass', ADMclass);
         $this->smarty->assign('raizCliente', $this->raizCliente);
+        $this->smarty->assign('pathCliente', ADMhttpCliente);
+        $this->smarty->assign('pathSweet', ADMhttpCliente . '/../sweetalert2');
 
         // dados para exportacao e relatorios
         $this->smarty->assign('titulo', "Nota Fiscal de Serviço");
@@ -80,11 +82,7 @@ class p_nota_fiscal_servico extends c_nota_fiscal_servico
             case 'mostra':
                 $this->mostraNotaFiscalServico('');
                 break;
-            case 'enviarNotaFiscalServico':
-
-                $this->mostraNotaFiscalServico('');
-                break;
-            case 'enviarNotaFiscalServicoContrato': 
+            case 'enviarNotaFiscalServico': 
 
                 $this->typeFramework();
 
@@ -99,7 +97,8 @@ class p_nota_fiscal_servico extends c_nota_fiscal_servico
     function mostraNotaFiscalServico($mensagem){
         $this->smarty->assign('dataAtual', strftime('%A, %d de %B de %Y', strtotime('today')));
         $this->smarty->assign('pathImagem', ADMimg);
-        $this->smarty->assign('subMenu', $this->m_submenu);
+        $this->smarty->assign('submenu', $this->m_submenu);
+        $this->smarty->assign('pathCliente', ADMhttpCliente);
         $this->smarty->assign('dataImp', date("d/m/Y H:i:s"));
         
         $this->smarty->display('nota_fiscal_servico_mostra.tpl');
@@ -108,7 +107,7 @@ class p_nota_fiscal_servico extends c_nota_fiscal_servico
     function cadastrarNotaFiscalServico($mensagem){
         $this->smarty->assign('dataAtual', strftime('%A, %d de %B de %Y', strtotime('today')));
         $this->smarty->assign('pathImagem', ADMimg);
-        $this->smarty->assign('subMenu', $this->m_submenu);
+        $this->smarty->assign('submenu', $this->m_submenu);
         $this->smarty->assign('dataImp', date("d/m/Y H:i:s"));
         
         $this->smarty->display('nota_fiscal_servico_cadastro.tpl');

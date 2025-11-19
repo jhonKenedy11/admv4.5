@@ -256,13 +256,13 @@
                   {/if}
                   <td> <input type="checkBox" name="lancChecked" id="{$lanc[i].ID}" /> </td>
                   <td> {$lanc[i].NOME} </td>
-                  <td> {$lanc[i].DOCTO}-{$lanc[i].SERIE}-{$lanc[i].PARCELA} / {$lanc[i].ORIGEM}-{$lanc[i].NUMLCTO}</td>
+                  <td> {$lanc[i].DOCTO}-{$lanc[i].SERIE}-{$lanc[i].PARCELA}/{$lanc[i].TOTALPARCELAS} / {$lanc[i].ORIGEM}-{$lanc[i].NUMLCTO}</td>
                   <td> {$lanc[i].SITUACAOPGTO} </td>
                   <td> {$lanc[i].FILIAL} </td>
                   <td> {$lanc[i].DESCGENERO} </td>
-                  <td> {$lanc[i].EMISSAO|date_format:"%e %b, %Y"} </td>
-                  <td> {$lanc[i].VENCIMENTO|date_format:"%e %b, %Y"} </td>
-                  <td> {$lanc[i].PAGAMENTO|date_format:"%e %b, %Y"} </td>
+                  <td> {$lanc[i].EMISSAO|date_format:"%d/%m/%Y"} </td>
+                  <td> {$lanc[i].VENCIMENTO|date_format:"%d/%m/%Y"} </td>
+                  <td> {$lanc[i].PAGAMENTO|date_format:"%d/%m/%Y"} </td>
                   <td>{$lanc[i].TOTAL|number_format:2:",":"."} </td>
                   <td class="invis">{$lanc[i].PESSOAID} |
                     {$lanc[i].TIPOLANCAMENTO}|{$lanc[i].MULTA|number_format:2:",":"."} |
@@ -272,15 +272,17 @@
                     <button type="button" class="btn btn-primary btn-xs"
                       onclick="javascript:submitAlterar('{$lanc[i].ID}');"><span class="glyphicon glyphicon-pencil"
                         aria-hidden="true" title="Editar"></span></button>
+                    {if $lanc[i].TIPODOCTO eq 'B'}
                     <button type="button" class="btn btn-warning btn-xs"
                       onclick="javascript:abrir('{$pathCliente}/index.php?mod=blt&form=boleto_imprime&opcao=blank&letra={$lanc[i].ID}');">
                       <span class="glyphicon glyphicon-barcode" aria-hidden="true" title="Boleto"></span></button>
+                    {/if}
                     <button type="button" class="btn btn-info btn-xs"
                       onclick="javascript:abrir('{$pathCliente}/index.php?mod=fin&form=rel_recibo_imprime&opcao=imprimir&id={$lanc[i].ID}');">
-                      <span class="glyphicon glyphicon-barcode" aria-hidden="true" title="Recibo"></span></button>
+                      <span class="glyphicon glyphicon-file" aria-hidden="true" title="Recibo"></span></button>
                     <button type="button" class="btn btn-success btn-xs"
                       onclick="javascript:abrir('{$pathCliente}/index.php?mod=fin&form=rel_duplicata_imprime&opcao=imprimir&id={$lanc[i].ID}');">
-                      <span class="glyphicon glyphicon-barcode" aria-hidden="true" title="Duplicata"></span></button>
+                      <span class="glyphicon glyphicon-duplicate" aria-hidden="true" title="Duplicata"></span></button>
                     <button type="button" class="btn btn-info btn-xs"
                       onclick="javascript:abrir('{$pathCliente}/index.php?mod=fin&form=rel_slip_imprime&opcao=imprimir&id={$lanc[i].ID}');">
                       <span class="glyphicon glyphicon-print" aria-hidden="true" title="Slip"></span></button>

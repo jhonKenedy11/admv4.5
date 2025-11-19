@@ -135,7 +135,9 @@ function mountParameters()
             if (element.name) {
                 if (element.tagName === 'SELECT' && element.multiple) {
 
-                    const selectedOptions = Array.from(element.selectedOptions).map(option => option.value);
+                    const selectedOptions = Array.from(element.selectedOptions)
+                        .map(option => option.value)
+                        .filter(value => value !== '' && value !== 'Selecione a Obra' && value !== 'Selecione um cliente primeiro');
 
                     params[element.name] = selectedOptions;
 
@@ -331,6 +333,16 @@ function controlInputsReportItemEntrega()
         
         $('#tipo_entrega').prop('disabled', false);
     }
+
+    // select obra - desabilitado por padrão até selecionar cliente
+    $('#obra').prop('disabled', true);
+    $('#obra').html('');
+    $('#obra').select2('destroy').select2({
+        placeholder: "Selecione um cliente primeiro",
+        allowClear: true,
+        width: "100%",
+        disabled: true
+    });
 }
 
 
@@ -408,6 +420,16 @@ function controlInputsReportItem()
             width: "100%"
         });
     }
+
+    // select obra - desabilitado por padrão até selecionar cliente
+    $('#obra').prop('disabled', true);
+    $('#obra').html('');
+    $('#obra').select2('destroy').select2({
+        placeholder: "Selecione um cliente primeiro",
+        allowClear: true,
+        width: "100%",
+        disabled: true
+    });
 }
 
 
@@ -498,16 +520,16 @@ function controlInputsReportBonus()
     }
 
     // select situacao
-    if(!$('#situacao').prop('disabled')){
+//    if(!$('#situacao').prop('disabled')){
 
-        $('#situacao').prop('disabled', true);
+  //      $('#situacao').prop('disabled', true);
 
-        $("#situacao.select2_multiple").select2({
-            placeholder: "Desabilitado para o relatório selecionado",
-            allowClear: true,
-            width: "100%"
-        });
-    }
+    //    $("#situacao.select2_multiple").select2({
+      //      placeholder: "Desabilitado para o relatório selecionado",
+            //allowClear: true,
+            //width: "100%"
+        //});
+    //}
 
     // select centro custo
     if($('#centro_custo').prop('disabled')){
@@ -539,7 +561,7 @@ function controlInputsReportBonus()
         $('#vendedor').prop('disabled', false);
     }
 
-    // select condicao de pagamento
+/*     // select condicao de pagamento
     if(!$('#condicao_pagamento').prop('disabled')){
         $('#condicao_pagamento').prop('disabled', true);
 
@@ -548,7 +570,7 @@ function controlInputsReportBonus()
             allowClear: true,
             width: "100%"
         });
-    }
+    } */
     
     // select tipo entrega
     if(!$('#tipo_entrega').prop('disabled')){
@@ -638,6 +660,15 @@ function controlInputsReportVendas()
         });
     }
 
+    // select obra
+    if($('#obra').prop('disabled')){
+        
+        $('#obra').prop('disabled', false);
+    } else {
+
+        $('#obra').prop('disabled', false);
+    }
+
 }
 function controlInputsReportCondPagamento()
 {
@@ -710,6 +741,15 @@ function controlInputsReportCondPagamento()
             allowClear: true,
             width: "100%"
         });
+    }
+
+    // select obra
+    if($('#obra').prop('disabled')){
+        
+        $('#obra').prop('disabled', false);
+    } else {
+
+        $('#obra').prop('disabled', false);
     }
 
 }
@@ -789,6 +829,15 @@ function controlInputsReportSintetica()
         });
     }
 
+    // select obra
+    if($('#obra').prop('disabled')){
+        
+        $('#obra').prop('disabled', false);
+    } else {
+
+        $('#obra').prop('disabled', false);
+    }
+
 }
 
 function Cancelar() {
@@ -803,9 +852,53 @@ function abrir(pag) {
         "toolbar=no,location=no,menubar=no,width=950,height=750,scrollbars=yes"
     );
 }
+// Função para carregar obras via AJAX baseado no cliente selecionado
+function carregarObrasRelatorios(clienteId) {
+    if (!clienteId || clienteId === '') {
+        $('#obra').html('');
+        $('#obra').prop('disabled', true);
+        $('#obra').select2('enable', false);
+        return;
+    }
+    
+    $.ajax({
+        type: "POST",
+        url: "index.php?mod=ped&form=pedido_relatorios&opcao=blank",
+        data: {
+            cliente_id: clienteId,
+            submenu: 'ajax_obra'
+        },
+        success: function(response) {
+            // Controla visibilidade e carrega obras
+            if (response.obras === null || response.obras.length === 0) {
+                $('#obra').html('');
+                $('#obra').prop('disabled', true);
+                $('#obra').select2('enable', false);
+            } else {
+                $('#obra').html('');
+                $.each(response.obras, function(index, obra) {
+                    $('#obra').append('<option value="' + obra.ID + '">' + obra.PROJETO + '</option>');
+                });
+                $('#obra').prop('disabled', false);
+                // Re-inicializa o Select2 para habilitar corretamente
+                $('#obra').select2('destroy').select2({
+                    placeholder: "Selecione a Obra",
+                    allowClear: true,
+                    width: "100%"
+                });
+            }
+        },
+                error: function() {
+                    $('#obra').html('');
+                    $('#obra').prop('disabled', true);
+                    $('#obra').select2('enable', false);
+        }
+    });
+}
+
 function limparCampos() {
 
-    const namesSelect = ["situacao", "centro_custo", "motivo", "vendedor", "condicao_pagamento", "tipo_entrega"];
+    const namesSelect = ["situacao", "centro_custo", "motivo", "vendedor", "condicao_pagamento", "tipo_entrega", "obra"];
    
     if (document.getElementById("cliente_nome")){
         document.getElementById("cliente_nome").value = '';
@@ -814,6 +907,19 @@ function limparCampos() {
     nomeRelatorio
     if (document.getElementById("cliente_id")){
         document.getElementById("cliente_id").value = '';
+    }
+
+    // Limpa e desabilita o campo de obras
+    if (document.getElementById("obra")){
+        document.getElementById("obra").innerHTML = '';
+        document.getElementById("obra").disabled = true;
+        // Re-inicializa o Select2 desabilitado
+        $('#obra').select2('destroy').select2({
+            placeholder: "Selecione um cliente primeiro",
+            allowClear: true,
+            width: "100%",
+            disabled: true
+        });
     }
 
     if (document.getElementById("data_consulta")) {

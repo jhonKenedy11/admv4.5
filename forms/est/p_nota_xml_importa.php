@@ -1627,16 +1627,9 @@ class p_nota_xml_importa extends c_nota_fiscal
                     $xml->infNFe->det[$i]->prod->xProd = str_replace(["'", '"'], '', $xml->infNFe->det[$i]->prod->xProd); 
                 }
             }else{
-                // Verifica se o elemento det existe antes de acessar seus atributos
-                if (isset($xml->NFe->infNFe->det) && $xml->NFe->infNFe->det !== null) {
-                    $count = $xml->NFe->infNFe->det->attributes()["nItem"];
-                    if ($count && isset($count[0])) {
-                        for($i=0; $i < $count[0]; $i++){
-                            if (isset($xml->NFe->infNFe->det[$i]->prod->xProd)) {
-                                $xml->NFe->infNFe->det[$i]->prod->xProd = str_replace(["'", '"'], '', $xml->NFe->infNFe->det[$i]->prod->xProd); 
-                            }
-                        }
-                    }
+                $count = $xml->NFe->infNFe->det->attributes()["nItem"];
+                for($i=0; $i < $count[0]; $i++){
+                    $xml->NFe->infNFe->det[$i]->prod->xProd = str_replace(["'", '"'], '', $xml->NFe->infNFe->det[$i]->prod->xProd); 
                 }
             }
 

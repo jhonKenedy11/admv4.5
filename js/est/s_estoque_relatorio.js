@@ -43,6 +43,9 @@ function controlInputs(report)
         case "consulta_preco":
             controlInputsConsultaPreco();
             break;
+        case "notas_fiscais":
+            controlInputsNotasFiscais();
+            break;
         }
     }
     
@@ -289,6 +292,26 @@ function controlInputsConsultaPreco()
     $('#ordenacaoEstoque').prop('disabled', true);
 }
 
+function controlInputsNotasFiscais()
+{
+    // Habilitar: Período, Cliente/Fornecedor, Grupo, Situação da NF, Centro de Custo
+    // Desabilitar: Localização, Tipo de Movimento, Tipo de Curva ABC, Ordenação, Produto
+    
+    // Habilitar campos específicos
+    $('#clienteFornecedor').prop('disabled', false);
+    $('#idGrupo').prop('disabled', false);
+    $('#data_consulta').prop('disabled', false);
+    $('#situacaoNF').prop('disabled', false);
+    $('#centroCusto').prop('disabled', false);
+    
+    // Desabilitar campos específicos
+    $('#idLocalizacao').prop('disabled', true);
+    $('#idProduto').prop('disabled', true);
+    $('#tipoMovimento').prop('disabled', true);
+    $('#tipoCurvaABC').prop('disabled', true);
+    $('#ordenacaoEstoque').prop('disabled', true);
+}
+
 function Cancelar() {
     limparCampos();
     $('#modalParametros').modal('hide');
@@ -305,7 +328,7 @@ function limparCampos() {
 
     // Verificar se deve limpar cliente/fornecedor baseado no relatório
     const report = document.getElementById("tipoRelatorio") ? document.getElementById("tipoRelatorio").value : null;
-    const relatoriosComCliente = ['compras', 'tabela_precos', 'movimento_cliente', 'consulta_preco'];
+    const relatoriosComCliente = ['compras', 'tabela_precos', 'movimento_cliente', 'consulta_preco', 'notas_fiscais'];
     
     // Limpar selects básicos (exceto cliente/fornecedor se não for necessário)
     const basicSelects = ["idGrupo", "idLocalizacao", "tipoMovimento", "centroCusto", "situacaoNF", "tipoCurvaABC", "ordenacaoEstoque"];

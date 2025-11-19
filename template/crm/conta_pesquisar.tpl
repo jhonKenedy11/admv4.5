@@ -2,6 +2,33 @@
 .form-control, .x_panel {
     border-radius: 5px;
 }
+
+#btnPedidos {
+    padding: 0;
+    vertical-align: middle !important;
+    text-align: center;
+}
+
+.last {
+    text-align: center;
+    vertical-align: middle !important;
+}
+
+.NoProd {
+    color: #022f51;
+    text-shadow: 0 1px 0 #ccc,
+        0 2px 0 #c9c9c9,
+        0 3px 0 #bbb,
+        0 4px 0 #b9b9b9,
+        0 5px 0 #aaa,
+        0 6px 4px rgba(0, 0, 0, .1),
+        0 0 5px rgba(0, 0, 0, .1),
+        0 1px 3px rgba(0, 0, 0, .3),
+        0 3px 5px rgba(0, 0, 0, .2),
+        0 5px 10px rgba(0, 0, 0, .25),
+        0 10px 10px rgba(0, 0, 0, .2),
+        0 20px 20px rgba(0, 0, 0, .15);
+}
 </style>
     <script type="text/javascript" src="{$pathJs}/crm/s_conta.js"> </script>
         <!-- page content -->
@@ -41,6 +68,8 @@
                         <input name=letra         type=hidden value={$letra}>
                         <input name=submenu       type=hidden value={$subMenu}>
                         <input name=credito       type=hidden value={$credito}>
+                        <input name=check         type=hidden value="">
+                        <input name=checkPedido   type=hidden value="">
 
                         <div class="form-group col-md-8 col-sm-12 col-xs-12">
                             <label>Pessoa</label>
@@ -117,70 +146,144 @@
 
 
 
-        <!-- panel tabela dados -->  
+        <!-- panel tabela dados com abas -->  
         <div class="col-md-12 col-xs-12">
             <div class="x_panel">
-                <!--table id="datatable-responsive" class="table table-striped table-bordered dt-responsive nowrap table-condensed" cellspacing="0" width="100%"-->
-                <table id="datatable-buttons1" class="table table-bordered jambo_table">
-                    <thead>
-                        <tr style="background: #2A3F54; color: white;">
-                            <th>Nome</th>
-                            <th>Nome Reduzido</th>
-                            <th>Cidade</th>
-                            <th>Telefone</th>
-                            <th>Classe</th>
-                            <th style="width: 40px;">Pesquisa</th>
+                <!-- Sistema de Abas -->
+                <ul id="myTab" class="nav nav-tabs bar_tabs" role="tablist">
+                    <li role="presentation" class="{$active1}">
+                        <a href="#tab_content1" id="dados-tab" role="tab" data-toggle="tab" aria-expanded="true">
+                            Pesquisa
+                        </a>
+                    </li>
+                    <li role="presentation" class="{$active2}">
+                        <a href="#tab_content2" role="tab" id="pedidos-tab" data-toggle="tab" aria-expanded="true">
+                            Pedidos
+                        </a>
+                    </li>
+                </ul>
 
-                        </tr>
-                    </thead>
-                    <tbody>
+                <!-- Conteúdo das Abas -->
+                <div id="myTabContent" class="tab-content">
+                    <!-- ABA 1 - PESQUISA -->
+                    <div role="tabpanel" class="tab-pane fade {$active1}" id="tab_content1" aria-labelledby="dados-tab">
+                        <div class="panel-body">
+                            <!--table id="datatable-responsive" class="table table-striped table-bordered dt-responsive nowrap table-condensed" cellspacing="0" width="100%"-->
+                            <table id="datatable-buttons1" class="table table-bordered jambo_table">
+                                <thead>
+                                    <tr style="background: #2A3F54; color: white;">
+                                        <th>Nome</th>
+                                        <th>Nome Reduzido</th>
+                                        <th>Cidade</th>
+                                        <th>Telefone</th>
+                                        <th>Classe</th>
+                                        <th style="width: 40px; text-align: center;">Pesquisa</th>
+                                        <th style="width: 50px; text-align: center;" title="Clique no ícone abaixo e depois na aba PEDIDOS">Pedido</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
 
-                        {section name=i loop=$lanc}
-                            {assign var="total" value=$total+1}
-                            <tr>
-                                <td> {$lanc[i].NOME} </td>
-                                <td> {$lanc[i].NOMEREDUZIDO} </td>
-                                <td> {$lanc[i].CIDADE} - {$lanc[i].UF} </td>
-                                <td> {$lanc[i].FONEAREA} {$lanc[i].FONE} / {$lanc[i].FAXAREA} {$lanc[i].FAX} </td>
-                                <td> {$lanc[i].BLOQUEADO} </td>
-                                
-                                <td class=" last">
-                                    {if $opcao == 'pesquisarAtendimento' }
+                                    {section name=i loop=$lanc}
+                                        {assign var="total" value=$total+1}
+                                        <tr>
+                                            <td> {$lanc[i].NOME} </td>
+                                            <td> {$lanc[i].NOMEREDUZIDO} </td>
+                                            <td> {$lanc[i].CIDADE} - {$lanc[i].UF} </td>
+                                            <td> {$lanc[i].FONEAREA} {$lanc[i].FONE} / {$lanc[i].FAXAREA} {$lanc[i].FAX} </td>
+                                            <td> {$lanc[i].BLOQUEADO} </td>
+                                            
+                                            <td class=" last">
+                                                {if $opcao == 'pesquisarAtendimento' }
 
-                                        <button 
-                                            type="button" 
-                                            class="btn btn-success btn-xs" 
-                                            onclick="javascript:fechaPesquisaAtendimento('{$lanc[i].CLIENTE}', '{$lanc[i].NOME}','{$lanc[i].FONECONTATO}');">
-                                            <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
-                                        </button>
+                                                    <button 
+                                                        type="button" 
+                                                        class="btn btn-success btn-xs" 
+                                                        onclick="javascript:fechaPesquisaAtendimento('{$lanc[i].CLIENTE}', '{$lanc[i].NOME}','{$lanc[i].FONECONTATO}');">
+                                                        <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+                                                    </button>
 
-                                    {elseif $opcao == 'pesquisarRelatorios'}
-                                        
-                                        <button 
-                                            type="button" 
-                                            class="btn btn-success btn-xs" 
-                                            onclick="javascript:fechaPesquisaRelatorios('{$lanc[i].CLIENTE}', '{$lanc[i].NOME}');">
-                                            <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
-                                        </button>
-                                    
-                                    {else}
+                                                {elseif $opcao == 'pesquisarRelatorios'}
+                                                    
+                                                    <button 
+                                                        type="button" 
+                                                        class="btn btn-success btn-xs" 
+                                                        onclick="javascript:fechaPesquisaRelatorios('{$lanc[i].CLIENTE}', '{$lanc[i].NOME}');">
+                                                        <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+                                                    </button>
+                                                
+                                                {else}
 
-                                        {if $lanc[i].BLOQUEADO neq 'BLOQUEADO'}
-                                            <button type="button" class="btn btn-success btn-xs" 
-                                            onclick="javascript:fechaLancamento('{$lanc[i].CLIENTE}', '{$lanc[i].NOME}', '{$opcao}' , '{$lanc[i].CREDITO|number_format:2:",":"."}', '{$lanc[i].CEP}', '{$lanc[i].CODMUNICIPIO}', '{$lanc[i].BLOQUEADO}', '{$lanc[i].ID_REPRESENTANTE}' );">
-                                            <span class="glyphicon glyphicon-ok" aria-hidden="true"></span></button>
-                                        {/if}
+                                                    {if $lanc[i].BLOQUEADO neq 'BLOQUEADO'}
+                                                        <button type="button" class="btn btn-success btn-xs" 
+                                                        onclick="javascript:fechaLancamento('{$lanc[i].CLIENTE}', '{$lanc[i].NOME}', '{$opcao}' , '{$lanc[i].CREDITO|number_format:2:",":"."}', '{$lanc[i].CEP}', '{$lanc[i].CODMUNICIPIO}', '{$lanc[i].BLOQUEADO}', '{$lanc[i].ID_REPRESENTANTE}' );">
+                                                        <span class="glyphicon glyphicon-ok" aria-hidden="true"></span></button>
+                                                    {/if}
 
-                                    {/if}
-                                    
-                                </td>
-                            </tr>
-                        {/section} 
+                                                {/if}
+                                                
+                                            </td>
+                                            
+                                            <td class="last" id="btnPedidos">
+                                                <button type="button" class="btn btn-dark btn-xs"
+                                                        onclick="javascript:submitLetraPesquisa('{$lanc[i].NOME}','{$lanc[i].CLIENTE}','true');">
+                                                    <span class="glyphicon glyphicon-tasks" aria-hidden="true"></span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {/section} 
 
-                    </tbody>
-                </table>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- ABA 2 - PEDIDOS -->
+                    <div role="tabpanel" class="tab-pane fade {$active2} small" id="tab_content2" aria-labelledby="pedidos-tab">
+                        <div class="panel-body">
+                            <div class="x_panel">
+                                {if $existePedido eq 'yes'}
+                                    <table id="datatable-ped" class="table table-bordered jambo_table">
+                                        <thead>
+                                            <tr style="background: #2A3F54; color: white;">
+                                                <th style="width: 50px;">Pedido</th>
+                                                <th>Cliente</th>
+                                                <th>Vendedor</th>
+                                                <th>Emissão</th>
+                                                <th>Total Ped</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {section name=i loop=$resultPed}
+                                                <tr>
+                                                    <td name="total"> {$resultPed[i].ID} </td>
+                                                    <td name="total">
+                                                        {if $resultPed[i].NOMEREDUZIDO neq ''}
+                                                            {$resultPed[i].NOMEREDUZIDO}
+                                                        {else}
+                                                            {$resultPed[i].NOME}
+                                                        {/if}
+                                                    </td>
+                                                    <td name="total"> {$resultPed[i].VENDEDOR} </td>
+                                                    <td name="total"> {$resultPed[i].EMISSAO|date_format:"%d/%m/%Y"} </td>
+                                                    <td name="total"> {$resultPed[i].TOTAL|number_format:2:",":"."} </td>
+                                                </tr>
+                                            {/section}
+                                        </tbody>
+                                    </table>
+                                {elseif $existePedido eq 'no'}
+                                    <div>
+                                        <h4 class="NoProd">
+                                            <center>CLIENTE NÃO POSSUI PEDIDO</center>
+                                        </h4>
+                                    </div>
+                                {else}
+                                    <div><h4></h4></div>
+                                {/if}
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-              </div> <!-- div class="x_content" = inicio tabela -->
             </div> <!-- div class="x_panel" = painel principal-->
           </div> <!-- div class="col-md-12 col-sm-12 col-xs-12 "-->
         </div> <!-- div class="row "-->

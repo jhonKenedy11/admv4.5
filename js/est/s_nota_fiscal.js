@@ -97,6 +97,44 @@ function submitGerarXML(id) {
     f.submit();
 }// submitAlterar
 
+function submitEnviarEmailBoleto(id) {
+    // Confirmação antes de enviar
+    Swal.fire({
+        title: "Confirmar Envio",
+        text: "Deseja realmente enviar o email com a Nota Fiscal e Boleto?",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Sim, enviar",
+        cancelButtonText: "Cancelar",
+    })
+    .then((result) => {
+        if (result.isConfirmed) {
+            // Mostra loader enquanto processa
+            Swal.fire({
+                title: 'Enviando...',
+                text: 'Aguarde enquanto o email é enviado.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Envia o formulário
+            f = document.lancamento;
+            f.mod.value = 'est';
+            f.form.value = 'nota_fiscal';
+            f.opcao.value = '';
+            f.submenu.value = 'enviarEmailBoleto';
+            f.id.value = id;
+            f.submit();
+        } else {
+            // Cancelado - não faz nada
+            return false;
+        }
+    });
+}// submitEnviarEmailBoleto
+
 function submitAlterar(id) {
     f = document.lancamento;
     f.mod.value = 'est';

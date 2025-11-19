@@ -147,6 +147,15 @@
 
                     </div>
 
+                    <div class="row">
+                        <div class="form-group col-md-12 col-sm-12 col-xs-12" id="obra_container">
+                            <label for="obra">Obra</label>
+                            <SELECT class="select2_multiple form-control" multiple="multiple" id="obra"
+                                name="obra" disabled>
+                            </SELECT>
+                        </div>
+                    </div>
+
                 </form>
             </div>
 
@@ -252,11 +261,33 @@
             width: "100%"
         });
     });
+
+    $(document).ready(function() {
+        $("#obra.select2_multiple").select2({
+            placeholder: "Selecione um cliente primeiro",
+            allowClear: true,
+            width: "100%",
+            disabled: true
+        });
+        
+        // Garante que o campo inicie desabilitado
+        $('#obra').prop('disabled', true);
+    });
     $(document).ready(function() {
         $('#modalParametros').on('show.bs.modal', function(event) {
             const button = $(event.relatedTarget);
             const nomeRelatorio = button.data('relatorio-nome');
             $(this).find('#nomeRelatorio').text(nomeRelatorio);
+            
+            // Garante que o campo de obras inicie desabilitado
+            $('#obra').prop('disabled', true);
+            $('#obra').html('');
+            $('#obra').select2('destroy').select2({
+                placeholder: "Selecione um cliente primeiro",
+                allowClear: true,
+                width: "100%",
+                disabled: true
+            });
         });
     });
 </script>

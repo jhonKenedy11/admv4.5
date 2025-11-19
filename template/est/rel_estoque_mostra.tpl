@@ -229,6 +229,18 @@
                         </div>
                     </div>
 
+                    <div class="col-md-3 col-lg-2 divRelatorios">
+                        <div class="panel panel-info btn panelPrincipal" role="button" data-toggle="modal"
+                            data-target="#modalParametros" onclick="javascript:controlInputs('notas_fiscais')" data-relatorio-nome="Notas Fiscais">
+                            <div class="panel-heading">
+                                <h3 class="panel-title">Notas Fiscais</h3>
+                            </div>
+                            <div class="panel-body panelText">
+                                Relatório de notas fiscais
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
             </div>

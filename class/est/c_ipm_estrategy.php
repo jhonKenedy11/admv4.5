@@ -15,7 +15,9 @@ $dir = (__DIR__);
 include_once($dir . "/../../bib/c_user.php");
 include_once($dir . "/../../bib/c_cookie_manager.php");
 include_once($dir . "/../../bib/c_database_pdo.php");
-include_once($dir . "/c_ipm_estrategy_xml.php");
+include_once($dir . "/../../bib/c_date.php");
+include_once($dir . "/c_ipm_estrategy_xml_v1.php");
+include_once($dir . "/c_nota_fiscal_servico.php");
 
 class IpmStrategy extends c_user
 {
@@ -31,16 +33,15 @@ class IpmStrategy extends c_user
         //$this->schemaPath = __DIR__ . '/Schemas/ipm_v1.json';
     }
 
-    public function processForShipping(array $config, int $id, string $origem_dados, string $json = ''): string
+    public function processForShipping(array $config, string $origem_dados, ? int $idNotaFiscal = null, ?string $json = null)
     {
         $jsonNFS = null;
-
         switch ($origem_dados) {
             case 'pedido_servico':
-                $jsonNFS = $this->montaJsonPedidoServico($id);
+                $jsonNFS = $this->montaJsonPedidoServico($idNotaFiscal);
                 break;  
             case 'ordem_servico':
-                $jsonNFS = $this->montaJsonOrdemServico($id);
+                $jsonNFS = $this->montaJsonOrdemServico($idNotaFiscal);
                 break;
             case 'manual':
                 $jsonNFS = $json; 
@@ -61,9 +62,52 @@ class IpmStrategy extends c_user
             "cookie_session" => null
         );
 
-        $teste = $this->sendForWebServiceIpm($xml, $config);
 
-        return $teste;
+        // Responsavel pelo envio do XML para o webservice
+        $responseXml = $this->sendForWebServiceIpm($xml, $config);
+
+        // Verificar se houve erro na comunicação
+        if (is_array($responseXml)) {
+            // Erro na comunicação - já é um array estruturado
+            return $responseXml;
+        }
+
+        // Validar o XML de retorno (sucesso ou erro)
+        $resultadoValidacao = $this->validarRetornoXml($responseXml);
+        
+        if (!$resultadoValidacao['sucesso']) {
+            // ERRO: Registrar evento de erro
+            if ($idNotaFiscal) {
+                $this->registrarEventoNFS($idNotaFiscal, 'E', 'ERRO', $responseXml);
+            }
+            
+            c_nfs_response::error($resultadoValidacao['mensagem']);
+            return;
+        }
+        
+        // SUCESSO: Extrair dados do XML de retorno
+        $dadosNfse = $this->extrairDadosNfseRetorno($responseXml);
+        
+        // Atualizar nota fiscal com os dados retornados
+        if ($idNotaFiscal && !empty($dadosNfse)) {
+            $this->atualizarNotaFiscalComRetorno($idNotaFiscal, $dadosNfse);
+            
+            // Registrar evento de sucesso
+            $this->registrarEventoNFS(
+                $idNotaFiscal, 
+                'S', 
+                'SUCESSO', 
+                $responseXml, 
+                $dadosNfse['numero_nfse']
+            );
+        }
+        
+        // Retornar sucesso com dados da nota
+        c_nfs_response::success(
+            'NFS-e emitida com sucesso!',
+            $dadosNfse
+        );
+        return;
     }
 
 
@@ -424,10 +468,9 @@ class IpmStrategy extends c_user
      *
      * @param string $xmlContent O conteúdo XML a ser enviado.
      * @param array $config As credenciais e URL para o envio. Deve conter: 'url', 'usuario', 'senha' e opcionalmente 'cookie_session'.
-     * @return string A resposta do webservice.
-     * @throws \Exception Se a comunicação cURL falhar ou ocorrer qualquer erro no processamento.
+     * @return string|array A resposta do webservice (string) ou array com erro.
      */
-    private function sendForWebServiceIpm(string $xmlContent, array &$config): string
+    private function sendForWebServiceIpm(string $xmlContent, array &$config)
     {
         try {
             // 1. Definição dos Parâmetros da Requisição
@@ -505,38 +548,249 @@ class IpmStrategy extends c_user
                 throw new \Exception("Erro HTTP: Código {$httpCode} retornado pelo webservice");
             }
 
-            
-            //Atualizar com os dados reais da nota fiscal
-            $dados = array(
-                "id_nfs" => 123,
-                "centro_custo" => "10000000",
-                "serie" => 1,
-                "numero" => 22,
-                "tipo_evento" => "E",
-                "codigo_retorno" => "204"
-            );
-
-
-            $responseBody = substr($response, $headerSize);
-            $this->saveEventInvoice($dados, $responseBody);
 
             // 6. Extração e Armazenamento do Cookie de Sessão para requisições futuras
             $responseHeader = substr($response, 0, $headerSize);
             $this->saveSessionCookieFromHeader($responseHeader);
 
             // Retorna apenas o corpo da resposta (o XML de retorno) 
+            $responseBody = substr($response, $headerSize);
             return $responseBody;
         } catch (\Exception $e) {
 
             // Lanca o log
             $this->log_personalizado("Erro ao comunicar com webservice IPM: " . $e->getMessage() ."-". $e->getCode());
 
-            // Re-lanca a excecao com contexto adicional se necessario
-            throw new \Exception("Erro ao comunicar com webservice IPM: " . $e->getMessage(), $e->getCode(), $e);
+            // Retornar erro estruturado em vez de lançar exceção
+            return [
+                'success' => false,
+                'message' => 'Erro ao comunicar com webservice IPM: ' . $e->getMessage(),
+                'codigo_erro' => $e->getCode()
+            ];
         }
     }
 
+    /**
+     * Valida o XML de retorno e determina se é sucesso ou erro
+     * Valida pelo campo <situacao_codigo_nfse>: 1=Emitida (sucesso), 2=Cancelada, outros=Erro
+     *
+     * @param string $responseXml XML de resposta do webservice
+     * @return array ['sucesso' => bool, 'mensagem' => string]
+     */
+    private function validarRetornoXml(string $responseXml): array
+    {
+        try {
+            // Converter de ISO-8859-1 para UTF-8
+            $xmlUtf8 = mb_convert_encoding($responseXml, 'UTF-8', 'ISO-8859-1');
+            $xml = simplexml_load_string($xmlUtf8);
+            
+            if ($xml === false) {
+                return [
+                    'sucesso' => false,
+                    'mensagem' => 'Resposta inválida do webservice'
+                ];
+            }
+            
+            // PRIORIDADE 1: Validar pelo código de situação (padrão IPM)
+            if (isset($xml->situacao_codigo_nfse)) {
+                $codigoSituacao = (int)$xml->situacao_codigo_nfse;
+                
+                if ($codigoSituacao === 1) {
+                    // Código 1 = Emitida = SUCESSO
+                    return [
+                        'sucesso' => true,
+                        'mensagem' => 'NFS-e emitida com sucesso'
+                    ];
+                } else {
+                    // Outros códigos = ERRO ou situação inválida
+                    $descricaoSituacao = isset($xml->situacao_descricao_nfse) 
+                        ? (string)$xml->situacao_descricao_nfse 
+                        : 'Situação desconhecida';
+                    
+                    return [
+                        'sucesso' => false,
+                        'mensagem' => "Situação da NFS-e: {$descricaoSituacao} (Código: {$codigoSituacao})"
+                    ];
+                }
+            }
+            
+            // PRIORIDADE 2: Verificar se há mensagens de erro (múltiplos códigos)
+            if (isset($xml->mensagem->codigo)) {
+                $erros = [];
+                foreach ($xml->mensagem->codigo as $codigo) {
+                    $erros[] = (string)$codigo;
+                }
+                
+                return [
+                    'sucesso' => false,
+                    'mensagem' => implode('<br>', $erros)
+                ];
+            }
+            
+            // PRIORIDADE 3: Verificar outras tags de erro
+            if (isset($xml->erro)) {
+                return [
+                    'sucesso' => false,
+                    'mensagem' => (string)$xml->erro
+                ];
+            }
+            
+            if (isset($xml->error)) {
+                return [
+                    'sucesso' => false,
+                    'mensagem' => (string)$xml->error
+                ];
+            }
+            
+            if (isset($xml->fault)) {
+                $mensagemFault = isset($xml->fault->faultstring) 
+                    ? (string)$xml->fault->faultstring 
+                    : (string)$xml->fault;
+                
+                return [
+                    'sucesso' => false,
+                    'mensagem' => $mensagemFault
+                ];
+            }
+            
+            // Se não tem situacao_codigo_nfse nem erros, considera erro desconhecido
+            return [
+                'sucesso' => false,
+                'mensagem' => 'Resposta do webservice sem código de situação'
+            ];
+            
+        } catch (\Exception $e) {
+            return [
+                'sucesso' => false,
+                'mensagem' => 'Erro ao processar resposta: ' . $e->getMessage()
+            ];
+        }
+    }
 
+    /**
+     * Extrai todos os dados da NFS-e do XML de retorno de sucesso
+     *
+     * @param string $responseXml XML de resposta do webservice
+     * @return array Dados extraídos da NFS-e
+     */
+    private function extrairDadosNfseRetorno(string $responseXml): array
+    {
+        try {
+            // Converter de ISO-8859-1 para UTF-8
+            $xmlUtf8 = mb_convert_encoding($responseXml, 'UTF-8', 'ISO-8859-1');
+            $xml = simplexml_load_string($xmlUtf8);
+            
+            if ($xml === false) {
+                return [];
+            }
+            
+            // Extrair todos os dados disponíveis
+            $dados = [
+                'numero_nfse' => isset($xml->numero_nfse) ? (int)$xml->numero_nfse : null,
+                'serie_nfse' => isset($xml->serie_nfse) ? (int)$xml->serie_nfse : null,
+                'data_nfse' => isset($xml->data_nfse) ? (string)$xml->data_nfse : null,
+                'hora_nfse' => isset($xml->hora_nfse) ? (string)$xml->hora_nfse : null,
+                'situacao_codigo_nfse' => isset($xml->situacao_codigo_nfse) ? (int)$xml->situacao_codigo_nfse : null,
+                'situacao_descricao_nfse' => isset($xml->situacao_descricao_nfse) ? (string)$xml->situacao_descricao_nfse : null,
+                'link_nfse' => isset($xml->link_nfse) ? (string)$xml->link_nfse : null,
+                'cod_verificador_autenticidade' => isset($xml->cod_verificador_autenticidade) ? (string)$xml->cod_verificador_autenticidade : null,
+            ];
+            
+            // Filtrar apenas valores não nulos
+            return array_filter($dados, function($value) {
+                return $value !== null;
+            });
+            
+        } catch (\Exception $e) {
+            $this->log_personalizado("Erro ao extrair dados da NFS-e: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Atualiza a nota fiscal no banco com os dados retornados do webservice
+     *
+     * @param int $idNotaFiscal ID da nota fiscal a ser atualizada
+     * @param array $dadosNfse Dados extraídos do XML de retorno
+     * @return bool True se sucesso, False se erro
+     */
+    private function atualizarNotaFiscalComRetorno(int $idNotaFiscal, array $dadosNfse): bool
+    {
+        try {
+            $sql = "
+                UPDATE EST_NOTA_FISCAL_SERVICO 
+                SET 
+                    NUMERO = :numero,
+                    SERIE = :serie,
+                    DATA_EMISSAO = :data_emissao,
+                    HORA_EMISSAO = :hora_emissao,
+                    COD_VERIFICADOR_AUTENTICIDADE = :cod_verificador,
+                    LINK_NFSE = :link_nfse,
+                    SITUACAO = :situacao,
+                    UPDATED_USER = :updated_user,
+                    UPDATED_AT = NOW()
+                WHERE ID = :id
+            ";
+            
+            $banco = new c_banco_pdo();
+            $banco->prepare($sql);
+            
+            // Converter data do formato brasileiro para banco (13/10/2025 -> 2025-10-13)
+            $dataEmissao = null;
+            if (isset($dadosNfse['data_nfse'])) {
+                $dataEmissao = c_date::convertDateBdSh($dadosNfse['data_nfse']);
+            }
+            
+            $banco->bindValue(':numero', $dadosNfse['numero_nfse'] ?? null, PDO::PARAM_INT);
+            $banco->bindValue(':serie', $dadosNfse['serie_nfse'] ?? null, PDO::PARAM_INT);
+            $banco->bindValue(':data_emissao', $dataEmissao, PDO::PARAM_STR);
+            $banco->bindValue(':hora_emissao', $dadosNfse['hora_nfse'] ?? null, PDO::PARAM_STR);
+            $banco->bindValue(':cod_verificador', $dadosNfse['cod_verificador_autenticidade'] ?? null, PDO::PARAM_STR);
+            $banco->bindValue(':link_nfse', $dadosNfse['link_nfse'] ?? null, PDO::PARAM_STR);
+            $banco->bindValue(':situacao', $dadosNfse['situacao_codigo_nfse'] ?? 1, PDO::PARAM_INT);
+            $banco->bindValue(':updated_user', $this->m_userid, PDO::PARAM_INT);
+            $banco->bindValue(':id', $idNotaFiscal, PDO::PARAM_INT);
+
+            $banco->execute();
+            
+            return $banco->rowCount() > 0;
+            
+        } catch (\PDOException $e) {
+            $this->log_personalizado("Erro ao atualizar nota fiscal: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Registra evento da NFS-e na tabela EST_NOTA_FISCAL_SERVICO_EVENTOS
+     *
+     * @param int $idNotaFiscal ID da nota fiscal
+     * @param string $tipoEvento Tipo do evento (E=Emissão, C=Cancelamento, etc.)
+     * @param string $codigoRetorno Código de retorno/status
+     * @param string $xmlResposta XML de resposta do webservice
+     * @param string|null $numeroNota Número da nota fiscal (se disponível)
+     */
+    private function registrarEventoNFS(int $idNotaFiscal, string $tipoEvento, string $codigoRetorno, string $xmlResposta, string $numeroNota = null): void
+    {
+        try {
+            $objNotaFiscalServico = new c_nota_fiscal_servico();
+            
+            $dados = [
+                "id_nfs" => $idNotaFiscal,
+                "centro_custo" => $this->m_empresacentrocusto, // Valor padrão - pode ser ajustado conforme necessário
+                "serie" => $this->m_empresaserie, // Valor padrão - pode ser ajustado conforme necessário
+                "numero" => $numeroNota ? (int)$numeroNota : 0,
+                "tipo_evento" => $tipoEvento,
+                "codigo_retorno" => $codigoRetorno
+            ];
+            
+            $objNotaFiscalServico->saveEventInvoice($dados, $xmlResposta);
+            
+        } catch (\Exception $e) {
+            // Log do erro mas não interrompe o fluxo principal
+            error_log("Erro ao registrar evento NFS: " . $e->getMessage());
+        }
+    }
 
     /**
      * Extrai e salva cookies de sessão do cabeçalho de resposta HTTP.

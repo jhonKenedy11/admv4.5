@@ -154,11 +154,49 @@
                   </div>
             </div>
             <div class="row no-print">
-                  <div class="col-xs-12">
+                  <div class="col-xs-12 text-center">
                         <button class="btn btn-default" onclick="window.print();"><i class="fa fa-print"></i>
                               Imprimir</button>
+                        <button class="btn btn-success" onclick="exportarTabelaParaExcel();">
+                              <i class="fa fa-file-excel-o"></i> Exportar Excel
+                        </button>
                   </div>
             </div>
 
       </div>
+
+<script type="text/javascript">
+      function exportarTabelaParaExcel() {
+            var table = document.querySelector('.table-striped');
+            if (!table) {
+                  alert('Tabela não encontrada!');
+                  return;
+            }
+            
+            var csv = '';
+            var rows = table.querySelectorAll('tr');
+            
+            for (var i = 0; i < rows.length; i++) {
+                  var row = rows[i];
+                  var cells = row.querySelectorAll('td, th');
+                  var rowData = [];
+                  
+                  for (var j = 0; j < cells.length; j++) {
+                        var cellText = cells[j].textContent.trim();
+                        if (cellText.indexOf(',') !== -1 || cellText.indexOf('"') !== -1) {
+                              cellText = '"' + cellText.replace(/"/g, '""') + '"';
+                        }
+                        rowData.push(cellText);
+                  }
+                  
+                  csv += rowData.join(',') + '\n';
+            }
+            
+            var blob = new Blob([csv], {ldelim}type: 'text/csv;charset=utf-8;'{rdelim});
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'Pedido_Vendas_Item_Entrega_{$dataIni}_a_{$dataFim}.csv';
+            link.click();
+      }
+</script>
 <!-- /page content -->

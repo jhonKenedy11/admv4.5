@@ -99,6 +99,7 @@ public function buscaCadastroLancamento(){
 	$this->setDocto($lanc[0]['DOCTO']);
 	$this->setSerie($lanc[0]['SERIE']);
 	$this->setParcela($lanc[0]['PARCELA']);
+	$this->setTotalParcelas($lanc[0]['TOTALPARCELAS']);
 	$this->setAgrupamento($lanc[0]['AGRUPAMENTO']);
 	$this->setTipolancamento($lanc[0]['TIPOLANCAMENTO']);
 	$this->setTipodocto($lanc[0]['TIPODOCTO']);
@@ -596,6 +597,7 @@ function desenhaCadastroLancamento($mensagem = NULL, $tipoMsg=NULL){
     $this->smarty->assign('docto', $this->getDocto());
     $this->smarty->assign('serie', $this->getSerie());
     $this->smarty->assign('parcela', $this->getParcela());
+    $this->smarty->assign('totalParcelas', $this->getTotalParcelas());
     $this->smarty->assign('doctobancario', $this->getDocbancario());
     $this->smarty->assign('cheque', $this->getCheque());
     $this->smarty->assign('datalanc', $this->getLancamento("F"));

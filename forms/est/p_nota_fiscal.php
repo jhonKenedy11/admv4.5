@@ -411,6 +411,97 @@ class p_nota_fiscal extends c_nota_fiscal
                 $this->desenhaCadastroNotaFiscal($msg, $tipoMsg);
                 //$this->mostraNotaFiscal($msg,'sucesso');
                 break;
+            case 'enviarEmailBoleto':
+                if ($this->verificaDireitoUsuario('EstNotaFiscal', 'C')) {
+                    try {
+                        // Busca dados da nota fiscal
+                        $this->setNotaFiscal();
+                        
+                        // Verifica se a nota está autorizada
+                        if ($this->getSituacao() != 'B') {
+                            throw new Exception('Nota fiscal precisa estar AUTORIZADA para enviar por email!');
+                        }
+                        
+                        // Busca o pedido de origem se existir
+                        $numeroPedido = null;
+                        if ($this->getOrigem() == 'PED') {
+                            $numeroPedido = $this->getDoc();
+                        }
+                        
+                        // Inclui classe de envio de email
+                        $dir = dirname(__FILE__);
+                        require_once($dir . "/../../forms/blt/p_boleto_email.php");
+                        
+                        // Cria instância e envia email
+                        $obj_email = new p_boleto_email();
+                        $resultado = $obj_email->sendDocumentsEmail(
+                            $this->getId(),
+                            $this->getNumero(),
+                            $this->getPessoa(),
+                            $numeroPedido
+                        );
+                        
+                        // Verifica resultado e exibe mensagem
+                        if ($resultado !== false) {
+                            // Verifica se houve erro na mensagem de retorno
+                            if (strstr($resultado, 'NÃO') || strstr($resultado, 'Erro')) {
+                                // Erro no envio
+                                echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                                echo "<script>
+                                    Swal.fire({
+                                        icon: 'warning',
+                                        title: 'Atenção',
+                                        width: 510,
+                                        text: '" . addslashes($resultado) . "',
+                                        confirmButtonText: 'OK'
+                                    });
+                                </script>";
+                                $this->mostraNotaFiscal('');
+                            } else {
+                                // Sucesso no envio
+                                echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                                echo "<script>
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Sucesso',
+                                        width: 510,
+                                        text: '" . addslashes($resultado) . "',
+                                        confirmButtonText: 'OK'
+                                    });
+                                </script>";
+                                $this->mostraNotaFiscal('');
+                            }
+                        } else {
+                            // Erro ao enviar email
+                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Erro',
+                                    width: 510,
+                                    text: 'Erro ao enviar email. Verifique se o cliente possui email cadastrado.',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            $this->mostraNotaFiscal('');
+                        }
+                        
+                    } catch (Exception $e) {
+                        // Erro de exceção
+                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro',
+                                width: 510,
+                                text: 'Erro: " . addslashes($e->getMessage()) . "',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        $this->mostraNotaFiscal('');
+                    }
+                }
+                break;
             case 'geraDANFE':
                 $this->setNotaFiscal();
                 $danfe = new p_nfe_40();

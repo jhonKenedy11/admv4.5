@@ -64,7 +64,6 @@ function __construct(){
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
         $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
-        
 
         // dados para exportacao e relatorios
         $this->smarty->assign('titulo', "Retorno Bancario");
@@ -1169,7 +1168,7 @@ function mostraRetorno($mensagem=null, $retorno=null){
     $this->smarty->assign('mensagem', $mensagem);
     $this->smarty->assign('letra', $this->m_letra);
     $this->smarty->assign('subMenu', $this->m_submenu);
-    $this->smarty->assign('saldoInicial', $this->saldoTotal);
+    $this->smarty->assign('saldoInicial', $saldoTotal);
     $this->smarty->assign('dataInicio', $par[0]);
     $this->smarty->assign('dataFim', $par[1]);
     $this->smarty->assign('filePesquisa', $f_name);
@@ -1205,26 +1204,31 @@ function mostraRetorno($mensagem=null, $retorno=null){
 
 
     if ($retorno == 'B'){
-        if ($this->arqFile == $f_name){
-            if (!$this->retornoProcessado($f_name, $lanc[$i]['dataOcorrenciaBD'])){
-                if ($this->atualizaRetorno($lanc, $f_name) == true){
+        if ($this->arqFile == $f_name):
+            if (!$this->retornoProcessado($f_name, $lanc[0]['dataOcorrenciaBD'])):
+                if ($this->atualizaRetorno($lanc, $f_name, $banco) == true):
                     $msg = 'Arquivo de retorno processado com sucesso';
-                }else{
+                else:
                     $msg = 'Arquivo de retorno NÃO processado, realize nova consolidação';
-                }
-            }else{    
+                endif;
+            else:    
                 $msg = "Arquivo de retorno já processado!!";
                 $retorno = '';
-            }   
-        }else{
+            endif;
+        else:
             $retorno = 'P';
             $msg = "Seleção diferente de arquivo de retorno!!<br>";
             $msg .= "Consolidação: ".$this->arqFile." - Processamento: ".$f_name;
             $retorno = '';
-        }
+        endif;
+    
+    }else if($f_name == ''){
+        $msg = null;
     }else{
         $msg .= "Selecione o arquivo de RETORNO: ".$f_name." para confirmar.";
     }
+
+
     $this->smarty->assign('retorno', $retorno);
     $this->smarty->assign('mensagem', $msg);
     

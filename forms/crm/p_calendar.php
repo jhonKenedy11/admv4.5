@@ -51,6 +51,7 @@ Class p_calendar extends c_contas_acompanhamento{
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
 
         $this->m_submenu = (isset($parmGet['submenu']) ? $parmGet['submenu'] : (isset($parmPost['submenu']) ? $parmPost['submenu'] : ''));
         $this->m_id = (isset($parmGet['id_reg']) ? $parmGet['id_reg'] : (isset($parmPost['id_reg']) ? $parmPost['id_reg'] : ''));

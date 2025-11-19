@@ -1662,7 +1662,7 @@ class p_produto extends c_produto
 
         $this->smarty->assign('pathImagem', $this->img);
         $this->smarty->assign('pathJs', ADMhttpBib . '/js');
-        $this->smarty->assign('subMenu', $this->m_submenu);
+        $this->smarty->assign('submenu', $this->m_submenu);
         $this->smarty->assign('letra', $this->m_letra);
         $this->smarty->assign('mensagem', $mensagem);
         $this->smarty->assign('tipoMsg', $tipoMsg);

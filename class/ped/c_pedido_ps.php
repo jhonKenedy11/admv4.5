@@ -1753,9 +1753,10 @@ class c_pedido_ps extends c_user
      * @name select_pedido_letra
      * @param ARRAY letra paramentros para filtrar a busca 
      * @param ARRAY situacoes situacoes que sera usada para filtrar a busca
+     * @param STRING vendedores vendedores selecionados para filtrar a busca
      * @return ARRAY com os atendimentos selecionados.
      */
-    public function select_pedido_letra($letra, $situacoes)
+    public function select_pedido_letra($letra, $situacoes, $vendedores = '', $condPag = '')
     {
         /*
          * [0] = data inicio
@@ -1769,10 +1770,11 @@ class c_pedido_ps extends c_user
 
         $parSit = explode("|", $situacoes);
 
-        $sql = "SELECT A.*, C.NOME,  D.PADRAO AS SITUACAODESC , O.PROJETO AS OBRA_DESC ";
+        $sql = "SELECT A.*, C.NOME,  D.PADRAO AS SITUACAODESC , O.PROJETO AS OBRA_DESC, V.NOME AS VENDEDOR_NOME ";
         $sql .= "FROM FAT_PEDIDO  A ";
         $sql .= "LEFT JOIN FIN_CLIENTE C ON (C.CLIENTE = A.CLIENTE) ";
         $sql .= "LEFT JOIN FIN_CLIENTE_OBRA O ON (O.ID = A.OBRA_ID) ";
+        $sql .= "LEFT JOIN AMB_USUARIO V ON (V.USUARIO = A.USRFATURA) ";
         $sql .= "INNER JOIN AMB_DDM D ON ((D.TIPO=A.SITUACAO) AND (ALIAS='FAT_MENU') AND (CAMPO='SITUACAOPEDIDO')) ";
 
         if ($par[3] != '') {
@@ -1799,6 +1801,38 @@ class c_pedido_ps extends c_user
             }
             $cond =  strpos($sql, 'where') === false ? 'where' : 'and';
             $sql .= empty($sit) ? '' : " $cond (a.SITUACAO IN (" . $sit . ")) ";
+            
+            // Filtro de vendedor
+            if (!empty($vendedores)) {
+                $parVend = explode("|", $vendedores);
+                $vend = '';
+                $count = count($parVend) - 1;
+                for ($i = 1; $i < count($parVend); $i++) {
+                    if ($i == $count) {
+                        $vend .= $parVend[$i];
+                    } else {
+                        $vend .= $parVend[$i] . ",";
+                    }
+                }
+                $cond =  strpos($sql, 'where') === false ? 'where' : 'and';
+                $sql .= empty($vend) ? '' : " $cond (a.USRFATURA IN (" . $vend . ")) ";
+            }
+
+            // Filtro de condicao de pagamento
+            if (!empty($condPag)) {
+                $parCondPag = explode("|", $condPag);
+                $condPag = '';
+                $count = count($parCondPag) - 1;
+                for ($i = 1; $i < count($parCondPag); $i++) {
+                    if ($i == $count) {
+                        $condPag .= $parCondPag[$i];
+                    } else {
+                        $condPag .= $parCondPag[$i] . ",";
+                    }
+                }
+                $cond =  strpos($sql, 'where') === false ? 'where' : 'and';
+                $sql .= empty($condPag) ? '' : " $cond (a.CONDPG IN (" . $condPag . ")) ";
+            }
         }
 
         $sql .= "ORDER BY A.ID";
@@ -1890,7 +1924,7 @@ class c_pedido_ps extends c_user
         if ($result > 0) {
             return $lastReg;
         } else {
-            return 'Os dados do atendimento ' . $this->getId() . ' n&atilde;o foi cadastrado!';
+            return 'Os dados do atendimento ' . $this->getId() . ' n&atilde;o foi cadastrado!' . $result;
         }
     }
 
@@ -2557,4 +2591,13 @@ class c_pedido_ps extends c_user
                  'erro' => $e->getMessage()];
          }
     }
+
+    public function prosseguirComDesconto(){
+        $sql = "SELECT SITUACAO FROM FAT_PEDIDO WHERE ID = " . $this->getId() . " ";
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        return $banco->resultado;
+    }
+
 } //END OF THE CLASS

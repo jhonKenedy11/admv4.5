@@ -374,6 +374,9 @@ public function getAliqFCPST($format = null) {
 public function setAnp($anp){$this->anp = $anp;}
 public function getAnp(){return $this->anp;}
 
+public function setCentroCusto($centroCusto){$this->centroCusto = $centroCusto;}
+public function getCentroCusto(){return $this->centroCusto;}
+
 //############### FIM SETS E GETS ###############
 
  /**
@@ -521,6 +524,7 @@ public function alteraTributos(){
 	$sql  = "UPDATE est_nat_op_tributo ";
     $sql .= "SET  ALIQICMS = ".$this->getAliqIcms('B').", " ;
     $sql .= "PESSOA        = '".$this->getPessoa()."', ";    
+    $sql .= "UF            = '".$this->getUf()."', ";
     $sql .= "PERCREDUCAOBC = ".$this->getRedBaseIcms('B').", ";
     $sql .= "PERCDIFERIDO  = ".$this->getPercDiferido('B').", ";
     $sql .= "TRIBICMSSAIDA = '".$this->getTribIcmsSaida()."', ";

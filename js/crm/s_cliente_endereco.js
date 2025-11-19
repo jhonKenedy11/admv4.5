@@ -1,3 +1,75 @@
+/**
+ * Busca CEP com fallback automático entre múltiplas APIs
+ * Ordem: ViaCEP -> BrasilAPI -> ApiCEP
+ */
+async function buscarCepComFallback(cep) {
+    const apis = [
+        {
+            nome: 'ViaCEP',
+            url: `https://viacep.com.br/ws/${cep}/json/`,
+            transformar: (data) => data.erro ? null : data
+        },
+        {
+            nome: 'BrasilAPI',
+            url: `https://brasilapi.com.br/api/cep/v1/${cep}`,
+            transformar: (data) => ({
+                cep: data.cep,
+                logradouro: data.street,
+                complemento: '',
+                bairro: data.neighborhood,
+                localidade: data.city,
+                uf: data.state,
+                ibge: data.location?.coordinates?.latitude || '',
+                gia: '', ddd: '', siafi: ''
+            })
+        },
+        {
+            nome: 'ApiCEP',
+            url: `https://cdn.apicep.com/file/apicep/${cep}.json`,
+            transformar: (data) => ({
+                cep: data.code,
+                logradouro: data.address,
+                complemento: '',
+                bairro: data.district,
+                localidade: data.city,
+                uf: data.state,
+                ibge: data.cityIbge || '',
+                gia: '', ddd: '', siafi: ''
+            })
+        }
+    ];
+
+    for (const api of apis) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+            
+            const response = await fetch(api.url, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                continue;
+            }
+            
+            const data = await response.json();
+            const resultado = api.transformar(data);
+            
+            if (resultado) {
+                return resultado;
+            }
+        } catch (error) {
+            continue;
+        }
+    }
+    
+    return null;
+}
+
 function fechaPesqEndEntrega(id, titulo_endereco) {
     debugger;
     f = window.opener.document.lancamento;
@@ -80,6 +152,7 @@ function submitExcluir(cliente_endereco) {
 } // submitExcluir
 
 //logica para consultar cep da modal address e preencher campos - jhon Kenedy
+// Atualizado com fallback automático de APIs
 async function pesquisarEndereco(cep) {
     debugger
     try {
@@ -90,11 +163,11 @@ async function pesquisarEndereco(cep) {
             throw new Error('Formato de CEP inválido.');
         }
 
-        const response = await fetch(`//viacep.com.br/ws/${cepSemMascara}/json/`);
-        const data = await response.json();
+        // Usa busca com fallback automático (ViaCEP -> BrasilAPI -> ApiCEP)
+        const data = await buscarCepComFallback(cepSemMascara);
 
-        if (data.erro) {
-            throw new Error('CEP não encontrado.');
+        if (!data) {
+            throw new Error('CEP não encontrado em nenhuma API disponível.');
         }
 
         return data;

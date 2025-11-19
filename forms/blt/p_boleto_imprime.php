@@ -153,20 +153,19 @@ function imprimeBoleto(){
             $juros = 0.10;
         endif;
         // INFORMACOES PARA O CLIENTE
-        $dadosboleto["instrucoes1"] = "Após o vencimento, <br>";
+        $dadosboleto["instrucoes1"] = "Após o vencimento,<br>";
         if ($arrContaBanco[0]['MULTA'] > 0){
             $dadosboleto["instrucoes1"] .= "Cobrar multa de R$ ".number_format($multa, 2, ',', '.')."<br> ";
         }
+
         if ($arrContaBanco[0]['JUROS'] > 0){
             $dadosboleto["instrucoes1"] .= "Cobrar mora diária de R$ ".number_format($juros , 2, ',', '.')."<br>";
         }
+        
         if ($arrContaBanco[0]['CARENCIA'] > 0){
             $dadosboleto["instrucoes2"] = "Não Receber até ".$arrContaBanco[0]['CARENCIA']." dias após o vencimento<br>";
         }
-        // if ($arrContaBanco[0]['PROTESTO'] > 0){
-        //     // $dadosboleto["instrucoes4"] = "Em caso de dúvidas entre em contato conosco: financeiro@maxifarma.com.br";
-        //     $dadosboleto["instrucoes4"] = "";
-        // }
+
         if ($arrContaBanco[0]['DESCONTOBONIFICACAO'] > 0){
             $dadosboleto["instrucoes4"] = "Desconto de ".number_format($arrContaBanco[0]['DESCONTOBONIFICACAO'],2,',', '.')."% para pagamento até a data do vencimento.";
         }
@@ -178,7 +177,7 @@ function imprimeBoleto(){
         // DADOS OPCIONAIS DE ACORDO COM O BANCO OU CLIENTE
         $dadosboleto["quantidade"] = "";
         $dadosboleto["valor_unitario"] = "";
-        $dadosboleto["aceite"] = "N";		
+        $dadosboleto["aceite"] = "N";
         $dadosboleto["especie"] = "R$";
         $dadosboleto["especie_doc"] = $arrContaBanco[0]['ESPECIEDOC'];
 

@@ -52,6 +52,7 @@ Class p_pedido_relatorios extends c_pedidoVenda {
         $this->smarty->assign('colVis', "[ 0, 1 ]"); 
         $this->smarty->assign('disableSort', "[ 2 ]"); 
         $this->smarty->assign('numLine', "25");
+
     }
 
     /**
@@ -62,6 +63,17 @@ Class p_pedido_relatorios extends c_pedidoVenda {
     */
     function controle(){
         switch ($this->m_submenu){
+            case 'ajax_obra':
+                $cliente_id = $_POST['cliente_id'];
+                $obras = $this->comboObra($cliente_id);
+                
+                $response = [
+                    'obras' => $obras
+                ];
+                
+                header('Content-Type: application/json');
+                echo json_encode($response);
+                break;
             default:
                 $this->mostraRelatorio('');
         }
@@ -81,13 +93,18 @@ Class p_pedido_relatorios extends c_pedidoVenda {
         $this->smarty->assign('pathCliente', ADMhttpCliente);
         $this->smarty->assign("ADMhttpBib", ADMhttpBib);
 
-        if($this->m_par[0] == ""){
+        // Inicializa variável m_par se não existir
+        if (!isset($this->m_par)) {
+            $this->m_par = array();
+        }
+
+        if(!isset($this->m_par[0]) || $this->m_par[0] == ""){
             $this->smarty->assign('dataIni', date("01/m/Y"));
         } else { 
             $this->smarty->assign('dataIni', $this->m_par[0]);
         }
 
-        if($this->m_par[1] == "") {
+        if(!isset($this->m_par[1]) || $this->m_par[1] == "") {
             $dia = date("d");
             $mes = date("m");
             $ano = date("Y");
@@ -105,7 +122,8 @@ Class p_pedido_relatorios extends c_pedidoVenda {
         $result = $consulta->resultado ?? [];
         $consulta->close_connection();
 
-
+        $situacao_ids = array();
+        $situacao_names = array();
         for ($i = 0; $i < count($result); $i++) {
             $situacao_ids[$i] = $result[$i]['ID'];
             $situacao_names[$i] = $result[$i]['DESCRICAO'];
@@ -123,7 +141,8 @@ Class p_pedido_relatorios extends c_pedidoVenda {
         $result = $consulta->resultado ?? [];
         $consulta->close_connection();
 
-
+        $centro_custo_ids = array();
+        $centro_custo_names = array();
         for ($i = 0; $i < count($result); $i++) {
             $centro_custo_ids[$i] = $result[$i]['ID'];
             $centro_custo_names[$i] = $result[$i]['DESCRICAO'];
@@ -141,6 +160,8 @@ Class p_pedido_relatorios extends c_pedidoVenda {
         $result = $consulta->resultado ?? [];
         $consulta->close_connection();
 
+        $vendedor_ids = array();
+        $vendedor_names = array();
         for ($i = 0; $i < count($result); $i++) {
             $vendedor_ids[$i] = $result[$i]['ID'];
             $vendedor_names[$i] = $result[$i]['DESCRICAO'];
@@ -154,12 +175,13 @@ Class p_pedido_relatorios extends c_pedidoVenda {
 
         // COMBOBOX CONDICAO DE PAGAMENTO
         $consulta = new c_banco();
-        $sql = "SELECT * FROM FAT_COND_PGTO WHERE BLOQUEADO = 'A' ORDER BY DESCRICAO;";
+        $sql = "SELECT * FROM FAT_COND_PGTO WHERE BLOQUEADO = 'A' ORDER BY DESCRICAO ";
         $consulta->exec_sql($sql);
         $result = $consulta->resultado ?? [];
         $consulta->close_connection();
 
-
+        $condicao_pagamento_ids = array();
+        $condicao_pagamento_names = array();
         for ($i = 0; $i < count($result); $i++) {
             $condicao_pagamento_ids[$i] = $result[$i]['ID'];
             $condicao_pagamento_names[$i] = $result[$i]['DESCRICAO'];
@@ -178,7 +200,8 @@ Class p_pedido_relatorios extends c_pedidoVenda {
         $result = $consulta->resultado ?? [];
         $consulta->close_connection();
 
-
+        $tipo_entrega_ids = array();
+        $tipo_entrega_names = array();
         for ($i = 0; $i < count($result); $i++) {
             $tipo_entrega_ids[$i] = $result[$i]['ID'];
             $tipo_entrega_names[$i] = $result[$i]['DESCRICAO'];
@@ -196,6 +219,8 @@ Class p_pedido_relatorios extends c_pedidoVenda {
 
         $result = $consulta->resultado ?? [];
 
+        $motivo_ids = array();
+        $motivo_names = array();
         for ($i = 0; $i < count($result); $i++) {
             $motivo_ids[$i] = $result[$i]['ID'];
             $motivo_names[$i] = $result[$i]['DESCRICAO'];
@@ -205,10 +230,44 @@ Class p_pedido_relatorios extends c_pedidoVenda {
         //$this->smarty->assign('motivo_id', $this->getIdNatop());
         // ########## FIM COMBOBOX MOTIVO ##########
 
+        // ########## COMBOBOX OBRA ##########
+        $consulta = new c_banco();
+        $sql = "SELECT O.ID, CONCAT(C.NOME, ' - ', O.PROJETO) AS DESCRICAO FROM FIN_CLIENTE_OBRA O ";
+        $sql .= "INNER JOIN FIN_CLIENTE C ON (C.CLIENTE = O.CLIENTE) ";
+        $sql .= "WHERE O.STATUS = 'A' ORDER BY C.NOME, O.PROJETO";
+        $consulta->exec_sql($sql);
+        $result = $consulta->resultado ?? [];
+        $consulta->close_connection();
 
+        $obra_ids = array();
+        $obra_names = array();
+        for ($i = 0; $i < count($result); $i++) {
+            $obra_ids[$i] = $result[$i]['ID'];
+            $obra_names[$i] = $result[$i]['DESCRICAO'];
+        }
+        $this->smarty->assign('obra_ids', $obra_ids);
+        $this->smarty->assign('obra_names', $obra_names);
+        // ########## FIM COMBOBOX OBRA ##########
 
         $this->smarty->display('pedido_relatorios.tpl');
     } //fim mostraRelatorio
+
+    /**
+     * Função para carregar obras de um cliente específico
+     * @param int $cliente_id
+     * @return array
+     */
+    public function comboObra($cliente_id)
+    {
+        $consulta = new c_banco();
+        $sql = "SELECT ID, PROJETO FROM FIN_CLIENTE_OBRA WHERE CLIENTE = '" . $cliente_id . "' 
+        AND STATUS = 'A' ORDER BY PROJETO";
+        $consulta->exec_sql($sql);
+        $consulta->close_connection();
+        $result = $consulta->resultado;
+
+        return $result; // Retorna o array diretamente
+    }
 //-------------------------------------------------------------
 }
 //	END OF THE CLASS

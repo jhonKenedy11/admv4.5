@@ -485,10 +485,21 @@
                                     {$xml_trata1 = $lanc[i].PATHDANFE|replace:"/PDF/":"/ENVIADAS/APROVADAS/"}
                                     {$xml_trata2 = $xml_trata1|replace:"-DANFE.PDF":"-NFE.XML"}
                                     {$xml_path = $xml_trata2|replace:"HTTPS://ADMSISTEMA.COM.BR/": "/"|lower}
-                                    <button type="button" title="Download XML" {if $lanc[i].PATHDANFE eq ''} disabled {/if}
-                                        class="btn btn-success btn-xs">{if $lanc[i].PATHDANFE neq ''}<a href="{$xml_path}"
-                                            download>{/if}<span class="glyphicon glyphicon-list"
-                                                aria-hidden="true"></span></button>
+                                    {if $lanc[i].PATHDANFE neq ''}
+                                    <a href="{$xml_path}" download>
+                                        <button type="button" title="Download XML" class="btn btn-success btn-xs">
+                                            <span class="glyphicon glyphicon-list" aria-hidden="true"></span>
+                                        </button>
+                                    </a>
+                                    {else}
+                                    <button type="button" title="Download XML" disabled class="btn btn-success btn-xs">
+                                        <span class="glyphicon glyphicon-list" aria-hidden="true"></span>
+                                    </button>
+                                    {/if}
+                                    <button type="button" title="Enviar NF e Boleto por Email" {if $lanc[i].SITUACAO neq 'B'} disabled {/if}
+                                        class="btn btn-info btn-xs"
+                                        onclick="javascript:submitEnviarEmailBoleto('{$lanc[i].ID}');"><span
+                                            class="glyphicon glyphicon-envelope" aria-hidden="true"></span></button>
                                 </td>
                             {/if}
                         </tr>

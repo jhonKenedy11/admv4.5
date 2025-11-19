@@ -388,7 +388,7 @@
 
                                           <div class="div-table-row">
                                                 <div class="div-table-cell">{$os_item_count}</div>
-                                                <div class="div-table-cell desc-servico">{$item.DESCSERVICO}</div>
+                                                <div class="div-table-cell desc-servico">{$item.DESCSERVICO} - {$item.OBSSERVICO}</div>
                                                 <div class="div-table-cell" style="text-align: center;">{$item.UNIDADE}</div>
                                                 <div class="div-table-cell" style="text-align: right;">{$item.QUANTIDADE_CONTRATADA}</div>
                                                 <div class="div-table-cell" style="text-align: right;">{$item.QUANTIDADE}</div>

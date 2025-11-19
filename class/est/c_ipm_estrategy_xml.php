@@ -47,11 +47,12 @@ class IpmStrategyXml
 
         // Validação dos campos obrigatórios
         $obrigatorios = [
-            'valor_total' => $dadosNFS['valor_total'] ?? null,
             'prestador'   => $dadosNFS['prestador'] ?? null,
             'tomador'     => $dadosNFS['tomador'] ?? null,
             'itens'       => $dadosNFS['itens'] ?? null,
         ];
+
+
         foreach ($obrigatorios as $campo => $valor) {
             if (empty($valor)) {
                 throw new \InvalidArgumentException("Campo obrigatório ausente: $campo");

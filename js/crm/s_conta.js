@@ -196,7 +196,7 @@ function meu_callback(conteudo) {
     }
 }
 
-function pesquisacep(valor) {
+async function pesquisacep(valor) {
 
     //Nova variável "cep" somente com dígitos.
     var cep = valor.replace(/\D/g, '');
@@ -217,14 +217,46 @@ function pesquisacep(valor) {
             document.getElementById('estado').value = "...";
             document.getElementById('codMunicipio').value = "...";
 
-            //Cria um elemento javascript.
-            var script = document.createElement('script');
+            try {
+                // Usa o sistema de fallback automático (ViaCEP -> BrasilAPI -> ApiCEP)
+                const conteudo = await buscarCepComFallback(cep);
+                
+                if (conteudo) {
+                    // Atualiza os campos com os valores encontrados
+                    document.getElementById('endereco').value = conteudo.logradouro || '';
+                    document.getElementById('bairro').value = conteudo.bairro || '';
+                    document.getElementById('cidade').value = conteudo.localidade || '';
+                    document.getElementById('codMunicipio').value = conteudo.ibge || '';
+                    document.getElementById('estado').value = conteudo.uf || '';
+                    document.getElementById('numero').focus();
 
-            //Sincroniza com o callback.
-            script.src = '//viacep.com.br/ws/' + cep + '/json/?callback=meu_callback';
-
-            //Insere script no documento e carrega o conteúdo.
-            document.body.appendChild(script);
+                    const tipoEnd = conteudo.logradouro ? conteudo.logradouro.split(' ') : [''];
+                    document.getElementById('tipo').value = tipoEnd[0];
+                } else {
+                    // CEP não encontrado em nenhuma API
+                    limpa_formulário_cep();
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Atenção!',
+                        text: 'CEP não encontrado.',
+                        timer: 2000,
+                        timerProgressBar: true,
+                        showConfirmButton: false
+                    });
+                }
+            } catch (error) {
+                // Erro na busca
+                limpa_formulário_cep();
+                console.error('Erro ao buscar CEP:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro!',
+                    text: 'Erro ao buscar CEP. Tente novamente.',
+                    timer: 2000,
+                    timerProgressBar: true,
+                    showConfirmButton: false
+                });
+            }
 
         } //end if.
         else {
@@ -272,8 +304,9 @@ function submitVoltar(consulta = '') {
 } // fim submitVoltar
 
 function submitLetra(letra_pesquisa = '') {
-
+    debugger
     f = document.lancamento;
+    console.log(f);
     if ((f.pesNome.value == '') && (f.idClasse.value == '') && (f.idPessoa.value == '') && (f.idEstado.value == '')
         && (f.idVendedor.value == '') && (f.pesCidade.value == '') && (f.idAtividade.value == '') && (letra_pesquisa == '') && (f.pesCnpjCpf.value == '')) {
         swal.fire({
@@ -284,7 +317,6 @@ function submitLetra(letra_pesquisa = '') {
         });
         f.mod.value = 'crm';
         f.form.value = 'contas';
-        f.submit();
     } else {
         //f.opcao.value = 'pessoa';
         f.mod.value = 'crm';
@@ -474,7 +506,9 @@ async function fechaLancamento(id, nome, opcao, credito = '', cep='', codMunicip
                     
                     // Se existe id_representante e existe a combo usrAbertura, seta o valor
                     if(id_representante != '' && f.usrAbertura != undefined) {
-                        f.usrAbertura.value = id_representante;
+                        if(!f.usrAbertura.value || f.usrAbertura.value == '') {
+                            f.usrAbertura.value = id_representante;
+                        }
                     }
                 }
             }
@@ -510,6 +544,11 @@ function fechaPesquisaRelatorios(id, nome) {
 
     if(input_cliente_nome){
         input_cliente_nome.value = nome;
+    }
+
+    // Carrega obras do cliente selecionado
+    if (window.opener.carregarObrasRelatorios) {
+        window.opener.carregarObrasRelatorios(id);
     }
 
     window.close();
@@ -1083,18 +1122,99 @@ async function pesquisarEndereco(cep) {
           throw new Error('Formato de CEP inválido.');
         }
   
-        const response = await fetch(`//viacep.com.br/ws/${cepSemMascara}/json/`);
-        const data = await response.json();
-  
-        if (data.erro) {
-          throw new Error('CEP não encontrado.');
+        // Tenta buscar o CEP em múltiplas APIs (fallback automático)
+        const resultado = await buscarCepComFallback(cepSemMascara);
+        
+        if (!resultado) {
+          throw new Error('CEP não encontrado em nenhuma API disponível.');
         }
   
-        return data;
+        return resultado;
     } catch (error) {
         console.error(error);
         throw error;
     }
+}
+
+async function buscarCepComFallback(cep) {
+    // Define as APIs em ordem de prioridade
+    const apis = [
+        {
+            nome: 'ViaCEP',
+            url: `https://viacep.com.br/ws/${cep}/json/`,
+            transformar: (data) => {
+                if (data.erro) return null;
+                return data;
+            }
+        },
+        {
+            nome: 'BrasilAPI',
+            url: `https://brasilapi.com.br/api/cep/v1/${cep}`,
+            transformar: (data) => ({
+                cep: data.cep,
+                logradouro: data.street,
+                complemento: '',
+                bairro: data.neighborhood,
+                localidade: data.city,
+                uf: data.state,
+                ibge: data.location?.coordinates?.latitude || '',
+                gia: '',
+                ddd: '',
+                siafi: ''
+            })
+        },
+        {
+            nome: 'ApiCEP',
+            url: `https://cdn.apicep.com/file/apicep/${cep}.json`,
+            transformar: (data) => ({
+                cep: data.code,
+                logradouro: data.address,
+                complemento: '',
+                bairro: data.district,
+                localidade: data.city,
+                uf: data.state,
+                ibge: data.cityIbge || '',
+                gia: '',
+                ddd: '',
+                siafi: ''
+            })
+        }
+    ];
+
+    // Tenta cada API em sequência
+    for (const api of apis) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000); // Timeout de 4 segundos
+            
+            const response = await fetch(api.url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                continue;
+            }
+
+            const data = await response.json();
+            const resultado = api.transformar(data);
+
+            if (resultado) {
+                return resultado;
+            }
+        } catch (error) {
+            // Continua para a próxima API
+            continue;
+        }
+    }
+
+    // Se nenhuma API funcionou
+    return null;
 }
 
 function preencherFormulario(endereco) {

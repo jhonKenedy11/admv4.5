@@ -75,6 +75,7 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
         $this->smarty->assign('raizFonte', ADMraizFonte);
         $this->smarty->assign('admClass', ADMclass);
         $this->smarty->assign('httpCliente', ADMhttpCliente);
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
 
         // dados para exportacao e relatorios
         $this->smarty->assign('titulo', "Gerência Pedidos");

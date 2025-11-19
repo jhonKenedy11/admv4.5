@@ -1804,7 +1804,7 @@ public function select_produto_letra($letra = null, $codigo = null){
         $sql .= empty($codigo) ? '':" $cond (p.codigo = $codigo)";
     } else if($par[2] != ''){
         $cond =  strpos($sql, 'where') === false ? 'where' : 'and'; 
-        $sql .= empty($par[2]) ? '':" $cond (p.codFabricante LIKE '".$par[2]."%') OR (E.CODEQUIVALENTE LIKE '".$par[2]."%') ";
+        $sql .= empty($par[2]) ? '':" $cond (p.codFabricante LIKE '".$par[2]."%') OR (E.CODEQUIVALENTE LIKE '".$par[2]."%') OR (p.codigobarras LIKE '%".$par[2]."%') ";
         //condicao para verificar se o codigo é tipo numerico para pesquisar o codigo o nao
         if(is_numeric($par[2])){
             $sql .= " OR (P.CODIGO = '".$par[2]."') ";

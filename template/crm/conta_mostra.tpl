@@ -114,10 +114,16 @@
                             <input name=submenu type=hidden value={$subMenu}>
                             <input name=pesObs type=hidden value="">
 
-                            <div class="form-group col-md-12 col-sm-12 col-xs-12">
+                            <div class="form-group col-md-6 col-sm-12 col-xs-12">
                                 <label>Pessoa</label>
-                                <input class="form-control" id="pesNome" name="pesNome" autofocus
+                                <input class="form-control" id="pesNome" name="pesNome" 
                                     placeholder="Digite o nome do Pessoa." value={$pesNome}>
+                            </div>
+                            <div class="form-group col-md-6 col-sm-12 col-xs-12">
+                                <label>CNPJ/CPF</label>
+                                <input class="form-control" type="text" id="pesCnpjCpf"
+                                    name="pesCnpjCpf" placeholder="Digite o CNPJ/CPF."
+                                    value={$pesCnpjCpf}>
                             </div>
 
 
@@ -139,11 +145,6 @@
                                             <div class="panel-body">
                                                 <div class="x_panel">
 
-                                                    <div class="form-group col-md-4 col-sm-12 col-xs-12">
-                                                        <input class="form-control" type="text" id="pesCnpjCpf"
-                                                            name="pesCnpjCpf" placeholder="Digite o CNPJ/CPF."
-                                                            value={$pesCnpjCpf}>
-                                                    </div>
                                                     <div class="form-group col-md-5 col-sm-12 col-xs-12">
                                                         <input class="form-control" type="text" id="pesCidade"
                                                             name="pesCidade" placeholder="Digite a cidade." value={$cidade}>
@@ -153,28 +154,26 @@
                                                             {html_options values=$estado_ids output=$estado_names selected=$estado_id}
                                                         </SELECT>
                                                     </div>
-                                                    <div class="clearfix"></div>
-
-                                                    <div class="form-group col-md-3 col-sm-12 col-xs-12">
+                                                    <div class="form-group col-md-4 col-sm-12 col-xs-12">
                                                         <SELECT class="form-control" name="idVendedor">
                                                             {html_options values=$responsavel_ids output=$responsavel_names selected=$responsavel_id}
                                                         </SELECT>
                                                     </div>
+                                                    <div class="clearfix"></div>
 
-
-                                                    <div class="form-group col-md-3 col-sm-12 col-xs-12">
+                                                    <div class="form-group col-md-4 col-sm-12 col-xs-12">
                                                         <SELECT class="form-control" name="idAtividade">
                                                             {html_options values=$atividade_ids output=$atividade_names selected=$atividade_id}
                                                         </SELECT>
                                                     </div>
 
-                                                    <div class="form-group col-md-3 col-sm-12 col-xs-12">
+                                                    <div class="form-group col-md-4 col-sm-12 col-xs-12">
                                                         <SELECT class="form-control" name="idClasse">
                                                             {html_options values=$classe_ids output=$classe_names selected=$classe_id}
                                                         </SELECT>
                                                     </div>
 
-                                                    <div class="form-group col-md-3 col-sm-12 col-xs-12">
+                                                    <div class="form-group col-md-4 col-sm-12 col-xs-12">
                                                         <SELECT class="form-control" name="idPessoa">
                                                             {html_options values=$tipoPessoa_ids output=$tipoPessoa_names selected=$tipoPessoa_id}
                                                         </SELECT>

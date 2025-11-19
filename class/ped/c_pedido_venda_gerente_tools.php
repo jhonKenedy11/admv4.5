@@ -34,7 +34,18 @@ public function cancelaPedidoAgrupado($pedidoAgrupado, $conn=null ){
     $objPedido = new c_pedidoVenda();
     for ($i=0;$i<count($arrPedido);$i++){
         if ($arrPedido[$i] > 0) {           
-            $objPedido->setId($arrPedido[$i]);            
+            $objPedido->setId($arrPedido[$i]);
+            
+            // Carrega os dados do pedido antes de alterar a situação
+            $dadosPedido = $objPedido->select_pedidoVenda();
+            if (isset($dadosPedido[0])) {
+                // Preenche os dados necessários para evitar valores inválidos
+                $objPedido->setEmissao($dadosPedido[0]['EMISSAO']);
+                $objPedido->setObs($dadosPedido[0]['OBS']);
+                $objPedido->setCredito($dadosPedido[0]['CREDITO']);
+                $objPedido->setCliente($dadosPedido[0]['CLIENTE']);
+            }
+            
             $objPedido->setSituacao(8);
             $objPedido->alteraPedidoSituacao(null, $conn);
         }                      
@@ -74,8 +85,11 @@ public function incluiPedidoAgrupado($pedidoAgrupado, $arrayPed, $conn=null ){
     for($i=1; $i < count($arrPedidoAgrupado); $i++){
         $ped->setTab("FAT_PEDIDO");
         $pedObs = $ped->getField("OBS", "ID=".$arrPedidoAgrupado[$i]);
-        $obs == '' ? $obs = "Pedido: ". $arrPedidoAgrupado[$i] . " - ".$pedObs."\n" :
-        $obs .= "Pedido: ". $arrPedidoAgrupado[$i] . " - ".$pedObs."\n";
+        if ($obs == '') {
+            $obs = "Pedido: ". $arrPedidoAgrupado[$i] . " - ".$pedObs."\n";
+        } else {
+            $obs .= "Pedido: ". $arrPedidoAgrupado[$i] . " - ".$pedObs."\n";
+        }
     }
     $ped->close_connection();
 
@@ -104,6 +118,9 @@ public function incluiPedidoAgrupado($pedidoAgrupado, $arrayPed, $conn=null ){
 public function incluiItensPedidoAgrupado($pedidoAgrupado, $idPedido, $conn=null ){
      //busca itens dos pedidos
      $arrItensPedidos = $this->agruparPedidos($pedidoAgrupado);
+     
+     // Define o ID do novo pedido agrupado antes de incluir os itens
+     $this->setId($idPedido);
                            
      $objProduto = new c_produto();
      $objProdutoQtde = new c_produto_estoque();

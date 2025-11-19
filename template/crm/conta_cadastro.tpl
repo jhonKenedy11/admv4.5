@@ -570,14 +570,14 @@
                                                     <div class="form-group">
                                                         <div class="col-md-2 col-sm-12 col-xs-12">
                                                             <label for="suframa">Suframa</label>
-                                                            <input class="form-control" maxlength="10" type="text"
+                                                            <input class="form-control input-sm" maxlength="10" type="text"
                                                                 id="suframa" name="suframa"
                                                                 placeholder="Digite somente numeros."
                                                                 title="C&oacute;digo Suframa." value={$suframa}>
                                                         </div>
                                                         <div class="col-md-2 col-sm-12 col-xs-12">
                                                             <label for="limiteCredito">Limite Cr&eacute;dito</label>
-                                                            <input class="form-control" maxlength="10" type="text"
+                                                            <input class="form-control input-sm" maxlength="10" type="text"
                                                                 id="limiteCredito" name="limiteCredito"
                                                                 placeholder="Digite somente numeros."
                                                                 title="Limite de cr&eacute;dito venda."
@@ -585,21 +585,20 @@
                                                         </div>
                                                         <div class="col-md-8 col-sm-8 col-xs-8">
                                                             <label for="emailNfe">Email Nfe</label>
-                                                            <div class="form-group input-group">
-                                                                <span class="input-group-btn">
-                                                                    <button class="btn btn-default" type="button"><i
-                                                                            class="fa fa-at"></i> </button>
-                                                                </span>
-                                                                <input type="email" class="form-control"
-                                                                    placeholder="Email Nfe" id="emailNfe"
+                                                            <div class="form-group input-group input-group-sm">
+                                                                <input type="text" class="form-control input-sm"
+                                                                    placeholder="Ex: email1@empresa.com.br;email2@empresa.com.br" id="emailNfe"
                                                                     name="emailNfe" value={$emailNfe}>
+                                                                <span class="input-group-addon">
+                                                                    <i class="fa fa-info-circle text-purple" data-toggle="tooltip" title="Para enviar nota fiscal e boleto para múltiplos destinatários, separe os emails com ponto e vírgula (;). Exemplo: cliente@email.com.br;financeiro@email.com.br"></i>
+                                                                </span>
                                                             </div>
                                                         </div>
                                                     </div>
                                                     <div class="form-group">
                                                         <div class="col-md-2 col-sm-12 col-xs-12">
                                                             <label for="regimeEspecialST">Regime Esp. ST</label>
-                                                            <select class="form-control" name="regimeEspecialST"
+                                                            <select class="form-control input-sm" name="regimeEspecialST"
                                                                 id="regimeEspecialST" title="Regime especial ST.">
                                                                 {html_options values=$boolean_ids selected=$regimeEspecialST output=$boolean_names}
                                                             </select>
@@ -608,7 +607,7 @@
                                                         <div class="col-md-2 col-sm-12 col-xs-12">
                                                             <label for="regimeEspecialSTMT">Regime especial ST
                                                                 MT</label>
-                                                            <select class="form-control" name="regimeEspecialSTMT"
+                                                            <select class="form-control input-sm" name="regimeEspecialSTMT"
                                                                 id="regimeEspecialSTMT" title="Regime especial ST MT.">
                                                                 {html_options values=$boolean_ids selected=$regimeEspecialSTMT output=$boolean_names}
                                                             </select>
@@ -616,7 +615,7 @@
 
                                                         <div class="col-md-2 col-sm-12 col-xs-12">
                                                             <label for="contribuinteICMS">Contribuinte de ICMS</label>
-                                                            <select class="form-control" name="contribuinteICMS"
+                                                            <select class="form-control input-sm" name="contribuinteICMS"
                                                                 id="contribuinteICMS" title="Contribuinte de ICMS.">
                                                                 {html_options values=$boolean_ids selected=$contribuinteICMS output=$boolean_names}
                                                             </select>
@@ -624,7 +623,7 @@
 
                                                         <div class="col-md-2 col-sm-12 col-xs-12">
                                                             <label for="consumidorFinal">Consumidor Final</label>
-                                                            <select class="form-control" name="consumidorFinal"
+                                                            <select class="form-control input-sm" name="consumidorFinal"
                                                                 id="consumidorFinal" title="Consumidor final.">
                                                                 {html_options values=$boolean_ids selected=$consumidorFinal output=$boolean_names}
                                                             </select>
@@ -633,14 +632,14 @@
                                                         <div class="col-md-2 col-sm-12 col-xs-12">
                                                             <label for="regimeEspecialSTMTAliq">Regime esp ST MT
                                                                 Aliq</label>
-                                                            <input class="form-control" id="regimeEspecialSTMTAliq"
+                                                            <input class="form-control input-sm" id="regimeEspecialSTMTAliq"
                                                                 name="regimeEspecialSTMTAliq"
                                                                 value={$regimeEspecialSTMTAliq}>
                                                         </div>
 
                                                         <div class="col-md-2 col-sm-12 col-xs-12">
                                                             <label for="regimeEspecialSTAliq">Regime esp ST Aliq</label>
-                                                            <input class="form-control" id="regimeEspecialSTAliq"
+                                                            <input class="form-control input-sm" id="regimeEspecialSTAliq"
                                                                 name="regimeEspecialSTAliq"
                                                                 value={$regimeEspecialSTAliq}>
                                                         </div>
@@ -1113,6 +1112,9 @@
 
     <script>
         $(function() {
+            // Ativar tooltip do Bootstrap 3
+            $('[data-toggle="tooltip"]').tooltip();
+
             $('#dataNascimento').daterangepicker({
                 singleDatePicker: true,
                 autoUpdateInput: false,

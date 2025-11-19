@@ -100,6 +100,12 @@ function submitLetra() {
     // situacao Atendimento  
     f.situacoesAtendimento.value = concatCombo(situacaoCombo);
     
+    // vendedor
+    f.vendedorSelected.value = concatCombo(vendedor);
+
+    // condicao de pagamento
+    f.condPagamentoSelected.value = concatCombo(condPag);
+    
     f.submit();
 } // fim submitVoltar
 
@@ -404,7 +410,6 @@ function submitConfirmarPecas() {
     montaLetraPeca();
 
     var form = $("form[name=lancamento]");
-
     $.ajax({
         type: "POST",
         url: form.action ? form.action : document.URL,
@@ -499,7 +504,6 @@ function submitExcluiPeca(nrItem) {
 }
 
 function montaLetraPeca(){
-    
     document.lancamento.letra_peca.value = document.lancamento.id.value + "|" + 
     document.lancamento.pessoa.value + "|" +
     document.lancamento.codProduto.value + "|" +
@@ -807,10 +811,55 @@ function buscaProduto() {
 //atualiza descontos
 function atualizarInfo() {
     var valorTotal = document.getElementById('valorTotal');
+    var f = document.lancamento;
+    var id = f.id.value;
+    
+    // Verifica se tem ID do pedido para consultar situação no banco
+    if (!id || id === '') {
+        // Se não tem ID, verifica pela situação do select
+        var situacaoSelect = document.querySelector('select[name="situacao"]');
+        var situacaoAtual = situacaoSelect ? situacaoSelect.value : '0';
+        
+        if (situacaoAtual == '6' || situacaoAtual == '3') {
+            swal.fire({
+                title: "Atenção!",
+                text: "Não é possível aplicar desconto em pedidos Faturados ou com NF a Emitir!",
+                icon: "warning"
+            });
+            return;
+        }
+        prosseguirComDesconto();
+    } else {
+        // Consulta situação no banco via AJAX
+        $.ajax({
+            type: "POST",
+            url: document.URL + "?mod=ped&form=pedido_ps&submenu=prosseguirComDesconto&opcao=blank",
+            data: { id: id },
+            dataType: "json",
+            success: function(response) {
+                if (response.situacao[0].SITUACAO == '6' || response.situacao[0].SITUACAO == '3') {
+                    swal.fire({
+                        title: "Atenção!",
+                        text: "Não é possível aplicar desconto em pedidos Faturados ou com NF a Emitir!",
+                        icon: "warning"
+                    });
+                    return;
+                }else{
+                    prosseguirComDesconto();
+                }
+            }
+        });
+    }
+}
+
+function prosseguirComDesconto() {
+    var valorTotal = document.getElementById('valorTotal');
     var v = valorTotal.value.replace(/\./g, '').replace(',', '.');
+    
     if (v === '' || isNaN(parseFloat(v)) || parseFloat(v) === 0) {
         return; // Não faz nada se não pode editar desconto
     }
+    
     swal.fire({
         title: "Atenção?",
         text: "Ao realizar o desconto geral os descontos unitários serão recalculados!",
@@ -858,9 +907,9 @@ function atualizarInfo() {
             return false;
         }
     });
-  } // atualizarInfo
+} // prosseguirComDesconto
 
-  function guardaValorAnt(){
+function guardaValorAnt(){
     localStorage.setItem("idPedidoServico", document.getElementsByName("id")[0].value);
     localStorage.setItem("vlrDescontoAnt", document.getElementById("valorDesconto").value);
   }

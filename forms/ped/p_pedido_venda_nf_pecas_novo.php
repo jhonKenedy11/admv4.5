@@ -595,6 +595,7 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                             if ($integraFin == 'S'):
                                 // não altera financeiro se já existir lançamento de pedido
                                 $objFinanceiro->addParcelas($arrParamFin, $arrParcelas, $transaction->id_connection);
+                                
                             endif;
                         } else {
                             $integraFin = 'N';
@@ -619,44 +620,33 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                             if ($integraFin == 'S'):
                                 $objFinanceiro->alteraParcelaPedidoNf($numPedido, $numNf, $transaction->id_connection);
                             endif;
+
                             // valida e autoriza nf
                             $exporta = new p_nfe_40();
-                            $result = $exporta->Gera_XML($idGerado, $this->m_empresacentrocusto, '', $transaction->id_connection);
-
-                            // switch ($result['cStatus']) {
-                            //     case '100':
-                            //         $this->atualizarField('situacao', $situacaoBaixa, $transaction->id_connection);
-                            //         $objNotaFiscal->alteraNfNumero($transaction->id_connection, $result['recibo']);
-
-                            //         //; commit transação
-                            //         $transaction->commit($transaction->id_connection);
-
-                            //         $printDanfe = new p_nfephp_imprime_danfe();
-                            //         if ($this->m_opcao ==''):
-                            //             $printDanfe->printDanfe($idGerado, $objNotaFiscal->getDoc(), $objNotaFiscal->getOrigem(), $result['cDanfe'], $objNotaFiscal->getDoc(), 'pedido_venda_nf');
-                            //         else:    
-                            //             $printDanfe->printDanfe($idGerado, $objNotaFiscal->getNumero(), $objNotaFiscal->getSerie(), $result['cDanfe'], $objNotaFiscal->getDoc(), $this->m_opcao);
-                            //         endif;
-
-                            //         break;
-                            //     case '105': // Lote em processamento
-                            //         $this->atualizarField('situacao', 'P', $transaction->id_connection);
-                            //         //; commit transação
-                            //         $transaction->commit($transaction->id_connection);
-                            //         $this->desenhaCadastroPedido("NF-e Gravada com status de LOTE EM PROCESSAMENTO <br> realizar consulta em NOTA FISCAL e download da NF-e Número: ".$numNf);
-                            //         break;
-                            //     default :        
-                            //         // roollback transação
-                            //         $transaction->rollback($transaction->id_connection);    
-                            //         $this->desenhaCadastroPedido("Nota Fiscal Não Gerada, Identificador: ".$idGerado."<br>".$result);
-                            // }   
-
+                            $result = $exporta->Gera_XML($idGerado, $this->m_empresacentrocusto, '', $transaction->id_connection, '', 'PED');
+                            
                             if ($result['cStatus'] == '100') {
-                                //$this->atualizarField('situacao', $situacaoBaixa, $transaction->id_connection);
+
                                 $this->atualizarFieldPedido(9);
+                                // FALTA RETORNAR O RECIBO
                                 $objNotaFiscal->alteraNfNumero($transaction->id_connection, $result['recibo']);
+                                
+                                
                                 //; commit transação
                                 $transaction->commit($transaction->id_connection);
+
+                                // Envia email com boletos após o commit
+                                // VALIDAR
+                                if (isset($arrParcelas)) {
+                                    $dir = dirname(__FILE__);
+                                    require_once($dir . "/../../forms/blt/p_boleto_email.php");
+                                    $obj_email = new p_boleto_email();
+
+                                    // para teste
+                                    //$idGerado = 146;
+                                    //$numNf = 1239;
+                                    $obj_email->sendDocumentsEmail($idGerado, $numNf, $objNotaFiscal->getPessoa(), $this->getId());
+                                }
 
                                 //IMPRESSAO OLD
                                 $printDanfe = new p_nfephp_imprime_danfe();
@@ -672,9 +662,12 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
 
                                     //create function
                                     echo "<script>";
+
+
                                     echo "function printDanfe(id) {
-                                    window.open('index.php?mod=est&origem=imprimeDanfe&opcao=imprimir&form=nfephp_imprime_danfe&id='+id, 'DANFE', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes');
-                                }";
+                                            window.open('index.php?mod=est&origem=imprimeDanfe&opcao=imprimir&form=nfephp_imprime_danfe&id='+id, 'DANFE', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes');
+                                        }";
+
                                     echo "printDanfe(" . $idGerado . ");";
                                     //simula click
                                     echo "submitTodosPedidos();";
@@ -686,11 +679,15 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                                 $objNotaFiscal->alteraNfNumero($transaction->id_connection, $result['recibo'], $result['chave'], $result['codSituacao']);
                                 //; commit transação
                                 $transaction->commit($transaction->id_connection);
+
                                 $this->desenhaCadastroPedido('<b>Nota Fiscal em processamento!</b><br> Consulte em notas fiscais pelo Nº <b>' . $numNf . '</b> para finalizar o processo de emissão.');
+
                             } elseif ($result['cStatus'] == '539') { //DUPLICIDADE
 
                                 $this->atualizarFieldPedido(3);
+
                                 $objNotaFiscal->alteraNfNumero($transaction->id_connection, $result['recibo'], $result['chave'], $result['codSituacao']);
+                                
                                 //; commit transação
                                 $transaction->commit($transaction->id_connection);
 
@@ -1194,23 +1191,27 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
             $lancObj = new c_lancamento();
             $fin = $lancObj->select_lancamento_doc('PED', $this->getPedido());
             for ($i = 0; $i < count($fin); $i++) {
+                // Mantém o ID original e cria campo separado para o nome
                 $con = new c_banco();
                 $con->setTab("FIN_CONTA");
                 $banco = $con->getField("NOMEINTERNO", "CONTA=" . $fin[$i]['CONTA']);
                 $con->close_connection();
-                $fin[$i]['CONTA'] = $banco;
+                $fin[$i]['CONTA_NOME'] = $banco;  // Nome da conta para exibição
+                // $fin[$i]['CONTA'] mantém o ID para o selected do combo
 
                 $con = new c_banco();
                 $con->setTab("AMB_DDM");
                 $tipoDocto = $con->getField("PADRAO", "TIPO='" . $fin[$i]['TIPODOCTO'] . "' AND (alias='FIN_MENU') and (campo='TipoDoctoPgto')");
                 $con->close_connection();
-                $fin[$i]['TIPODOCTO'] = $tipoDocto;
+                $fin[$i]['TIPODOCTO_NOME'] = $tipoDocto;  // Nome do tipo para exibição
+                // $fin[$i]['TIPODOCTO'] mantém o código para o selected do combo
 
                 $con = new c_banco();
                 $con->setTab("AMB_DDM");
                 $sitPgto = $con->getField("PADRAO", "TIPO='" . $fin[$i]['SITPGTO'] . "' AND (alias='FIN_MENU') and (campo='SituacaoPgto')");
                 $con->close_connection();
-                $fin[$i]['SITPGTO'] = $sitPgto;
+                $fin[$i]['SITPGTO_NOME'] = $sitPgto;  // Nome da situação para exibição
+                // $fin[$i]['SITPGTO'] mantém o código para o selected do combo
             }
             if ($mensagem == null) {
                 $mensagem .= "Pedido com parcelas já cadastradas no financeiro!";
@@ -1418,23 +1419,27 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
             $lancObj = new c_lancamento();
             $fin = $lancObj->select_lancamento_doc('PED', $this->getPedido());
             for ($i = 0; $i < count($fin); $i++) {
+                // Mantém o ID original e cria campo separado para o nome
                 $con = new c_banco();
                 $con->setTab("FIN_CONTA");
                 $banco = $con->getField("NOMEINTERNO", "CONTA=" . $fin[$i]['CONTA']);
                 $con->close_connection();
-                $fin[$i]['CONTA'] = $banco;
+                $fin[$i]['CONTA_NOME'] = $banco;  // Nome da conta para exibição
+                // $fin[$i]['CONTA'] mantém o ID para o selected do combo
 
                 $con = new c_banco();
                 $con->setTab("AMB_DDM");
                 $tipoDocto = $con->getField("PADRAO", "TIPO='" . $fin[$i]['TIPODOCTO'] . "' AND (alias='FIN_MENU') and (campo='TipoDoctoPgto')");
                 $con->close_connection();
-                $fin[$i]['TIPODOCTO'] = $tipoDocto;
+                $fin[$i]['TIPODOCTO_NOME'] = $tipoDocto;  // Nome do tipo para exibição
+                // $fin[$i]['TIPODOCTO'] mantém o código para o selected do combo
 
                 $con = new c_banco();
                 $con->setTab("AMB_DDM");
                 $sitPgto = $con->getField("PADRAO", "TIPO='" . $fin[$i]['SITPGTO'] . "' AND (alias='FIN_MENU') and (campo='SituacaoPgto')");
                 $con->close_connection();
-                $fin[$i]['SITPGTO'] = $sitPgto;
+                $fin[$i]['SITPGTO_NOME'] = $sitPgto;  // Nome da situação para exibição
+                // $fin[$i]['SITPGTO'] mantém o código para o selected do combo
             }
             if ($mensagem == null) {
                 $mensagem .= "Pedido com parcelas já cadastradas no financeiro!";

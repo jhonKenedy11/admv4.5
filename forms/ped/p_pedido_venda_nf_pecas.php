@@ -578,8 +578,7 @@ Class p_pedido_venda_nf_pecas extends c_pedidoVendaNf {
                     $this->desenhaCadastroPedido("Nf Não foi gerado: "."<br>".$e->getMessage()."<br>");
                     // throw new Exception($e->getMessage()."Nf Não foi gerado " );
 
-                }
-                catch (Exception $e) {
+                } catch (Exception $e) {
                     //echo 'Caught exception: ',  $e->getMessage(), "\n";
                     if ($this->nfAberto == true):
                         $transaction->commit($transaction->id_connection);

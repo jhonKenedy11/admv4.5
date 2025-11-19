@@ -117,4 +117,9 @@ class c_banco_pdo
 	{
 		return $this->conn->lastInsertId();
 	}
+
+	public function setConnection($connection)
+	{
+		$this->conn = $connection;
+	}
 }

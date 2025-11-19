@@ -18,9 +18,7 @@
 <div class="right_col" role="main" style="padding: 14px;">
 
     <div class="">
-
         <div class="row">
-
 
             <!-- panel principal  -->
             <div class="col-md-12 col-xs-12" style="padding: 1px;">
@@ -45,9 +43,6 @@
                                     <span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span> Novo
                                         Pedido</span>
                                 </button>
-                            </li>
-                            <li>
-                                <a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
                             </li>
                             <li class="dropdown">
                                 <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"><i class="fa fa-print"></i></a>
@@ -123,9 +118,6 @@
                                         </li>
                                     </ul>
                                 </li>
-                            <li>
-                                <a class="close-link"><i class="fa fa-close"></i></a>
-                            </li>
                         </ul>
                         <div class="clearfix"></div>
                     </div>

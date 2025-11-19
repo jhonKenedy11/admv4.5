@@ -273,5 +273,21 @@ public function getCasasDecimais(){
     }
 } //fim getCasasDecimais
 
+/**
+ * @name getControleVendedor
+ * @description retorna o valor do parâmetro CONTROLEVENDEDOR da tabela fat_parametro
+ */
+public function getControleVendedor(){
+    $sql  = "SELECT CONTROLEVENDEDOR ";
+    $sql .= "FROM FAT_PARAMETRO ";
+    $sql .= "WHERE (FILIAL = ".$this->getFilial().") ";
+    $banco = new c_banco();
+    $banco->exec_sql($sql);
+    $banco->close_connection();
+    return $banco->resultado[0]['CONTROLEVENDEDOR'];
+        
+} //fim getControleVendedor
+
+
 }	//	END OF THE CLASS
 ?>

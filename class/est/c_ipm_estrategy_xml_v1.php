@@ -34,65 +34,281 @@ class IpmStrategyXml
      * - forma_pagamento (opcional) 
      * @return string String contendo o XML da NFS-e formatado.
      */
-    function mountXmlIpm(): string
+    function mountXmlIpm(string $json): string
     {
-        // Sample data with multiple items
+        // Decodificar JSON recebido do JavaScript
+        $dadosRecebidos = json_decode($json, true);
+
+        // Validar se o JSON foi decodificado corretamente
+        if (!$dadosRecebidos) {
+            throw new \InvalidArgumentException('JSON inválido recebido');
+        }
+
+        // Montar a estrutura $dadosNFS no padrão esperado pelo XML IPM
         $dadosNFS = [
-            'identificador' => time() . '-nfs',
-            // 'valor_total' is now calculated automatically from the items' sum.
-            'valor_desconto' => 50.00,
-            'valor_ir' => null, // Optional field example
-            'observacao' => 'Serviços de consultoria e desenvolvimento.',
+            // Utilizado para identificação do arquivo a ser processado. Arquivos com mesmo identificador não serão
+            // processados mais de uma vez, indiferente se o restante dos dados for correspondente a uma nova NFS-e.
+            // Observação: se a tag for informada no arquivo, deve ser informado algum valor. 
+            // lenght: 80 - Alfanumerico
+            // Opcional
+            'identificador' => time() . '-nfs-' . uniqid(),
+
+            // Série da NFS-e.
+            // Opcional - Numerico
+            'serie' => isset($dadosRecebidos['nota_fiscal']['serie']) ? $dadosRecebidos['nota_fiscal']['serie'] : null,
+            
+            // Deverá ser preenchido com a data do fator gerador da NFS-e. Exemplo: 15/01/2018. 
+            // Lenght: 10 - Texto
+            // Opcional
+            'data_fato_gerador' => isset($dadosRecebidos['nota_fiscal']['data_fato_gerador']) ? $dadosRecebidos['nota_fiscal']['data_fato_gerador'] : null,
+            
+            // Valor total da NFS-e. 
+            // Lenght: 15 - Real (formato brasileiro: vírgula como decimal no XML)
+            // Obrigatorio 
+            'valor_total' => isset($dadosRecebidos['nota_fiscal']['valor_total']) ? floatval($dadosRecebidos['nota_fiscal']['valor_total']) : 0.00,
+
+            // Valor do desconto. Este valor não afetará a base de cálculo do imposto, apenas assinala na nota.
+            // Lenght: 15 - Real (formato brasileiro: vírgula como decimal no XML)
+            // Opcional
+            'valor_desconto' => isset($dadosRecebidos['nota_fiscal']['valor_desconto']) ? floatval($dadosRecebidos['nota_fiscal']['valor_desconto']) : 0.00,
+            
+            // Valor do IRRF (Imposto de Renda
+            // Retido na Fonte). Este valor não afetará a base de cálculo do imposto, apenas assinala na nota.
+            // Lenght: 15 - Real (formato brasileiro: vírgula como decimal no XML)
+            // Opcional
+            'valor_ir' => isset($dadosRecebidos['nota_fiscal']['valor_ir']) ? floatval($dadosRecebidos['nota_fiscal']['valor_ir']) : 0.00,
+
+            // Valor do INSS. Este valor não afetará a base de cálculo do imposto, apenas assinala na nota.
+            // Lenght: 15 - Real (formato brasileiro: vírgula como decimal no XML)
+            // Opcional
+            'valor_inss' => isset($dadosRecebidos['nota_fiscal']['valor_inss']) ? floatval($dadosRecebidos['nota_fiscal']['valor_inss']) : 0.00,
+
+            // Valor da contribuição social. Este valor não afetará a base de cálculo do imposto, apenas assinala na nota.
+            // Lenght: 15 - Real (formato brasileiro: vírgula como decimal no XML)
+            // Opcional
+            'valor_contribuicao_social' => isset($dadosRecebidos['nota_fiscal']['valor_contribuicao_social']) ? floatval($dadosRecebidos['nota_fiscal']['valor_contribuicao_social']) : 0.00,
+
+            // Valor do RPS (Retenções da Previdência Social). Este valor não afetará a base de cálculo do imposto, apenas assinala na nota.
+            // Lenght: 15 - Real (formato brasileiro: vírgula como decimal no XML)
+            // Opcional
+            'valor_rps' => isset($dadosRecebidos['nota_fiscal']['valor_rps']) ? floatval($dadosRecebidos['nota_fiscal']['valor_rps']) : 0.00,
+
+            // Valor do PIS (Programa de Integração Social). Este valor não afetará a base de cálculo do imposto, apenas assinala na nota.
+            // Lenght: 15 - Real (formato brasileiro: vírgula como decimal no XML)
+            // Opcional
+            'valor_pis' => isset($dadosRecebidos['nota_fiscal']['valor_pis']) ? floatval($dadosRecebidos['nota_fiscal']['valor_pis']) : 0.00,
+
+            // Valor do COFINS (Contribuição para o Financiamento da Seguridade Social). Este valor não afetará a base de cálculo do imposto, apenas assinala na nota.
+            // Lenght: 15 - Real (formato brasileiro: vírgula como decimal no XML)
+            // Opcional
+            'valor_cofins' => isset($dadosRecebidos['nota_fiscal']['valor_cofins']) ? floatval($dadosRecebidos['nota_fiscal']['valor_cofins']) : 0.00,
+
+            // Observações da NFS-e.
+            // Lenght: 1000 - Alfanumerico
+            // Opcional
+            'observacao' => isset($dadosRecebidos['nota_fiscal']['observacao']) ? $dadosRecebidos['nota_fiscal']['observacao'] : null,
+
+            
+            
+            // Dados do prestador
             'prestador' => [
-                'cpfcnpj' => '26179567000160',
-                'cidade' => '4119152',
+                // CPF/CNPJ do emissor da nota. Informar apenas números.
+                // Lenght: 14 - Numerico
+                // Obrigatorio
+                'cpfcnpj' => $dadosRecebidos['prestador']['cpfcnpj'] ?? '',
+
+                // Código da cidade onde o emissor está
+                // estabelecido, junto à Receita Federal (chamado de código TOM).
+                // Exemplo: Brusque 8055
+                // Lenght: 9 - Numerico
+                // Obrigatorio
+                'cidade' => $dadosRecebidos['prestador']['cidade'] ?? '',
             ],
+            
+            // Dados do tomador
             'tomador' => [
-                'tipo' => 'J', // J: Juridical Person, F: Physical Person, E: Foreigner 
-                'cpfcnpj' => '21033620000105',
-                'nome_razao_social' => 'Empresa Contratante Exemplo LTDA',
-                'sobrenome_nome_fantasia' => 'Nome Fantasia Exemplo',
-                'logradouro' => 'Rua das Flores',
-                'numero_residencia' => '123',
-                'bairro' => 'Centro',
-                'cidade' => '8133', // Service Taker's City Code (TOM) 
-                'cep' => '4119152',
-                'email' => 'contato@empresaexemplo.com.br;financeiro@empresaexemplo.com.br',
+                // Tipo da pessoa, informar:
+                // • J para Pessoa Jurídica;
+                // • F para Pessoa Física;
+                // • E para Estrangeiro.
+                // Lenght: 1 - Alfanumerico
+                // Obrigatorio
+                'tipo' => $dadosRecebidos['tomador']['tipo'] ?? 'J',
+
+                // CPF/CNPJ do tomador do(s) serviço(s).
+                // Lenght: 14 - Numerico
+                // Opcional
+                'cpfcnpj' => $dadosRecebidos['tomador']['cpfcnpj'] ?? '',
+
+                // Nome do tomador do(s) serviço(s).
+                // Lenght: 100 - Alfanumerico
+                // Opcional
+                'nome_razao_social' => $dadosRecebidos['tomador']['nome_razao_social'] ?? '',
+
+                // Sobrenome ou Nome Fantasia do Tomador.
+                // Lenght: 100 - Alfanumerico
+                // Opcional
+                'sobrenome_nome_fantasia' => $dadosRecebidos['tomador']['sobrenome_nome_fantasia'] ?? '',
+
+                // Logradouro do endereço do estabelecimento ou residência do tomador do(s) serviço(s).
+                // Lenght: 70 - Alfanumerico
+                // Opcional
+                'logradouro' => $dadosRecebidos['tomador']['logradouro'] ?? '',
+                
+                // Quando necessário informar mais de um e-mail para o tomador do(s) serviço(s) os mesmos deverão ser separados por (;) ou (,).
+                // Lenght: 100 - Alfanumerico
+                // Opcional
+                'email' => $dadosRecebidos['tomador']['email'] ?? '',
+
+                // Número do endereço do estabelecimento ou residência do tomador do(s) serviço(s).
+                // Lenght: 8 - Numerico
+                // Opcional
+                'numero_residencia' => $dadosRecebidos['tomador']['numero_residencia'] ?? '',
+
+                // Complemento do endereço do estabelecimento ou residência do tomador do(s) serviço(s).
+                // Lenght: 50 - Alfanumerico
+                // Opcional
+                'complemento' => $dadosRecebidos['tomador']['complemento'] ?? '',
+                
+                // Ponto de referência do endereço do estabelecimento ou residência do tomador do(s) serviço(s).
+                // Lenght: 100 - Alfanumerico
+                // Opcional
+                'ponto_referencia' => $dadosRecebidos['tomador']['ponto_referencia'] ?? '',
+
+                // Bairro do endereço do estabelecimento ou residência do tomador do(s) serviço(s).
+                // Lenght: 30 - Alfanumerico
+                // Opcional
+                'bairro' => $dadosRecebidos['tomador']['bairro'] ?? '',
+
+                // Código da cidade do endereço do estabelecimento ou residência do tomador do(s) serviço(s), 
+                // junto à Receita Federal (chamado de código TOM). Exemplo: Brusque 8055. 
+                // Observação: quando o tipo do tomador for Estrangeiro, o campo cidade deve ser preenchido com o nome da cidade (máximo 100 caracteres).
+                // Lenght: 9 - Numerico
+                // Opcional
+                'cidade' => $dadosRecebidos['tomador']['cidade'] ?? '',
+
+                // CEP do endereço do estabelecimento ou residência do tomador do(s) serviço(s).
+                // Lenght: 8 - Numerico
+                // Opcional
+                'cep' => $dadosRecebidos['tomador']['cep'] ?? '',
+                
+                // Código de área do telefone do
+                // estabelecimento do tomador do(s) serviço(s).
+                // Lenght: 3 - Numerico
+                // Opcional
+                'ddd_fone_comercial' => $dadosRecebidos['tomador']['ddd_fone_comercial'] ?? '',
+
+                // Telefone do estabelecimento do tomador do(s) serviço(s).
+                // Lenght: 9 - Numerico
+                // Opcional
+                'fone_comercial' => $dadosRecebidos['tomador']['fone_comercial'] ?? '',
+
+                // Código de área do telefone do
+                // estabelecimento do tomador do(s) serviço(s).
+                // Lenght: 3 - Numerico
+                // Opcional
+                'ddd_fone_residencial' => $dadosRecebidos['tomador']['ddd_fone_residencial'] ?? '',
+
+                // Telefone do estabelecimento do tomador do(s) serviço(s).
+                // Lenght: 9 - Numerico
+                // Opcional
+                'fone_residencial' => $dadosRecebidos['tomador']['fone_residencial'] ?? '',
+                
+                // Código de área do telefone do
+                // estabelecimento do tomador do(s) serviço(s).
+                // Lenght: 3 - Numerico
+                // Opcional
+                'ddd_fax' => $dadosRecebidos['tomador']['ddd_fax'] ?? '',
+
+                // Telefone do estabelecimento do tomador do(s) serviço(s).
+                // Lenght: 9 - Numerico
+                // Opcional
+                'fone_fax' => $dadosRecebidos['tomador']['fone_fax'] ?? '',
             ],
-            'itens' => [ // The <itens> tag holds one or more <lista> tags 
-                [
-                    'tributa_municipio_prestador' => 'S', // 'S' when taxation occurs in the provider's municipality 
-                    'codigo_local_prestacao_servico' => '8055',
-                    'codigo_item_lista_servico' => '104', // Service list code as per LC 116/2003 
-                    'descritivo' => 'Desenvolvimento de módulo de faturamento.',
-                    'aliquota_item_lista_servico' => 5.00,
-                    'situacao_tributaria' => 0, // 0 - Tributada Integralmente 
-                    'valor_tributavel' => 1400.50, // This value serves as the tax base 
-                    'valor_deducao' => 0,
-                    'valor_issrf' => 0,
-                ],
-                [
-                    'tributa_municipio_prestador' => 'S',
-                    'codigo_local_prestacao_servico' => '8055',
-                    'codigo_item_lista_servico' => '107', // Example: 1.07 - Suporte técnico.
-                    'descritivo' => 'Suporte técnico especializado por 10 horas.',
-                    'aliquota_item_lista_servico' => 5.00,
-                    'situacao_tributaria' => 0,
-                    'valor_tributavel' => 600.00,
-                    'valor_deducao' => 0,
-                    'valor_issrf' => 0,
-                ]
-            ],
-            'forma_pagamento' => [
-                'tipo_pagamento' => 2, // 2 - A prazo 
-                'parcelas' => [
-                    ['numero' => 1, 'valor' => 1000.25, 'data_vencimento' => '20/07/2025'],
-                    ['numero' => 2, 'valor' => 950.25, 'data_vencimento' => '20/08/2025'],
-                ]
-            ]
+            
+            // Itens dos serviços (array de itens)
+            'itens' => []
         ];
 
+        // Processar os itens recebidos
+        if (isset($dadosRecebidos['itens']) && is_array($dadosRecebidos['itens'])) {
+            foreach ($dadosRecebidos['itens'] as $item) {
+                $dadosNFS['itens'][] = [
+                    // Esta tag serve para informar onde será recolhido o imposto e deve ser preenchida com: 
+                    // • “0” ou “N” quando a tributação ocorre no local da prestação do serviço; 
+                    // • “1” ou “S” quando a tributação ocorre no município do prestador.
+                    // Lenght: 1 - Alfanumerico
+                    // Obrigatorio
+                    'tributa_municipio_prestador' => $item['tributa_municipio_prestador'] ?? 'S',
 
+                    // Código da cidade onde o serviço foi prestado, junto à Receita Federal (código TOM ou IBGE). Exemplo: Brusque TOM: 8055/IBGE: 4202909.
+                    // Lenght: 9 - Numerico
+                    // Obrigatorio
+                    'codigo_local_prestacao_servico' => $item['codigo_local_prestacao_servico'] ?? '',
+
+                    // Código do subitem da lista de serviços, em conformidade com a Lei Complementar 116/2003
+                    // Lenght: 9 - Numerico
+                    // Obrigatorio
+                    'codigo_item_lista_servico' => $item['codigo_item_lista_servico'] ?? '',
+
+                    // Descritivo coloquial do serviço prestado.
+                    // Lenght: 1000 - Alfanumerico
+                    // Obrigatorio
+                    'descritivo' => $item['descritivo'] ?? 'Prestação de serviços',
+
+                    // Alíquota que irá incidir sobre a base de cálculo. Esta alíquota será consistida em acordo com a legislação do município. 
+                    // ATENÇÃO: caso seja informada incorretamente, o software rejeitará a nota.
+                    // Lenght: 15 - Real (formato brasileiro: vírgula como decimal no XML)
+                    // Obrigatorio
+                    'aliquota_item_lista_servico' => floatval($item['aliquota_item_lista_servico'] ?? 0),
+
+                    // Código da situação tributária. Este código caracterizará a forma de cobrança do ISS. Aqui, podem ocorrer as codificações conforme descrito neste manual, no item Situações Tributárias. 
+                    // ATENÇÃO: caso seja informada incorretamente, o software rejeitará a nota.
+                    // Lenght: 4 - Numerico
+                    // Obrigatorio
+                    'situacao_tributaria' => intval($item['situacao_tributaria'] ?? 0),
+
+                    // Valor tributável do serviço prestado.
+                    // Lenght: 15 - Real (formato brasileiro: vírgula como decimal no XML)
+                    // Obrigatorio
+                    'valor_tributavel' => floatval($item['valor_tributavel'] ?? 0),
+
+                    // Valor da dedução. Este valor não afetará a base de cálculo do imposto, apenas assinala na nota.
+                    // Lenght: 15 - Real (formato brasileiro: vírgula como decimal no XML)
+                    // Opcional
+                    'valor_deducao' => floatval($item['valor_deducao'] ?? 0),
+
+                    // Valor do ISSRF (Imposto sobre Serviços de Qualquer Natureza). Este valor não afetará a base de cálculo do imposto, apenas assinala na nota.
+                    // Lenght: 15 - Real (formato brasileiro: vírgula como decimal no XML)
+                    // Opcional
+                    'valor_issrf' => $item['valor_issrf'] ?? 0,
+
+                    // Deverá ser o número do Cadastro Nacional de Obras.
+                    // Numerico
+                    // Opcional
+                    'cno' => $item['cno'] ?? '',
+                ];
+            }
+        }
+
+        // Forma de pagamento (opcional)
+        if (isset($dadosRecebidos['forma_pagamento']) && !empty($dadosRecebidos['forma_pagamento']['parcelas'])) {
+            $dadosNFS['forma_pagamento'] = [
+                'tipo_pagamento' => intval($dadosRecebidos['forma_pagamento']['tipo_pagamento'] ?? 1),
+                'parcelas' => []
+            ];
+
+            // Processar parcelas
+            foreach ($dadosRecebidos['forma_pagamento']['parcelas'] as $parcela) {
+                $dadosNFS['forma_pagamento']['parcelas'][] = [
+                    'numero' => intval($parcela['numero'] ?? 1),
+                    'valor' => floatval($parcela['valor'] ?? 0),
+                    'data_vencimento' => $parcela['data_vencimento'] ?? ''
+                ];
+            }
+        }
+
+        // Calcular valor total automaticamente a partir dos itens
         $valorTotalCalculado = 0;
 
         foreach ($dadosNFS['itens'] as $item) {
@@ -119,13 +335,13 @@ class IpmStrategyXml
 
         // --- <nf> Tag (Mandatory) ---
         $nf = $xml->addChild('nf'); // Groups the main values of the NFS-e 
-        $nf->addChild('valor_total', number_format($dadosNFS['valor_total'], 2, ',', '')); // Total value of the NFS-e 
+        $nf->addChild('valor_total', number_format($dadosNFS['valor_total'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
 
         if (isset($dadosNFS['valor_desconto']) && $dadosNFS['valor_desconto'] > 0) {
-            $nf->addChild('valor_desconto', number_format($dadosNFS['valor_desconto'], 2, ',', '')); // Optional discount value 
+            $nf->addChild('valor_desconto', number_format($dadosNFS['valor_desconto'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
         }
         if (isset($dadosNFS['valor_ir']) && $dadosNFS['valor_ir'] > 0) {
-            $nf->addChild('valor_ir', number_format($dadosNFS['valor_ir'], 2, ',', '')); // Optional IR value 
+            $nf->addChild('valor_ir', number_format($dadosNFS['valor_ir'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
         }
         if (!empty($dadosNFS['observacao'])) {
             $nf->addChild('observacao', htmlspecialchars($dadosNFS['observacao'])); // Observations 
@@ -165,33 +381,35 @@ class IpmStrategyXml
             $lista->addChild('codigo_local_prestacao_servico', $itemNFS['codigo_local_prestacao_servico']); // City code where service was rendered 
             $lista->addChild('codigo_item_lista_servico', $itemNFS['codigo_item_lista_servico']); // Service item code 
             $lista->addChild('descritivo', htmlspecialchars($itemNFS['descritivo'])); // Service description 
-            $lista->addChild('aliquota_item_lista_servico', number_format($itemNFS['aliquota_item_lista_servico'], 2, ',', '')); // Tax rate for the item 
+            $lista->addChild('aliquota_item_lista_servico', number_format($itemNFS['aliquota_item_lista_servico'], 4, ',', '')); // Formato brasileiro: vírgula como decimal
             $lista->addChild('situacao_tributaria', $itemNFS['situacao_tributaria']); // Tax situation code 
-            $lista->addChild('valor_tributavel', number_format($itemNFS['valor_tributavel'], 2, ',', '')); // Taxable value of the item 
+            $lista->addChild('valor_tributavel', number_format($itemNFS['valor_tributavel'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
 
             if (isset($itemNFS['valor_deducao']) && $itemNFS['valor_deducao'] > 0) {
-                $lista->addChild('valor_deducao', number_format($itemNFS['valor_deducao'], 2, ',', '')); // Deduction value, if applicable 
+                $lista->addChild('valor_deducao', number_format($itemNFS['valor_deducao'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
             }
             if (isset($itemNFS['valor_issrf']) && $itemNFS['valor_issrf'] > 0) {
-                $lista->addChild('valor_issrf', number_format($itemNFS['valor_issrf'], 2, ',', '')); // Withheld ISS value, if applicable 
+                $lista->addChild('valor_issrf', number_format($itemNFS['valor_issrf'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
             }
         }
 
         // --- <forma_pagamento> Tag (Optional) ---
-        if (!empty($dadosNFS['forma_pagamento'])) {
-            $formaPagamento = $xml->addChild('forma_pagamento'); // Payment method details 
-            $formaPagamento->addChild('tipo_pagamento', $dadosNFS['forma_pagamento']['tipo_pagamento']); // Payment type code 
+        // if (!empty($dadosNFS['forma_pagamento'])) {
+        //     $formaPagamento = $xml->addChild('forma_pagamento'); // Payment method details 
+        //     $formaPagamento->addChild('tipo_pagamento', $dadosNFS['forma_pagamento']['tipo_pagamento']); // Payment type code 
 
-            if (!empty($dadosNFS['forma_pagamento']['parcelas'])) {
-                $parcelas = $formaPagamento->addChild('parcelas'); // Groups the installments 
-                foreach ($dadosNFS['forma_pagamento']['parcelas'] as $p) {
-                    $parcela = $parcelas->addChild('parcela'); // Each installment is a <parcela> tag 
-                    $parcela->addChild('numero', $p['numero']); // Installment number (1-24) 
-                    $parcela->addChild('valor', number_format($p['valor'], 2, ',', '')); // Installment value 
-                    $parcela->addChild('data_vencimento', $p['data_vencimento']); // Due date in dd/mm/yyyy format 
-                }
-            }
-        }
+        //     if (!empty($dadosNFS['forma_pagamento']['parcelas'])) {
+        //         $parcelas = $formaPagamento->addChild('parcelas'); // Groups the installments 
+        //         foreach ($dadosNFS['forma_pagamento']['parcelas'] as $p) {
+        //             $parcela = $parcelas->addChild('parcela'); // Each installment is a <parcela> tag 
+        //             $parcela->addChild('numero', $p['numero']); // Installment number (1-24) 
+        //             $parcela->addChild('valor', number_format($p['valor'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
+        //             $parcela->addChild('data_vencimento', $p['data_vencimento']); // Due date in dd/mm/yyyy format 
+        //         }
+        //     }
+        // }
+
+
 
 
         // Formata o XML para melhor visualização e o salva em uma variável
@@ -199,10 +417,12 @@ class IpmStrategyXml
         $dom->formatOutput = true;
         $this->xmlString = $dom->saveXML();
 
+        // Imprime ou salva o XML gerado
+        $this->savedXml($this->xmlString, $dadosNFS['identificador'], ADMambDesc, "nf");
+
         return $this->xmlString;
 
-        // Imprime ou salva o XML gerado
-        //$this->savedXml($xmlString, $dadosNFS['identificador'], ADMambDesc, "nf");
+
 
     }
 
@@ -261,93 +481,6 @@ class IpmStrategyXml
         }
     }
 
-
-    /**
-     * Salva um evento relacionado à Nota Fiscal de Serviço na tabela
-     * EST_NOTA_FISCAL_SERVICO_EVENTOS.
-     *
-     * Essa função armazena os dados do evento (como emissão, cancelamento, consulta, etc.)
-     * incluindo o XML de retorno da requisição feita, que deve ser previamente capturado.
-     *
-     * @param PDO $pdo Conexão PDO com o banco de dados.
-     * @param array $dados Array associativo com os seguintes campos obrigatórios:
-     *                     - id_nfs (int): ID da nota fiscal.
-     *                     - centro_custo (string): Código do centro de custo (até 11 caracteres).
-     *                     - serie (string|null): Série da NFS (até 3 caracteres).
-     *                     - numero (int|null): Número da NFS.
-     *                     - tipo_evento (string): Tipo de evento (C, E, S, N).
-     *                     - codigo_retorno (string|null): Código de retorno da operação (até 10 caracteres).
-     *                     - created_user (int): ID do usuário que criou o registro.
-     * @param string $xmlRetorno XML de resposta do serviço (pequeno), extraído do corpo da resposta.
-     *
-     * @return bool Retorna true em caso de sucesso, ou false se ocorrer algum erro na execução.
-     */
-    function saveEventInvoice(array $dados, string $xmlRetorno): bool
-    {
-
-
-
-        /*
-
-            '<?xml version="1.0" encoding="ISO-8859-1"?>
-            <retorno>
-                <mensagem>
-                    <codigo>00031 - C�digo do item da lista de servi�o est� preenchido incorretamente.</codigo>
-                    <codigo>00034 - Al�quota do servi�o prestado n�o foi preenchida corretamente.</codigo>
-                </mensagem>
-            </retorno>'
-
-        */
-
-        $sql = "
-            INSERT INTO EST_NOTA_FISCAL_SERVICO_EVENTOS (
-                ID_NFS,
-                CENTRO_CUSTO,
-                SERIE,
-                NUMERO,
-                TIPO_EVENTO,
-                CODIGO_RETORNO,
-                XML_RETORNO,
-                CREATED_USER
-            ) VALUES (
-                :id_nfs,
-                :centro_custo,
-                :serie,
-                :numero,
-                :tipo_evento,
-                :codigo_retorno,
-                :xml_retorno,
-                :created_user
-            )
-        ";
-
-        try {
-
-            $this->banco = new c_banco_pdo();
-            $this->banco->prepare($sql);
-
-
-            $this->banco->bindValue(':id_nfs',         $dados['id_nfs'],         PDO::PARAM_INT);
-            $this->banco->bindValue(':centro_custo',   $dados['centro_custo'],   PDO::PARAM_STR);
-            $this->banco->bindValue(':serie',          $dados['serie'],          PDO::PARAM_STR);
-            $this->banco->bindValue(':numero',         $dados['numero'],         PDO::PARAM_INT);
-            $this->banco->bindValue(':tipo_evento',    $dados['tipo_evento'],    PDO::PARAM_STR);
-            $this->banco->bindValue(':codigo_retorno', $dados['codigo_retorno'], PDO::PARAM_STR);
-            $this->banco->bindValue(':xml_retorno',    $xmlRetorno,              PDO::PARAM_STR);
-            $this->banco->bindValue(':created_user',   $dados['created_user'],   PDO::PARAM_INT);
-
-            $this->banco->execute();
-
-            if ($this->banco->rowCount() > 0) {
-                return true;
-            }
-
-        } catch (PDOException $e) {
-            // DEV verifique o erro nesse caminho /var/tmp/my-errors.log
-            error_log("Erro ao salvar evento NFS: " . $e->getMessage());
-            return false;
-        }
-    }
 
     // Método comum para todas as implementações
     public function validarComSchema(): bool

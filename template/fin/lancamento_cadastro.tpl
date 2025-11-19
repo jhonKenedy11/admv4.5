@@ -146,7 +146,6 @@ input[type="number"] {
 <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 
 
-
 {if $subMenu neq "cadastrar" || $clonar eq "true" }
 
     <body onload="tipoLancamento()">
@@ -474,9 +473,14 @@ input[type="number"] {
                                                 <div class="col-md-1 col-sm-2 col-xs-2">
                                                     <label for="parcela">Parcela</label>
                                                     <input class="form-control" maxlength="3" type="text" id="parcela"
-                                                        name="parcela" placeholder="Parcela" value={$parcela}>
+                                                        name="parcela" placeholder="Parcela" value="{$parcela}">
                                                 </div>
-                                                <div class="col-md-3 col-sm-12 col-xs-12">
+                                                <div class="col-md-1 col-sm-2 col-xs-2">
+                                                    <label for="totalParcelas">N° Parcelas</label>
+                                                    <input class="form-control" type="text" id="totalParcelas"
+                                                        name="totalParcelas" placeholder="Total" value="{$totalParcelas}" readonly="readonly">
+                                                </div>
+                                                <div class="col-md-2 col-sm-12 col-xs-12">
                                                     <label for="situacaodocto">Situa&ccedil;&atilde;o Documento</label>
                                                     <select class="form-control" name="situacaodocto"
                                                         id="situacaodocto">

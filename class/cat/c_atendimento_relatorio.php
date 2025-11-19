@@ -287,7 +287,8 @@ class c_atendimento_relatorio extends c_user
             SAT.VALUNITARIO,
             SAT.TOTALSERVICO, 
             SAT.ID AS SAT_ID, 
-            PS.QUANTIDADE_CONTRATADA,
+            PS.QUANTIDADE AS QUANTIDADE_CONTRATADA,
+            PS.OBSSERVICO,
             CO.PROJETO AS OBRA,
             CO.CNO, CO.CREA, CO.ART,
             A.VALORSERVICOS
@@ -304,12 +305,8 @@ class c_atendimento_relatorio extends c_user
             LEFT JOIN AMB_RESPONSAVEL_TECNICO RTC ON RTC.ID = P.RESP_TECNICO
             LEFT JOIN CAT_AT_SERVICOS SAT ON SAT.CAT_ATENDIMENTO_ID = A.ID
             LEFT JOIN CAT_SERVICO SE ON SE.ID = SAT.CAT_SERVICOS_ID 
-            LEFT JOIN (
-            SELECT FAT_PEDIDO_ID, CAT_SERVICOS_ID, SUM(QUANTIDADE) AS QUANTIDADE_CONTRATADA 
-            FROM FAT_PEDIDO_SERVICO
-            GROUP BY FAT_PEDIDO_ID, CAT_SERVICOS_ID
-            ) PS ON PS.FAT_PEDIDO_ID = A.PEDIDO_ID AND PS.CAT_SERVICOS_ID = SAT.CAT_SERVICOS_ID";
-
+            LEFT JOIN FAT_PEDIDO_SERVICO PS ON PS.ID = SAT.FAT_PEDIDO_SERVICO_ID";
+            
         if (!empty($num_pedido)) {
             $sql .= " WHERE A.PEDIDO_ID = :num_pedido";
         }

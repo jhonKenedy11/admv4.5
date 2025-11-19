@@ -2866,7 +2866,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
         $sql .="e.NfAuto, e.ModeloNF, Coalesce(p.transportadora, p.cliente) as Transportadora, u.NOME as USRFATURA_ ";
         $sql .= "FROM fat_pedido p ";
         $sql .= "inner join fin_cliente c on c.cliente = p.cliente ";
-        $sql .= "LEFT join fin_cliente_obra o on o.cliente = p.cliente ";
+        $sql .= "LEFT join fin_cliente_obra o on (o.cliente = p.cliente AND o.id = p.obra_id) ";
         $sql .= "LEFT join fat_cond_pgto t on t.id = p.condpg ";
         $sql .= "LEFT join est_nat_op e on (e.id = p.idnatop) ";
         $sql .= "LEFT join amb_usuario u on (u.usuario = p.usrfatura) "; 
@@ -3769,7 +3769,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
         $sql .= $this->m_userid.", ".$this->m_userid.",'".date("Y-m-d H:i:s"). "' );";
         //echo strtoupper($sql) . "<BR>";
         $res_pedidoVenda = $banco->exec_sql($sql);
-        $lastReg = mysqli_insert_id($banco->id_connection);
+        $lastReg = $banco->insertReg; // Usa insertReg que foi capturado ANTES do log
         $banco->close_connection();
 
         if ($res_pedidoVenda > 0) {
@@ -4352,7 +4352,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
                 . $this->getVlrTabela('B') . "); ";
  //       echo strtoupper($sql) . "<BR>";
         $res_pedidoVenda = $banco->exec_sql($sql, $conn);
-        $lastReg = mysqli_insert_id($banco->id_connection);
+        $lastReg = $banco->insertReg; // Usa insertReg que foi capturado ANTES do log
         $banco->close_connection();
         if ($res_pedidoVenda > 0) {
             return $lastReg;
@@ -4731,7 +4731,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
                 
  //       echo strtoupper($sql) . "<BR>";
         $res_pedidoVenda = $banco->exec_sql($sql, $conn);
-        $lastReg = mysqli_insert_id($banco->id_connection);
+        $lastReg = $banco->insertReg; // Usa insertReg que foi capturado ANTES do log
         $banco->close_connection();
         if ($res_pedidoVenda > 0) {
             return $lastReg;
@@ -4763,7 +4763,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
                 
  //       echo strtoupper($sql) . "<BR>";
         $res_pedidoVenda = $banco->exec_sql($sql, $conn);
-        $lastReg = mysqli_insert_id($banco->id_connection);
+        $lastReg = $banco->insertReg; // Usa insertReg que foi capturado ANTES do log
         $banco->close_connection();
         if ($res_pedidoVenda > 0) {
             return $lastReg;
@@ -4791,7 +4791,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
         $sql .= "TAXAENTREGA,TOTALRECEBIDO,GENERO,CCUSTO,TIPOENTREGA,TABELAPRECO,IPI,CONTATO, ";
         $sql .= "TRANSPORTADORA,TABELAVENDA,USRPEDIDO,DTULTPEDIDOCLIENTE,PERCDESCONTO,DESCONTONF,STATUS,TOTALPRODUTOS, ";
         $sql .= "FRETE,DTVALIDADE,PRAZOENTREGA,OBS,OS,PROTOCOLOPARCEIRO,CUSTOTOTAL,CREDITO,DESPESATOTAL, ";
-        $sql .= "LUCROBRUTO,MARGEMLIQUIDA,MARKUP,DESCONTOGERAL,DESPACESSORIAS,PLACAVEICULO,VOLPESOLIQ,VOLPESOBRUTO,CENTROCUSTOENTREGA,VOLMARCA,VOLESPECIE,VOLUME,MODFRETE) ";
+        $sql .= "LUCROBRUTO,MARGEMLIQUIDA,MARKUP,DESCONTOGERAL,DESPACESSORIAS,PLACAVEICULO,VOLPESOLIQ,VOLPESOBRUTO,CENTROCUSTOENTREGA,VOLMARCA,VOLESPECIE,VOLUME,MODFRETE, USERINSERT, DATEINSERT) ";
         $sql .= "SELECT ";
         $sqli = "CLIENTE,PEDIDO,NUMOPORTUNIDADE,".$situacao." as SITUACAO,'".$emissao."' as EMISSAO, ENTREGADOR,USRFATURA,IDNATOP,TABPRECO,ENTRADATABPRECO, ";
         $sqli .= "TAXAFIN,CONDPG,ENTRADACONDPG,VENCIMENTO1,DESCONTO,TOTAL,MOEDA,CONTADEPOSITO,ESPECIE,SERIE,'".$horaEmissao."' as HORAEMISSAO, ";
@@ -4799,14 +4799,15 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
         $sqli .= "TRANSPORTADORA,TABELAVENDA,USRPEDIDO,DTULTPEDIDOCLIENTE,PERCDESCONTO,DESCONTONF,STATUS,TOTALPRODUTOS, ";
         $sqli .= "FRETE,DTVALIDADE,PRAZOENTREGA,OBS,OS,PROTOCOLOPARCEIRO,CUSTOTOTAL,CREDITO,DESPESATOTAL, ";
         $sqli .= "LUCROBRUTO,MARGEMLIQUIDA,MARKUP,DESCONTOGERAL,DESPACESSORIAS,PLACAVEICULO,VOLPESOLIQ,VOLPESOBRUTO, ";
-        $sqli .= "CENTROCUSTOENTREGA,VOLMARCA,VOLESPECIE,VOLUME,MODFRETE ";
+        $sqli .= "CENTROCUSTOENTREGA,VOLMARCA,VOLESPECIE,VOLUME,MODFRETE, ";
+        $sqli .= $this->m_userid . " as USERINSERT, '" . date("Y-m-d H:i:s") . "' as DATEINSERT ";
         $sqli .= "FROM FAT_PEDIDO ";        
         $sqli .= "WHERE ID = '".$this->getId()."'";
         
         $sqlg = $sql.$sqli;
         //echo strtoupper($sqlg) . "<BR>";
         $res_pedidoVenda = $banco->exec_sql($sqlg, $conn);
-        $lastReg = mysqli_insert_id($banco->id_connection);
+        $lastReg = $banco->insertReg; // Usa insertReg que foi capturado ANTES do log
         $banco->close_connection();
         if ($res_pedidoVenda > 0) {
             return $lastReg;

@@ -7,12 +7,12 @@
 let parcelasServicos = [];
 
 /**
- * Calcula e gera as parcelas localmente
+ * Calcula e gera as parcelas localmente baseado no data-value do combo
  * @param {number} valorTotal - Valor total para calcular as parcelas
- * @param {number} numeroParcelas - Número de parcelas
+ * @param {number} numeroParcelas - Número de parcelas (obtido do data-value)
+ * @param {string} descricao - Descrição da opção para extrair dias das parcelas
  */
-function calcularParcelas(valorTotal, numeroParcelas = 1) {
-    console.log('Calculando parcelas para valor:', valorTotal, 'parcelas:', numeroParcelas);
+function calcularParcelas(valorTotal, numeroParcelas = 1, descricao = '') {
     
     if (!valorTotal || valorTotal <= 0) {
         console.warn('Valor total inválido para calcular parcelas');
@@ -20,40 +20,69 @@ function calcularParcelas(valorTotal, numeroParcelas = 1) {
         return;
     }
     
-    if (!numeroParcelas || numeroParcelas < 1) {
+    // Validar número de parcelas
+    if (!numeroParcelas || numeroParcelas < 1 || isNaN(numeroParcelas)) {
+        console.warn('Número de parcelas inválido, usando 1 como padrão');
         numeroParcelas = 1;
     }
     
+    // Extrair dias das parcelas da descrição
+    const diasParcelas = extrairDiasParcelas(descricao);
+    
     // Gerar parcelas automaticamente
-    gerarParcelasPadrao(valorTotal, numeroParcelas);
+    gerarParcelasPadrao(valorTotal, numeroParcelas, diasParcelas);
 }
 
 /**
- * Gera parcelas padrão com cálculo correto de valores
+ * Gera parcelas padrão com cálculo correto de valores e datas baseadas nos dias
  * @param {number} valorTotal - Valor total
  * @param {number} numeroParcelas - Número de parcelas
+ * @param {Array} diasParcelas - Array com os dias de cada parcela (ex: [7, 14])
  */
-function gerarParcelasPadrao(valorTotal, numeroParcelas) {
-    console.log('Gerando parcelas padrão para valor:', valorTotal, 'parcelas:', numeroParcelas);
+function gerarParcelasPadrao(valorTotal, numeroParcelas, diasParcelas = []) {
     
     const parcelas = [];
     const dataAtual = new Date();
     
-    // Calcular valor base da parcela
-    const valorBaseParcela = valorTotal / numeroParcelas;
+    // Calcular valor base da parcela (arredondar para 2 casas decimais)
+    const valorBaseParcela = Math.floor((valorTotal / numeroParcelas) * 100) / 100;
     
-    // Calcular resto para distribuir nas primeiras parcelas
-    const resto = valorTotal - (valorBaseParcela * numeroParcelas);
+    // Calcular resto para distribuir na última parcela
+    const valorTotalCalculado = valorBaseParcela * numeroParcelas;
+    const resto = Math.round((valorTotal - valorTotalCalculado) * 100) / 100;
     
     for (let i = 1; i <= numeroParcelas; i++) {
+
         const dataVencimento = new Date(dataAtual);
-        dataVencimento.setDate(dataAtual.getDate() + (i * 30)); // 30 dias entre parcelas
         
-        // Calcular valor da parcela (primeira parcela recebe o resto se houver)
+        // Calcular data de vencimento baseada nos dias extraídos
+        if (diasParcelas.length > 0) {
+            let diaVencimento;
+            
+            if (diasParcelas.length === 1) {
+                // Caso especial: apenas um dia especificado (ex: "BOLETO 21")
+                // Multiplicar o dia pela parcela (21, 42, 63, etc.)
+                diaVencimento = diasParcelas[0] * i;
+            } else {
+                // Múltiplos dias especificados (ex: "BOLETO 7/14")
+                // Usar o dia correspondente à parcela, ou o último se não houver
+                diaVencimento = diasParcelas[i - 1] || diasParcelas[diasParcelas.length - 1] || 30;
+            }
+            
+            dataVencimento.setDate(dataAtual.getDate() + diaVencimento);
+        } else {
+            // Fallback: usar 30 dias multiplicado pela parcela
+            dataVencimento.setDate(dataAtual.getDate() + (i * 30));
+        }
+        
+        // Calcular valor da parcela (última parcela recebe o resto se houver)
         let valorParcela = valorBaseParcela;
-        if (i === 1 && resto > 0) {
+        if (i === numeroParcelas && resto !== 0) {
             valorParcela += resto;
         }
+        
+        // Garantir que o valor seja positivo e tenha 2 casas decimais
+        valorParcela = Math.max(0, Math.round(valorParcela * 100) / 100);
         
         // Formatar valor para exibição
         const valorFormatado = valorParcela.toFixed(2).replace('.', ',');
@@ -72,8 +101,54 @@ function gerarParcelasPadrao(valorTotal, numeroParcelas) {
     
     parcelasServicos = parcelas;
     renderizarParcelas(parcelas);
+}
+
+/**
+ * Monta as opções de situação do pagamento
+ * @param {Array} situacoes - Array contendo objetos com ID e DESCRICAO
+ * @returns {string} HTML das opções do select
+ */
+function montarSituacaoPagamento(situacoes) {
+
+    let options = '';
     
-    console.log('Parcelas geradas:', parcelas);
+    situacoes.forEach(function(situacao) {
+        options += `<option value="${situacao.ID}">${situacao.DESCRICAO}</option>`;
+    });
+    
+    return options;
+}
+
+/**
+ * Monta as opções de conta de recebimento
+ * @param {Array} contas - Array contendo objetos com ID e DESCRICAO
+ * @returns {string} HTML das opções do select
+ */
+function montarContaRecebimento(contas) {
+    
+    let options = '';
+    
+    contas.forEach(function(conta) {
+        options += `<option value="${conta.ID}">${conta.DESCRICAO}</option>`;
+    });
+    
+    return options;
+}
+
+/**
+ * Monta as opções de tipo de documento
+ * @param {Array} tipos - Array contendo objetos com ID e DESCRICAO
+ * @returns {string} HTML das opções do select
+ */
+function montarTipoDocumento(tipos) {
+    
+    let options = '';
+    
+    tipos.forEach(function(tipo) {
+        options += `<option value="${tipo.ID}">${tipo.DESCRICAO}</option>`;
+    });
+    
+    return options;
 }
 
 /**
@@ -81,7 +156,10 @@ function gerarParcelasPadrao(valorTotal, numeroParcelas) {
  * @param {Array} parcelas - Array de parcelas
  */
 function renderizarParcelas(parcelas) {
-    console.log('Renderizando parcelas:', parcelas);
+    // Obter as situações de pagamento, contas e tipos de documento da variável global exportada do PHP
+    const situacoes = window.situacoesPagamento || null;
+    const contas = window.contasRecebimento || null;
+    const tipos_documento = window.tiposDocumento || null;
     
     let html = '';
     
@@ -90,45 +168,34 @@ function renderizarParcelas(parcelas) {
             <tr>
                 <td class="text-center">${parcela.parcela}</td>
                 <td>
-                    <input class="form-control" type="text" name="venc${parcela.parcela}" 
+                    <input class="form-control input-sm" type="text" name="venc${parcela.parcela}" 
                            value="${parcela.vencimento}" data-mask="date">
                 </td>
                 <td>
-                    <input class="form-control text-right" type="text" name="valor${parcela.parcela}" 
+                    <input class="form-control text-right input-sm" type="text" name="valor${parcela.parcela}" 
                            value="R$ ${parcela.valor}" data-mask="monetario">
                 </td>
                 <td>
-                    <select name="tipo${parcela.parcela}" class="form-control">
-                        <option value="">Selecione...</option>
-                        <option value="1" ${parcela.tipo_documento == '1' ? 'selected' : ''}>Boleto</option>
-                        <option value="2" ${parcela.tipo_documento == '2' ? 'selected' : ''}>Cartão de Crédito</option>
-                        <option value="3" ${parcela.tipo_documento == '3' ? 'selected' : ''}>Cartão de Débito</option>
-                        <option value="4" ${parcela.tipo_documento == '4' ? 'selected' : ''}>PIX</option>
-                        <option value="5" ${parcela.tipo_documento == '5' ? 'selected' : ''}>Transferência</option>
-                        <option value="6" ${parcela.tipo_documento == '6' ? 'selected' : ''}>Dinheiro</option>
-                        <option value="7" ${parcela.tipo_documento == '7' ? 'selected' : ''}>Cheque</option>
+                    <select name="tipo${parcela.parcela}" class="form-control input-sm">
+                        ${tipos_documento ? montarTipoDocumento(tipos_documento) : '<option value="">Dados não localizados</option>'}
                     </select>
                 </td>
                 <td>
-                    <select name="conta${parcela.parcela}" class="form-control">
-                        <option value="">Selecione...</option>
-                        <option value="1" ${parcela.conta_recebimento == '1' ? 'selected' : ''}>Conta Corrente</option>
-                        <option value="2" ${parcela.conta_recebimento == '2' ? 'selected' : ''}>Poupança</option>
-                        <option value="3" ${parcela.conta_recebimento == '3' ? 'selected' : ''}>Caixa</option>
+                    <select name="conta${parcela.parcela}" class="form-control input-sm">
+                        ${contas ? montarContaRecebimento(contas) : '<option value="">Dados não localizados</option>'}
                     </select>
                 </td>
                 <td>
-                    <select name="situacao${parcela.parcela}" class="form-control">
-                        <option value="">Selecione...</option>
-                        <option value="1" ${parcela.situacao == '1' ? 'selected' : ''}>Pendente</option>
-                        <option value="2" ${parcela.situacao == '2' ? 'selected' : ''}>Pago</option>
-                        <option value="3" ${parcela.situacao == '3' ? 'selected' : ''}>Vencido</option>
-                        <option value="4" ${parcela.situacao == '4' ? 'selected' : ''}>Cancelado</option>
+                    <select name="situacao${parcela.parcela}" class="form-control input-sm">
+                        ${situacoes ? montarSituacaoPagamento(situacoes) : '<option value="">Dados não localizados</option>'}
                     </select>
                 </td>
-                <td>
-                    <input class="form-control" type="text" name="obs${parcela.parcela}" 
-                           value="${parcela.obs}" maxlength="100" placeholder="Obs...">
+                <td class="text-center">
+                    <input type="hidden" name="obs${parcela.parcela}" id="obs${parcela.parcela}" value="${parcela.obs || ''}">
+                    <button type="button" class="btn btn-sm btn-info input-sm" onclick="abrirModalObservacao(${parcela.parcela})" title="Adicionar/Editar Observação">
+                        <i class="fa fa-comment"></i>
+                        ${parcela.obs ? '<span class="badge badge-light ml-1">1</span>' : ''}
+                    </button>
                 </td>
             </tr>
         `;
@@ -138,8 +205,7 @@ function renderizarParcelas(parcelas) {
     
     // Aplicar máscaras aos campos
     aplicarMascarasParcelas();
-    
-    console.log('Parcelas renderizadas com sucesso');
+
 }
 
 /**
@@ -244,8 +310,131 @@ function limparParcelas() {
     $('#tbody-parcelas').html('<tr><td colspan="7" class="text-center">Nenhuma parcela encontrada</td></tr>');
 }
 
+/**
+ * Extrai os dias das parcelas da descrição do combo
+ * Suporta formatos:
+ * - "BOLETO 7/14" retorna [7, 14] (múltiplas parcelas)
+ * - "BOLETO 21" retorna [21] (parcela única)
+ * - "CARTÃO 15/30/45" retorna [15, 30, 45] (múltiplas parcelas)
+ * @param {string} descricao - Descrição da opção selecionada
+ * @returns {Array} Array com os dias de cada parcela
+ */
+function extrairDiasParcelas(descricao) {
+
+    if (!descricao || typeof descricao !== 'string') {
+        console.warn('Descrição inválida para extrair dias das parcelas');
+        return [];
+    }
+    
+    const dias = [];
+    
+    // Primeiro, tentar capturar números separados por barra (formato: 7/14/21)
+    const numerosSeparados = descricao.match(/\d+(?:\/\d+)+/);
+    
+    if (numerosSeparados && numerosSeparados.length > 0) {
+        // Dividir pelos números separados por barra
+        const numerosArray = numerosSeparados[0].split('/');
+
+        numerosArray.forEach(num => {
+            const dia = parseInt(num.trim());
+            if (!isNaN(dia) && dia > 0) {
+                dias.push(dia);
+            }
+        });
+    } else {
+        // Se não encontrou formato com barras, buscar número único (formato: BOLETO 21)
+        const numeroUnico = descricao.match(/\b(\d+)\b/);
+        
+        if (numeroUnico && numeroUnico.length > 0) {
+            const dia = parseInt(numeroUnico[1]);
+            if (!isNaN(dia) && dia > 0) {
+                dias.push(dia);
+            }
+        }
+    }
+    
+    return dias;
+}
+
+/**
+ * Recalcula as parcelas quando o valor total for alterado
+ * Mantém o número de parcelas selecionado no combo
+ */
+function recalcularParcelas() {
+    // Obter valor total atual
+    const valorTotal = window.obterValorNumerico ? window.obterValorNumerico('#valor_total_servicos') : 0;
+    
+    // Obter número de parcelas do combo (data-value)
+    const numeroParcelas = parseInt($('#parcelas').find('option:selected').data('value')) || 1;
+    
+    // Obter descrição para extrair os dias
+    const descricao = $('#parcelas').find('option:selected').text() || '';
+    
+    console.log('Recalculando parcelas - Valor:', valorTotal, 'Parcelas:', numeroParcelas, 'Descrição:', descricao);
+    
+    if (valorTotal > 0) {
+        calcularParcelas(valorTotal, numeroParcelas, descricao);
+    } else {
+        limparParcelas();
+    }
+}
+
+/**
+ * Abre o modal de observação para uma parcela específica
+ * @param {number} numeroParcela - Número da parcela
+ */
+function abrirModalObservacao(numeroParcela) {
+    // Obter observação atual
+    const obsAtual = $('#obs' + numeroParcela).val() || '';
+    
+    // Preencher o modal
+    $('#modalObsParcelaTitulo').text('Observação - Parcela ' + numeroParcela);
+    $('#modalObsParcelaNumero').val(numeroParcela);
+    $('#modalObsParcelaTexto').val(obsAtual);
+    
+    // Abrir modal
+    $('#modalObservacaoParcela').modal('show');
+    
+    // Focar no textarea
+    setTimeout(function() {
+        $('#modalObsParcelaTexto').focus();
+    }, 500);
+}
+
+/**
+ * Salva a observação da parcela automaticamente quando o modal é fechado
+ */
+function salvarObservacaoAoFechar() {
+    const numeroParcela = $('#modalObsParcelaNumero').val();
+    const observacao = $('#modalObsParcelaTexto').val();
+    
+    // Salvar no campo hidden
+    $('#obs' + numeroParcela).val(observacao);
+    
+    // Atualizar o botão para mostrar badge se houver observação
+    const botao = $('button[onclick="abrirModalObservacao(' + numeroParcela + ')"]');
+    
+    // Remover badge existente
+    botao.find('.badge').remove();
+    
+    // Adicionar badge se houver observação
+    if (observacao && observacao.trim() !== '') {
+        botao.append('<span class="badge badge-light ml-1">1</span>');
+    }
+}
+
+// Configurar evento para salvar automaticamente ao fechar o modal
+$(document).ready(function() {
+    $('#modalObservacaoParcela').on('hidden.bs.modal', function () {
+        salvarObservacaoAoFechar();
+    });
+});
+
 // Expor funções globalmente
 window.calcularParcelas = calcularParcelas;
+window.recalcularParcelas = recalcularParcelas;
+window.extrairDiasParcelas = extrairDiasParcelas;
 window.obterDadosParcelas = obterDadosParcelas;
 window.validarParcelas = validarParcelas;
 window.limparParcelas = limparParcelas;
+window.abrirModalObservacao = abrirModalObservacao;

@@ -27,6 +27,8 @@ include_once($dir . "/../../class/est/c_nota_fiscal_produto.php");
 require_once($dir . "/../../class/fin/c_lancamento.php");
 require_once($dir . "/../../class/est/c_nat_operacao.php");
 require_once($dir . "/../../class/est/c_nat_tributos.php");
+require_once($dir . "/../../class/ped/c_pedido_ps.php");
+
 
 class p_nfe_40 extends c_user
 {
@@ -1035,7 +1037,7 @@ class p_nfe_40 extends c_user
     /**
      * Funcao para enviar email e pdf da DANFE PDF a partir dos xml assinada e protocolo
      * @param VARCHAR $chave nfe
-     */
+     
     public function enviaEmailDANFE($modelo, $email = null, $cc = null, $chave, $dhEmi, $cNF, $serie, $xNome, $assunto = null, $bodyEmail = null, $idNf = null, $idPessoa = null)
     {
         try {
@@ -1153,7 +1155,7 @@ class p_nfe_40 extends c_user
         } catch (Exception $e) {
             return 'Erro -> ' . $e->getMessage();
         }
-    }
+    } */
 
 
     /**
@@ -1717,6 +1719,11 @@ class p_nfe_40 extends c_user
         $pessoaDestOBJ->setId($nfArray[0]['PESSOA']);
         $pessoaDestArray = $pessoaDestOBJ->select_conta();
 
+        // endereco entrega
+        $enderecoEntregaOBJ = new c_pedido_ps();
+        $enderecoEntregaArray = $enderecoEntregaOBJ->enderecoEntregaNf($nfArray[0]['DOC']);
+        
+        
         // DADOS DO TRANSPORTADOR
         $transpOBJ = new c_conta();
         $transpOBJ->setId($nfArray[0]['TRANSPORTADOR']);
@@ -2079,6 +2086,7 @@ class p_nfe_40 extends c_user
             $std = new \stdClass();
             $std->xLgr = $xLgr;
             $std->nro = $nro;
+            $std->xCpl = $xCpl;
             $std->xBairro = $xBairro;
             $std->cMun = $cMun;
             $std->xMun = $xMun;
@@ -2134,6 +2142,39 @@ class p_nfe_40 extends c_user
         //$UF = 'SP';
         //$resp = $nfe->tagretirada($CNPJ, $CPF, $xLgr, $nro, $xCpl, $xBairro, $cMun, $xMun, $UF);
 
+        // endereço de entrega
+        if ($enderecoEntregaArray[0]['ENDERECO'] != ''){
+            if( $pessoaDestArray[0]['PESSOA'] == "J"){
+                $CPF = '';
+                $CNPJ = $pessoaDestArray[0]['CNPJCPF'];
+            }else{
+                $CPF = $pessoaDestArray[0]['CNPJCPF'];
+                $CNPJ = '';
+            }
+            $xLgr = $this->removeAcentos($enderecoEntregaArray[0]['ENDERECO']);
+            $nro = $enderecoEntregaArray[0]['NUMERO'];
+            $xCpl = $enderecoEntregaArray[0]['COMPLEMENTO'];
+            $xBairro = $enderecoEntregaArray[0]['BAIRRO'];
+            $cMun = $cMunDest;
+            $xMun = $this->removeAcentos($enderecoEntregaArray[0]['CIDADE']);
+            $UF = $enderecoEntregaArray[0]['UF'];
+            $CEP = $enderecoEntregaArray[0]['CEP'];
+            $std = new \stdClass();
+            $std->CNPJ = $CNPJ;
+            $std->CPF = $CPF;
+            $std->xLgr = $xLgr;
+            $std->nro = $nro;
+            $std->xCpl = $xCpl;
+            $std->xBairro = $xBairro;
+            $std->cMun = $cMun;
+            $std->xMun = $xMun;
+            $std->UF = $UF;
+            $std->CEP = $CEP;
+            $elem = $nfe->tagentrega($std);
+            $entrega = $std;
+        }
+        
+        
         //Identificação do local de Entrega (se diferente do destinatário)
         //$CNPJ = '12345678901234';
         //$CPF = '';
@@ -3022,7 +3063,8 @@ class p_nfe_40 extends c_user
                     $elem = $nfe->tagICMS($std);
             endswitch;
 
-            if ($crt == '1') {
+            //if ($crt == '1') {
+            if ($crt == '1' || $crt == '2' || $crt == '3') { //validacao de imposto clientes lucro real, presumido e simples nacional
                 $clEnq = '';    // Classe de enquadramento do IPI para Cigarros e Bebidas
                 $CNPJProd = ''; // CNPJ do produtor da mercadoria, quando diferente do emitente. Somente para os casos de exportação direta ou indireta.
                 $cSelo = '';
@@ -4398,22 +4440,22 @@ class p_nfe_40 extends c_user
                     $nfOBJ->alteraNfPath($conn);
 
                     // envia email
-                    if (($nfArray[0]['MODELO'] == 55) and ($aResposta['cStatus'] == '100')):
-                        $erro = 'EMAIL line: 2367<br>' . $this->enviaEmailDANFE(
-                            $nfArray[0]['MODELO'],
-                            $pessoaDestArray[0]['EMAILNFE'],
-                            $pessoaDestArray[0]['EMAIL'],
-                            $std->protNFe->infProt->chNFe,
-                            $dhEmi,
-                            $cNF,
-                            $serie,
-                            $xNome,
-                            null, // assunto
-                            null, // corpo
-                            $idNf, // ID da NF para buscar boletos
-                            $pessoaDestArray[0]['ID'] // ID da pessoa
-                        );
-                    endif;
+                    // if (($nfArray[0]['MODELO'] == 55) and ($aResposta['cStatus'] == '100')):
+                    //     $erro = 'EMAIL line: 2367<br>' . $this->enviaEmailDANFE(
+                    //         $nfArray[0]['MODELO'],
+                    //         $pessoaDestArray[0]['EMAILNFE'],
+                    //         $pessoaDestArray[0]['EMAIL'],
+                    //         $std->protNFe->infProt->chNFe,
+                    //         $dhEmi,
+                    //         $cNF,
+                    //         $serie,
+                    //         $xNome,
+                    //         null, // assunto
+                    //         null, // corpo
+                    //         $idNf, // ID da NF para buscar boletos
+                    //         $pessoaDestArray[0]['ID'] // ID da pessoa
+                    //     );
+                    // endif;
                 endif;
             }
             return $aResposta;
@@ -4561,67 +4603,5 @@ class p_nfe_40 extends c_user
         curl_close($ch);
     }
 
-    /**
-     * Gera PDF do boleto para anexar no email da DANFE
-     * @param string $idNf - ID da nota fiscal
-     * @param string $idPessoa - ID da pessoa
-     * @param string $origem - Origem do documento
-     * @return string|null - Caminho do arquivo PDF ou null se não houver boletos
-     */
-    public function geraPdfBoletoParaEmail($idNf, $idPessoa, $origem = 'NFE') {
-        try {
-            // Inclui a classe de geração de PDF de boletos
-            $dir = dirname(__FILE__);
-            include_once($dir . "/../blt/p_boleto_pdf.php");
-            
-            $boletoPdf = new p_boleto_pdf();
-            $pdfContent = $boletoPdf->geraPdfBoletos($idNf, $idPessoa, $origem);
-            
-            if (!$pdfContent) {
-                return null; // Não há boletos para este documento
-            }
-            
-            // Salva o PDF em um arquivo temporário
-            $tempDir = sys_get_temp_dir();
-            $filename = "boletos_{$idNf}_" . date('Y-m-d_H-i-s') . ".pdf";
-            $filepath = $tempDir . DIRECTORY_SEPARATOR . $filename;
-            
-            if (file_put_contents($filepath, $pdfContent)) {
-                return $filepath;
-            } else {
-                error_log("Erro ao salvar PDF do boleto: " . $filepath);
-                return null;
-            }
-            
-        } catch (Exception $e) {
-            error_log("Erro ao gerar PDF do boleto: " . $e->getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Envia email com boletos em PDF
-     * @param string $documento - Número do documento (PED, NFE, etc)
-     * @param string $pessoa - ID da pessoa
-     * @param string $origem - Origem do documento (PED, NFE, etc)
-     * @return array - Resultado do envio ['sucesso' => bool, 'mensagem' => string]
-     */
-    public function enviaEmailBoletos($documento, $pessoa, $origem = 'NFE') {
-        try {
-            // Inclui a classe de envio de boletos
-            $dir = dirname(__FILE__);
-            include_once($dir . "/../blt/p_boleto_email.php");
-            
-            $boletoEmail = new p_boleto_email();
-            return $boletoEmail->enviaEmailBoletos($documento, $pessoa, $origem);
-            
-        } catch (Exception $e) {
-            error_log("Erro ao enviar email com boletos: " . $e->getMessage());
-            return [
-                'sucesso' => false,
-                'mensagem' => 'Erro interno: ' . $e->getMessage()
-            ];
-        }
-    }
 } //class
 $xml = new p_nfe_40();

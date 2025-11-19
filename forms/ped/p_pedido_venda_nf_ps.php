@@ -608,8 +608,7 @@ Class p_pedido_venda_nf_ps extends c_pedidoVendaNf {
                     $transaction->rollback($transaction->id_connection);    
                     throw new Exception($e->getMessage()."Nf Não foi gerado " );
 
-                }
-                catch (Exception $e) {
+                } catch (Exception $e) {
                     //echo 'Caught exception: ',  $e->getMessage(), "\n";
                     if ($this->nfAberto == true):
                         $transaction->commit($transaction->id_connection);

@@ -863,7 +863,7 @@ class p_remessa_bancaria extends c_lancamento
             else {
                 return 'Não existe boletos para enviar remessa bancária!!';
             }
-            echo "Total Registros:-->" . $numCartao;
+            echo "Total Registros:-->" . count($remessa);
             fclose($wh); // No error
             //$this->downloadFile($file_target);
 
@@ -880,9 +880,8 @@ class p_remessa_bancaria extends c_lancamento
      * @return int $count - numero de parcelas geradas
      */
 
-    public function remessaBancaria237($letra = NULL)
-    {
-
+     public function remessaBancaria237($letra = NULL){
+        $status = null;
         try {
             $par = explode("|", $this->m_letra);
             $contaBanco = $par[2];
@@ -890,10 +889,18 @@ class p_remessa_bancaria extends c_lancamento
             $ambiente = ".REM"; //TST
             $remessa = $this->selectRemessaBancaria($this->m_letra);
             $teste_array = is_array($remessa);
-
-            if (isset($teste_array)) {
+        
+            if (isset($teste_array)){
+                
+                //valida numero de documento e parcela
+                for ($j=0; $j < count($remessa); $j++){
+                    if ($remessa[$j]['DOCTO'] == "" || $remessa[$j]['DOCTO'] == null || $remessa[$j]['DOCTO'] == "0") {
+                        throw new ErrorException("Número do documento não localizado - (".$remessa[$j]["NOME"].") ID:" . $remessa[$j]["ID"]);
+                    }
+                }
+                
                 $objContaBanco = new c_contaBanco;
-
+        
                 // DADOS CONTA
                 $objContaBanco->setId($contaBanco);
                 $conta = $objContaBanco->select_ContaBanco();
@@ -901,53 +908,43 @@ class p_remessa_bancaria extends c_lancamento
                 $codEmpresa = $conta[0]['NUMNOBANCO'];
                 $nomeEmpresa = $conta[0]['NOMECONTABANCO'];
                 $codCarteira = str_pad($conta[0]['CARTEIRA'], 3, "0", STR_PAD_LEFT);
-                $agencia = substr($conta[0]['AGENCIA'], 0, 5);
+                $agencia = substr($conta[0]['AGENCIA'], 0,5);
                 $char = array("-", "/", ".");
-                $contaCorrente = substr(str_replace($char, "", $conta[0]['CONTACORRENTE']), 0, 8);
+                $contaCorrente = substr(str_replace($char, "", $conta[0]['CONTACORRENTE']), 0,8);
                 $multa = str_replace(".", "", $conta[0]['MULTA']);
                 $juros = $conta[0]['JUROS'];
-                $juros = ($conta[0]['JUROS'] * $remessa[$i]['TOTAL']) / 100;
+                $juros = ($conta[0]['JUROS']*$remessa[$i]['TOTAL'])/100;
                 //$nossoNumero = $conta[0]['ULTIMONOSSONRO']; // atualizar conta
                 $charValor = array(".");
                 $descontoBonificacao = str_replace($charValor, "", $conta[0]['DESCONTOBONIFICACAO']);
-                $condicaoEmissaoBoleto = $conta[0]['CONDICAOEMISSAOBOLETO'];
+                $condicaoEmissaoBoleto = $conta[0]['CONDICAOEMISSAOBOLETO'] ?? 1;
                 $msg1 = $conta[0]['MSG1BOLETO'];
                 $identificacaoOcorrencia = '01';
-
+        
                 // gera e grava o numero do arquivo de remessa
                 $numRemessa = $objContaBanco->geraNumeroRemessa($contaBanco, $conta[0]['NUMREMESSA']); // atualizar conta
                 $numRegistro  = 1;
-
+            
                 //Arquivo remessa
-                $path = ADMraizCliente . "/banco/" . $banco . "/remessa/" . date("Y");
-                $filename = "/CB" . date("dm");
+                $path = ADMraizCliente."/banco/".$banco."/remessa/".date("Y");
+                
+                // Verifica e cria pasta do ano se necessário
+                $this->checkAndCreateYearFolder($banco);
+                
+                $filename = "/CB".date("dm");
                 $serieArq = 0;
                 // teste se arquivo existe
                 do {
                     $serieArq++;
-                    $file_target = $path . $filename . str_pad($serieArq, 2, "0", STR_PAD_LEFT) . $ambiente;
+                    $file_target = $path.$filename.str_pad($serieArq, 2, "0", STR_PAD_LEFT).$ambiente;
                 } while (file_exists($file_target));
-
-                // Verifica e cria diretório se necessário
-                $directory = dirname($file_target);
-                if (!is_dir($directory)) {
-                    if (!mkdir($directory, 0777, true)) {
-                        throw new Exception("Falha ao criar diretório: $directory");
-                    }
-                }
-
-                // Verifica permissões de escrita
-                if (!is_writable($directory)) {
-                    throw new Exception("Diretório sem permissão de escrita: $directory");
-                }
-
-                // Tenta criar o arquivo com tratamento moderno de erros
+        
+                // cria arquivo
                 $wh = fopen($file_target, 'w+');
-                if (!$wh) {
-                    $error = error_get_last();
-                    throw new Exception("Erro ao gerar arquivo de remessa: " . $error['message']);
+                if ( !$wh ) {
+                    throw new Exception( "Erro ao criar o arquivo de remessa, entre em contato com o suporte! ".$php_errormsg );
                 }
-
+        
                 // registro header
                 // Posicao  Nome Campo                Tam Conteudo
                 //001 a 001 Identificação do Registro 001 0
@@ -980,25 +977,25 @@ class p_remessa_bancaria extends c_lancamento
                 $headerWrite .= str_pad("", 277, " ", STR_PAD_RIGHT);
                 //395 a 400 Nº Seqüencial do Registro de Um em  Um  006 000001 X        
                 $headerWrite .= str_pad($numRegistro, 6, "0", STR_PAD_LEFT);
-
-                fwrite($wh, $headerWrite . "\r\n");
-
+                
+                fwrite($wh, $headerWrite."\r\n");
+                
                 // registro tipo 1 - transacao
-                for ($i = 0; $i < count($remessa); $i++) {
+                for ($i=0; $i < count($remessa); $i++){
                     $numRegistro++;
-                    $juros = ($conta[0]['JUROS'] * $remessa[$i]['TOTAL']) / 100;
-                    $juros = number_format($juros, 2, '.', '');
-
+                    $juros = ($conta[0]['JUROS']*$remessa[$i]['TOTAL'])/100;
+                    $juros = number_format($juros , 2, '.', '');
+                    
                     $objContaBanco->setId($remessa[$i]['CONTA']);
                     $arrContaBanco = $objContaBanco->select_ContaBanco();
                     // verifica nosso numero, senão exister gera e grava em fin_conta
                     if (is_null($remessa[$i]['NOSSONUMERO'])):
                         $nossoNumero = $objContaBanco->geraNossoNumero($remessa[$i]['CONTA'], $arrContaBanco[0]['ULTIMONOSSONRO']);  // na impressão calcular e guardar no lancamento
                     else:
-                        $nossoNumero = $remessa[$i]['NOSSONUMERO'];
+                        $nossoNumero = $remessa[$i]['NOSSONUMERO']; 
                     endif;
-                    $nn = str_pad($codCarteira, 3, "0", STR_PAD_LEFT) . str_pad($nossoNumero, 11, "0", STR_PAD_LEFT);
-                    $digitoNN = c_contaBanco::mod11($codCarteira . str_pad($nossoNumero, 11, "0", STR_PAD_LEFT), 7);
+                    $nn = str_pad($codCarteira, 3, "0", STR_PAD_LEFT).str_pad($nossoNumero, 11, "0", STR_PAD_LEFT);
+                    $digitoNN = c_contaBanco::mod11($codCarteira.str_pad($nossoNumero, 11, "0", STR_PAD_LEFT), 7);
                     // Posicao  Nome Campo                Tam Conteudo
                     //001 a 001 Identificação do Registro 001 1 X
                     $transacaoWrite = "1";
@@ -1013,21 +1010,38 @@ class p_remessa_bancaria extends c_lancamento
                     //020 a 020 Dígito da Conta Corrente (opcional) 001 Dígito da Conta do Pagador Vide Obs. Pág. 17
                     $transacaoWrite .= " ";
                     //021 a 037 Identificação da Empresa Beneficiária no Banco 017 Zero, Carteira, Agência e Conta - Corrente Vide Obs. Pág. 17 X
-                    $transacaoWrite .= "0" . $codCarteira . str_pad($agencia, 5, "0", STR_PAD_LEFT) . str_pad($contaCorrente, 8, "0", STR_PAD_LEFT);
+                    /*
+                        021 a 037 - Identificações da Empresa Beneficiária no Banco
+                        Deverá ser preenchido (da esquerda para a direita) da seguinte maneira:
+                        21 a 21 - Zero.
+                        22 a 24 - Códigos da Carteira.
+                        25 a 29 - Códigos da Agência Beneficiários, sem o Dígito.
+                        30 a 36 - Contas-Corrente.
+                        37 a 37 - Dígitos da Conta
+
+                    */
+                    $transacaoWrite .= "0".$codCarteira.str_pad($agencia, 5, "0", STR_PAD_LEFT).str_pad($contaCorrente, 8, "0", STR_PAD_LEFT);
                     //038 a 062 Nº Controle do Participante 025  Uso da Empresa Vide Obs. Pág. 17
                     $transacaoWrite .= str_pad($remessa[$i]['ID'], 25, " ", STR_PAD_RIGHT);
-                    //063 a 065 Código do Banco a ser debitado na Câmara de Compensação 003 Nº do Banco “237”  Vide Obs. Pág.17
+                    //063 a 065 Código do Banco a ser debitado na Câmara de Compensação 003 Nº do Banco "237"  Vide Obs. Pág.17
+                    /*
+                        063 a 065 - Códigos do Banco para Débito - “237”
+                        Deverá ser informado 237, caso o cliente beneficiário tenha optado pelo Débito Automático em conta
+                        do pagador.
+                        Para títulos em que não deve ser aplicado o Débito Automático, esse campo deverá ser preenchido
+                        com zeros. 
+                    */
                     $transacaoWrite .= "000";
                     //066 a 066 Campo de Multa 001 Se = 2 considerar percentual de multa. Se = 0, sem multa. Vide Obs.Pág. 17
                     //067 a 070 Percentual de multa 004 Percentual de multa a ser considerado  vide Obs. Pág. 17
-                    if ($multa > 0):
+                    if ($multa > 0){
                         $transacaoWrite .= "2";
                         $transacaoWrite .= str_pad($multa, 4, "0", STR_PAD_LEFT);
-                    else:
+                    } else {    
                         $transacaoWrite .= "0";
                         $transacaoWrite .= "0000";
-                    endif;
-
+                    }
+                   
                     //071 a 081 Identificação do Título no Banco 11 Número Bancário para Cobrança Com e Sem Registro  Vide Obs. Pág. 17
                     $transacaoWrite .= str_pad($nossoNumero, 11, "0", STR_PAD_LEFT);
                     //082 a 082 Digito de Auto Conferencia do Número Bancário. 001 Digito N/N Vide Obs. Pág. 17 X
@@ -1042,7 +1056,7 @@ class p_remessa_bancaria extends c_lancamento
                     $transacaoWrite .= 'N';
                     //095 a 104 Identificação da Operação do Banco 010 Brancos X
                     $transacaoWrite .= str_pad("", 10, " ", STR_PAD_LEFT);
-                    //105 a 105 Indicador Rateio Crédito (opcional) 001 “R”Vide Obs. Pág. 19 X
+                    //105 a 105 Indicador Rateio Crédito (opcional) 001 "RVide Obs. Pág. 19 X
                     $transacaoWrite .= " ";
                     //106 a 106 Endereçamento para Aviso do Débito Automático em Conta Corrente (opcional) 001 Vide Obs. Pág. 19 X  11/57
                     $transacaoWrite .= "2";
@@ -1051,7 +1065,7 @@ class p_remessa_bancaria extends c_lancamento
                     //109 a 110 Identificação da ocorrência 002 Códigos de ocorrência Vide Obs. Pág. 20 X
                     $transacaoWrite .= $identificacaoOcorrencia;
                     //111 a 120 Nº do Documento 010 Documento X
-                    $transacaoWrite .= str_pad($remessa[$i]['DOCTO'] . $remessa[$i]['PARCELA'], 10, "0", STR_PAD_LEFT);
+                    $transacaoWrite .= str_pad($remessa[$i]['DOCTO'].$remessa[$i]['PARCELA'], 10, "0", STR_PAD_LEFT);
                     //121 a 126 Data do Vencimento do Título 006 DDMMAA Vide Obs. Pág. 20 X
                     $transacaoWrite .= date('dmy', strtotime($remessa[$i]['VENCIMENTO']));
                     //127 a 139 Valor do Título 013 Valor do Título (preencher sem ponto e sem vírgula) X
@@ -1061,19 +1075,19 @@ class p_remessa_bancaria extends c_lancamento
                     //143 a 147 Agência Depositária 005 Preencher com zeros X
                     $transacaoWrite .= '00000';
                     /*148 a 149 Espécie de Título 002
-                01-Duplicata
-                02-Nota Promissória
-                03-Nota de Seguro
-                04-Cobrança Seriada
-                05-Recibo
-                10-Letras de Câmbio
-                11-Nota de Débito
-                12-Duplicata de Serv.
-                31-Cartão de Crédito
-                32-Boleto de Proposta
-                99-Outros */
+                    01-Duplicata
+                    02-Nota Promissória
+                    03-Nota de Seguro
+                    04-Cobrança Seriada
+                    05-Recibo
+                    10-Letras de Câmbio
+                    11-Nota de Débito
+                    12-Duplicata de Serv.
+                    31-Cartão de Crédito
+                    32-Boleto de Proposta
+                    99-Outros */
                     $transacaoWrite .= '01';
-
+                    
                     //150 a 150 Identificação 001 Sempre = N X
                     $transacaoWrite .= 'N';
                     //151 a 156 Data da emissão do Título 006 DDMMAA X
@@ -1096,7 +1110,7 @@ class p_remessa_bancaria extends c_lancamento
                     //221 a 234 Nº Inscrição do Pagador 014  CNPJ/ CPF - Vide Obs. Pág. 21 (Preenchimento obrigatório)
                     if ($remessa[$i]['TIPOPESSOA'] == 'J'):
                         $transacaoWrite .= '02';
-                    else:
+                    else:    
                         $transacaoWrite .= '01';
                     endif;
                     $transacaoWrite .= str_pad($remessa[$i]['CNPJCPF'], 14, "0", STR_PAD_LEFT);
@@ -1107,12 +1121,12 @@ class p_remessa_bancaria extends c_lancamento
                     $tamNome = strlen($nome);
                     $transacaoWrite .= $nome;
                     //275 a 314 Endereço Completo 040 Endereço do Pagador X
-                    $endereco = substr($this->removeAcentos($remessa[$i]['ENDERECO'] . "," . $remessa[$i]['NUMERO']), 0, 40);
+                    $endereco = substr($this->removeAcentos($remessa[$i]['ENDERECO']), 0, 40);
                     $endereco = trim($endereco);
                     $endereco = str_pad($endereco, 40, " ", STR_PAD_RIGHT);
                     $tamEnd = strlen($endereco);
                     $transacaoWrite .= $endereco;
-
+        
                     //315 a 326 1ª Mensagem 012 Vide Obs. Pág. 22 X
                     $mensagem = str_pad(substr($conta[0]['MSG1BOLETO'], 0, 12), 12, " ", STR_PAD_RIGHT);
                     $tamMsg = strlen($mensagem);
@@ -1129,14 +1143,15 @@ class p_remessa_bancaria extends c_lancamento
                     $transacaoWrite .= str_pad("", 60, " ", STR_PAD_RIGHT);
                     //395 a 400 Nº Seqüencial do Registro 006 Nº Seqüencial do Registro X
                     $transacaoWrite .= str_pad($numRegistro, 6, "0", STR_PAD_LEFT);
-
+                    
                     // grava arquivo txt
-                    fwrite($wh, $transacaoWrite . "\r\n");
-
+                    fwrite($wh, $transacaoWrite."\r\n");
+                    
                     // atualiza fin_lancamento com nosso e numero e data do envio do arquivo de remessa
-                    $this->atualizaRemessa($remessa[$i]['ID'], $nossoNumero, $numRemessa, date('Y-m-d'), $filename . str_pad($serieArq, 2, "0", STR_PAD_LEFT) . $ambiente);
+                    $this->atualizaRemessa($remessa[$i]['ID'], $nossoNumero, $numRemessa, date('Y-m-d'), $filename.str_pad($serieArq, 2, "0", STR_PAD_LEFT).$ambiente);
+                    
                 } // for
-
+                
                 // grava trailler
                 $numRegistro++;
                 //001 a 001 Identificação Registro 001 9  X 
@@ -1145,20 +1160,24 @@ class p_remessa_bancaria extends c_lancamento
                 $traillerWrite .= str_pad("", 393, " ", STR_PAD_RIGHT);
                 //395 a 400 Número Seqüencial de Registro 006 Nº Seqüencial do Último Registro  X 
                 $traillerWrite .= str_pad($numRegistro, 6, "0", STR_PAD_LEFT);
-
-                fwrite($wh, $traillerWrite . "\r\n");
+        
+                fwrite($wh, $traillerWrite."\r\n");
             } // if
             else {
-                return 'Não existe boletos para enviar remessa bancária!!';
+               return 'Não existe boletos para enviar remessa bancária!!';
             }
-            echo "Total Registros:-->" . $numCartao;
+            //echo "Total Registros:-->".$numCartao;
             fclose($wh); // No error
             //$this->downloadFile($file_target);
-
+            
         } catch (Exception $ex) {
-            $this->mostraRemessa($ex);
+            $status = false;
+            $this->mostraRemessa(null, null, $ex->getMessage(), false);
         }
-        $this->mostraRemessa($file_target, $banco);
+    
+        if($status !== false){
+            $this->mostraRemessa($file_target, $banco);
+        }
     } //fim remessaBancaria237
 
     /**
@@ -1889,8 +1908,6 @@ class p_remessa_bancaria extends c_lancamento
     } //fim remessaBancaria748
 
 
-
-
     //---------------------------------------------------------------
     //---------------------------------------------------------------
     function mostraRemessa($file, $banco = null)
@@ -1911,10 +1928,10 @@ class p_remessa_bancaria extends c_lancamento
 
 
         $this->smarty->assign('pathImagem', $this->img);
-        $this->smarty->assign('mensagem', $mensagem);
+        $this->smarty->assign('mensagem', isset($mensagem) ? $mensagem : '');
         $this->smarty->assign('letra', $this->m_letra);
         $this->smarty->assign('subMenu', $this->m_submenu);
-        $this->smarty->assign('saldoInicial', $saldoTotal);
+        $this->smarty->assign('saldoInicial', isset($saldoTotal) ? $saldoTotal : 0);
         $this->smarty->assign('dataInicio', $par[0]);
         $this->smarty->assign('dataFim', $par[1]);
         $this->smarty->assign('arquivo', ADMhttpCliente . "/banco/" . $banco . "/remessa/" . date("Y") . "/" . basename($file));
@@ -1923,9 +1940,9 @@ class p_remessa_bancaria extends c_lancamento
         $this->smarty->assign('banco', $banco);
         $this->smarty->assign('lanc', $lanc);
 
-        $this->smarty->assign('label', $arrLabel);
-        $this->smarty->assign('pag', $arrPag);
-        $this->smarty->assign('rec', $arrRec);
+        $this->smarty->assign('label', isset($arrLabel) ? $arrLabel : []);
+        $this->smarty->assign('pag', isset($arrPag) ? $arrPag : []);
+        $this->smarty->assign('rec', isset($arrRec) ? $arrRec : []);
 
         if ($arrData[0] == "") $this->smarty->assign('dataIni', date("01/m/Y"));
         else $this->smarty->assign('dataIni', $arrData[0]);
@@ -1976,7 +1993,32 @@ class p_remessa_bancaria extends c_lancamento
         $this->smarty->display('remessa_bancaria_mostra.tpl');
     } //fim mostrasituacaos
     //-------------------------------------------------------------
-}    //	END OF THE CLASS
+
+
+
+
+    /**
+     * @name checkAndCreateYearFolder
+     * @description verifica se a pasta do ano existe e cria se necessário
+     * @param string $banco - código do banco
+     * @return bool - true se pasta existe ou foi criada com sucesso
+     */
+    private function checkAndCreateYearFolder($banco) {
+        $path = ADMraizCliente."/banco/".$banco."/remessa/".date("Y");
+        
+        // Verifica se a pasta do ano existe
+        if (!is_dir($path)) {
+            // Tenta criar a pasta do ano
+            if (!mkdir($path, 0755, true)) {
+                throw new Exception("Erro ao criar pasta do ano: " . $path . ". Verifique as permissões.");
+            }
+        }
+        
+        return true;
+    }
+
+
+}	//	END OF THE CLASS
 
 // Rotina principal - cria classe
 $remessa_bancaria = new p_remessa_bancaria();

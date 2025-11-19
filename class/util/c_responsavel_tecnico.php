@@ -305,7 +305,7 @@ Class c_responsavel_tecnico extends c_user {
         $sql .= "cep = '" . $this->getCep() . "', ";
         $sql .= "situacao = '" . $this->getSituacao() . "', ";
         $sql .= "updated_by = '" . $this->getUpdatedBy() . "', ";
-        $sql .= "data_alteracao = NOW() ";
+        $sql .= "updated_at = NOW() ";
         $sql .= "WHERE id = '" . $this->getId() . "'";
         
         $banco = new c_banco;

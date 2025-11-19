@@ -11,6 +11,7 @@ let carregamentoEstadosPromise = null;
 
 // Event listeners
 $(document).ready(function() {
+
     // Event listener para mudança do tipo de pessoa (mostrar/ocultar campo estado)
     $('#tipo').on('change', function() {
         var tipo = $(this).val();
@@ -21,36 +22,28 @@ $(document).ready(function() {
             $('#estado').val('');
         }
     });
-    
-    // Event listener para mudança do valor de desconto (recalcular total final)
-    $('#valor_desconto').on('input', function() {
-        try {
-            var valorTotal = parseFloat($('#valor_total_servicos').val().replace('R$ ', '').replace(',', '.')) || 0;
-            var valorDesconto = parseFloat($(this).val().replace(',', '.')) || 0;
-            var valorFinal = valorTotal - valorDesconto;
-            
-            if (valorFinal < 0) valorFinal = 0;
-            
-            $('#valor_total_final').inputmask('setvalue', valorFinal);
-            
-            // Calcular parcelas automaticamente
-            var numeroParcelas = parseInt($('#numero_parcelas').val()) || 1;
-            if (valorFinal > 0) {
-                calcularParcelas(valorFinal, numeroParcelas);
-            }
-        } catch (error) {
-            console.error('Erro ao calcular desconto:', error);
-        }
-    });
+
+
 
     // Estado - Select comum sem Select2 (sem controle de estado)
     $('#estado').on('change', function() {
+        
         var estadoId = $(this).val();
-        console.log('Estado selecionado:', estadoId);
+        
+        // Atualizar placeholder do local_prestacao baseado na seleção do estado
+        if (estadoId && estadoId.trim() !== '') {
+            // Estado selecionado - habilitar busca de cidades
+            $('#local_prestacao').data('select2').$container.find('.select2-selection__placeholder').text('Digite para buscar cidades...');
+        } else {
+            // Nenhum estado selecionado - mostrar aviso
+            $('#local_prestacao').data('select2').$container.find('.select2-selection__placeholder').text('Selecione primeiro um estado...');
+        }
         
         // Limpar campos dependentes quando estado mudar
         desabilitarCamposDependentes();
     });
+
+
     
     // Event listeners para botões do Step 4
     $('#btnEmitirNFS').on('click', function() {
@@ -70,15 +63,40 @@ $(document).ready(function() {
         // Limpar todos os campos da modal
         limparTodosCamposModal();
         
-        // Destruir wizard
-        if (wizard) {
-            wizard.destroy();
-            wizard = null;
+        // Resetar wizard para o primeiro step
+        if (wizard && typeof wizard.goToStep === 'function') {
+            wizard.goToStep(0);
         }
+        
+        // Limpar referência do wizard
+        wizard = null;
         
         console.log('Modal fechada e campos limpos');
     });
+
+    // Configurar parcelas
+    configurarParcelas();
 });
+
+/**
+ * Função para limpar campos dependentes
+ */
+function limparCamposDependentes() {
+    try {
+        // Limpar o campo local_prestacao (Select2) - mas manter habilitado
+        $('#local_prestacao').val('').trigger('change');
+        
+        // Limpar campo alíquota
+        $('#aliquota').val('0,00');
+
+        // Limpar campo valor_servico usando inputmask
+        $('#valor_servico').inputmask('setvalue', 0);
+        
+        console.log('Campos dependentes limpos');
+    } catch (error) {
+        console.error('Erro ao limpar campos dependentes:', error);
+    }
+}
 
 /**
  * Função principal para alimentar toda a tela de serviços
@@ -89,6 +107,12 @@ function alimentarTelaServicos() {
     
     // Inicializar Select2 para todos os combos
     inicializarSelect2();
+    
+    // Carregar lista de serviços
+    configurarListaServicos();
+    
+    // Carregar situação tributária
+    configurarSituacaoTributaria();
     
     // Configurar máscaras e formatação
     configurarMascaras();
@@ -112,10 +136,17 @@ function inicializarSelect2() {
     // Local da Prestação (Cidade) - Sempre habilitado, validação será feita na busca
     $('#local_prestacao').select2({
         width: "99%",
-        placeholder: "Digite para buscar cidades...",
+        placeholder: "Selecione primeiro um estado...",
         language: {
             // Texto insuficiente
             inputTooShort: function() {
+
+                var estadoId = $('#estado').val();
+
+                if (!estadoId || estadoId.trim() === '') {
+                    return "Selecione um estado primeiro";
+                }
+
                 return "Digite no mínimo 3 caracteres";
             },
 
@@ -126,6 +157,13 @@ function inicializarSelect2() {
 
             // Nenhum resultado
             noResults: function() {
+
+                var estadoId = $('#estado').val();
+
+                if (!estadoId || estadoId.trim() === '') {
+                    return "Selecione um estado primeiro";
+                }
+
                 return "Nenhuma cidade encontrada";
             },
 
@@ -147,6 +185,18 @@ function inicializarSelect2() {
                 // Validar se existe estado selecionado ANTES de fazer a consulta
                 var estadoId = $('#estado').val();
                 if (!estadoId || estadoId.trim() === '') {
+                    // Mostrar mensagem de aviso
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Atenção!',
+                            text: 'Selecione um estado primeiro para buscar cidades',
+                            toast: true,
+                            position: 'top-end',
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                    }
                     // Cancelar a requisição se não há estado selecionado
                     xhr.abort();
                     return false;
@@ -154,8 +204,9 @@ function inicializarSelect2() {
             },
             data: function(params) {
                 return {
-                    termo: params.term,
-                    estado: $('#estado').val()
+                    term: params.term,
+                    estado: $('#estado').val(),
+                    estado_sigla: $('#estado').find('option:selected').text().split(' - ')[0],
                 };
             },
             processResults: function(response) {
@@ -185,103 +236,9 @@ function inicializarSelect2() {
                 }
             }
         }
-    }).on('select2:select', function(e) {
-        debugger
-        // Quando uma cidade for selecionada, habilitar e configurar os campos dependentes
-        var cidadeId = e.params.data.id;
-        //var cidadeNome = e.params.data.text;
-        console.log('Cidade selecionada:', cidadeId);
-        
-        // Habilitar os campos dependentes
-        $('#lista_servico').prop('disabled', false);
-        $('#situacao_tributaria').prop('disabled', false);
-        
-        // Configurar os combos com o ID da cidade
-        configurarListaServicos(cidadeId);
-        configurarSituacaoTributaria(cidadeId);
-        
-    }).on('select2:clear', function(e) {
-        // Quando a cidade for limpa, desabilitar e limpar os campos dependentes
-        console.log('Cidade desmarcada'); 
-        
-        // Desabilitar e limpar os campos dependentes
-        desabilitarCamposDependentes();
     });
 
-    // Lista de Serviço - Inicialmente desabilitado (será um combo simples, não select2)
-    // O campo já está desabilitado no HTML
-
-/**
- * Função para desabilitar e limpar campos dependentes
- */
-function desabilitarCamposDependentes() {
-    try {
-        // Limpar o campo local_prestacao (Select2) - mas manter habilitado
-        $('#local_prestacao').val('').trigger('change');
-        
-        // Desabilitar e limpar o campo lista_servico
-        $('#lista_servico').prop('disabled', true).val('');
-        $('#lista_servico').html('<option value="">Selecione primeiro uma cidade</option>');
-        
-        // Desabilitar e limpar o campo situacao_tributaria
-        $('#situacao_tributaria').prop('disabled', true).val('');
-        $('#situacao_tributaria').html('<option value="">Selecione primeiro uma cidade</option>');
-        
-        // Limpar campo alíquota
-        $('#aliquota').val('0,0000');
-        
-        console.log('Campos dependentes desabilitados e limpos');
-    } catch (error) {
-        console.error('Erro ao desabilitar campos dependentes:', error);
-    }
-}
-
-
-// /**
-//  * Busca cidades por termo e estado
-//  * @param {string} termo - Termo de pesquisa
-//  * @param {string|number} estadoId - ID do estado
-//  * @returns {Promise} Promise com as cidades encontradas
-//  */
-// function buscarCidades(termo, estadoId) {
-//     return new Promise((resolve, reject) => {
-//         if (!termo || termo.length < 3) {
-//             resolve([]);
-//             return;
-//         }
-        
-//         if (!estadoId) {
-//             resolve([]);
-//             return;
-//         }
-        
-//         $.ajax({
-//             url: window.location.pathname + '?mod=est&form=faturamento_nfs&submenu=searchCidadeAjax&opcao=ajax',
-//             type: 'POST',
-//             dataType: 'json',
-//             data: {
-//                 estado: estadoId,
-//                 termo: termo
-//             },
-//             xhrFields: {
-//                 withCredentials: true
-//             },
-//             beforeSend: function(xhr) {
-//                 xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-//             },
-//             success: function(response) {
-//                 console.log('Cidades encontradas:', response);
-//                 resolve(response || []);
-//             },
-//             error: function(xhr, status, error) {
-//                 console.error('Erro ao buscar cidades:', error);
-//                 reject(error);
-//             }
-//         });
-//     });
-// }
-
-// Event listener para mudança na lista de serviços
+    // Event listener para mudança na lista de serviços
 $('#lista_servico').on('change', function() {
         debugger
         var servicoId = $(this).val();
@@ -298,35 +255,32 @@ $('#lista_servico').on('change', function() {
                 
             } else {
                 // Se não encontrar alíquota, limpar o campo
-                $('#aliquota').val('0,0000');
+                $('#aliquota').val('0,00');
                 console.log('Alíquota não encontrada para o serviço selecionado');
             }
         } else {
             // Se nenhum serviço estiver selecionado, limpar o campo alíquota
-            $('#aliquota').val('0,0000');
+            $('#aliquota').val('0,00');
         }
     });
 
 }
 
 /**
- * Configura o combo da lista de serviços com o ID da cidade selecionada
- * @param {string|number} cidadeId - ID da cidade selecionada
+ * Configura o combo da lista de serviços (carrega todos os serviços disponíveis)
  */
-function configurarListaServicos(cidadeId) {
-    console.log('Configurando lista de serviços para cidade:', cidadeId);
+function configurarListaServicos() {
+    console.log('Configurando lista de serviços...');
     
     // Mostrar loading no combo
     $('#lista_servico').html('<option value="">Carregando serviços...</option>');
     
-    // Fazer requisição AJAX para buscar todos os serviços da cidade
+    // Fazer requisição AJAX para buscar todos os serviços
     $.ajax({
         url: window.location.pathname + '?mod=est&form=faturamento_nfs&submenu=searchListaServicosAjax&opcao=ajax',
         type: 'POST',
         dataType: 'json',
-        data: {
-            codigo_municipio: cidadeId
-        },
+        data: {},
         xhrFields: {
             withCredentials: true
         },
@@ -351,41 +305,33 @@ function configurarListaServicos(cidadeId) {
                     }
                 });
                 
-                // Habilitar o combo
-                $('#lista_servico').prop('disabled', false);
-                
             } else {
                 // Em caso de erro ou resposta vazia
                 $('#lista_servico').html('<option value="">Nenhum serviço encontrado</option>');
-                $('#lista_servico').prop('disabled', true);
             }
         },
         error: function(xhr, status, error) {
             console.error('Erro ao carregar serviços:', error);
             $('#lista_servico').html('<option value="">Erro ao carregar serviços</option>');
-            $('#lista_servico').prop('disabled', true);
         }
     });
 }
 
 /**
- * Configura o combo da situação tributária com o ID da cidade selecionada
- * @param {string|number} cidadeId - ID da cidade selecionada
+ * Configura o combo da situação tributária (carrega todas as situações disponíveis)
  */
-function configurarSituacaoTributaria(cidadeId) {
-    console.log('Configurando situação tributária para cidade:', cidadeId);
+function configurarSituacaoTributaria() {
+    console.log('Configurando situação tributária...');
     
     // Mostrar loading no combo
     $('#situacao_tributaria').html('<option value="">Carregando situações tributárias...</option>');
     
-    // Fazer requisição AJAX para buscar situações tributárias da cidade
+    // Fazer requisição AJAX para buscar situações tributárias
     $.ajax({
         url: window.location.pathname + '?mod=est&form=faturamento_nfs&submenu=searchSituacaoTributaria&opcao=ajax',
         type: 'POST',
         dataType: 'json',
-        data: {
-            codigo_municipio: cidadeId
-        },
+        data: {},
         xhrFields: {
             withCredentials: true
         },
@@ -409,19 +355,68 @@ function configurarSituacaoTributaria(cidadeId) {
                     }
                 });
                 
-                // Habilitar o combo
-                $('#situacao_tributaria').prop('disabled', false);
-                
             } else {
                 // Em caso de erro ou resposta vazia
                 $('#situacao_tributaria').html('<option value="">Nenhuma situação tributária encontrada</option>');
-                $('#situacao_tributaria').prop('disabled', true);
             }
         },
         error: function(xhr, status, error) {
             console.error('Erro ao carregar situações tributárias:', error);
             $('#situacao_tributaria').html('<option value="">Erro ao carregar situações tributárias</option>');
-            $('#situacao_tributaria').prop('disabled', true);
+        }
+    });
+}
+
+
+/**
+ * Configura o combo da situação tributária com o ID da cidade selecionada
+ * @param {string|number} cidadeId - ID da cidade selecionada
+ */
+function configurarParcelas() {
+    debugger
+    
+    // Mostrar loading no combo
+    $('#parcelas').html('<option value="">Carregando parcelas...</option>');
+    
+    // Fazer requisição AJAX para buscar situações tributárias da cidade
+    $.ajax({
+        url: window.location.pathname + '?mod=est&form=faturamento_nfs&submenu=searchParcelas&opcao=ajax',
+        type: 'POST',
+        dataType: 'json',
+        xhrFields: {
+            withCredentials: true
+        },
+        beforeSend: function(xhr) {
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        },
+        success: function(response) {
+            debugger
+            
+            if (response && Array.isArray(response) && response.length > 0) {
+                // Limpar o combo
+                $('#parcelas').empty();
+                
+                // Adicionar todas as opções
+                response.forEach(function(situacao) {
+                    if (situacao.id && situacao.text) {
+                        // Monta o option com atributos extras
+                        var option = '<option value="' + situacao.id + '" ' +
+                                     'data-value="' + situacao.data_value + '">' +
+                                     situacao.text +
+                                     '</option>';
+                                     
+                        $('#parcelas').append(option);
+                    }
+                });
+                
+            } else {
+                $('#parcelas').html('<option value="">Nenhuma parcela encontrada</option>');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro ao carregar situações tributárias:', error);
+            $('#parcelas').html('<option value="">Erro ao carregar parcelas</option>');
+            $('#parcelas').prop('disabled', true);
         }
     });
 }
@@ -431,18 +426,28 @@ function configurarSituacaoTributaria(cidadeId) {
  * Configura máscaras e formatação dos campos
  */
 function configurarMascaras() {
-    // Máscaras para valores monetários
+    // Máscaras para valores monetários - Step 3
     aplicarMascara('#valor_servico', 'monetario');
     aplicarMascara('#desc_incondicional', 'monetario');
     aplicarMascara('#valor_deducao', 'monetario');
     aplicarMascara('#base_calculo', 'monetario');
     aplicarMascara('#issqn', 'monetario');
     aplicarMascara('#issrf', 'monetario');
-    aplicarMascara('#valor_total_servicos', 'monetario');
-    aplicarMascara('#valor_total_final', 'monetario');
     
     // Máscara para alíquota (formato: 0,0000)
     aplicarMascara('#aliquota', 'percentual');
+    
+    // Máscaras para valores monetários - Step 4 (Novos campos)
+    aplicarMascara('#valor_inss', 'monetario');
+    aplicarMascara('#valor_pis', 'monetario');
+    aplicarMascara('#valor_cofins', 'monetario');
+    aplicarMascara('#valor_ir', 'monetario');
+    aplicarMascara('#valor_contribuicao_social', 'monetario');
+    aplicarMascara('#valor_total_aliquota', 'percentual');
+    aplicarMascara('#valor_total_base_calculo', 'monetario');
+    aplicarMascara('#valor_total_deducao', 'monetario');
+    aplicarMascara('#valor_total_desconto', 'monetario');
+    aplicarMascara('#valor_total_servicos', 'monetario');
     
     // Máscaras inteligentes para telefones
     aplicarMascara('#tomador_fone_comercial', 'telefone');
@@ -450,7 +455,7 @@ function configurarMascaras() {
     aplicarMascara('#tomador_fone_fax', 'telefone');
     
     // Máscara para CEP
-    aplicarMascara('#tomador_cep', 'cep');
+    aplicarMascara('#tomador_cep_formatado', 'cep');
     
     // Máscara para CPF/CNPJ (formato dinâmico)
     aplicarMascara('#tomador_cpfcnpj', 'cpfcnpj');
@@ -463,102 +468,198 @@ function configurarMascaras() {
     console.log('Máscaras configuradas com sucesso');
 }
 
+// Variável global para controlar o timeout do delay de cálculos
+let timeoutCalculoTributos = null;
+
+/**
+ * FUNÇÃO ÚNICA PARA CALCULAR TODOS OS CAMPOS
+ * Esta função é chamada sempre que os campos principais forem alterados:
+ * - valor_servico
+ * - desc_incondicional  
+ * - valor_deducao
+ */
+function calcularTodosCampos() {
+    try {
+        
+        // 1. OBTER VALORES DOS CAMPOS PRINCIPAIS
+        var valor_servico = obterValorNumerico('#valor_servico');
+        var desc_incondicional = obterValorNumerico('#desc_incondicional');
+        var valor_deducao = obterValorNumerico('#valor_deducao');
+        var aliquota = obterValorPercentual('#aliquota');
+        
+        // 2. VALIDAR SE HÁ VALOR NO SERVIÇO
+        if (valor_servico <= 0) {
+            console.log('Valor do serviço é zero ou inválido, limpando campos calculados');
+            limparCamposCalculados();
+            controlarEstadoBotoes();
+            return false;
+        }
+        
+        // 3. CALCULAR VALORES INTERMEDIÁRIOS
+        // Valor total dos serviços = valor do serviço - desconto incondicional
+        var valor_total_servicos = valor_servico - desc_incondicional;
+        
+        // Base de cálculo = valor total dos serviços - valor dedução
+        var base_calculo = valor_total_servicos - valor_deducao;
+        
+        // 4. CALCULAR IMPOSTOS
+        // ISSQN 
+        var issqn = (base_calculo * aliquota) / 100;
+        
+        // ISSRF 
+        var issrf = (base_calculo * aliquota) / 100;
+        
+        // 5. APLICAR VALORES NOS CAMPOS CALCULADOS
+        // Usar inputmask.setvalue para garantir que o inputmask processe corretamente
+        $('#base_calculo').inputmask('setvalue', base_calculo);
+        $('#issqn').inputmask('setvalue', issqn);
+        $('#issrf').inputmask('setvalue', issrf);
+        
+        // Valores totais no Step 4
+        $('#valor_total_servicos').inputmask('setvalue', valor_servico);
+        $('#valor_total_base_calculo').inputmask('setvalue', base_calculo);
+        $('#valor_total_deducao').inputmask('setvalue', valor_deducao);
+        $('#valor_total_desconto').inputmask('setvalue', desc_incondicional);
+        $('#valor_total_aliquota').inputmask('setvalue', aliquota);
+        
+        // 6. CONTROLAR ESTADO DOS BOTÕES
+        controlarEstadoBotoes();
+        
+        // 7. CALCULAR PARCELAS SE NECESSÁRIO
+        var numero_parcelas = parseInt($('#parcelas').find('option:selected').data('value')) || 1;
+        var descricao_parcelas = $('#parcelas').find('option:selected').text() || '';
+
+        if (base_calculo > 0 && typeof calcularParcelas === 'function') {
+            calcularParcelas(base_calculo, numero_parcelas, descricao_parcelas);
+        }
+    
+        
+        return true;
+        
+    } catch (error) {
+        console.error('Erro ao calcular todos os campos:', error);
+        return false;
+    }
+}
+
+/**
+ * Executa cálculos com delay para evitar múltiplas execuções
+ */
+function executarCalculosComDelay() {
+    // Limpar timeout anterior se existir
+    if (timeoutCalculoTributos) {
+        clearTimeout(timeoutCalculoTributos);
+    }
+    
+    // Definir novo timeout com delay de 500ms
+    timeoutCalculoTributos = setTimeout(function() {
+        calcularTodosCampos();
+    }, 500);
+}
+
 /**
  * Configura eventos de cálculo automático
+ * Configurado para os 3 campos principais: valor_servico, desc_incondicional, valor_deducao
  */
-function configurarEventosCalculo() {
-debugger
-
-    // Calcular todos os valores quando valor_servico for alterado
+function configurarEventosCalculo() {    
+    // Eventos para os 3 campos principais que disparam o cálculo
     $('#valor_servico').on('input', function() {
-        calcularTodosValores();
+        console.log('Campo valor_servico alterado');
+        executarCalculosComDelay();
     });
     
-    // Calcular quando desc_incondicional for alterado
     $('#desc_incondicional').on('input', function() {
-        calcularTodosValores();
+        console.log('Campo desc_incondicional alterado');
+        executarCalculosComDelay();
     });
     
-    // Calcular quando valor_deducao for alterado
     $('#valor_deducao').on('input', function() {
-        calcularTodosValores();
+        console.log('Campo valor_deducao alterado');
+        executarCalculosComDelay();
     });
     
-    // Calcular quando aliquota for alterado
-    $('#aliquota').on('input', function() {
-        calcularTodosValores();
-    });
-    
-    // Calcular parcelas quando valor total final for alterado
-    $('#valor_total_final').on('change', function() {
-        var valorTotal = obterValorNumerico('#valor_total_final');
-        var numeroParcelas = parseInt($('#numero_parcelas').val()) || 1;
-        if (valorTotal > 0) {
-            calcularParcelas(valorTotal, numeroParcelas);
+    // Eventos para parcelas (separados dos cálculos principais)
+    $('#valor_total_servicos').on('change', function() {
+        // Usar a nova função de recálculo que pega o data-value correto
+        if (typeof recalcularParcelas === 'function') {
+            recalcularParcelas();
         }
     });
     
-    // Calcular parcelas quando número de parcelas for alterado
-    $('#numero_parcelas').on('change', function() {
-        debugger
-        var valorTotal = obterValorNumerico('#valor_total_final');
-        var numeroParcelas = parseInt($(this).val()) || 1;
-        console.log('Número de parcelas alterado:', numeroParcelas, 'Valor total:', valorTotal);
-        if (valorTotal > 0) {
-            calcularParcelas(valorTotal, numeroParcelas);
-        } else {
-            console.warn('Valor total é zero ou inválido:', valorTotal);
+    $('#parcelas').on('change', function() {
+
+        var valor_base_calculo = obterValorNumerico('#valor_total_base_calculo');
+        var numeroParcelas = parseInt($(this).find('option:selected').data('value')) || 1;
+        var descricao = $(this).find('option:selected').text() || '';
+
+        if (valor_base_calculo > 0 && typeof calcularParcelas === 'function') {
+            calcularParcelas(valor_base_calculo, numeroParcelas, descricao);
         }
     });
+    
 }
 
 /**
  * Função auxiliar para obter valor numérico de campo com máscara
- * @param {string} selector - Seletor do campo
- * @returns {number} - Valor numérico
+ * Remove máscaras e converte para número. A formatação final é feita no backend.
+ * @param {string|jQuery} selector - Seletor do campo ou objeto jQuery
+ * @returns {number} - Valor numérico sem formatação
  */
 function obterValorNumerico(selector) {
     try {
-        var elemento = $(selector);
+        var elemento = selector instanceof jQuery ? selector : $(selector);
+        
         if (!elemento.length) {
-            console.warn('Campo não encontrado:', selector);
             return 0;
         }
         
-        var valor = 0;
+        // Sempre obter o valor formatado e processar manualmente
+        // O inputmask('unmaskedvalue') pode truncar casas decimais em alguns casos
+        var valorFormatado = elemento.val() || '0';
         
-        // Tentar usar método do inputmask primeiro
-        if (elemento.inputmask && typeof elemento.inputmask === 'function') {
-            try {
-                valor = parseFloat(elemento.inputmask('unmaskedvalue')) || 0;
-                console.log('Valor obtido via inputmask para', selector, ':', valor);
-                return valor;
-            } catch (e) {
-                console.warn('Erro ao obter valor via inputmask para', selector, ':', e);
-            }
-        }
+        // Limpar: R$, espaços, pontos de milhares, trocar vírgula por ponto
+        valorFormatado = valorFormatado
+            .replace(/R\$/g, '')
+            .replace(/\s/g, '')
+            .replace(/\./g, '')
+            .replace(',', '.');
         
-        // Verificar se o elemento tem inputmask aplicado
-        if (elemento.data('inputmask')) {
-            try {
-                valor = parseFloat(elemento.inputmask('unmaskedvalue')) || 0;
-                console.log('Valor obtido via inputmask (data) para', selector, ':', valor);
-                return valor;
-            } catch (e) {
-                console.warn('Erro ao obter valor via inputmask (data) para', selector, ':', e);
-            }
-        }
-        
-        // Fallback: obter valor via .val() e limpar formatação
-        var valorFormatado = elemento.val() || '';
-        valorFormatado = valorFormatado.replace(/\./g, '').replace(',', '.').replace('R$ ', '').trim();
-        valor = parseFloat(valorFormatado) || 0;
-        
-        console.log('Valor obtido via fallback para', selector, ':', valor, '(valor original:', elemento.val(), ')');
-        return valor;
+        // Converter e retornar (PHP fará a formatação final)
+        return parseFloat(valorFormatado) || 0;
         
     } catch (error) {
-        console.error('Erro ao obter valor numérico para', selector, ':', error);
+        console.error('Erro ao obter valor numérico:', error);
+        return 0;
+    }
+}
+
+/**
+ * Função auxiliar para obter valor percentual de campo
+ * Remove símbolos e converte para número. A formatação final é feita no backend.
+ * @param {string|jQuery} selector - Seletor do campo ou objeto jQuery
+ * @returns {number} - Valor percentual sem formatação
+ */
+function obterValorPercentual(selector) {
+    try {
+        var elemento = selector instanceof jQuery ? selector : $(selector);
+        
+        if (!elemento.length) {
+            return 0;
+        }
+        
+        var valorFormatado = elemento.val() || '0';
+        
+        // Limpar: %, espaços, trocar vírgula por ponto
+        valorFormatado = valorFormatado
+            .replace('%', '')
+            .replace(/\s/g, '')
+            .replace(',', '.');
+        
+        // Converter e retornar (PHP fará a formatação final)
+        return parseFloat(valorFormatado) || 0;
+        
+    } catch (error) {
+        console.error('Erro ao obter valor percentual:', error);
         return 0;
     }
 }
@@ -613,99 +714,65 @@ function controlarEstadoBotoes() {
             console.log('Botões desabilitados - valor do serviço = 0');
         }
         
+        // Controlar estado do campo desc_incondicional
+        controlarEstadoDescIncondicional(valorServico);
+        
     } catch (error) {
         console.error('Erro ao controlar estado dos botões:', error);
     }
 }
 
 /**
- * Calcula todos os valores baseado no valor_servico
+ * Controla o estado do campo desc_incondicional baseado no valor_servico
  */
-function calcularTodosValores() {
-    debugger
+function controlarEstadoDescIncondicional(valorServico) {
     try {
-        console.log('Calculando todos os valores...');
+        var campoDescIncondicional = $('#desc_incondicional');
         
-        // Obter valores usando função auxiliar
-        var valorServico = obterValorNumerico('#valor_servico');
-        var descIncondicional = obterValorNumerico('#desc_incondicional');
-        var valorDeducao = obterValorNumerico('#valor_deducao');
-        var aliquota = obterValorNumerico('#aliquota');
-        
-        console.log('Valores obtidos:', {
-            valorServico: valorServico,
-            descIncondicional: descIncondicional,
-            valorDeducao: valorDeducao,
-            aliquota: aliquota
-        });
-        
-        // Calcular base de cálculo
-        var baseCalculo = valorServico - valorDeducao;
-        
-        // Calcular ISSQN
-        var issqn = (baseCalculo * aliquota) / 100;
-        
-        // Calcular ISSRF (assumindo que é 1% da base de cálculo - ajuste conforme necessário)
-        var issrf = (baseCalculo * 1) / 100;
-        
-        // Aplicar máscaras e formatar valores
-        $('#base_calculo').val(baseCalculo.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-        $('#issqn').val(issqn.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-        $('#issrf').val(issrf.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-        
-        // Calcular valor total dos serviços (valor do serviço - desconto incondicional)
-        var valorTotalServicos = valorServico - descIncondicional;
-        
-        // Preencher valor total dos serviços
-        $('#valor_total_servicos').inputmask('setvalue', valorTotalServicos);
-        
-        // Calcular valor total final (inicialmente igual ao total dos serviços)
-        $('#valor_total_final').inputmask('setvalue', valorTotalServicos);
-        
-        // console.log('Valores calculados:', {
-        //     valorServico: valorServico,
-        //     descIncondicional: descIncondicional,
-        //     valorDeducao: valorDeducao,
-        //     aliquota: aliquota,
-        //     baseCalculo: baseCalculo,
-        //     issqn: issqn,
-        //     issrf: issrf,
-        //     valorTotalServicos: valorTotalServicos
-        // });
-        
-        // Controlar estado dos botões baseado no valor do serviço
-        controlarEstadoBotoes();
-        
-        return true;
+        if (valorServico > 0) {
+            // Habilitar campo desc_incondicional quando valor_servico > 0
+            campoDescIncondicional.prop('disabled', false).removeClass('disabled');
+            console.log('Campo desc_incondicional habilitado - valor do serviço > 0');
+        } else {
+            // Desabilitar campo desc_incondicional quando valor_servico = 0
+            campoDescIncondicional.prop('disabled', true).addClass('disabled');
+            // Limpar valor quando desabilitado
+            campoDescIncondicional.val('0,00');
+            console.log('Campo desc_incondicional desabilitado - valor do serviço = 0');
+        }
         
     } catch (error) {
-        console.error('Erro ao calcular valores:', error);
-        return false;
+        console.error('Erro ao controlar estado do campo desc_incondicional:', error);
     }
 }
 
 /**
- * Calcula base de cálculo (mantida para compatibilidade)
+ * Limpa campos calculados quando valor_servico for zero ou vazio
  */
-function calcularBaseCalculo() {
-    var valorServico = parseFloat($('#valor_servico').val().replace(/\./g, '').replace(',', '.')) || 0;
-    var valorDeducao = parseFloat($('#valor_deducao').val().replace(/\./g, '').replace(',', '.')) || 0;
-    
-    var baseCalculo = valorServico - valorDeducao;
-    
-    $('#base_calculo').val(baseCalculo.toFixed(2).replace('.', ','));
-}
-
-/**
- * Calcula ISSQN (mantida para compatibilidade)
- */
-function calcularISSQN() {
-    var baseCalculo = parseFloat($('#base_calculo').val().replace(/\./g, '').replace(',', '.')) || 0;
-    var aliquota = parseFloat($('#aliquota').val().replace(',', '.')) || 0;
-    
-    var issqn = (baseCalculo * aliquota) / 100;
-    
-    $('#issqn').val(issqn.toFixed(2).replace('.', ','));
+function limparCamposCalculados() {
+    try {
+        console.log('Limpando campos calculados...');
+        
+        // Limpar campos intermediários calculados usando inputmask
+        $('#base_calculo').inputmask('setvalue', 0);
+        $('#issqn').inputmask('setvalue', 0);
+        $('#issrf').inputmask('setvalue', 0);
+        
+        // Limpar valores totais do Step 4
+        $('#valor_total_servicos').inputmask('setvalue', 0);
+        $('#valor_total_base_calculo').inputmask('setvalue', 0);
+        $('#valor_total_deducao').inputmask('setvalue', 0);
+        $('#valor_total_desconto').inputmask('setvalue', 0);
+        $('#valor_total_aliquota').inputmask('setvalue', 0);
+        
+        // Desabilitar campo desc_incondicional quando valor_servico = 0
+        $('#desc_incondicional').prop('disabled', true).addClass('disabled').inputmask('setvalue', 0);
+        
+        console.log('Campos calculados limpos com sucesso');
+        
+    } catch (error) {
+        console.error('Erro ao limpar campos calculados:', error);
+    }
 }
 
 /**
@@ -822,8 +889,8 @@ function aplicarMascara(selector, tipo, options) {
             break;
             
         case 'percentual':
-            $(selector).inputmask('9,9999', Object.assign({
-                placeholder: '0,0000'
+            $(selector).inputmask('9,99', Object.assign({
+                placeholder: '0,00'
             }, options));
             break;
             
@@ -1145,6 +1212,7 @@ async function preencherDadosPrestador(data_provider) {
  * @param {Array} data_borrower - Dados do tomador
  */
 async function preencherDadosTomador(data_borrower) {
+    debugger
     if (!data_borrower || data_borrower.length === 0) {
         console.log('Cliente não encontrado ou sem dados do tomador');
         return;
@@ -1202,9 +1270,18 @@ function aguardar(ms) {
 function inicializarWizard() {
     debugger
     try {
-        // Destruir wizard anterior se existir
-        if (wizard) {
-            wizard.destroy();
+        // Resetar wizard anterior se existir
+        if (wizard && typeof wizard.goToStep === 'function') {
+            wizard.goToStep(0);
+        }
+        
+        // Verificar se o wizard já foi inicializado
+        if ($('#wizard').hasClass('sw-container')) {
+            // Wizard já inicializado, apenas resetar para o primeiro step
+            if (wizard && typeof wizard.goToStep === 'function') {
+                wizard.goToStep(0);
+            }
+            return;
         }
         
         // Inicializar novo wizard
@@ -1213,6 +1290,7 @@ function inicializarWizard() {
             theme: 'default',
             transitionEffect: 'fade',
             showStepURLhash: false,
+            keyNavigation: false, // Desabilita navegação por teclado para não interferir nos campos de input
             toolbarSettings: {
                 toolbarPosition: 'bottom',
                 toolbarButtonPosition: 'right',
@@ -1234,61 +1312,12 @@ function inicializarWizard() {
             }
         });
         
-        //console.log('Wizard inicializado com sucesso');
-        
-        // Configurar bloqueio de navegação por teclado nos campos específicos
-        configurarBloqueioNavegacaoTeclado();
         
     } catch (error) {
         console.error('Erro ao inicializar wizard:', error);
     }
 }
 
-/**
- * Configura bloqueio de navegação por teclado nos campos específicos
- */
-function configurarBloqueioNavegacaoTeclado() {
-    debugger
-    try {
-        // Campos que devem bloquear a navegação do wizard
-        var camposBloqueados = ['valor_servico', 'desc_incondicional', 'valor_deducao', 'aliquota'];
-        
-        // Adicionar event listener para interceptar teclas direita/esquerda
-        $(document).on('keydown', function(e) {
-            // Verificar se está em um campo de input específico
-            var elementoAtivo = document.activeElement;
-            
-            // Se estiver em um campo bloqueado
-            if (elementoAtivo && camposBloqueados.includes(elementoAtivo.id)) {
-                // Bloquear apenas as teclas direita/esquerda quando estiver no início/fim do campo
-                if (e.keyCode === 37 || e.keyCode === 39) { // seta esquerda ou direita
-                    var campo = $(elementoAtivo);
-                    var cursorPos = campo[0].selectionStart;
-                    var valor = campo.val();
-                    
-                    // Se seta esquerda e está no início do campo, bloquear
-                    if (e.keyCode === 37 && cursorPos === 0) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        return false;
-                    }
-                    
-                    // Se seta direita e está no fim do campo, bloquear
-                    if (e.keyCode === 39 && cursorPos === valor.length) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        return false;
-                    }
-                }
-            }
-        });
-        
-        console.log('Bloqueio de navegação por teclado configurado para campos específicos');
-        
-    } catch (error) {
-        console.error('Erro ao configurar bloqueio de navegação por teclado:', error);
-    }
-}
 
 // Função para limpar campos do tomador
 function limparCamposTomador() {
@@ -1340,14 +1369,19 @@ function limparCamposPrestador() {
 // Função para limpar campos de valores
 function limparCamposValores() {
     try {
-        $('#valor_total_servicos').val('');
-        $('#valor_desconto').val('0,00');
-        $('#valor_total_final').val('');
-        $('#forma_pagamento').val('');
-        $('#natureza_operacao').val('');
-        $('#regime_tributacao').val('');
+        // Limpar novos campos monetários do Step 4
+        $('#valor_inss').inputmask('setvalue', 0);
+        $('#valor_pis').inputmask('setvalue', 0);
+        $('#valor_cofins').inputmask('setvalue', 0);
+        $('#valor_ir').inputmask('setvalue', 0);
+        $('#valor_contribuicao_social').inputmask('setvalue', 0);
+        $('#valor_total_aliquota').inputmask('setvalue', 0);
+        $('#valor_total_base_calculo').inputmask('setvalue', 0);
+        $('#valor_total_deducao').inputmask('setvalue', 0);
+        $('#valor_total_desconto').inputmask('setvalue', 0);
+        $('#valor_total_servicos').inputmask('setvalue', 0);
+        $('#parcelas').val('');
         $('#observacoes').val('');
-        $('#data_vencimento').val('');
         
         //console.log('Campos de valores limpos com sucesso');
     } catch (error) {
@@ -1374,11 +1408,24 @@ function preencherCamposTomador(dados_tomador) {
             $('#tomador_tipo_pessoa').val(dados_tomador.TOMADOR_TIPO_PESSOA);
             
             // Mostrar campo estado apenas para estrangeiros
-            if (dados_tomador.TIPO === 'ESTRANGEIRO') {
+            if (dados_tomador.TIPO === 'E') {
                 $('#divEstado').show();
             } else {
                 $('#divEstado').hide();
             }
+        }
+
+        if (dados_tomador.TOMADOR_TIPO_PESSOA_DESC) {
+            $('#tomador_tipo_pessoa_desc').val(dados_tomador.TOMADOR_TIPO_PESSOA_DESC);
+        }
+
+        if (dados_tomador.TOMADOR_ID) {
+            $('#tomador_id').val(dados_tomador.TOMADOR_ID);
+        }
+
+        if (dados_tomador.TOMADOR_CNPJCPF) {
+            $('#tomador_cpfcnpj_formatado').val(dados_tomador.TOMADOR_CNPJ_FORMATADO);
+            $('#tomador_cpfcnpj').val(dados_tomador.TOMADOR_CNPJCPF);
         }
         
         if (dados_tomador.TOMADOR_CNPJ_FORMATADO) {
@@ -1423,9 +1470,17 @@ function preencherCamposTomador(dados_tomador) {
         if (dados_tomador.TOMADOR_ENDERECO_CIDADE) {
             $('#tomador_cidade').val(dados_tomador.TOMADOR_ENDERECO_CIDADE);
         }
+
+        if (dados_tomador.TOMADOR_ENDERECO_CODIGO_MUNICIPIO) {
+            $('#tomador_codigo_municipio').val(dados_tomador.TOMADOR_ENDERECO_CODIGO_MUNICIPIO);
+        }
         
         if (dados_tomador.TOMADOR_ENDERECO_CEP_FORMATADO) {
-            $('#tomador_cep').val(dados_tomador.TOMADOR_ENDERECO_CEP_FORMATADO);
+            $('#tomador_cep_formatado').val(dados_tomador.TOMADOR_ENDERECO_CEP_FORMATADO);
+        }
+
+        if (dados_tomador.TOMADOR_ENDERECO_CEP) {
+            $('#tomador_cep').val(dados_tomador.TOMADOR_ENDERECO_CEP);
         }
         
         // Telefones - Separar DDD e número usando regex
@@ -1574,8 +1629,8 @@ function preencherCamposPrestador(dados_prestador) {
             $('#prestador_ie').val(dados_prestador.IE);
         }
         
-        if (dados_prestador.CIDADE) {
-            $('#prestador_cidade').val(dados_prestador.CIDADE);
+        if (dados_prestador.PRESTADOR_CODIGO_MUNICIPIO) {
+            $('#prestador_codigo_municipio').val(dados_prestador.PRESTADOR_CODIGO_MUNICIPIO);
         }
 
         if (dados_prestador.PRESTADOR_NFS_SERIE) {
@@ -1585,12 +1640,6 @@ function preencherCamposPrestador(dados_prestador) {
 
         if (dados_prestador.PRESTADOR_NFS_SITUACAO_TRIBUTARIA) {
             $('#prestador_situacao_tributaria').val(dados_prestador.PRESTADOR_NFS_SITUACAO_TRIBUTARIA);
-        }
-
-        if (dados_prestador.PRESTADOR_DATA_EMISSAO) {
-            $('#prestador_data_emissao').val(dados_prestador.PRESTADOR_DATA_EMISSAO);
-        }else{
-            $('#prestador_data_emissao').val(new Date().toLocaleDateString('pt-BR'));
         }
 
         if (dados_prestador.PRESTADOR_DATA_FATO_GERADOR) {
@@ -1920,10 +1969,11 @@ function validarDadosEmissao() {
 
 // Função para emitir NFS
 function emitirNFS() {
+    debugger
     try {
-        if (!validarDadosEmissao()) {
-            return false;
-        }
+        // if (!validarDadosEmissao()) {
+        //     return false;
+        // }
         
         // Mostrar loading
         Swal.fire({
@@ -1934,99 +1984,33 @@ function emitirNFS() {
                 Swal.showLoading();
             }
         });
-        
-        // Coletar dados do formulário
-        var dados = {
-            prestador: {
-                // CAMPOS QUE ESTÃO NA MODAL MAS NÃO NA FUNÇÃO:
-                // prestador_empresa_nome - Nome da empresa prestadora (readonly) - Nao irei utilizar apenas visualizar
-                // prestador_cnpj_formatado - CNPJ formatado do prestador (readonly) - Nao irei utilizar apenas visualizar
-                // prestador_data_emissao - Data de emissão da nota (readonly) - Irei utilizar para preencher o campo data de emissao da nota fiscal
-                // prestador_data_fato_gerador - Data do fato gerador (readonly) - Irei utilizar para preencher o campo data do fato gerador da nota fiscal
-                
-                // CAMPOS ATUAIS DA FUNÇÃO:
-                cnpj: $('#prestador_cnpj').val(), // CAMPO NÃO ENCONTRADO NA MODAL - Fica como campo hidden
-                ie: $('#prestador_serie').val(),
-                endereco: $('#prestador_endereco').val(), // CAMPO NÃO ENCONTRADO NA MODAL - Incluir na consulta no back e incluir no form
-                cidade: $('#prestador_cidade').val(), // CAMPO NÃO ENCONTRADO NA MODAL - Incluir na consulta no back e incluir no form
-                uf: $('#prestador_uf').val(), // CAMPO NÃO ENCONTRADO NA MODAL - Incluir na consulta no back e incluir no form
-                cep: $('#prestador_cep').val(), // Incluir na consulta no back e incluir no form
-                ddd: $('#prestador_ddd').val(), // Incluir na consulta no back e incluir no form
-                telefone: $('#prestador_telefone').val() // Incluir na consulta no back e incluir no form
-            },
-            tomador: {
 
-                tipo: $('#tomador_tipo_pessoa').val(),
-                cpfcnpj: $('#tomador_cpfcnpj').val(),
-                ie: $('#tomador_inscricao_estadual_rg').val(),
-                endereco_informado: $('#tomador_endereco_informado').val(),
-                nome_razao_social: $('#tomador_razao_social').val(), 
-                sobrenome_nome_fantasia: $('#tomador_nome_fantasia').val(), 
-                email: $('#tomador_email').val(), 
-                pais: $('#tomador_pais').val(), 
-                logradouro: $('#tomador_logradouro').val(), 
-                numero_residencia: $('#tomador_numero_residencia').val(), 
-                complemento: $('#tomador_complemento').val(), 
-                bairro: $('#tomador_bairro').val(), 
-                cidade: $('#tomador_cidade').val(), 
-                cep: $('#tomador_cep').val(), 
-                ponto_referencia: $('#tomador_ponto_referencia').val(), 
-                ddd_fone_comercial: $('#tomador_ddd_fone_comercial').val(), 
-                fone_comercial: $('#tomador_fone_comercial').val(), 
-                ddd_fone_residencial: $('#tomador_ddd_fone_residencial').val(), 
-                fone_residencial: $('#tomador_fone_residencial').val(), 
-                ddd_fax: $('#tomador_ddd_fax').val(), 
-                fone_fax: $('#tomador_fone_fax').val(), 
-                estado: $('#tomador_estado').val() 
-            },
-            servicos: {
-                // CAMPOS QUE ESTÃO NA MODAL MAS NÃO NA FUNÇÃO:
-                // local_prestacao - Local da prestação do serviço (select2)
-                // lista_servico - Lista de serviços disponíveis (select2)
-                // situacao_tributaria - Situação tributária do serviço
-                // valor_servico - Valor do serviço (campo principal)
-                // desc_incondicional - Desconto incondicional
-                // valor_deducao - Valor da dedução (readonly)
-                // base_calculo - Base de cálculo do imposto (readonly)
-                // aliquota - Alíquota do imposto (readonly)
-                // issqn - Valor do ISSQN (readonly)
-                // issrf - Valor do ISSRF (readonly)
-                // descricao - Descrição detalhada do serviço
-                
-                // Recuperar valores dos campos select2
-                local_prestacao: obterValorSelect2('#local_prestacao'), // ID do local selecionado
-                local_prestacao_texto: obterTextoSelect2('#local_prestacao'), // Texto do local selecionado
-                lista_servico: obterValorSelect2('#lista_servico'), // ID do serviço selecionado
-                lista_servico_texto: obterTextoSelect2('#lista_servico'), // Texto do serviço selecionado
-                situacao_tributaria: $('#situacao_tributaria').val(),
-                valor_servico: obterValorNumerico('#valor_servico'), // Usar função auxiliar para pegar valor numérico
-                desc_incondicional: obterValorNumerico('#desc_incondicional'),
-                valor_deducao: obterValorNumerico('#valor_deducao'),
-                base_calculo: obterValorNumerico('#base_calculo'),
-                aliquota: obterValorNumerico('#aliquota'),
-                issqn: obterValorNumerico('#issqn'),
-                issrf: obterValorNumerico('#issrf'),
-                descricao: $('#descricao').val()
-            },
-            valores: {
-                // CAMPOS ATUAIS DA FUNÇÃO (CONFEREM COM A MODAL):
-                valor_total_servicos: $('#valor_total_servicos').val(), // ✅ Campo existe na modal
-                valor_desconto: $('#valor_desconto').val(), // ✅ Campo existe na modal
-                valor_total_final: $('#valor_total_final').val(), // ✅ Campo existe na modal
-                forma_pagamento: $('#forma_pagamento').val(), // ✅ Campo existe na modal
-                natureza_operacao: $('#natureza_operacao').val(), // ✅ Campo existe na modal
-                regime_tributacao: $('#regime_tributacao').val(), // ✅ Campo existe na modal
-                observacoes: $('#observacoes').val(), // ✅ Campo existe na modal
-                data_vencimento: $('#data_vencimento').val() // ✅ Campo existe na modal
-            }
-        };
+        var dados = getDadosNfs();
+
+        if (!dados) {
+            Swal.close();
+            setTimeout(() => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Erro!',
+                    text: 'Erro ao obter dados da NFS.',
+                    confirmButtonText: 'OK'
+                });
+            }, 100);
+
+            return false;
+        }
+
+        var json = JSON.stringify(dados)
         
         // Fazer requisição AJAX para emissão
         $.ajax({
             url: window.location.pathname + '?mod=est&form=faturamento_nfs&submenu=emitirNFS&opcao=ajax',
             type: 'POST',
             dataType: 'json',
-            data: dados,
+            data: {
+                'json': json
+            },
             xhrFields: {
                 withCredentials: true
             },
@@ -2034,60 +2018,184 @@ function emitirNFS() {
                 xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
             },
             success: function(response) {
-                Swal.close();
-                
-                if (response && response.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Sucesso!',
-                        text: 'NFS-e emitida com sucesso!',
-                        confirmButtonText: 'OK'
-                    }).then((result) => {
-                        // Fechar modal após sucesso
-                        $('#modalServicos').modal('hide');
-                    });
-                } else {
-                    var mensagem = 'Erro ao emitir NFS-e.';
-                    if (response && response.message) {
-                        mensagem = response.message;
-                    }
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Erro!',
-                        text: mensagem,
-                        confirmButtonText: 'OK'
-                    });
-                }
+                returnSendNfs(response);
             },
             error: function(xhr, status, error) {
-                Swal.close();
-                console.error('Erro ao emitir NFS:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Erro!',
-                    text: 'Erro ao emitir NFS-e. Entre em contato com o suporte.',
-                    confirmButtonText: 'OK'
-                });
+                returnSendNfsError(xhr, status, error);
             }
         });
         
     } catch (error) {
         Swal.close();
         console.error('Erro ao emitir NFS:', error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Erro!',
-            text: 'Erro inesperado ao emitir NFS-e.',
-            confirmButtonText: 'OK'
-        });
+        setTimeout(() => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro!',
+                text: 'Erro inesperado ao emitir NFS-e.',
+                confirmButtonText: 'OK'
+            });
+        }, 100);
     }
 }
+
+// Função para obter dados da NFS
+/**
+ * Coleta todos os dados do formulário para envio ao backend
+ * As funções de conversão já retornam valores padrão, então menos lógica aqui
+ * A formatação e validação final são feitas no backend
+ */
+function getDadosNfs() {
+    try {
+        var dados = {
+            nota_fiscal: {
+                serie: $('#prestador_serie').val(),
+                data_fato_gerador: $('#prestador_data_fato_gerador').val(),
+                valor_total: obterValorNumerico('#valor_total_servicos'), // Backend formata
+                valor_desconto: obterValorNumerico('#desc_incondicional'), // Backend formata
+                valor_inss: obterValorNumerico('#valor_inss'), // Novo campo
+                valor_pis: obterValorNumerico('#valor_pis'), // Novo campo
+                valor_cofins: obterValorNumerico('#valor_cofins'), // Novo campo
+                valor_ir: obterValorNumerico('#valor_ir'), // Novo campo
+                valor_contribuicao_social: obterValorNumerico('#valor_contribuicao_social'), // Novo campo
+                observacao: $('#observacoes').val() || null
+            },
+            prestador: {
+                cpfcnpj: $('#prestador_cnpj').val(),
+                cidade: $('#prestador_codigo_municipio').val()
+            },
+            tomador: {
+                tomador_id: $('#tomador_id').val() || null,
+                tipo: $('#tomador_tipo_pessoa').val(),
+                cpfcnpj: $('#tomador_cpfcnpj').val() || null,
+                ie: $('#tomador_inscricao_estadual_rg').val() || null,
+                nome_razao_social: $('#tomador_razao_social').val() || null,
+                sobrenome_nome_fantasia: $('#tomador_nome_fantasia').val() || null,
+                email: $('#tomador_email').val() || null,
+                logradouro: $('#tomador_logradouro').val() || null,
+                numero_residencia: $('#tomador_numero_residencia').val() || null,
+                complemento: $('#tomador_complemento').val() || null,
+                bairro: $('#tomador_bairro').val() || null,
+                cidade: $('#tomador_codigo_municipio').val() || null,
+                cep: $('#tomador_cep').val() || null,
+                ponto_referencia: $('#tomador_ponto_referencia').val() || null,
+                ddd_fone_comercial: $('#tomador_ddd_fone_comercial').val() || null,
+                fone_comercial: $('#tomador_fone_comercial').val() ? $('#tomador_fone_comercial').val().replace(/\D/g, '') : null,
+                ddd_fone_residencial: $('#tomador_ddd_fone_residencial').val() || null,
+                fone_residencial: $('#tomador_fone_residencial').val() ? $('#tomador_fone_residencial').val().replace(/\D/g, '') : null,
+                ddd_fax: $('#tomador_ddd_fax').val() || null,
+                fone_fax: $('#tomador_fone_fax').val() ? $('#tomador_fone_fax').val().replace(/\D/g, '') : null
+            },
+            itens: [{
+                tributa_municipio_prestador: $('#tributa_municipio_prestador').val() || 'S',
+                codigo_local_prestacao_servico: obterValorSelect2('#local_prestacao') || null,
+                codigo_item_lista_servico: obterValorSelect2('#lista_servico') || null,
+                descritivo: $('#descricao').val() || 'Prestação de serviços',
+                aliquota_item_lista_servico: obterValorPercentual('#aliquota'), // Backend formata
+                situacao_tributaria: parseInt($('#situacao_tributaria').val()) || 0,
+                valor_tributavel: obterValorNumerico('#base_calculo'), // Backend formata
+                valor_deducao: obterValorNumerico('#valor_deducao'), // Backend formata
+                valor_issqn: obterValorNumerico('#issqn'), // Backend formata
+                valor_issrf: obterValorNumerico('#issrf') // Backend formata
+            }],
+            forma_pagamento: {
+                numero_parcelas: $('#parcelas').find('option:selected').data('value') || null,
+                parcelas: obterDadosParcelas()
+            }
+        };
+
+        return dados;
+    } catch (error) {
+        console.error('Erro ao obter dados da NFS:', error);
+        return false;
+    }
+}
+
+// Função para retornar SUCESSO ao emitir NFS
+function returnSendNfs(response) {
+    Swal.close();
+    
+    // Parsear JSON se necessário
+    if (typeof response === 'string') {
+        response = JSON.parse(response);
+    }
+    
+    var dados = response.data || {};
+    var numeroNota = dados.numero_nfse || 'N/A';
+    var linkNfse = dados.link_nfse || null;
+    
+    // Mensagem simples
+    var mensagem = '<p style="font-size: 16px; margin-bottom: 15px;">NFS-e <strong>#' + numeroNota + '</strong> emitida com sucesso!</p>';
+    
+    // Configurar botões
+    var config = {
+        icon: 'success',
+        title: 'Sucesso!',
+        html: mensagem,
+        confirmButtonText: 'Fechar',
+        confirmButtonColor: '#3085d6',
+        allowOutsideClick: false
+    };
+    
+    // Adicionar botão para visualizar se houver link
+    if (linkNfse) {
+        config.showDenyButton = true;
+        config.denyButtonText = 'Visualizar NFS-e';
+        config.denyButtonColor = '#28a745';
+    }
+    
+    setTimeout(() => {
+        Swal.fire(config).then((result) => {
+            if (result.isDenied && linkNfse) {
+                window.open(linkNfse, '_blank');
+            }
+            $('#modalServicos').modal('hide');
+            if (typeof carregarListagemNfs === 'function') {
+                carregarListagemNfs();
+            }
+        });
+    }, 100);
+}
+
+// Função para retornar erro ao emitir NFS
+function returnSendNfsError($xhr, $status, $error) {
+    
+    Swal.close();
+    console.error('Erro ao emitir NFS:', $error);
+    console.error('XHR Response:', $xhr.responseText);
+    
+    
+    // Tentar extrair mensagem de erro do responseText
+    if ($xhr.responseText) {
+        var errorResponse = JSON.parse($xhr.responseText);
+        if (errorResponse.message) {
+            mensagemErro = errorResponse.message;
+        }
+    }
+    
+    setTimeout(() => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Erro ao emitir NFS-e!',
+            html: mensagemErro ? '<small style="color: #dc3545; font-size: 14px;">' + mensagemErro.replace(/\n/g, '<br>') + '</small>' : null,
+            footer: null,
+            confirmButtonText: 'OK',
+            confirmButtonColor: 'rgb(122, 41, 49)',
+            width: '65rem',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            allowCloseModal: false,
+            allowEscapeKey: false,
+        });
+    }, 100);
+}
+
 
 // Função para visualizar dados
 function visualizarDados() {
     try {
         // Ir para o último step para visualizar todos os dados
-        if (wizard) {
+        if (wizard && typeof wizard.goToStep === 'function') {
             wizard.goToStep(3); // Step 4 (índice 3)
         }
     } catch (error) {
@@ -2112,10 +2220,11 @@ function limparTodosCamposModal() {
         $('#prestador_ddd').val('');
         $('#prestador_telefone').val('');
         $('#prestador_serie').val('');
-        $('#prestador_data_emissao').val('');
         $('#prestador_data_fato_gerador').val('');
         
         // Limpar campos do tomador (Step 2)
+        $('#tomador_id').val('');
+        $('#tomador_tipo_pessoa_desc').val('');
         $('#tomador_tipo_pessoa').val('');
         $('#tomador_cpfcnpj_formatado').val('');
         $('#tomador_cpfcnpj').val('');
@@ -2129,7 +2238,8 @@ function limparTodosCamposModal() {
         $('#tomador_numero_residencia').val('');
         $('#tomador_complemento').val('');
         $('#tomador_bairro').val('');
-        $('#tomador_cidade').val('');
+        $('#tomador_codigo_municipio').val('');
+        $('#tomador_cep_formatado').val('');
         $('#tomador_cep').val('');
         $('#tomador_ponto_referencia').val('');
         $('#tomador_ddd_fone_comercial').val('');
@@ -2146,31 +2256,35 @@ function limparTodosCamposModal() {
         // Limpar campos de serviços (Step 3)
         $('#estado').val('').trigger('change');
         
-        // Desabilitar e limpar todos os campos dependentes
-        desabilitarCamposDependentes();
+        // Limpar todos os campos dependentes
+        limparCamposDependentes();
         
-        $('#valor_servico').val('0,00');
-        $('#desc_incondicional').val('0,00');
-        $('#valor_deducao').val('0,00');
-        $('#base_calculo').val('0,00');
-        $('#aliquota').val('0,0000');
-        $('#issqn').val('0,00');
-        $('#issrf').val('0,00');
+        // Limpar campos monetários usando inputmask para garantir valores corretos
+        $('#valor_servico').inputmask('setvalue', 0);
+        $('#desc_incondicional').inputmask('setvalue', 0);
+        $('#valor_deducao').inputmask('setvalue', 0);
+        $('#base_calculo').inputmask('setvalue', 0);
+        $('#aliquota').val('0,00');
+        $('#issqn').inputmask('setvalue', 0);
+        $('#issrf').inputmask('setvalue', 0);
         $('#descricao').val('');
         
         // Resetar contador de caracteres da descrição
         $('#caracteres-restantes').text('(200 caracteres restantes)');
         
-        // Limpar campos de valores (Step 4)
-        $('#valor_total_servicos').inputmask('setvalue', '');
-        $('#valor_desconto').val('0,00');
-        $('#valor_total_final').inputmask('setvalue', '');
-        $('#forma_pagamento').val('');
-        $('#numero_parcelas').val('1');
-        $('#natureza_operacao').val('');
-        $('#regime_tributacao').val('');
+        // Limpar novos campos de valores (Step 4)
+        $('#valor_inss').inputmask('setvalue', 0);
+        $('#valor_pis').inputmask('setvalue', 0);
+        $('#valor_cofins').inputmask('setvalue', 0);
+        $('#valor_ir').inputmask('setvalue', 0);
+        $('#valor_contribuicao_social').inputmask('setvalue', 0);
+        $('#valor_total_aliquota').inputmask('setvalue', 0);
+        $('#valor_total_base_calculo').inputmask('setvalue', 0);
+        $('#valor_total_deducao').inputmask('setvalue', 0);
+        $('#valor_total_desconto').inputmask('setvalue', 0);
+        $('#valor_total_servicos').inputmask('setvalue', 0);
+        $('#parcelas').val('');
         $('#observacoes').val('');
-        $('#data_vencimento').val('');
         
         // Limpar step 3 (lista de serviços)
         var step3 = $('#step_3 .panel_servicos .panel-body');
@@ -2182,7 +2296,7 @@ function limparTodosCamposModal() {
         }
         
         // Voltar para o primeiro step
-        if (wizard) {
+        if (wizard && typeof wizard.goToStep === 'function') {
             wizard.goToStep(0);
         }
         
@@ -2222,6 +2336,7 @@ function limparTodosCampos() {
  * @returns {string|number|null} - Valor do campo ou null se não houver seleção
  */
 function obterValorSelect2(selector) {
+    debugger
     try {
         var elemento = $(selector);
         if (!elemento.length) {
@@ -2353,10 +2468,15 @@ window.emitirNFS = emitirNFS;
 window.visualizarDados = visualizarDados;
 window.limparTodosCampos = limparTodosCampos;
 window.limparTodosCamposModal = limparTodosCamposModal;
-window.calcularTodosValores = calcularTodosValores;
+
+// Função principal de cálculo (NOVA)
+window.calcularTodosCampos = calcularTodosCampos;
+
+// Funções auxiliares
+window.limparCamposCalculados = limparCamposCalculados;
 window.obterValorNumerico = obterValorNumerico;
+window.obterValorPercentual = obterValorPercentual;
 window.controlarEstadoBotoes = controlarEstadoBotoes;
-window.configurarBloqueioNavegacaoTeclado = configurarBloqueioNavegacaoTeclado;
 window.aplicarMascara = aplicarMascara;
 window.aplicarMascaraTelefone = aplicarMascaraTelefone;
 window.configurarMascaras = configurarMascaras;
@@ -2364,6 +2484,7 @@ window.obterValorSelect2 = obterValorSelect2;
 window.obterTextoSelect2 = obterTextoSelect2;
 window.configurarListaServicos = configurarListaServicos;
 window.configurarSituacaoTributaria = configurarSituacaoTributaria;
-window.desabilitarCamposDependentes = desabilitarCamposDependentes;
+window.limparCamposDependentes = limparCamposDependentes;
+window.configurarParcelas = configurarParcelas;
 
 

@@ -301,19 +301,19 @@ label{
 
                                                 <td>
                                                     <select id="idTipoDoc" name="tipo{$fin[i].PARCELA}" class="form-control fonteParcelas {if $parcelasCadastrada eq true} select-read-only {/if}">
-                                                        {html_options values=$tipoDocto_ids selected=$tipoDocto_id output=$tipoDocto_names}
+                                                        {html_options values=$tipoDocto_ids selected=$fin[i].TIPODOCTO output=$tipoDocto_names}
                                                     </select>
                                                 </td>
 
                                                 <td>
                                                     <select  id="idConta" name="conta{$fin[i].PARCELA}" class="form-control fonteParcelas {if $parcelasCadastrada eq true} select-read-only {/if}">
-                                                        {html_options values=$conta_ids selected=$conta_id output=$conta_names}
+                                                        {html_options values=$conta_ids selected=$fin[i].CONTA output=$conta_names}
                                                     </select>
                                                 </td>
 
                                                 <td> 
                                                     <select id="idSitucao" name="situacao{$fin[i].PARCELA}" class="form-control fonteParcelas {if $parcelasCadastrada eq true} select-read-only {/if}">
-                                                        {html_options values=$situacaoLanc_ids selected=$situacaoLanc_id output=$situacaoLanc_names}
+                                                        {html_options values=$situacaoLanc_ids selected=$fin[i].SITPGTO output=$situacaoLanc_names}
                                                     </select>
                                                 </td>
 

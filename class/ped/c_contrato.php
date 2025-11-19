@@ -240,6 +240,7 @@ class c_contrato extends c_user
 
                 $obj_atendimento->setIdAtendimentoServico($id_os);
                 $obj_atendimento->setQuantidadeExecutada($servico['qtd_a_executar']);
+                $obj_atendimento->setFatPedidoServicoId($array_servico[0]['ID']);
 
                 // Calcula o total do serviço multiplicando o valor unitário pela quantidade a executar
                 $total_servico = $array_servico[0]['VALUNITARIO'] * $servico['qtd_a_executar'];

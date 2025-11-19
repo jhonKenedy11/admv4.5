@@ -22,6 +22,7 @@
         font-size: 12px;
     }
 </style>
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <script type="text/javascript" src="{$pathJs}/ped/s_pedido_venda_gerente_novo.js"> </script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 
@@ -106,7 +107,7 @@
                             <input name=dadosPed type=hidden value={$dadosPed}>
 
                             <!-- INCLUDES DE MODAL -->
-
+                            {include file="pedido_venda_gerente_agrupa_ped_modal.tpl"}
                         </form>
                         <table id="datatable-buttons" class="table table-bordered jambo_table">
                             <thead>
