@@ -152,7 +152,6 @@
                             <input name=email type=hidden value={$email}>
                             <input name=dataIni type=hidden value={$dataIni}>
                             <input name=dataFim type=hidden value={$dataFim}>
-                            <input name=devolucaoNotaFiscal type=hidden value={$devolucaoNotaFiscal}>
                             <input name=genero type=hidden value={$genero}>
                             <input name=transportador type=hidden value={$transportador}>
                             <input name=from type=hidden value={$from}>

@@ -414,22 +414,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 <!-- Importar CClasstrib -->
                 <div id="instrucoes-cclasstrib" class="instrucoes-importacao">
                   <h4><i class="fa fa-info-circle"></i> Como Importar - Classificação Tributária (CClasstrib)</h4>
-                  <p><strong>Formato:</strong> Excel (.xls ou .xlsx) com <span class="destaque">35 colunas</span></p>
+                  <p><strong>Formato:</strong> Excel (.xls ou .xlsx) com <span class="destaque">43 colunas</span></p>
                   
-                  <h5>Campos Texto (colunas 1-8):</h5>
+                  <h5>Campos Texto (colunas 1-10):</h5>
                   <ol>
                     <li><strong class="destaque">CST-IBS/CBS*</strong> - Código CST (3 caracteres) - <span class="destaque">Deve existir na tabela CST IBS/CBS</span></li>
-                    <li><strong>Descrição CST-IBS/CBS</strong> - Descrição do CST (ignorado na importação)</li>
+                    <li><strong>Descrição CST-IBS/CBS</strong> - Descrição do CST (<em>ignorado na importação</em>)</li>
                     <li><strong class="destaque">cClassTrib*</strong> - Código (6 caracteres) - <span class="destaque">Obrigatório - Chave Única</span></li>
                     <li><strong>Nome cClassTrib</strong> - Nome resumido (máx 100 caracteres)</li>
                     <li><strong>Descrição cClassTrib</strong> - Descrição completa (máx 260 caracteres)</li>
                     <li><strong>LC Redação</strong> - Redação da Lei Complementar</li>
                     <li><strong>LC 214/25</strong> - Referência LC 214/25 (máx 20 caracteres)</li>
+                    <li><strong>Regulamento CBS</strong> - Texto do Regulamento CBS</li>
+                    <li><strong>Regulamento IBS</strong> - Texto do Regulamento IBS</li>
                     <li><strong>Tipo de Alíquota</strong> - Tipo de Alíquota (máx 20 caracteres)</li>
                   </ol>
 
-                  <h5>Indicadores Principais (colunas 9-17) - usar 0 ou 1:</h5>
-                  <ol start="9">
+                  <h5>Indicadores Principais (colunas 11-21) - usar 0 ou 1:</h5>
+                  <ol start="11">
                     <li><strong>pRedIBS</strong> - Predefinido IBS</li>
                     <li><strong>pRedCBS</strong> - Predefinido CBS</li>
                     <li><strong>ind_gTribRegular</strong> - Indicador Tributação Regular</li>
@@ -437,19 +439,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     <li><strong>ind_gMonoPadrao</strong> - Indicador Monofásico Padrão</li>
                     <li><strong>ind_gMonoReten</strong> - Indicador Monofásico Retenção</li>
                     <li><strong>ind_gMonoRet</strong> - Indicador Monofásico Retido</li>
-                    <li><strong>ind_gMonoDif</strong> - Indicador Monofásico Diferido</li>
+                    <li><strong>ind_gMonoDif</strong> - Indicador Monofásico Diferido (<em>ignorado na importação</em>)</li>
+                    <li><strong>ind_gpBioDiferenca</strong> - Indicador GP Bio Diferença</li>
                     <li><strong>ind_gEstornoCred</strong> - Indicador Estorno Crédito</li>
+                    <li><strong>tpRBSN</strong> - Tipo RBSN</li>
                   </ol>
 
-                  <h5>Campos Data (colunas 18-20) - formato AAAA-MM-DD ou DD/MM/AAAA:</h5>
-                  <ol start="18">
+                  <h5>Campos Data (colunas 22-24) - formato DD/MM/AAAA:</h5>
+                  <ol start="22">
                     <li><strong>dIniVig</strong> - Data Início Vigência</li>
                     <li><strong>dFimVig</strong> - Data Fim Vigência</li>
                     <li><strong>DataAtualização</strong> - Data Atualização</li>
                   </ol>
 
-                  <h5>Indicadores por Documento Fiscal (colunas 21-35) - usar 0 ou 1:</h5>
-                  <ol start="21">
+                  <h5>Indicadores por Documento Fiscal (colunas 25-41) - usar 0 ou 1:</h5>
+                  <ol start="25">
                     <li><strong>indNFeABI</strong> - NF-e ABI</li>
                     <li><strong>indNFe</strong> - NF-e</li>
                     <li><strong>indNFCe</strong> - NFC-e</li>
@@ -465,7 +469,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     <li><strong>indNFAg</strong> - NF Agro</li>
                     <li><strong>indNFGas</strong> - NF Gás</li>
                     <li><strong>indDERE</strong> - DERE</li>
+                    <li><strong>indDIR</strong> - DIR</li>
+                    <li><strong>indDUIMP</strong> - DUIMP</li>
                   </ol>
+
+                  <p><em>Colunas 42 (ANEXO) e 43 (Link) são ignoradas na importação.</em></p>
 
                   <div class="obs">
                     <strong><i class="fa fa-exclamation-triangle"></i> Importante:</strong>

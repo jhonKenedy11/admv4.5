@@ -1409,12 +1409,52 @@ class c_conta extends c_user
         return is_array($banco->resultado);
     }
 
+    /**
+     * Verifica vinculos que impedem a exclusao da conta.
+     * @param INT código cliente/fornecedor
+     */
+    public function validaExclusaoConta($codigo)
+    {
+        $codigo = (int) $codigo;
+
+        $sql = "SELECT 'financeiro' AS TIPO, COUNT(*) AS TOTAL FROM FIN_LANCAMENTO WHERE PESSOA = " . $codigo . " ";
+        $sql .= "UNION ALL ";
+        $sql .= "SELECT 'pedido' AS TIPO, COUNT(*) AS TOTAL FROM FAT_PEDIDO WHERE CLIENTE = " . $codigo . " ";
+        $sql .= "UNION ALL ";
+        $sql .= "SELECT 'nota fiscal' AS TIPO, COUNT(*) AS TOTAL FROM EST_NOTA_FISCAL WHERE PESSOA = " . $codigo . ";";
+
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $resultado = $banco->resultado;
+        $banco->close_connection();
+
+        $motivos = array();
+
+        if (is_array($resultado)) {
+            foreach ($resultado as $row) {
+                if ((int) $row['TOTAL'] > 0) {
+                    $motivos[] = $row['TIPO'];
+                }
+            }
+        }
+
+        return $motivos;
+    }
+
 
     // fim alteraClasse
     //---------------------------------------------------------------
     //---------------------------------------------------------------
     public function excluiConta()
     {
+        $motivos = $this->validaExclusaoConta($this->getId());
+
+        if (!empty($motivos)) {
+            return array(
+                'mensagem' => "Exclusão não autorizada. Esta conta possui vínculo com: " . implode(', ', $motivos) . ".",
+                'tipoMsg' => 'alerta'
+            );
+        }
 
         $sql = "DELETE FROM fin_cliente ";
         $sql .= "WHERE cliente = '" . $this->getId() . "';";

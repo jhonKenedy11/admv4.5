@@ -71,6 +71,8 @@ function controlInputsMovimentacao()
     $('#situacaoNF').prop('disabled', true);
     $('#tipoCurvaABC').prop('disabled', true);
     $('#ordenacaoEstoque').prop('disabled', true);
+    $('#foraLinha').prop('disabled', false);
+    $('#somenteComEstoque').prop('disabled', true);
 }
 
 function controlInputsCurvaABC()
@@ -91,6 +93,8 @@ function controlInputsCurvaABC()
     $('#idLocalizacao').prop('disabled', true);
     $('#tipoMovimento').prop('disabled', true);
     $('#situacaoNF').prop('disabled', true);
+    $('#foraLinha').prop('disabled', false);
+    $('#somenteComEstoque').prop('disabled', true);
 }
 
 function controlInputsKardexSintetico()
@@ -111,6 +115,8 @@ function controlInputsKardexSintetico()
     $('#situacaoNF').prop('disabled', true);
     $('#tipoCurvaABC').prop('disabled', true);
     $('#ordenacaoEstoque').prop('disabled', true);
+    $('#foraLinha').prop('disabled', false);
+    $('#somenteComEstoque').prop('disabled', true);
 }
 
 function controlInputsKardexAnalitico()
@@ -131,6 +137,8 @@ function controlInputsKardexAnalitico()
     $('#clienteFornecedor').prop('disabled', true);
     $('#tipoCurvaABC').prop('disabled', true);
     $('#ordenacaoEstoque').prop('disabled', true);
+    $('#foraLinha').prop('disabled', false);
+    $('#somenteComEstoque').prop('disabled', true);
 }
 
 
@@ -153,6 +161,8 @@ function controlInputsEstoqueGeral()
     $('#centroCusto').prop('disabled', true);
     $('#situacaoNF').prop('disabled', true);
     $('#tipoCurvaABC').prop('disabled', true);
+    $('#foraLinha').prop('disabled', false);
+    $('#somenteComEstoque').prop('disabled', false);
 }
 
 
@@ -172,6 +182,8 @@ function controlInputsBlocoH()
     $('#centroCusto').prop('disabled', true);
     $('#situacaoNF').prop('disabled', true);
     $('#tipoCurvaABC').prop('disabled', true);
+    $('#foraLinha').prop('disabled', true);
+    $('#somenteComEstoque').prop('disabled', true);
 }
 
 function controlInputsComprasSugestoes()
@@ -192,6 +204,8 @@ function controlInputsComprasSugestoes()
     $('#tipoCurvaABC').prop('disabled', true);
     $('#ordenacaoEstoque').prop('disabled', true);
     $('#situacaoNF').prop('disabled', true);
+    $('#foraLinha').prop('disabled', false);
+    $('#somenteComEstoque').prop('disabled', false);
 }
 
 function controlInputsCompras()
@@ -212,6 +226,8 @@ function controlInputsCompras()
     $('#situacaoNF').prop('disabled', true);
     $('#tipoCurvaABC').prop('disabled', true);
     $('#ordenacaoEstoque').prop('disabled', true);
+    $('#foraLinha').prop('disabled', false);
+    $('#somenteComEstoque').prop('disabled', true);
 }
 
 function controlInputsComprasEstoqueMinimo()
@@ -232,6 +248,8 @@ function controlInputsComprasEstoqueMinimo()
     $('#situacaoNF').prop('disabled', true);
     $('#tipoCurvaABC').prop('disabled', true);
     $('#ordenacaoEstoque').prop('disabled', true);
+    $('#foraLinha').prop('disabled', false);
+    $('#somenteComEstoque').prop('disabled', false);
 }
 
 function controlInputsTabelaPrecos()
@@ -252,6 +270,8 @@ function controlInputsTabelaPrecos()
     $('#situacaoNF').prop('disabled', true);
     $('#tipoCurvaABC').prop('disabled', true);
     $('#ordenacaoEstoque').prop('disabled', true);
+    $('#foraLinha').prop('disabled', false);
+    $('#somenteComEstoque').prop('disabled', false);
 }
 
 function controlInputsEstoqueLocalizacao()
@@ -272,6 +292,8 @@ function controlInputsEstoqueLocalizacao()
     $('#centroCusto').prop('disabled', true);
     $('#situacaoNF').prop('disabled', true);
     $('#tipoCurvaABC').prop('disabled', true);
+    $('#foraLinha').prop('disabled', false);
+    $('#somenteComEstoque').prop('disabled', false);
 }
 
 function controlInputsMovimentoCliente()
@@ -292,6 +314,8 @@ function controlInputsMovimentoCliente()
     $('#situacaoNF').prop('disabled', true);
     $('#tipoCurvaABC').prop('disabled', true);
     $('#ordenacaoEstoque').prop('disabled', true);
+    $('#foraLinha').prop('disabled', false);
+    $('#somenteComEstoque').prop('disabled', true);
 }
 
 function controlInputsConsultaPreco()
@@ -312,6 +336,8 @@ function controlInputsConsultaPreco()
     $('#situacaoNF').prop('disabled', true);
     $('#tipoCurvaABC').prop('disabled', true);
     $('#ordenacaoEstoque').prop('disabled', true);
+    $('#foraLinha').prop('disabled', false);
+    $('#somenteComEstoque').prop('disabled', true);
 }
 
 function controlInputsNotasFiscais()
@@ -332,6 +358,8 @@ function controlInputsNotasFiscais()
     $('#tipoMovimento').prop('disabled', true);
     $('#tipoCurvaABC').prop('disabled', true);
     $('#ordenacaoEstoque').prop('disabled', true);
+    $('#foraLinha').prop('disabled', true);
+    $('#somenteComEstoque').prop('disabled', true);
 }
 
 function Cancelar() {
@@ -353,7 +381,7 @@ function limparCampos() {
     const relatoriosComCliente = ['compras', 'tabela_precos', 'movimento_cliente', 'consulta_preco', 'notas_fiscais'];
     
     // Limpar selects básicos (exceto cliente/fornecedor se não for necessário)
-    const basicSelects = ["idGrupo", "idLocalizacao", "tipoMovimento", "centroCusto", "situacaoNF", "tipoCurvaABC", "ordenacaoEstoque"];
+    const basicSelects = ["idGrupo", "idLocalizacao", "tipoMovimento", "centroCusto", "situacaoNF", "tipoCurvaABC", "ordenacaoEstoque", "foraLinha"];
     
     // Adicionar cliente/fornecedor apenas se o relatório o utiliza
     if (report && relatoriosComCliente.includes(report)) {
@@ -410,6 +438,10 @@ function limparCampos() {
                 produtoElement.selectedIndex = 0;
             }
         }
+    }
+
+    if (document.getElementById("somenteComEstoque")) {
+        document.getElementById("somenteComEstoque").checked = false;
     }
 
     // Reaplicar o controle de campos baseado no relatório selecionado
@@ -535,6 +567,12 @@ function mountParameters()
                     
                     if (selectedOptions.length > 0) {
                         params[element.name] = selectedOptions;
+                    }
+                }
+                // Para checkboxes
+                else if (element.type === 'checkbox') {
+                    if (element.checked && element.name && element.name.trim() !== '') {
+                        params[element.name] = element.value;
                     }
                 }
                 // Para campos simples

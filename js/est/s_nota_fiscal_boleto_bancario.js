@@ -658,6 +658,70 @@ function _escapeHtml(str) {
 }
 
 // ---------------------------------------------------------------------------
+// Restrição de boleto para NF de Devolução / Crédito / Débito (finalidade 4, 5, 6)
+// ---------------------------------------------------------------------------
+
+var _FINALIDADES_SEM_BOLETO = [4, 5, 6];
+
+var _LABELS_FINALIDADE = {
+    4: 'NF de Devolução',
+    5: 'NF de Crédito',
+    6: 'NF de Débito'
+};
+
+/**
+ * Verifica a finalidade da NF e, se for 4, 5 ou 6, desabilita todos os
+ * botões relacionados a boleto e exibe um banner informativo.
+ */
+function _aplicarRestricoesFinalidade() {
+    var el = document.getElementById('finalidade_emissao');
+    if (!el) return;
+
+    var finalidade = parseInt(el.value, 10);
+    if (_FINALIDADES_SEM_BOLETO.indexOf(finalidade) === -1) return;
+
+    var label  = _LABELS_FINALIDADE[finalidade] || ('Finalidade ' + finalidade);
+    var motivo = 'Não disponível para ' + label;
+
+    // Botão Gerar Boleto(s)
+    var btnGerar = document.getElementById('btn_imprimir_boleto');
+    if (btnGerar) {
+        btnGerar.disabled = true;
+        btnGerar.title    = motivo;
+    }
+
+    // Botão Enviar NF e Boleto por e-mail
+    var btnEmailBoleto = document.getElementById('btn_email_boleto_e_nf');
+    if (btnEmailBoleto) {
+        btnEmailBoleto.disabled = true;
+        btnEmailBoleto.title    = motivo;
+    }
+
+    // Botão Imprimir todos os boletos
+    var btnImprimir = document.getElementById('btn_imprimir_todos_boletos');
+    if (btnImprimir) {
+        btnImprimir.disabled = true;
+        btnImprimir.title    = motivo;
+    }
+
+    // Banner informativo
+    var banner = document.getElementById('banner_restricao_boleto');
+    if (banner) {
+        banner.innerHTML = '<i class="fa fa-exclamation-triangle" style="color:#ffa000;"></i> '
+            + '<strong>' + label + '</strong> — emissão de boleto não permitida para esta finalidade.';
+        banner.style.display = 'block';
+    }
+
+    // Área de boletos: substituir mensagem padrão
+    var empty = document.getElementById('boletos_empty');
+    if (empty) {
+        empty.style.pointerEvents = 'none';
+        empty.innerHTML = '<i class="fa fa-ban" style="color:#ffa000;font-size:28px;display:block;margin-bottom:8px;"></i>'
+            + 'Boleto não aplicável a<br><strong>' + label + '</strong>';
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Inicialização
 // ---------------------------------------------------------------------------
 
@@ -666,18 +730,22 @@ document.addEventListener('DOMContentLoaded', function () {
     if (document.getElementById('nf_card_danfe')) {
         _abrirNfNoViewer();
     }
-});
 
-document.addEventListener('DOMContentLoaded', function () {
+    // Aplica restrições visuais para NF de Devolução / Crédito / Débito
+    _aplicarRestricoesFinalidade();
+
     // Verifica se o boleto será gerado automaticamente - Cadastro de CONTA
     var gera_boleto_automatico = document.getElementById('gera_boleto_automatico');
 
     if (gera_boleto_automatico && gera_boleto_automatico.value == 'S') {
+        var finalidade = parseInt((document.getElementById('finalidade_emissao') || {}).value || '0', 10);
 
-        var numero_pedido = document.getElementById('numero_pedido');
-
-        if (numero_pedido && numero_pedido.value) {
-            iniciarEmissaoBoletos(numero_pedido.value);
+        // Só dispara a geração automática se a finalidade permitir boleto
+        if (_FINALIDADES_SEM_BOLETO.indexOf(finalidade) === -1) {
+            var numero_pedido = document.getElementById('numero_pedido');
+            if (numero_pedido && numero_pedido.value) {
+                iniciarEmissaoBoletos(numero_pedido.value);
+            }
         }
     }
 });

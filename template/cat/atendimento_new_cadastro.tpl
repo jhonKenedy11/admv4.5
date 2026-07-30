@@ -445,9 +445,10 @@
                                                 </div>
                                                 <div class="col-md-1 col-sm-12 col-xs-12 small">
                                                     <label for="uniProduto">Unidade</label>
-                                                    <input class="form-control input-sm" type="text" id="uniProduto"
-                                                        maxlength="3" name="uniProduto" placeholder="ex.: UN"
-                                                        alt="Unidade" value={$uniProduto}>
+                                                    <select class="form-control input-sm" id="uniProduto"
+                                                        name="uniProduto" alt="Unidade">
+                                                        {html_options values=$uni_ids selected=$uniProduto output=$uni_names}
+                                                    </select>
                                                 </div>
 
                                             </div>
@@ -653,9 +654,10 @@
                                                 </div>
                                                 <div class="col-md-1 small col-sm-12 col-xs-12 has-feedback">
                                                     <label for="unidadeServico">Unidade</label>
-                                                    <input class="form-control input-sm" type="text" id="unidadeServico"
-                                                        name="unidadeServico" placeholder="ex.: UN"
-                                                        style="padding: 3px;" alt="Unidade" value={$unidadeServico}>
+                                                    <select class="form-control input-sm" id="unidadeServico"
+                                                        name="unidadeServico" style="padding: 3px;" alt="Unidade">
+                                                        {html_options values=$uni_ids selected=$unidadeServico output=$uni_names}
+                                                    </select>
                                                 </div>
 
                                             </div>

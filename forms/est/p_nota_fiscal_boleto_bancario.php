@@ -47,6 +47,9 @@ Class p_nota_fiscal_boleto_bancario extends c_nota_fiscal {
         if ($id != null){
             $this->setId($id);
             $result             = $this->select_nota_fiscal();
+
+            $finalidade = (int) ($result[0]['FINALIDADEEMISSAO'] ?? 0);
+
             $url_original       = strtolower($result[0]['PATHDANFE']);
             $numero_nota_fiscal = $result[0]['NUMERO'];
             $numero_pedido      = $result[0]['DOC'];
@@ -63,6 +66,7 @@ Class p_nota_fiscal_boleto_bancario extends c_nota_fiscal {
        // Parametro para verificar se o boleto será gerado automaticamente
        $gera_boleto_automatico = $result[0]['GERA_BOLETO_AUTOMATICO'] ?? 'S';
        $this->smarty->assign('gera_boleto_automatico', $gera_boleto_automatico);
+       $this->smarty->assign('finalidade_emissao', $finalidade ?? 0);
        
         $this->smarty->assign('id', $id);
         $this->smarty->assign('numero_pedido', $numero_pedido);

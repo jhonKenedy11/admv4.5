@@ -78,13 +78,26 @@
                     <button type="button" class="btn btn-warning" onClick="javascript:submitLetraRemessa();">
                       <span class="glyphicon glyphicon-zoom-in" aria-hidden="true"></span><span> Pesquisa</span>
                     </button>
-                    <button type="button" class="btn btn-primary" onClick="javascript:submitConfirmaRemessa();">
+                    <button type="button" id="btnConfirmaRemessa" class="btn btn-primary"
+                      {if $banco eq '748' && ($remessaDia|default:[]|@count) gt 0}disabled="disabled" title="Sicredi: remessa já gerada hoje"{/if}
+                      onClick="javascript:submitConfirmaRemessa();">
                       <span class="glyphicon glyphicon-check" aria-hidden="true"></span><span> Confirma</span>
                     </button>
                   </div>
                 </div>
               </form>
             </div>
+
+            {if ($remessaDia|default:[]|@count) gt 0}
+            <div class="x_content">
+              <div class="alert alert-warning" role="alert">
+                <strong>Remessa já gerada hoje:</strong>
+                {foreach from=$remessaDia item=r name=rem}
+                  <a href="{$r.url}" download>{$r.arq}</a>{if not $smarty.foreach.rem.last}, {/if}
+                {/foreach}
+              </div>
+            </div>
+            {/if}
 
             <div class="x_content">
               <!--table id="datatable-responsive" class="table table-striped table-bordered dt-responsive nowrap table-condensed" cellspacing="0" width="100%"-->
@@ -104,7 +117,7 @@
                 <tbody>
 
 
-                  {section name=i loop=$lanc}
+                  {section name=i loop=$lanc|default:[]}
 
                     {assign var="total" value=$total+1}
                     <tr class="even pointer info">
@@ -468,3 +481,15 @@
   });  /* fim $(document).ready */
   {/literal}
   </script>
+
+  {if $mensagem neq ''}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      Swal.fire({
+        icon: 'error',
+        title: 'Erro na remessa',
+        text: {$mensagemErroJson}
+      });
+    });
+  </script>
+  {/if}

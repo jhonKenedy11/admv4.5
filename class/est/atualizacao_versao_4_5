@@ -484,3 +484,168 @@ ADD COLUMN GENERO_EXTRATO VARCHAR(10) DEFAULT NULL AFTER GENERO;
 ### NOVOS CAMPOS NOTA FISCAL - JUNHO-2026 ####
 ALTER TABLE FIN_CLIENTE
 ADD COLUMN GERA_BOLETO_AUTOMATICO CHAR(1) NULL DEFAULT 'S' COMMENT 'Indica se o boleto será gerado automaticamente ao emitir a nota fiscal (S=Sim, N=Não)' AFTER EMAILNFE;
+
+
+### NOVOS CAMPOS NOTA FISCAL DEVOLUCAO  DEBITO E CREDITO IBS/CBS - JUNHO-2026 ####
+
+INSERT INTO `EST_NAT_OP`
+(
+    `NATOPERACAO`,
+    `TIPO`,
+    `CODFISCORIGEM`,
+    `USRMENSAGEM`,
+    `COMPOECREDITO`,
+    `ALTERAQUANT`,
+    `INTEGRAFIN`,
+    `POSICAOTRIBUTOS`,
+    `ALTERAPRECOS`,
+    `TRIBSIMPLES`,
+    `PRECCREDITOSIMPLES`,
+    `OBS`,
+    `DESCCOMPLETA`,
+    `UTILIZACAO`,
+    `MODELONF`,
+    `NFAUTO`,
+    `IR`,
+    `IR_PERCENTUAL`
+)
+VALUES
+(
+    'NOTA DE DÉBITO (IBS/CBS)',
+    'S',
+    0,
+    0,
+    'N',
+    'N',
+    'S',
+    'S',
+    'N',
+    0.00,
+    0.00,
+    '',
+    'Nota de Débito emitida para documentar ajustes fiscais relativos ao IBS e CBS, conforme Reforma Tributária.',
+    'Utilizar para emissão de Nota de Débito prevista na NT 2025.002-RTC.',
+    '55',
+    'S',
+    'N',
+    NULL
+);
+
+INSERT INTO `EST_NAT_OP`
+(
+    `NATOPERACAO`,
+    `TIPO`,
+    `CODFISCORIGEM`,
+    `USRMENSAGEM`,
+    `COMPOECREDITO`,
+    `ALTERAQUANT`,
+    `INTEGRAFIN`,
+    `POSICAOTRIBUTOS`,
+    `ALTERAPRECOS`,
+    `TRIBSIMPLES`,
+    `PRECCREDITOSIMPLES`,
+    `OBS`,
+    `DESCCOMPLETA`,
+    `UTILIZACAO`,
+    `MODELONF`,
+    `NFAUTO`,
+    `IR`,
+    `IR_PERCENTUAL`
+)
+VALUES
+(
+    'NOTA DE CRÉDITO (IBS/CBS)',
+    'E',
+    0,
+    0,
+    'N',
+    'N',
+    'S',
+    'S',
+    'N',
+    0.00,
+    0.00,
+    '',
+    'Nota de Crédito emitida para documentar ajustes fiscais relativos ao IBS e CBS, conforme Reforma Tributária.',
+    'Utilizar para emissão de Nota de Crédito prevista na NT 2025.002-RTC.',
+    '55',
+    'S',
+    'N',
+    NULL
+);
+
+########## 02-JULHO-2025 IBS/CBS - TIPO CREDITO/DEBITO E REFERENCIA POR ITEM
+
+-- Cabeçalho da NF de devolução: tipo crédito e tipo débito IBS/CBS
+ALTER TABLE EST_NOTA_FISCAL ADD COLUMN IBS_CBS_TIPO_CREDITO VARCHAR(2) NULL AFTER OBS, COMMENT 'tpNFCredito conforme NT 2025.002-RTC';
+ALTER TABLE EST_NOTA_FISCAL ADD COLUMN IBS_CBS_TIPO_DEBITO  VARCHAR(2) NULL AFTER IBS_CBS_TIPO_CREDITO, COMMENT 'tpNFDebito conforme NT 2025.002-RTC';
+
+-- Itens da NF de devolução: referência DFeReferenciado (nItem e chave de acesso)
+ALTER TABLE EST_NOTA_FISCAL_PRODUTO ADD COLUMN IBS_CBS_NITEM  VARCHAR(3)  NULL AFTER CCLASSTRIB, COMMENT 'nItem do DFeReferenciado (IBS/CBS)';
+ALTER TABLE EST_NOTA_FISCAL_PRODUTO ADD COLUMN IBS_CBS_NF_REF VARCHAR(44) NULL AFTER IBS_CBS_NITEM, COMMENT 'chNFe do DFeReferenciado (IBS/CBS)';
+
+
+INSERT INTO AMB_DDM (
+    ALIAS,
+    NRCAMPO,
+    CAMPO,
+    TIPO,
+    TAMANHO,
+    DECIMAIS,
+    FORMATO,
+    REQUERIDO,
+    PADRAO,
+    LEGENDA,
+    MASCARA,
+    NOMEEXTERNO,
+    ALTERACAO,
+    DESCRICAO,
+    `SQL`,
+    MENSAGEM,
+    MENU
+) VALUES
+    ('EST_MENU',434,'FINALIDADEEMISSAO','5',0,0,'0','N','5 - NOTA DE CRÉDITO (IBS/CBS)',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL),
+    ('EST_MENU',435,'FINALIDADEEMISSAO','6',0,0,'0','N','6 - NOTA DE DÉBITO (IBS/CBS)',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);
+
+########## 10-JULHO-2025 EST_CCLASS_TRIB - AJUSTE COLUNAS REFORMA TRIBUTARIA
+
+-- Novas colunas: Regulamento CBS e Regulamento IBS (apos LC_214_25)
+ALTER TABLE EST_CCLASS_TRIB ADD COLUMN REGULAMENTO_CBS TEXT NULL AFTER LC_214_25;
+ALTER TABLE EST_CCLASS_TRIB ADD COLUMN REGULAMENTO_IBS TEXT NULL AFTER REGULAMENTO_CBS;
+
+-- Nova coluna: ind_gpBioDiferenca (apos IND_G_MONO_RET)
+ALTER TABLE EST_CCLASS_TRIB ADD COLUMN IND_GP_BIO_DIFERENCA TINYINT(1) NOT NULL DEFAULT 0 AFTER IND_G_MONO_RET;
+
+-- Nova coluna: tpRBSN (apos IND_G_ESTORNO_CRED)
+ALTER TABLE EST_CCLASS_TRIB ADD COLUMN TP_RBSN TINYINT(1) NOT NULL DEFAULT 0 AFTER IND_G_ESTORNO_CRED;
+
+-- Novas colunas: indDIR e indDUIMP (apos IND_DERE)
+ALTER TABLE EST_CCLASS_TRIB ADD COLUMN IND_DIR   TINYINT(1) NOT NULL DEFAULT 0 AFTER IND_DERE;
+ALTER TABLE EST_CCLASS_TRIB ADD COLUMN IND_DUIMP TINYINT(1) NOT NULL DEFAULT 0 AFTER IND_DIR;
+
+-- Remove coluna IND_G_MONO_DIF (coluna excluida da planilha de importacao)
+ALTER TABLE EST_CCLASS_TRIB DROP COLUMN IND_G_MONO_DIF;
+
+########## 13-JULHO-2025 EST_CCLASS_TRIB - TRUNCATE PARA REIMPORTACAO COM IDS ORIGINAIS
+
+-- Limpa a tabela e reseta AUTO_INCREMENT para 1.
+-- Executar ANTES de reimportar a planilha completa de CClassTrib.
+-- ATENCAO: a planilha deve conter as linhas na mesma ordem da carga original
+--          para garantir que os IDs gerados sejam identicos aos anteriores.
+TRUNCATE TABLE EST_CCLASS_TRIB;
+
+
+-- Verificar produtos com CCLASSTRIB removido
+SELECT *
+FROM EST_PRODUTO 
+WHERE CCLASSTRIB IN ('200024', '800002');
+
+-- Verificar notas fiscais
+SELECT *
+FROM EST_NOTA_FISCAL_PRODUTO 
+WHERE CCLASSTRIB IN ('200024', '800002');
+
+-- Verificar naturezas de operação
+SELECT *
+FROM EST_NATUREZA_OPERACAO_TRIBUTO_IBS_CBS 
+WHERE CCLASSTRIB IN ('200024', '800002');

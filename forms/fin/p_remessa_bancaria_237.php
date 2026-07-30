@@ -399,7 +399,8 @@ try {
     //$this->downloadFile($file_target);
     
 } catch (Exception $ex) {
-    $this->mostraRemessa($ex);
+    $this->mostraRemessa(null, null, $ex->getMessage());
+    return;
 }
 $this->mostraRemessa($file_target, $banco);
 } //fim remessaBancaria
@@ -408,84 +409,100 @@ $this->mostraRemessa($file_target, $banco);
 
 //---------------------------------------------------------------
 //---------------------------------------------------------------
-function mostraRemessa($file, $banco=null){
+function mostraRemessa($file = null, $banco = null, $mensagem = '')
+{
+    if ($file instanceof Throwable) {
+        $mensagem = $mensagem ?: $file->getMessage();
+        $file = null;
+    }
 
     $par = explode("|", $this->m_letra);
     $arrData = explode("-", $par[0]);
+    $lanc = [];
+    $remessaDia = [];
 
-
-   if ($this->m_letra != ''):
-        $lanc = $this->selectRemessaBancaria($this->m_letra);
-        $objContaBanco->setId($par[2]); //conta selecionada
+    if ($this->m_letra != ''):
+        $lanc = $this->selectRemessaBancaria($this->m_letra) ?? [];
+        $objContaBanco = new c_contaBanco;
+        $objContaBanco->setId($par[2]);
         $conta = $objContaBanco->select_ContaBanco();
         $banco = $conta[0]['BANCO'];
+        foreach ($this->selectRemessaDoDia($par[2]) as $row) {
+            $arq = ltrim(basename($row['REMESSAARQ'] ?? ''), '/');
+            if ($arq !== '') {
+                $remessaDia[] = [
+                    'url' => ADMhttpCliente . "/banco/" . $banco . "/remessa/" . date("Y") . "/" . $arq,
+                    'arq' => $arq,
+                ];
+            }
+        }
     endif;
 
-	
+    $nomeArq = ($file && is_string($file)) ? basename($file) : '';
+    $urlArquivo = ($nomeArq !== '' && $banco) ? ADMhttpCliente . "/banco/" . $banco . "/remessa/" . date("Y") . "/" . $nomeArq : '';
+
     $this->smarty->assign('pathImagem', $this->img);
     $this->smarty->assign('mensagem', $mensagem);
+    $this->smarty->assign('mensagemErroJson', json_encode($mensagem ?: '', JSON_UNESCAPED_UNICODE));
     $this->smarty->assign('letra', $this->m_letra);
     $this->smarty->assign('subMenu', $this->m_submenu);
-    $this->smarty->assign('saldoInicial', $saldoTotal);
+    $this->smarty->assign('saldoInicial', isset($saldoTotal) ? $saldoTotal : 0);
     $this->smarty->assign('dataInicio', $par[0]);
     $this->smarty->assign('dataFim', $par[1]);
-    $this->smarty->assign('arquivo', ADMhttpCliente. "/banco/".$banco."/remessa/".date("Y")."/".basename($file));
-    //$this->smarty->assign('arquivo', $file);
-    $this->smarty->assign('nomeArq', basename($file));
+    $this->smarty->assign('arquivo', $urlArquivo);
+    $this->smarty->assign('nomeArq', $nomeArq);
     $this->smarty->assign('banco', $banco);
     $this->smarty->assign('lanc', $lanc);
+    $this->smarty->assign('remessaDia', $remessaDia);
 
-    $this->smarty->assign('label', $arrLabel);
-    $this->smarty->assign('pag', $arrPag);
-    $this->smarty->assign('rec', $arrRec);
-    
-    if($arrData[0] == "") $this->smarty->assign('dataIni', date("01/m/Y"));
+    $this->smarty->assign('label', isset($arrLabel) ? $arrLabel : []);
+    $this->smarty->assign('pag', isset($arrPag) ? $arrPag : []);
+    $this->smarty->assign('rec', isset($arrRec) ? $arrRec : []);
+
+    if ($arrData[0] == "") $this->smarty->assign('dataIni', date("01/m/Y"));
     else $this->smarty->assign('dataIni', $arrData[0]);
-    
-    if($arrData[1] == "") {
-    	$dia = date("d");
-    	$mes = date("m");
-    	$ano = date("Y");
-    	$data = date("d/m/Y", mktime(0, 0, 0, $mes+1, 0, $ano));
-    	$this->smarty->assign('dataFim', $data);
-    }
-    else $this->smarty->assign('dataFim', $arrData[1]);
-    
+
+    if ($arrData[1] == "") {
+        $dia = date("d");
+        $mes = date("m");
+        $ano = date("Y");
+        $data = date("d/m/Y", mktime(0, 0, 0, $mes + 1, 0, $ano));
+        $this->smarty->assign('dataFim', $data);
+    } else $this->smarty->assign('dataFim', $arrData[1]);
+
     // filial
     $consulta = new c_banco();
     $sql = "select centrocusto as id, descricao from fin_centro_custo where (ativo='S')";
     $consulta->exec_sql($sql);
     $consulta->close_connection();
-    $result = $consulta->resultado;
-    for ($i=0; $i < count($result); $i++){
-            $filial_ids[$i] = $result[$i]['ID'];
-            $filial_names[$i] = ucwords(strtolower($result[$i]['DESCRICAO']));
+    $result = $consulta->resultado ?? [];
+    $filial_ids[0] = 0;
+    $filial_names[0] = 'Todos';
+    for ($i = 0; $i < count($result); $i++) {
+        $filial_ids[$i + 1] = $result[$i]['ID'];
+        $filial_names[$i + 1] = ucwords(strtolower($result[$i]['DESCRICAO']));
     }
     $this->smarty->assign('filial_ids', $filial_ids);
     $this->smarty->assign('filial_names', $filial_names);
-    if($par[1] == "") $this->smarty->assign('filial_id', $this->m_empresacentrocusto);
+    if ($par[1] == "") $this->smarty->assign('filial_id', $this->m_empresacentrocusto);
     else $this->smarty->assign('filial_id', $par[1]);
 
     // conta bancaria
     $consulta = new c_banco();
-    $sql = "select conta as id, nomeinterno as descricao from fin_conta";
+    $sql = "select conta as id, nomeinterno as descricao from fin_conta where status ='A'";
     $consulta->exec_sql($sql);
     $consulta->close_connection();
-    $result = $consulta->resultado;
-    for ($i=0; $i < count($result); $i++){
-            $conta_ids[$i] = $result[$i]['ID'];
-            $conta_names[$i] = ucwords(strtolower($result[$i]['DESCRICAO']));
+    $result = $consulta->resultado ?? [];
+    for ($i = 0; $i < count($result); $i++) {
+        $conta_ids[$i] = $result[$i]['ID'];
+        $conta_names[$i] = ucwords(strtolower($result[$i]['DESCRICAO']));
     }
     $this->smarty->assign('conta_ids', $conta_ids);
     $this->smarty->assign('conta_names', $conta_names);
-    if($par[2] == "") $this->smarty->assign('conta_id', '');
+    if ($par[2] == "") $this->smarty->assign('conta_id', '');
     else $this->smarty->assign('conta_id', $par[2]);
 
-
-    
-    
     $this->smarty->display('remessa_bancaria_mostra.tpl');
-	
 
 } //fim mostrasituacaos
 //-------------------------------------------------------------

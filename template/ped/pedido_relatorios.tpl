@@ -98,6 +98,18 @@
                     </div>
 
                     <div class="col-md-3 col-lg-2 divRelatorios">
+                        <div class="panel panel-success btn panelPrincipal" role="button" data-toggle="modal"
+                            data-target="#modalParametros" onclick="controlInputs('relatorioComissao')" data-relatorio-nome="Comissão">
+                            <div class="panel-heading">
+                                <h3 class="panel-title">Comissão</h3>
+                            </div>
+                            <div class="panel-body panelText">
+                                Relatório de comissão por vendedor no período
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3 col-lg-2 divRelatorios">
                         <div class="panel panel-info btn panelPrincipal" role="button" data-toggle="modal"
                             data-target="#modalParametros" onclick="controlInputs('relatorioVendas')"data-relatorio-nome="Pedido Vendas">
                             <div class="panel-heading">

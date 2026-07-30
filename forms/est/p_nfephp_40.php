@@ -44,6 +44,49 @@ class p_nfe_40 extends c_user
     private $m_submenu = NULL;
     public  $arrayErro = array();
 
+    // Regras de referência XML por tpNFCredito (NT 2025.002-RTC)
+    const REGRAS_REF_TP_NF_CREDITO = [
+        '01' => 'NFREF',              // Multa e juros — refNFe no cabeçalho
+        '02' => 'NENHUMA',            // Crédito presumido ZFM — sem referência
+        '03' => 'NFREF',              // Retorno recusa total — refNFe no cabeçalho
+        '04' => 'NFREF_PROIBE_DFE',   // Redução de valores — refNFe no cabeçalho, proibido DFeRef por item
+        '05' => 'NFREF_PROIBE_DFE',   // Transferência sucessão — refNFe no cabeçalho, proibido DFeRef por item
+        '06' => 'DFE_OBRIG_COM_ITEM', // Retorno recusa parcial — DFeReferenciado com chave + nItem obrigatórios
+    ];
+
+    // Regras de referência XML por tpNFDebito (NT 2025.002-RTC)
+    const REGRAS_REF_TP_NF_DEBITO = [
+        '01' => 'DFE_OPCIONAL',       // Transferência cooperativas — DFeReferenciado opcional
+        '02' => 'DFE_OPCIONAL',       // Anulação crédito imune/isento — DFeReferenciado opcional
+        '03' => 'DFE_OBRIG_SEM_ITEM', // Débitos NFs não processadas — DFeReferenciado com chave obrigatória (sem nItem)
+        '04' => 'DFE_OBRIG_COM_ITEM', // Multa e juros — DFeReferenciado com chave + nItem obrigatórios
+        '05' => 'DFE_OPCIONAL',       // Transferência sucessão — DFeReferenciado opcional
+        '06' => 'DFE_OPCIONAL',       // Pagamento antecipado — DFeReferenciado opcional
+        '07' => 'DFE_OPCIONAL',       // Perda em estoque — DFeReferenciado opcional
+        '08' => 'DFE_OPCIONAL',       // Desenquadramento Simples — DFeReferenciado opcional
+    ];
+
+    // Exceções B25-80: tipos que PODEM destacar impostos legados no XML (ICMS, IPI, PIS, COFINS)
+    const TIPOS_DESTAQUE_IMPOSTOS_LEGADOS = [
+        'CREDITO' => ['03', '04', '06'],
+        'DEBITO'  => ['07'],
+    ];
+
+    /**
+     * B25-80: suprime tags de impostos antigos em NF crédito/débito IBS/CBS (rejeição 1001).
+     * Exceções: Crédito 03/04/06 e Débito 07.
+     */
+    private static function deveSuprimirImpostosLegados(int $finNFe, string $tpCredito, string $tpDebito): bool
+    {
+        if ($finNFe === 5 && in_array($tpCredito, self::TIPOS_DESTAQUE_IMPOSTOS_LEGADOS['CREDITO'], true)) {
+            return false;
+        }
+        if ($finNFe === 6 && in_array($tpDebito, self::TIPOS_DESTAQUE_IMPOSTOS_LEGADOS['DEBITO'], true)) {
+            return false;
+        }
+        return $finNFe === 5 || $finNFe === 6;
+    }
+
     public function __construct()
     {
 
@@ -456,13 +499,13 @@ class p_nfe_40 extends c_user
             // Remove BOM (Byte Order Mark) é uma sequência de bytes usada para indicar codificação UTF-8
             $docxml = preg_replace('/^\xEF\xBB\xBF/', '', $docxml);
 
-           // Desabilita avisos de erros XML
-           //libxml_use_internal_errors(false);
+            // Desabilita avisos de erros XML
+            //libxml_use_internal_errors(false);
 
             $daevento = new DaeventoCustom($docxml, $aEnd);
             //$daevento->debugMode(true);
             $daevento->creditsIntegratorFooter('Tractor ERP - https://tractorerp.com.br/');
-            $daevento->printParameters('P','A4');
+            $daevento->printParameters('P', 'A4');
             $daevento->logoParameters($pathLogo, 'C');  // ← Usa a versão customizada
             $pdf = $daevento->render();
 
@@ -471,7 +514,7 @@ class p_nfe_40 extends c_user
             if (!is_dir($directory)) {
                 mkdir($directory, 0777, true);
             }
-            
+
             // Salvar
             file_put_contents(BASE_DIR_PDF, $pdf);
         } catch (Throwable $e) {
@@ -628,21 +671,21 @@ class p_nfe_40 extends c_user
 
             $pathLogo = ADMimg . '/logo0' . $this->m_empresaid . '.jpg';
             $docxml = NFePHP\DA\Legacy\FilesFolders::readFile(BASE_DIR_ENVIADA_APROVADAS);
-            
+
             // Usar DanfeCustom
             $danfe = new DanfeCustom($docxml);
-            
+
             // Configurar parâmetros
             $danfe->printParameters('P', 'A4');
-            
+
             // Configurar logo
             if (!empty($pathLogo) && file_exists($pathLogo)) {
                 $danfe->setLogoPath($pathLogo);
             }
-            
+
             // Renderizar
             $pdf = $danfe->render();
-            
+
             // Salvar
             file_put_contents(BASE_DIR_PDF, $pdf);
 
@@ -1438,21 +1481,20 @@ class p_nfe_40 extends c_user
 
                             // Usar DanfeCustom
                             $danfe = new DanfeCustom($xmlAssinado);
-                            
+
                             // Configurar parâmetros
                             $danfe->printParameters('P', 'A4');
-                            
+
                             // Configurar logo
                             if (!empty($pathLogo) && file_exists($pathLogo)) {
                                 $danfe->setLogoPath($pathLogo);
                             }
-                            
+
                             // Renderizar
                             $pdf = $danfe->render();
-                            
+
                             // Salvar
                             file_put_contents(BASE_DIR_PDF, $pdf);
-
                         } catch (InvalidArgumentException $e) {
                             // Fallback sem logo
                             try {
@@ -1826,7 +1868,7 @@ class p_nfe_40 extends c_user
         //############################## TAG <det/imposto/IS> opcional ####################################################
         $dir = (__DIR__);
 
-        $nfe = new NFePHP\NFe\Make('PL_010');
+        $nfe = new NFePHP\NFe\Make('PL_010_V1.30');
 
 
         // variavies totais
@@ -1849,7 +1891,7 @@ class p_nfe_40 extends c_user
         $vOutroTotal = 0;
         $vNFTotal = 0;
         $vTotTribTotal = 0;
-        
+
         $vIBSUFTotal = 0;
         $vIBSMunTotal = 0;
         $vCBSTotal = 0;
@@ -1870,8 +1912,8 @@ class p_nfe_40 extends c_user
         // endereco entrega
         $enderecoEntregaOBJ = new c_pedido_ps();
         $enderecoEntregaArray = $enderecoEntregaOBJ->enderecoEntregaNf($nfArray[0]['DOC']);
-        
-        
+
+
         // DADOS DO TRANSPORTADOR
         $transpOBJ = new c_conta();
         $transpOBJ->setId($nfArray[0]['TRANSPORTADOR']);
@@ -1970,7 +2012,7 @@ class p_nfe_40 extends c_user
             $dhEmi = $this->MostraData($nfArray[0]['EMISSAO']);
         }
         $tpNF = $nfArray[0]['TIPO']; // 0=Entrada; 1=Saída;
-        
+
         //new validation referent the sale within the state
         if ($nfArray[0]['VENDAPRESENCIAL'] == 'S') {
             $idDest = '1';
@@ -2040,8 +2082,15 @@ class p_nfe_40 extends c_user
          * 03=Retorno por recusa total na entrega ou por não localização do destinatário na tentativa de entrega;
          * 04=Redução de valores;
         */
-        $tpNFDebito = '';
-        $tpNFCredito = '';
+        $tpNFCredito = null;
+        $tpNFDebito = null;
+
+        if ($nfArray[0]['IBS_CBS_TIPO_CREDITO'] !== '' && $nfArray[0]['IBS_CBS_TIPO_CREDITO'] !== null) {
+            $tpNFCredito = $nfArray[0]['IBS_CBS_TIPO_CREDITO'];
+        }
+        if ($nfArray[0]['IBS_CBS_TIPO_DEBITO'] !== '' && $nfArray[0]['IBS_CBS_TIPO_DEBITO'] !== null) {
+            $tpNFDebito = $nfArray[0]['IBS_CBS_TIPO_DEBITO'];
+        }
 
         //$indFinal = $indFinal; //0=Normal; 1=Consumidor final;
 
@@ -2073,11 +2122,11 @@ class p_nfe_40 extends c_user
          * destinatário (Grupo: E05) ou local de entrega (Grupo: G01).
         */
         $cMunFGIBS = '';
-        if( $indPres == '5'){
+        if ($indPres == '5') {
             $cMunFGIBS = $cMunEmit;
         }
 
-        
+
         $procEmi = '0'; //0=Emissão de NF-e com aplicativo do contribuinte;
         //1=Emissão de NF-e avulsa pelo Fisco;
         //2=Emissão de NF-e avulsa, pelo contribuinte com seu certificado digital, através do site do Fisco;
@@ -2129,21 +2178,74 @@ class p_nfe_40 extends c_user
         $std->finNFe = $finNFe;
         $std->indFinal = $indFinal;
         $std->indPres = $indPres;
-        if($indPres == '5'  && $indPres == 0){
+        if ($indPres == '5'  && $indPres == 0) {
             // IndIntermed = 0 - sem intermediador 1 - com intermediador ( cnpj e id do usuário de quem vendeu ( ex: mercado livre ))
             $indIntermed = 0;
             $std->indIntermed = $indIntermed;
         }
-        
+
         $std->procEmi = $procEmi;
         $std->verProc = $verProc;
+
+        // IBS/CBS
+        if ($tpNFCredito !== null) {
+            $std->tpNFCredito = $tpNFCredito;
+        }
+        if ($tpNFDebito !== null) {
+            $std->tpNFDebito = $tpNFDebito;
+        }
+
         $elem = $nfe->tagide($std);
 
-        //refNFe NFe referenciada  -- verificar
-        if (($finNFe == 2) or ($finNFe == 4)):
-            $std = new stdClass();
-            $std->refNFe = $nfArray[0]['NFEREFERENCIADA'];
-            $elem = $nfe->tagrefNFe($std);
+        // Determina o tipo de referência IBS/CBS (NT 2025.002-RTC)
+        $tpNFCredito   = trim((string) ($nfArray[0]['IBS_CBS_TIPO_CREDITO'] ?? ''));
+        $tpNFDebito    = trim((string) ($nfArray[0]['IBS_CBS_TIPO_DEBITO']  ?? ''));
+        $refTipoIbsCbs = null;
+        if ($tpNFCredito !== '') {
+            $refTipoIbsCbs = self::REGRAS_REF_TP_NF_CREDITO[$tpNFCredito] ?? null;
+        } elseif ($tpNFDebito !== '') {
+            $refTipoIbsCbs = self::REGRAS_REF_TP_NF_DEBITO[$tpNFDebito] ?? null;
+        }
+
+        $suprimirImpostosLegados = self::deveSuprimirImpostosLegados((int) $finNFe, $tpNFCredito, $tpNFDebito);
+
+        // Validação antecipada: campos obrigatórios de DFeReferenciado por item
+        if (in_array($refTipoIbsCbs, ['DFE_OBRIG_SEM_ITEM', 'DFE_OBRIG_COM_ITEM'], true)) {
+            foreach ($produtoArray as $idx => $p) {
+                $chaveRefItem = trim((string) ($p['IBS_CBS_NF_REF'] ?? ''));
+                $nItemRefItem = trim((string) ($p['IBS_CBS_NITEM'] ?? ''));
+                $descItem     = $p['DESCRICAO'] ?? ('item ' . ($idx + 1));
+                if ($chaveRefItem === '' || strlen($chaveRefItem) !== 44) {
+                    throw new Exception(
+                        'Produto "' . $descItem . '": Chave de acesso referenciada (DFeReferenciado) '
+                            . 'é obrigatória e deve ter 44 dígitos.'
+                    );
+                }
+                if (
+                    $refTipoIbsCbs === 'DFE_OBRIG_COM_ITEM'
+                    && ($nItemRefItem === '' || !is_numeric($nItemRefItem) || (int) $nItemRefItem < 1)
+                ) {
+                    throw new Exception(
+                        'Produto "' . $descItem . '": Número do item referenciado (Nº Item ref.) '
+                            . 'é obrigatório para este tipo.'
+                    );
+                }
+            }
+        }
+
+        //refNFe NFe referenciada no cabeçalho
+        if (($finNFe == 2) or ($finNFe == 4) or ($finNFe == 5) or ($finNFe == 6)):
+            $nfeRefCabecalho = trim((string) ($nfArray[0]['NFEREFERENCIADA'] ?? ''));
+            // Emite refNFe apenas quando: sem tipo IBS/CBS (comportamento original) OU tipo exige cabeçalho
+            $emiteRefNFeCabecalho = $nfeRefCabecalho !== '' && (
+                $refTipoIbsCbs === null
+                || in_array($refTipoIbsCbs, ['NFREF', 'NFREF_PROIBE_DFE'], true)
+            );
+            if ($emiteRefNFeCabecalho) {
+                $std = new stdClass();
+                $std->refNFe = $nfeRefCabecalho;
+                $elem = $nfe->tagrefNFe($std);
+            }
         endif;
 
         //refNF Nota Fiscal 1A referenciada
@@ -2257,7 +2359,7 @@ class p_nfe_40 extends c_user
                 $ISUF = $pessoaDestArray[0]['SUFRUMA'];
             endif;
             $IM = $pessoaDestArray[0]['IM'];
-            if (strlen($pessoaDestArray[0]['EMAIL']) > 0){
+            if (strlen($pessoaDestArray[0]['EMAIL']) > 0) {
                 $email = $pessoaDestArray[0]['EMAIL'];
             }
             //nfe40            $resp = $nfe->tagdest($CNPJ, $CPF, $idEstrangeiro, $xNome, $indIEDest, $IE, $ISUF, $IM, $email);
@@ -2351,11 +2453,11 @@ class p_nfe_40 extends c_user
         //$resp = $nfe->tagretirada($CNPJ, $CPF, $xLgr, $nro, $xCpl, $xBairro, $cMun, $xMun, $UF);
 
         // endereço de entrega
-        if ($enderecoEntregaArray[0]['ENDERECO'] != '' && is_array($enderecoEntregaArray)){
-            if( $pessoaDestArray[0]['PESSOA'] == "J"){
+        if ($enderecoEntregaArray[0]['ENDERECO'] != '' && is_array($enderecoEntregaArray)) {
+            if ($pessoaDestArray[0]['PESSOA'] == "J") {
                 $CPF = '';
                 $CNPJ = $pessoaDestArray[0]['CNPJCPF'];
-            }else{
+            } else {
                 $CPF = $pessoaDestArray[0]['CNPJCPF'];
                 $CNPJ = '';
             }
@@ -2381,8 +2483,8 @@ class p_nfe_40 extends c_user
             $elem = $nfe->tagentrega($std);
             $entrega = $std;
         }
-        
-        
+
+
         //Identificação do local de Entrega (se diferente do destinatário)
         //$CNPJ = '12345678901234';
         //$CPF = '';
@@ -2456,7 +2558,7 @@ class p_nfe_40 extends c_user
             $indTot = '1';
             $xPed = $produtoArray[$i]['ORDEM'];
             $nItemPed = '';
-            if (!empty($produtoArray[$i]['NITEMPED'])){
+            if (!empty($produtoArray[$i]['NITEMPED'])) {
                 $nItemPed = $produtoArray[$i]['NITEMPED'];
             }
             $nFCI = '';
@@ -2491,13 +2593,13 @@ class p_nfe_40 extends c_user
             $std->vOutro = $vOutro;
             $std->indTot = $indTot;
             $std->xPed = $xPed;
-            if (!empty($nItemPed)){
+            if (!empty($nItemPed)) {
                 $std->nItemPed = $nItemPed;
             }
             $std->nFCI = $nFCI;
 
             // CEST deve ser incluído dentro do stdClass do tagprod(), não como elemento separado
-            if (!$produtoArray[$i]['CEST'] == ''){
+            if (!$produtoArray[$i]['CEST'] == '') {
                 $std->CEST = $produtoArray[$i]['CEST'];
                 $std->indEscala = 'S'; //incluido no layout 4.00
                 //$std->CNPJFab = '12345678901234'; //incluido no layout 4.00
@@ -2537,7 +2639,7 @@ class p_nfe_40 extends c_user
             $elem = $nfe->tagprod($std);
 
 
-           
+
             ### function tagRastro($std):DOMElement
             //Node com os dados de rastreabilidade do item da NFe
             //*Método Incluso para atender layout 4.00*
@@ -2563,263 +2665,264 @@ class p_nfe_40 extends c_user
             endif;
 
             //impostos ============================================
-            switch ($crt):
-                case '1': //ICMSSN - Tributação ICMS pelo Simples Nacional - CRT (Código de Regime Tributário) = 1 
-                    $orig = $produtoArray[$i]['ORIGEM'];
-                    $csosn = '';
-                    $modBC  = '';
-                    $vBC = '';
-                    $pRedBC = '';
-                    $pICMS = '';
-                    $vICMS = '';
-                    $pCredSN = '';
-                    $vCredICMSSN = '';
-                    $modBCST = '';
-                    $pMVAST = '';
-                    $pRedBCST = '';
-                    $vBCST = '';
-                    $pICMSST = '';
-                    $vICMSST = '';
-                    $vBCSTRet = '';
-                    $vICMSSTRet = '';
-                    $pCredSN = '';
-                    $vCredICMSSN = '';
+            if (!$suprimirImpostosLegados) {
+                switch ($crt):
+                    case '1': //ICMSSN - Tributação ICMS pelo Simples Nacional - CRT (Código de Regime Tributário) = 1 
+                        $orig = $produtoArray[$i]['ORIGEM'];
+                        $csosn = '';
+                        $modBC  = '';
+                        $vBC = '';
+                        $pRedBC = '';
+                        $pICMS = '';
+                        $vICMS = '';
+                        $pCredSN = '';
+                        $vCredICMSSN = '';
+                        $modBCST = '';
+                        $pMVAST = '';
+                        $pRedBCST = '';
+                        $vBCST = '';
+                        $pICMSST = '';
+                        $vICMSST = '';
+                        $vBCSTRet = '';
+                        $vICMSSTRet = '';
+                        $pCredSN = '';
+                        $vCredICMSSN = '';
 
-                    switch ($produtoArray[$i]['TRIBICMS']) {
-                        case '101':
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $csosn = '101'; //101=Tributada pelo Simples Nacional com permissão de crédito. (v2.0)
-                            // $modBC = $produtoArray[$i]['MODBC'];
-                            // $pMVAST = $produtoArray[$i]['PERCMVAST']; //Percentual da margem de valor Adicionado do ICMS ST
-                            // $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST']; //Percentual da Redução de BC do ICMS ST
-                            // $vBCST = $produtoArray[$i]['VALORBCST']; //Valor da BC do ICMS ST
-                            // $pICMSST = $produtoArray[$i]['ALIQICMSST']; //Alíquota do imposto do ICMS ST
-                            // $vICMSST = $produtoArray[$i]['VALORICMSST']; //Valor do ICMS ST
-                            $pCredSN = $produtoArray[$i]['PCREDSN']; //Alíquota aplicável de cálculo do crédito (SIMPLES NACIONAL). 
-                            $vCredICMSSN = $produtoArray[$i]['VCREDICMSSN']; //Valor crédito do ICMS que pode ser aproveitado nos termos do art. 23 da LC 123 (SIMPLES NACIONAL)
-
-                            // $modBC = $produtoArray[$i]['MODBC'];
-                            // $vBC = $produtoArray[$i]['BCICMS'];
-                            // $pRedBC = $produtoArray[$i]['PERCREDUCAOBC'];
-                            // $pICMS = $produtoArray[$i]['ALIQICMS']; 
-                            // $vICMS = $produtoArray[$i]['VALORICMS'];
-
-                            // $vICMS = number_format(($vBC * ($pICMS/100)), 2, '.', ''); 
-                            // $produtoArray[$i]['VALORICMS'] = $vICMS;
-
-
-                            // $modBC = $produtoArray[$i]['MODBC'];
-                            // $vBC = $produtoArray[$i]['BCICMS'];
-                            // $pICMS = $produtoArray[$i]['ALIQICMS']; 
-                            // $vICMS = $produtoArray[$i]['VALORICMS'];
-
-                            // $pCredSN = $produtoArray[$i]['ALIQICMS'];//Alíquota aplicável de cálculo do crédito (SIMPLES NACIONAL). 
-                            // $vCredICMSSN = $produtoArray[$i]['VALORICMS']; //Valor crédito do ICMS que pode ser aproveitado nos termos do art. 23 da LC 123 (SIMPLES NACIONAL)
-                            break;
-                        case '102':
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $csosn = '102';
-                            break;
-                        case '103':
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $csosn = '103';
-                            break;
-                        case '300':
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $csosn = '300';
-                            break;
-                        case '400':
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $csosn = '400';
-                            break;
-                        case '201':
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $csosn = '201'; //201=Tributada pelo Simples Nacional com permissão de crédito e com cobrança do ICMS por Substituição Tributária (v2.0) 
-                            //0=Preço tabelado ou máximo sugerido;
-                            //1=Lista Negativa (valor);
-                            //2=Lista Positiva (valor);
-                            //3=Lista Neutra (valor);
-                            //4=Margem Valor Agregado (%);
-                            //5=Pauta (valor); (v2.0)
-                            // $modBC = $produtoArray[$i]['MODBC'];
-                            // $pMVAST = $produtoArray[$i]['PERCMVAST']; //Percentual da margem de valor Adicionado do ICMS ST
-                            // $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST']; //Percentual da Redução de BC do ICMS ST
-                            // $vBCST = $produtoArray[$i]['VALORBCST']; //Valor da BC do ICMS ST
-                            // $pICMSST = $produtoArray[$i]['ALIQICMSST']; //Alíquota do imposto do ICMS ST
-                            // $vICMSST = $produtoArray[$i]['VALORICMSST']; //Valor do ICMS ST
-                            $pCredSN = $produtoArray[$i]['PCREDSN']; //Alíquota aplicável de cálculo do crédito (SIMPLES NACIONAL). 
-                            $vCredICMSSN = $produtoArray[$i]['VCREDICMSSN']; //Valor crédito do ICMS que pode ser aproveitado nos termos do art. 23 da LC 123 (SIMPLES NACIONAL)
-                            break;
-                        case '202':
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            //202=Tributada pelo Simples Nacional sem permissão de crédito e com cobrança do ICMS por Substituição Tributária;
-                            $csosn = '202';
-                            //0=Preço tabelado ou máximo sugerido;
-                            //1=Lista Negativa (valor);
-                            //2=Lista Positiva (valor);
-                            //3=Lista Neutra (valor);
-                            //4=Margem Valor Agregado (%);
-                            //5=Pauta (valor); (v2.0)
-                            $modBCST = $produtoArray[$i]['MODBCST'];
-                            $modBC = $produtoArray[$i]['MODBC'];
-                            $pMVAST = $produtoArray[$i]['PERCMVAST']; //Percentual da margem de valor Adicionado do ICMS ST
-                            $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST']; //Percentual da Redução de BC do ICMS ST
-                            $vBCST = $produtoArray[$i]['VALORBCST']; //Valor da BC do ICMS ST
-                            $pICMSST = $produtoArray[$i]['ALIQICMSST']; //Alíquota do imposto do ICMS ST
-                            $vICMSST = $produtoArray[$i]['VALORICMSST']; //Valor do ICMS ST
-                            break;
-                        case '203':
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            //203- Isenção do ICMS nos Simples Nacional para faixa de receita bruta e com cobrança do ICMS por Substituição Tributária (v2.0)
-                            $csosn = '203';
-                            //0=Preço tabelado ou máximo sugerido;
-                            //1=Lista Negativa (valor);
-                            //2=Lista Positiva (valor);
-                            //3=Lista Neutra (valor);
-                            //4=Margem Valor Agregado (%);
-                            //5=Pauta (valor); (v2.0)
-                            $modBC = $produtoArray[$i]['MODBC'];
-                            $pMVAST = $produtoArray[$i]['PERCMVAST']; //Percentual da margem de valor Adicionado do ICMS ST
-                            $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST']; //Percentual da Redução de BC do ICMS ST
-                            $vBCST = $produtoArray[$i]['VALORBCST']; //Valor da BC do ICMS ST
-                            $pICMSST = $produtoArray[$i]['ALIQICMSST']; //Alíquota do imposto do ICMS ST
-                            $vICMSST = $produtoArray[$i]['VALORICMSST']; //Valor do ICMS ST
-                            break;
-                        case '500':
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            //500=ICMS cobrado anteriormente por substituição tributária(substituído) ou por antecipação. (v2.0)
-                            $csosn = '500';
-                            //Valor da BC do ICMS ST cobrado anteriormente por ST (v2.0).
-                            //O valor pode ser omitido quando a legislação não exigir a sua informação. (NT 2011/004)
-                            $pST = is_null($produtoArray[$i]['ALIQICMSST']) ? '0.00' : $produtoArray[$i]['ALIQICMSST'];
-                            $vBCSTRet = is_null($produtoArray[$i]['VALORBCSTRETIDO']) ? '0.00' : $produtoArray[$i]['VALORBCSTRETIDO'];
-                            //Valor do ICMS ST cobrado anteriormente por ST (v2.0). O valor pode ser omitido quando a legislação não exigir a sua informação. (NT 2011/004)
-                            $vICMSSTRet = is_null($produtoArray[$i]['VALORICMSSTRETIDO']) ? '0.00' : $produtoArray[$i]['VALORICMSSTRETIDO'];
-                            break;
-                        case '900': // Tributação ICMS: Outros
-                            if (($nfArray[0]['FINALIDADEEMISSAO'] == 10) and ($crt == '1')) {
+                        switch ($produtoArray[$i]['TRIBICMS']) {
+                            case '101':
                                 $orig = $produtoArray[$i]['ORIGEM'];
-                                $csosn = '900'; //900=Outros (v2.0)
-                            } else {
+                                $csosn = '101'; //101=Tributada pelo Simples Nacional com permissão de crédito. (v2.0)
+                                // $modBC = $produtoArray[$i]['MODBC'];
+                                // $pMVAST = $produtoArray[$i]['PERCMVAST']; //Percentual da margem de valor Adicionado do ICMS ST
+                                // $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST']; //Percentual da Redução de BC do ICMS ST
+                                // $vBCST = $produtoArray[$i]['VALORBCST']; //Valor da BC do ICMS ST
+                                // $pICMSST = $produtoArray[$i]['ALIQICMSST']; //Alíquota do imposto do ICMS ST
+                                // $vICMSST = $produtoArray[$i]['VALORICMSST']; //Valor do ICMS ST
+                                $pCredSN = $produtoArray[$i]['PCREDSN']; //Alíquota aplicável de cálculo do crédito (SIMPLES NACIONAL). 
+                                $vCredICMSSN = $produtoArray[$i]['VCREDICMSSN']; //Valor crédito do ICMS que pode ser aproveitado nos termos do art. 23 da LC 123 (SIMPLES NACIONAL)
+
+                                // $modBC = $produtoArray[$i]['MODBC'];
+                                // $vBC = $produtoArray[$i]['BCICMS'];
+                                // $pRedBC = $produtoArray[$i]['PERCREDUCAOBC'];
+                                // $pICMS = $produtoArray[$i]['ALIQICMS']; 
+                                // $vICMS = $produtoArray[$i]['VALORICMS'];
+
+                                // $vICMS = number_format(($vBC * ($pICMS/100)), 2, '.', ''); 
+                                // $produtoArray[$i]['VALORICMS'] = $vICMS;
+
+
+                                // $modBC = $produtoArray[$i]['MODBC'];
+                                // $vBC = $produtoArray[$i]['BCICMS'];
+                                // $pICMS = $produtoArray[$i]['ALIQICMS']; 
+                                // $vICMS = $produtoArray[$i]['VALORICMS'];
+
+                                // $pCredSN = $produtoArray[$i]['ALIQICMS'];//Alíquota aplicável de cálculo do crédito (SIMPLES NACIONAL). 
+                                // $vCredICMSSN = $produtoArray[$i]['VALORICMS']; //Valor crédito do ICMS que pode ser aproveitado nos termos do art. 23 da LC 123 (SIMPLES NACIONAL)
+                                break;
+                            case '102':
                                 $orig = $produtoArray[$i]['ORIGEM'];
-                                $csosn = '900'; //900=Outros (v2.0)
-
-
-                                //0=Margem Valor Agregado (%);
-                                //1=Pauta (Valor);
-                                //2=Preço Tabelado Máx. (valor);
-                                //3=Valor da operação. (v2.0)
-                                $modBC = $produtoArray[$i]['MODBC'];
-                                $vBC = $produtoArray[$i]['BCICMS'];
-                                $pRedBC = $produtoArray[$i]['PERCREDUCAOBC'];
-                                $pICMS = $produtoArray[$i]['ALIQICMS'];
-                                $vICMS = $produtoArray[$i]['VALORICMS'];
-
-                                //$vICMS = number_format(($vBC * ($pICMS/100)), 2, '.', ''); 
-                                $produtoArray[$i]['VALORICMS'] = $vICMS;
-
-
+                                $csosn = '102';
+                                break;
+                            case '103':
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $csosn = '103';
+                                break;
+                            case '300':
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $csosn = '300';
+                                break;
+                            case '400':
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $csosn = '400';
+                                break;
+                            case '201':
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $csosn = '201'; //201=Tributada pelo Simples Nacional com permissão de crédito e com cobrança do ICMS por Substituição Tributária (v2.0) 
                                 //0=Preço tabelado ou máximo sugerido;
                                 //1=Lista Negativa (valor);
                                 //2=Lista Positiva (valor);
                                 //3=Lista Neutra (valor);
                                 //4=Margem Valor Agregado (%);
                                 //5=Pauta (valor); (v2.0)
-                                if ($produtoArray[$i]['PERCDIFERIDO'] > 0) {
-                                    $pDif = $produtoArray[$i]['PERCDIFERIDO'];
-                                    $vICMSOp = number_format(($vBC * ($pICMS / 100)), 2, '.', '');
-                                    $vICMSDif = number_format(($vICMSOp * ($pDif / 100)), 2, '.', '');
-                                    $vICMS = number_format(($vICMSOp - $vICMSDif), 2, '.', '');
-                                    $produtoArray[$i]['VALORICMSOPERACAO'] = $vICMSOp;
-                                    $produtoArray[$i]['VALORICMSDIFERIDO'] = $vICMSDif;
+                                // $modBC = $produtoArray[$i]['MODBC'];
+                                // $pMVAST = $produtoArray[$i]['PERCMVAST']; //Percentual da margem de valor Adicionado do ICMS ST
+                                // $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST']; //Percentual da Redução de BC do ICMS ST
+                                // $vBCST = $produtoArray[$i]['VALORBCST']; //Valor da BC do ICMS ST
+                                // $pICMSST = $produtoArray[$i]['ALIQICMSST']; //Alíquota do imposto do ICMS ST
+                                // $vICMSST = $produtoArray[$i]['VALORICMSST']; //Valor do ICMS ST
+                                $pCredSN = $produtoArray[$i]['PCREDSN']; //Alíquota aplicável de cálculo do crédito (SIMPLES NACIONAL). 
+                                $vCredICMSSN = $produtoArray[$i]['VCREDICMSSN']; //Valor crédito do ICMS que pode ser aproveitado nos termos do art. 23 da LC 123 (SIMPLES NACIONAL)
+                                break;
+                            case '202':
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                //202=Tributada pelo Simples Nacional sem permissão de crédito e com cobrança do ICMS por Substituição Tributária;
+                                $csosn = '202';
+                                //0=Preço tabelado ou máximo sugerido;
+                                //1=Lista Negativa (valor);
+                                //2=Lista Positiva (valor);
+                                //3=Lista Neutra (valor);
+                                //4=Margem Valor Agregado (%);
+                                //5=Pauta (valor); (v2.0)
+                                $modBCST = $produtoArray[$i]['MODBCST'];
+                                $modBC = $produtoArray[$i]['MODBC'];
+                                $pMVAST = $produtoArray[$i]['PERCMVAST']; //Percentual da margem de valor Adicionado do ICMS ST
+                                $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST']; //Percentual da Redução de BC do ICMS ST
+                                $vBCST = $produtoArray[$i]['VALORBCST']; //Valor da BC do ICMS ST
+                                $pICMSST = $produtoArray[$i]['ALIQICMSST']; //Alíquota do imposto do ICMS ST
+                                $vICMSST = $produtoArray[$i]['VALORICMSST']; //Valor do ICMS ST
+                                break;
+                            case '203':
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                //203- Isenção do ICMS nos Simples Nacional para faixa de receita bruta e com cobrança do ICMS por Substituição Tributária (v2.0)
+                                $csosn = '203';
+                                //0=Preço tabelado ou máximo sugerido;
+                                //1=Lista Negativa (valor);
+                                //2=Lista Positiva (valor);
+                                //3=Lista Neutra (valor);
+                                //4=Margem Valor Agregado (%);
+                                //5=Pauta (valor); (v2.0)
+                                $modBC = $produtoArray[$i]['MODBC'];
+                                $pMVAST = $produtoArray[$i]['PERCMVAST']; //Percentual da margem de valor Adicionado do ICMS ST
+                                $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST']; //Percentual da Redução de BC do ICMS ST
+                                $vBCST = $produtoArray[$i]['VALORBCST']; //Valor da BC do ICMS ST
+                                $pICMSST = $produtoArray[$i]['ALIQICMSST']; //Alíquota do imposto do ICMS ST
+                                $vICMSST = $produtoArray[$i]['VALORICMSST']; //Valor do ICMS ST
+                                break;
+                            case '500':
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                //500=ICMS cobrado anteriormente por substituição tributária(substituído) ou por antecipação. (v2.0)
+                                $csosn = '500';
+                                //Valor da BC do ICMS ST cobrado anteriormente por ST (v2.0).
+                                //O valor pode ser omitido quando a legislação não exigir a sua informação. (NT 2011/004)
+                                $pST = is_null($produtoArray[$i]['ALIQICMSST']) ? '0.00' : $produtoArray[$i]['ALIQICMSST'];
+                                $vBCSTRet = is_null($produtoArray[$i]['VALORBCSTRETIDO']) ? '0.00' : $produtoArray[$i]['VALORBCSTRETIDO'];
+                                //Valor do ICMS ST cobrado anteriormente por ST (v2.0). O valor pode ser omitido quando a legislação não exigir a sua informação. (NT 2011/004)
+                                $vICMSSTRet = is_null($produtoArray[$i]['VALORICMSSTRETIDO']) ? '0.00' : $produtoArray[$i]['VALORICMSSTRETIDO'];
+                                break;
+                            case '900': // Tributação ICMS: Outros
+                                if (($nfArray[0]['FINALIDADEEMISSAO'] == 10) and ($crt == '1')) {
+                                    $orig = $produtoArray[$i]['ORIGEM'];
+                                    $csosn = '900'; //900=Outros (v2.0)
+                                } else {
+                                    $orig = $produtoArray[$i]['ORIGEM'];
+                                    $csosn = '900'; //900=Outros (v2.0)
+
+
+                                    //0=Margem Valor Agregado (%);
+                                    //1=Pauta (Valor);
+                                    //2=Preço Tabelado Máx. (valor);
+                                    //3=Valor da operação. (v2.0)
+                                    $modBC = $produtoArray[$i]['MODBC'];
+                                    $vBC = $produtoArray[$i]['BCICMS'];
+                                    $pRedBC = $produtoArray[$i]['PERCREDUCAOBC'];
+                                    $pICMS = $produtoArray[$i]['ALIQICMS'];
+                                    $vICMS = $produtoArray[$i]['VALORICMS'];
+
+                                    //$vICMS = number_format(($vBC * ($pICMS/100)), 2, '.', ''); 
                                     $produtoArray[$i]['VALORICMS'] = $vICMS;
+
+
+                                    //0=Preço tabelado ou máximo sugerido;
+                                    //1=Lista Negativa (valor);
+                                    //2=Lista Positiva (valor);
+                                    //3=Lista Neutra (valor);
+                                    //4=Margem Valor Agregado (%);
+                                    //5=Pauta (valor); (v2.0)
+                                    if ($produtoArray[$i]['PERCDIFERIDO'] > 0) {
+                                        $pDif = $produtoArray[$i]['PERCDIFERIDO'];
+                                        $vICMSOp = number_format(($vBC * ($pICMS / 100)), 2, '.', '');
+                                        $vICMSDif = number_format(($vICMSOp * ($pDif / 100)), 2, '.', '');
+                                        $vICMS = number_format(($vICMSOp - $vICMSDif), 2, '.', '');
+                                        $produtoArray[$i]['VALORICMSOPERACAO'] = $vICMSOp;
+                                        $produtoArray[$i]['VALORICMSDIFERIDO'] = $vICMSDif;
+                                        $produtoArray[$i]['VALORICMS'] = $vICMS;
+                                    }
+                                    $vICMS = $produtoArray[$i]['VALORICMS'];
+
+                                    if (($produtoArray[$i]['VALORICMSST'] > 0) and ($produtoArray[$i]['MODBCST'] != '')) {
+                                        $modBCST = $produtoArray[$i]['MODBCST'];
+                                        $pMVAST = $produtoArray[$i]['PERCMVAST'];
+                                        // $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
+                                        $vBCST = $produtoArray[$i]['VALORBCST'];
+                                        $pICMSST = $produtoArray[$i]['ALIQICMSST'];
+                                        $vICMSST = $produtoArray[$i]['VALORICMSST'];
+
+                                        $pCredSN = $produtoArray[$i]['PCREDSN'];
+                                        $vCredICMSSN = $produtoArray[$i]['VCREDICMSSN'];
+                                    }
                                 }
-                                $vICMS = $produtoArray[$i]['VALORICMS'];
-
-                                if (($produtoArray[$i]['VALORICMSST'] > 0) and ($produtoArray[$i]['MODBCST'] != '')) {
-                                    $modBCST = $produtoArray[$i]['MODBCST'];
-                                    $pMVAST = $produtoArray[$i]['PERCMVAST'];
-                                    // $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
-                                    $vBCST = $produtoArray[$i]['VALORBCST'];
-                                    $pICMSST = $produtoArray[$i]['ALIQICMSST'];
-                                    $vICMSST = $produtoArray[$i]['VALORICMSST'];
-
-                                    $pCredSN = $produtoArray[$i]['PCREDSN'];
-                                    $vCredICMSSN = $produtoArray[$i]['VCREDICMSSN'];
-                                }
-                            }
-                            break;
-                    }
-
-                    $std = new stdClass();
-                    $std->item = $nItem;
-                    $std->orig = $orig;
-
-                    if ($orig != '') {
-                        $std->orig = $orig;
-                    }
-                    if ($csosn != '') {
-                        $std->CSOSN = $csosn;
-                    }
-
-                    //nova validacao de quando for 500 é obrigatorio essas 3 tags
-                    if ($csosn == '500') {
-                        if ($pST != '') {
-                            $std->pST = $pST;
-                        };
-                        if ($vBCSTRet != '') {
-                            $std->vBCSTRet = $vBCSTRet;
-                        };
-                        if ($vICMSSTRet != '') {
-                            $std->vICMSSTRet = $vICMSSTRet;
+                                break;
                         }
-                    }
-                    if ($modBC != '') {
-                        $std->modBC = $modBC;
-                    }
-                    if ($vBC != '') {
-                        $std->vBC = $vBC;
-                    }
-                    if ($pRedBC != '') {
-                        $std->pRedBC = $pRedBC;
-                    }
-                    if ($pICMS != '') {
-                        $std->pICMS = $pICMS;
-                    }
-                    if ($vICMS != '') {
-                        $std->vICMS = $vICMS;
-                    }
-                    if ($modBCST != '') {
-                        $std->modBCST = $modBCST;
-                    }
-                    if ($pMVAST != '') {
-                        $std->pMVAST = $pMVAST;
-                    }
-                    if ($pRedBCST != '') {
-                        $std->pRedBCST = $pRedBCST;
-                    }
-                    if ($vBCST != '') {
-                        $std->vBCST = $vBCST;
-                    }
-                    if ($pICMSST != '') {
-                        $std->pICMSST = $pICMSST;
-                    }
-                    if ($vICMSST != '') {
-                        $std->vICMSST = $vICMSST;
-                    }
-                    if ($pCredSN != '') {
-                        $std->pCredSN = $pCredSN;
-                    }
-                    if ($vCredICMSSN != '') {
-                        $std->vCredICMSSN = $vCredICMSSN;
-                    }
+
+                        $std = new stdClass();
+                        $std->item = $nItem;
+                        $std->orig = $orig;
+
+                        if ($orig != '') {
+                            $std->orig = $orig;
+                        }
+                        if ($csosn != '') {
+                            $std->CSOSN = $csosn;
+                        }
+
+                        //nova validacao de quando for 500 é obrigatorio essas 3 tags
+                        if ($csosn == '500') {
+                            if ($pST != '') {
+                                $std->pST = $pST;
+                            };
+                            if ($vBCSTRet != '') {
+                                $std->vBCSTRet = $vBCSTRet;
+                            };
+                            if ($vICMSSTRet != '') {
+                                $std->vICMSSTRet = $vICMSSTRet;
+                            }
+                        }
+                        if ($modBC != '') {
+                            $std->modBC = $modBC;
+                        }
+                        if ($vBC != '') {
+                            $std->vBC = $vBC;
+                        }
+                        if ($pRedBC != '') {
+                            $std->pRedBC = $pRedBC;
+                        }
+                        if ($pICMS != '') {
+                            $std->pICMS = $pICMS;
+                        }
+                        if ($vICMS != '') {
+                            $std->vICMS = $vICMS;
+                        }
+                        if ($modBCST != '') {
+                            $std->modBCST = $modBCST;
+                        }
+                        if ($pMVAST != '') {
+                            $std->pMVAST = $pMVAST;
+                        }
+                        if ($pRedBCST != '') {
+                            $std->pRedBCST = $pRedBCST;
+                        }
+                        if ($vBCST != '') {
+                            $std->vBCST = $vBCST;
+                        }
+                        if ($pICMSST != '') {
+                            $std->pICMSST = $pICMSST;
+                        }
+                        if ($vICMSST != '') {
+                            $std->vICMSST = $vICMSST;
+                        }
+                        if ($pCredSN != '') {
+                            $std->pCredSN = $pCredSN;
+                        }
+                        if ($vCredICMSSN != '') {
+                            $std->vCredICMSSN = $vCredICMSSN;
+                        }
 
 
-                    //vBCFCPST
-                    //pFCPST
-                    //vFCPST
+                        //vBCFCPST
+                        //pFCPST
+                        //vFCPST
 
-                    /*
+                        /*
                 if ($pCredSN != '') {$std->pCredSN = $pCredSN;}
                 
                 if ($produtoArray[$i]['TRIBICMS'] == '00'){
@@ -2829,696 +2932,681 @@ class p_nfe_40 extends c_user
                     $elem = $nfe->tagICMSSN($std); 
                 } */
 
-                    $elem = $nfe->tagICMSSN($std);
-                    // $elem = $nfe->tagICMS($std);   
+                        $elem = $nfe->tagICMSSN($std);
+                        // $elem = $nfe->tagICMS($std);   
 
-                    break;
-                case '2': //ICMSSN - Tributação ICMS pelo Simples Nacional - CRT (Código de Regime Tributário) = 1 
-                    $orig = $produtoArray[$i]['ORIGEM'];
-                    $cst = '';
-                    $modBC  = '';
+                        break;
+                    case '2': //ICMSSN - Tributação ICMS pelo Simples Nacional - CRT (Código de Regime Tributário) = 1 
+                        $orig = $produtoArray[$i]['ORIGEM'];
+                        $cst = '';
+                        $modBC  = '';
+                        $vBC = '';
+                        $pRedBC = '';
+                        $pICMS = '';
+                        $vICMS = '';
+                        $pCredSN = '';
+                        $vCredICMSSN = '';
+                        $modBCST = '';
+                        $pMVAST = '';
+                        $pRedBCST = '';
+                        $vBCST = '';
+                        $pICMSST = '';
+                        $vICMSST = '';
+                        $vBCSTRet = '';
+                        $vICMSSTRet = '';
+                        $pCredSN = '';
+                        $vCredICMSSN = '';
+
+                        $std = new stdClass();
+                        $std->item = $nItem;
+                        $std->orig = $orig;
+                        $std->CST = null;
+                        $std->pCredSN = null;
+                        $std->vCredICMSSN = null;
+                        $std->modBCST = null;
+                        $std->pMVAST = null;
+                        $std->pRedBCST = null;
+                        $std->vBCST = null;
+                        $std->pICMSST = null;
+                        $std->vICMSST = null;
+                        $std->vBCFCPST = null;
+                        $std->pFCPST = null;
+                        $std->vFCPST = null;
+                        $std->vBCSTRet = null;
+                        $std->pST = null;
+                        $std->vICMSSTRet = null;
+                        $std->vBCFCPSTRet = null;
+                        $std->pFCPSTRet = null;
+                        $std->vFCPSTRet = null;
+                        $std->modBC = null;
+                        $std->vBC = null;
+                        $std->pRedBC = null;
+                        $std->pICMS = null;
+                        $std->vICMS = null;
+                        $std->pRedBCEfet = null;
+                        $std->vBCEfet = null;
+                        $std->pICMSEfet = null;
+                        $std->vICMSEfet = null;
+                        $std->pCredSN = null;
+                        $std->vCredICMSSN = null;
+
+                        switch ($produtoArray[$i]['TRIBICMS']) {
+                            case '00': // tributado integralmente
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '00';
+                                //0=Margem Valor Agregado (%);
+                                //1=Pauta (Valor);
+                                //2=Preço Tabelado Máx. (valor);
+                                //3=Valor da operação 
+                                $modBC = $produtoArray[$i]['MODBC'];
+                                $vBC = number_format($produtoArray[$i]['BCICMS'], 2, '.', '');
+                                $pICMS = $produtoArray[$i]['ALIQICMS'];
+                                $vICMS = $produtoArray[$i]['VALORICMS'];
+                                break;
+                            case '10': // Tributada e com cobrança do ICMS por substituição tributária
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '10';
+                                //0=Margem Valor Agregado (%);
+                                //1=Pauta (Valor);
+                                //2=Preço Tabelado Máx. (valor);
+                                //3=Valor da operação.
+                                $modBC = $produtoArray[$i]['MODBC'];
+                                $vBC = $produtoArray[$i]['BCICMS'];
+                                $pICMS = $produtoArray[$i]['ALIQICMS'];
+                                $vICMS = $produtoArray[$i]['VALORICMS'];
+                                //0=Preço tabelado ou máximo sugerido;
+                                //1=Lista Negativa (valor);
+                                //2=Lista Positiva (valor);
+                                //3=Lista Neutra (valor);
+                                //4=Margem Valor Agregado (%);
+                                //5=Pauta (valor)
+                                $modBC = $produtoArray[$i]['MODBC'];
+                                $pMVAST = $produtoArray[$i]['PERCMVAST'];
+                                $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
+                                $vBCST = $produtoArray[$i]['VALORBCST'];
+                                $pICMSST = $produtoArray[$i]['ALIQICMSST'];
+                                $vICMSST = $produtoArray[$i]['VALORICMSST'];
+                                break;
+                            case '20': // Tributação com redução de base de cálculo
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '20';
+                                //0=Margem Valor Agregado (%);
+                                //1=Pauta (Valor);
+                                //2=Preço Tabelado Máx. (valor);
+                                //3=Valor da operação.
+                                $modBC = $produtoArray[$i]['MODBC'];
+                                $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
+                                $vBC = $produtoArray[$i]['BCICMS'];
+                                $pICMS = $produtoArray[$i]['ALIQICMS'];
+                                $vICMS = $produtoArray[$i]['VALORICMS'];
+                                //$vICMSDeson = //Informar apenas nos motivos de desoneração documentados abaixo
+                                //Campo será preenchido quando o campo anterior estiver preenchido. Informar o motivo da desoneração:
+                                //3=Uso na agropecuária;
+                                //9=Outros;
+                                //12=Órgão de fomento e desenvolvimento agropecuário
+                                //motDesICMS = 
+                                break;
+                            case '30': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '30';
+                                //0=Preço tabelado ou máximo sugerido;
+                                //1=Lista Negativa (valor);
+                                //2=Lista Positiva (valor);
+                                //3=Lista Neutra (valor);
+                                //4=Margem Valor Agregado (%);
+                                //5=Pauta (valor);
+                                $modBCST = $produtoArray[$i]['MODBCST'];
+                                $pMVAST = $produtoArray[$i]['PERCMVAST'];
+                                $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
+                                $vBCST = $produtoArray[$i]['VALORBCST'];
+                                $pICMSST = $produtoArray[$i]['ALIQICMSST'];
+                                $vICMSST = $produtoArray[$i]['VALORICMSST'];
+                                //$vICMSDeson = Informar apenas nos motivos de desoneração documentados abaixo.
+                                //Campo será preenchido quando o campo anterior estiver preenchido. Informar o motivo da desoneração:
+                                //6=Utilitários e Motocicletas da Amazônia Ocidental e Áreas de Livre Comércio (Resolução 714/88 e 790/94 – CONTRAN e suas alterações);
+                                //7=SUFRAMA;
+                                //9=Outros;
+                                //motDesICMS =  
+                                break;
+                            case '40': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '40'; //40=Isenta;
+                                //$vICMSDeson //Valor do ICMS
+                                //$motDesICMS //Motivo da desoneração do ICMS                            
+                                break;
+                            case '41': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '40'; //41=Não tributada;
+                                //$vICMSDeson //Valor do ICMS
+                                //$motDesICMS //Motivo da desoneração do ICMS                            
+                                break;
+                            case '50': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '50'; //50=Suspensão.                            
+                                //$vICMSDeson //Valor do ICMS
+                                //$motDesICMS //Motivo da desoneração do ICMS       
+                                break;
+                            case '51': // Tributação com Diferimento (a exigência do preenchimento das
+                                //informações do ICMS diferido fica a critério de cada UF).
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '51'; //51=Diferimento 
+                                //0=Margem Valor Agregado (%);
+                                //1=Pauta (Valor);
+                                //2=Preço Tabelado Máx. (valor);
+                                //3=Valor da operação
+                                $pRedBC = null; // ICMS51 não possui tag pRedBC
+                                $modBC = $produtoArray[$i]['MODBC'];
+                                $vBC = $produtoArray[$i]['BCICMS'];
+                                $pICMS = $produtoArray[$i]['ALIQICMS'];
+                                $vICMSOp = $produtoArray[$i]['VALORICMSOPERACAO']; //Valor como se não tivesse o diferimento
+                                $pDif = $produtoArray[$i]['PERCDIFERIDO']; //No caso de diferimento total, informar o percentual de diferimento "100".
+                                $vICMSDif = $produtoArray[$i]['VALORICMSDIFERIDO'];
+                                $vICMS = $produtoArray[$i]['VALORICMS']; // Informar o valor realmente devido
+                                break;
+                            case '60': // Tributação ICMS cobrado anteriormente por substituição tributária
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '60'; //60=ICMS cobrado anteriormente por substituição tributária
+                                $vBCSTRet = is_null($produtoArray[$i]['VALORBCSTRETIDO']) ? '0.00' : $produtoArray[$i]['VALORBCSTRETIDO'];
+                                $vICMSSTRet = is_null($produtoArray[$i]['VALORICMSSTRETIDO']) ? '0.00' : $produtoArray[$i]['VALORICMSSTRETIDO'];
+                                break;
+                            case '70': // Tributação ICMS com redução de base de cálculo e cobrança
+                                // do ICMS por substituição tributária
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '70'; //70=Com redução de base de cálculo e cobrança do ICMS por substituição tributária
+                                //0=Margem Valor Agregado (%);
+                                //1=Pauta (Valor);
+                                //2=Preço Tabelado Máx. (valor);
+                                //3=Valor da operação.
+                                $modBC = $produtoArray[$i]['MODBC'];
+                                $pRedBC = is_null($produtoArray[$i]['PERCREDUCAOBC']) ? '0.00' : $produtoArray[$i]['PERCREDUCAOBC'];
+                                $vBC = $produtoArray[$i]['BCICMS'];
+                                $pICMS = $produtoArray[$i]['ALIQICMS'];
+                                $vICMS = $produtoArray[$i]['VALORICMS'];
+                                //0=Preço tabelado ou máximo sugerido;
+                                //1=Lista Negativa (valor);
+                                //2=Lista Positiva (valor);
+                                //3=Lista Neutra (valor);
+                                //4=Margem Valor Agregado (%);
+                                //5=Pauta (valor);
+                                $modBCST = $produtoArray[$i]['MODBCST'];
+                                $pMVAST = is_null($produtoArray[$i]['PERCMVAST']) ? '0.00' : $produtoArray[$i]['PERCMVAST'];
+                                $pRedBCST = is_null($produtoArray[$i]['PERCREDUCAOBCST']) ? '0.00' : $produtoArray[$i]['PERCREDUCAOBCST'];
+                                $vBCST = is_null($produtoArray[$i]['VALORBCST']) ? '0.00' : $produtoArray[$i]['VALORBCST'];
+                                $pICMSST = is_null($produtoArray[$i]['ALIQICMSST']) ? '0.00' : $produtoArray[$i]['ALIQICMSST'];
+                                $vICMSST = is_null($produtoArray[$i]['VALORICMSST']) ? '0.00' : $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
+                                //$vICMSDeson Informar apenas nos motivos de desoneração documentados abaixo
+                                //Campo será preenchido quando o campo anterior estiver preenchido. Informar o motivo da desoneração:
+                                //3=Uso na agropecuária;
+                                //9=Outros;
+                                //12=Órgão de fomento e desenvolvimento agropecuário.
+                                //$motDesICMS
+                                break;
+                            case '90': // Tributação ICMS: Outros
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '90'; //90=Outros
+                                //0=Margem Valor Agregado (%);
+                                //1=Pauta (Valor);
+                                //2=Preço Tabelado Máx. (valor);
+                                //3=Valor da operação
+                                $modBC = $produtoArray[$i]['MODBC'];
+                                $vBC = $produtoArray[$i]['BCICMS'];
+                                $pRedBC = $produtoArray[$i]['PERCREDUCAOBC'];
+                                $pICMS = $produtoArray[$i]['ALIQICMS'];
+                                $vICMS = $produtoArray[$i]['VALORICMS'];
+                                //0=Preço tabelado ou máximo sugerido;
+                                //1=Lista Negativa (valor);
+                                //2=Lista Positiva (valor);
+                                //3=Lista Neutra (valor);
+                                //4=Margem Valor Agregado (%);
+                                //5=Pauta (valor);
+                                $modBCST = $produtoArray[$i]['MODBCST'];
+                                $pMVAST = $produtoArray[$i]['PERCMVAST'];
+                                $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
+                                $vBCST = $produtoArray[$i]['VALORBCST'];
+                                $pICMSST = $produtoArray[$i]['ALIQICMSST'];
+                                $vICMSST = $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
+                                //$vICMSDeson Informar apenas nos motivos de desoneração documentados abaixo
+                                //Campo será preenchido quando o campo anterior estiver preenchido. Informar o motivo da desoneração:
+                                //3=Uso na agropecuária;
+                                //9=Outros;
+                                //12=Órgão de fomento e desenvolvimento agropecuário.
+                                //$motDesICMS
+                                break;
+                        } //switch
+
+                        if ($orig != '') {
+                            $std->orig = $orig;
+                        }
+                        if ($cst != '') {
+                            $std->CST = $cst;
+                        }
+                        if ($modBC != '') {
+                            $std->modBC = $modBC;
+                        }
+                        if ($vBC != '') {
+                            $std->vBC = $vBC;
+                        }
+                        if ($pRedBC != '') {
+                            $std->pRedBC = $pRedBC;
+                        }
+                        if ($pICMS != '') {
+                            $std->pICMS = $pICMS;
+                        }
+                        if ($vICMS != '') {
+                            $std->vICMS = $vICMS;
+                        }
+                        if ($modBCST != '') {
+                            $std->modBCST = $modBCST;
+                        }
+                        if ($pMVAST != '') {
+                            $std->pMVAST = $pMVAST;
+                        }
+                        if ($pRedBCST != '') {
+                            $std->pRedBCST = $pRedBCST;
+                        }
+                        if ($vBCST != '') {
+                            $std->vBCST = $vBCST;
+                        }
+                        if ($pICMSST != '') {
+                            $std->pICMSST = $pICMSST;
+                        }
+                        if ($vICMSST != '') {
+                            $std->vICMSST = $vICMSST;
+                        }
+                        if ($pCredSN != '') {
+                            $std->pCredSN = $pCredSN;
+                        }
+                        if ($vCredICMSSN != '') {
+                            $std->vCredICMSSN = $vCredICMSSN;
+                        }
+
+                        $elem = $nfe->tagICMS($std);
+
+                        break;
+
+                    case '3':
+                        //ICMS - Imposto sobre Circulação de Mercadorias e Serviços
+                        $orig = '';
+                        $cst = '';
+                        $modBC = '';
+                        $pRedBC = '0';
+                        $vBC = ''; // = $qTrib * $vUnTrib
+                        $pICMS = ''; // Alíquota do Estado de GO p/ 'NCM 2203.00.00 - Cervejas de Malte, inclusive Chope'
+                        $vICMS = ''; // = $vBC * ( $pICMS / 100 )
+                        $vICMSDeson = '';
+                        $motDesICMS = '';
+                        $modBCST = '';
+                        $pMVAST = '';
+                        $pRedBCST = '';
+                        $vBCST = '0.00';
+                        $pICMSST = '';
+                        $vICMSST = '';
+                        $pDif = '';
+                        $vICMSDif = '';
+                        $vICMSOp = '';
+                        $vBCSTRet = '';
+                        $vICMSSTRet = '';
+
+                        switch ($produtoArray[$i]['TRIBICMS']) {
+                            case '00': // tributado integralmente
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '00';
+                                $modBC = '3';
+                                $vBC = number_format($produtoArray[$i]['BCICMS'], 2, '.', '');
+                                $pICMS = $produtoArray[$i]['ALIQICMS']; // Alíquota do Estado
+                                $vICMS = $produtoArray[$i]['VALORICMS']; // = $vBC * ( $pICMS / 100 )
+                                break;
+                            case '10': // Tributada e com cobrança do ICMS por substituição tributária
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '10';
+                                $modBC = '3';
+                                $vBC = $produtoArray[$i]['BCICMS'];
+                                $pICMS = $produtoArray[$i]['ALIQICMS']; // Alíquota do Estado
+                                $vICMS = $produtoArray[$i]['VALORICMS']; // = $vBC * ( $pICMS / 100 )
+                                $modBCST = '5'; // Calculo Por Pauta (valor)
+                                $vBCST = $produtoArray[$i]['VALORBCST'];
+                                $pICMSST = $produtoArray[$i]['ALIQICMSST'];
+                                $vICMSST = $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
+                                break;
+                            case '20': // Tributação com redução de base de cálculo
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '20';
+                                $modBC = '3';
+                                $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
+                                $vBC = $produtoArray[$i]['BCICMS'];
+                                $pICMS = $produtoArray[$i]['ALIQICMS']; // Alíquota do Estado
+                                $vICMS = $produtoArray[$i]['VALORICMS']; // = $vBC * ( $pICMS / 100 )
+                                break;
+                            case '30': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '30';
+                                $modBCST = '5'; // Calculo Por Pauta (valor)
+                                $pMVAST = $produtoArray[$i]['PERCMVAST'];
+                                $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
+                                $vBCST = $produtoArray[$i]['VALORBCST'];
+                                $pICMSST = $produtoArray[$i]['ALIQICMSST'];
+                                $vICMSST = $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
+                                break;
+                            case '40': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
+                            case '41': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
+                            case '50': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = $produtoArray[$i]['TRIBICMS'];
+                                break;
+                            case '51': // Tributação com Diferimento (a exigência do preenchimento das
+                                //informações do ICMS diferido fica a critério de cada UF).
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '51';
+                                $modBC = '3';
+                                $pRedBC = '0.00'; // ICMS51 não possui tag pRedBC
+                                $vBC = $produtoArray[$i]['BCICMS'];
+                                $pICMS    = $produtoArray[$i]['ALIQICMS'];
+                                $vICMSOp = $produtoArray[$i]['VALORICMSOPERACAO'];
+                                $pDif    = $produtoArray[$i]['PERCDIFERIDO'];
+                                $vICMSDif = $produtoArray[$i]['VALORICMSDIFERIDO'];
+                                $vICMS = $produtoArray[$i]['VALORICMS']; // = vICMSOp - vICMSDif
+                                break;
+                            case '60': // Tributação ICMS cobrado anteriormente por substituição tributária
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '60';
+                                $modBC = '3';
+                                $pST = is_null($produtoArray[$i]['ALIQICMSST']) ? '18.00' : $produtoArray[$i]['ALIQICMSST'];
+                                $vBCSTRet = is_null($produtoArray[$i]['VALORBCSTRETIDO']) ? '0.00' : $produtoArray[$i]['VALORBCSTRETIDO'];
+                                $vICMSSTRet = is_null($produtoArray[$i]['VALORICMSSTRETIDO']) ? '0.00' : $produtoArray[$i]['VALORICMSSTRETIDO'];
+                                $vICMSSubstituto = is_null($produtoArray[$i]['VICMSSUBSTITUTO']) ? '0.00' : $produtoArray[$i]['VICMSSUBSTITUTO'];
+                                break;
+                            case '70': // Tributação ICMS com redução de base de cálculo e cobrança
+                                // do ICMS por substituição tributária
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '70';
+                                $modBC = '3';
+                                $pRedBC = is_null($produtoArray[$i]['PERCREDUCAOBC']) ? '0.00' : $produtoArray[$i]['PERCREDUCAOBC'];
+                                $vBC = $produtoArray[$i]['BCICMS'];
+                                $pICMS = $produtoArray[$i]['ALIQICMS']; // Alíquota do Estado
+                                $vICMS = $produtoArray[$i]['VALORICMS']; // = $vBC * ( $pICMS / 100 )
+                                $modBCST = '5'; // Calculo Por Pauta (valor)
+                                $pMVAST = is_null($produtoArray[$i]['PERCMVAST']) ? '0.00' : $produtoArray[$i]['PERCMVAST'];
+                                $pRedBCST = is_null($produtoArray[$i]['PERCREDUCAOBCST']) ? '0.00' : $produtoArray[$i]['PERCREDUCAOBCST'];
+                                $vBCST = is_null($produtoArray[$i]['VALORBCST']) ? '0.00' : $produtoArray[$i]['VALORBCST'];
+                                $pICMSST = is_null($produtoArray[$i]['ALIQICMSST']) ? '0.00' : $produtoArray[$i]['ALIQICMSST'];
+                                $vICMSST = is_null($produtoArray[$i]['VALORICMSST']) ? '0.00' : $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
+                                break;
+                            case '90': // Tributação ICMS: Outros
+                                $orig = $produtoArray[$i]['ORIGEM'];
+                                $cst = '90';
+                                $modBC = '3';
+                                $pRedBC = $produtoArray[$i]['PERCREDUCAOBC'];
+                                $vBC = $produtoArray[$i]['BCICMS'];
+                                $pICMS = $produtoArray[$i]['ALIQICMS']; // Alíquota do Estado
+                                $vICMS = $produtoArray[$i]['VALORICMS']; // = $vBC * ( $pICMS / 100 )
+                                if ($finNFe === "4") {
+                                    // Devolucao/Retorno: nao informar modalidade/reducao/MVA da ST
+                                    $modBCST = '5';
+                                    $pMVAST = '';
+                                    $pRedBCST = '';
+                                } else {
+                                    $modBCST = '4'; // Calculo Por Pauta (valor)
+                                    $pMVAST = $produtoArray[$i]['PERCMVAST'];
+                                    $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
+                                }
+                                $vBCST = $produtoArray[$i]['VALORBCST'];
+                                $pICMSST = $produtoArray[$i]['ALIQICMSST'];
+                                $vICMSST = $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
+                                break;
+                        } //switch 
+                        //nfe40 $resp = $nfe->tagICMS($nItem, $orig, $cst, $modBC, $pRedBC, $vBC, $pICMS, $vICMS, $vICMSDeson, $motDesICMS, $modBCST, $pMVAST, $pRedBCST, $vBCST, $pICMSST, $vICMSST, $pDif, $vICMSDif, $vICMSOp, $vBCSTRet, $vICMSSTRet);
+                        $std = new stdClass();
+                        $std->item = $nItem; //item da NFe
+                        $std->orig = $orig;
+                        $std->CST = $cst;
+                        $std->modBC = $modBC;
+                        $std->vBC = $vBC;
+                        $std->pICMS = $pICMS;
+                        $std->vICMS = $vICMS;
+                        $std->pFCP = null; // inserido nfe 40
+                        $std->vFCP = null; // inserido nfe 40
+                        $std->vBCFCP = null; // inserido nfe 40
+                        $std->modBCST = $modBCST;
+                        $std->pMVAST = $pMVAST;
+                        $std->pRedBCST = $pRedBCST;
+                        $std->vBCST = $vBCST;
+                        $std->pICMSST = $pICMSST;
+                        $std->vICMSST = $vICMSST;
+                        $std->vBCFCPST = null; // inserido nfe 40
+                        $std->pFCPST = null; // inserido nfe 40
+                        $std->vFCPST = null; // inserido nfe 40
+                        $std->vICMSDeson = $vICMSDeson;
+                        $std->motDesICMS = $motDesICMS;
+                        $std->pRedBC = $pRedBC;
+                        $std->vICMSOp = $vICMSOp;
+                        $std->pDif = $pDif;
+                        $std->vICMSDif = $vICMSDif;
+                        $std->vBCSTRet = $vBCSTRet;
+                        $std->pST = $pST; // inserido nfe 40
+                        $std->vICMSSTRet = $vICMSSTRet;
+                        $std->vBCFCPSTRet = null; // inserido nfe 40
+                        $std->pFCPSTRet = null; // inserido nfe 40
+                        $std->vFCPSTRet = null; // inserido nfe 40
+                        $std->pRedBCEfet = null; // inserido nfe 40
+                        $std->vBCEfet = null; // inserido nfe 40
+                        $std->pICMSEfet = null; // inserido nfe 40
+                        $std->vICMSEfet = null; // inserido nfe 40
+
+                        $elem = $nfe->tagICMS($std);
+                endswitch;
+
+                //if ($crt == '1') {
+                // IPI apenas NF-e (55); NFC-e (65) rejeita grupo IPI (rejeição 742)
+                if (($crt == '1' || $crt == '2' || $crt == '3') && (int) $nfArray[0]['MODELO'] === 55) { //validacao de imposto clientes lucro real, presumido e simples nacional
+                    $clEnq = '';    // Classe de enquadramento do IPI para Cigarros e Bebidas
+                    $CNPJProd = ''; // CNPJ do produtor da mercadoria, quando diferente do emitente. Somente para os casos de exportação direta ou indireta.
+                    $cSelo = '';
+                    $qSelo = 0;
+                    $cEnq = '';
+                    $CST = '';
+                    $vIPI = '';
                     $vBC = '';
-                    $pRedBC = '';
-                    $pICMS = '';
-                    $vICMS = '';
-                    $pCredSN = '';
-                    $vCredICMSSN = '';
-                    $modBCST = '';
-                    $pMVAST = '';
-                    $pRedBCST = '';
-                    $vBCST = '';
-                    $pICMSST = '';
-                    $vICMSST = '';
-                    $vBCSTRet = '';
-                    $vICMSSTRet = '';
-                    $pCredSN = '';
-                    $vCredICMSSN = '';
+                    $pIPI = '';
+                    $qUni = '';
+                    $vUnid = '';
+
+                    $CST = $produtoArray[$i]['CSTIPI'];
+                    if ($produtoArray[$i]['CSTIPI'] == '') {
+                        if ((($nfArray[0]['FINALIDADEEMISSAO'] == 10) and ($crt == '1')) or
+                            (($nfArray[0]['FINALIDADEEMISSAO'] == 4) and ($produtoArray[$i]['ALIQIPI'] > 0)) or
+                            (($nfArray[0]['FINALIDADEEMISSAO'] == 2) and ($produtoArray[$i]['ALIQIPI'] > 0))
+                        ) {
+                            $CST = '99';
+                        } else {
+                            $CST = '53';
+                        }
+                    }
+                    //if ($produtoArray[$i]['CSTIPI'] != '') {
+                    //    $CST = $produtoArray[$i]['CSTIPI'];
+                    if (($CST == '00') || ($CST == '49') or ($CST == '50') or ($CST == '99')) {
+                        $cEnq = '999';     // O06 - Código de Enquadramento Legal do IPI (Tabela a ser criada pela RFB, informar 999 enquanto a tabela não for criada)
+                        $vBC = $produtoArray[$i]['BCIPI'];
+                        $pIPI = $produtoArray[$i]['ALIQIPI'];
+                        $vIPI = $produtoArray[$i]['VALORIPI'];
+                    } else {
+                        $cEnq = '999';
+                        $CST = '53';
+                    }
 
                     $std = new stdClass();
-                    $std->item = $nItem;
-                    $std->orig = $orig;
-                    $std->CST = null;
-                    $std->pCredSN = null;
-                    $std->vCredICMSSN = null;
-                    $std->modBCST = null;
-                    $std->pMVAST = null;
-                    $std->pRedBCST = null;
-                    $std->vBCST = null;
-                    $std->pICMSST = null;
-                    $std->vICMSST = null;
-                    $std->vBCFCPST = null;
-                    $std->pFCPST = null;
-                    $std->vFCPST = null;
-                    $std->vBCSTRet = null;
-                    $std->pST = null;
-                    $std->vICMSSTRet = null;
-                    $std->vBCFCPSTRet = null;
-                    $std->pFCPSTRet = null;
-                    $std->vFCPSTRet = null;
-                    $std->modBC = null;
-                    $std->vBC = null;
-                    $std->pRedBC = null;
-                    $std->pICMS = null;
-                    $std->vICMS = null;
-                    $std->pRedBCEfet = null;
-                    $std->vBCEfet = null;
-                    $std->pICMSEfet = null;
-                    $std->vICMSEfet = null;
-                    $std->pCredSN = null;
-                    $std->vCredICMSSN = null;
-
-                    switch ($produtoArray[$i]['TRIBICMS']) {
-                        case '00': // tributado integralmente
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '00';
-                            //0=Margem Valor Agregado (%);
-                            //1=Pauta (Valor);
-                            //2=Preço Tabelado Máx. (valor);
-                            //3=Valor da operação 
-                            $modBC = $produtoArray[$i]['MODBC'];
-                            $vBC = number_format($produtoArray[$i]['BCICMS'], 2, '.', '');
-                            $pICMS = $produtoArray[$i]['ALIQICMS'];
-                            $vICMS = $produtoArray[$i]['VALORICMS'];
-                            break;
-                        case '10': // Tributada e com cobrança do ICMS por substituição tributária
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '10';
-                            //0=Margem Valor Agregado (%);
-                            //1=Pauta (Valor);
-                            //2=Preço Tabelado Máx. (valor);
-                            //3=Valor da operação.
-                            $modBC = $produtoArray[$i]['MODBC'];
-                            $vBC = $produtoArray[$i]['BCICMS'];
-                            $pICMS = $produtoArray[$i]['ALIQICMS'];
-                            $vICMS = $produtoArray[$i]['VALORICMS'];
-                            //0=Preço tabelado ou máximo sugerido;
-                            //1=Lista Negativa (valor);
-                            //2=Lista Positiva (valor);
-                            //3=Lista Neutra (valor);
-                            //4=Margem Valor Agregado (%);
-                            //5=Pauta (valor)
-                            $modBC = $produtoArray[$i]['MODBC'];
-                            $pMVAST = $produtoArray[$i]['PERCMVAST'];
-                            $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
-                            $vBCST = $produtoArray[$i]['VALORBCST'];
-                            $pICMSST = $produtoArray[$i]['ALIQICMSST'];
-                            $vICMSST = $produtoArray[$i]['VALORICMSST'];
-                            break;
-                        case '20': // Tributação com redução de base de cálculo
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '20';
-                            //0=Margem Valor Agregado (%);
-                            //1=Pauta (Valor);
-                            //2=Preço Tabelado Máx. (valor);
-                            //3=Valor da operação.
-                            $modBC = $produtoArray[$i]['MODBC'];
-                            $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
-                            $vBC = $produtoArray[$i]['BCICMS'];
-                            $pICMS = $produtoArray[$i]['ALIQICMS'];
-                            $vICMS = $produtoArray[$i]['VALORICMS'];
-                            //$vICMSDeson = //Informar apenas nos motivos de desoneração documentados abaixo
-                            //Campo será preenchido quando o campo anterior estiver preenchido. Informar o motivo da desoneração:
-                            //3=Uso na agropecuária;
-                            //9=Outros;
-                            //12=Órgão de fomento e desenvolvimento agropecuário
-                            //motDesICMS = 
-                            break;
-                        case '30': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '30';
-                            //0=Preço tabelado ou máximo sugerido;
-                            //1=Lista Negativa (valor);
-                            //2=Lista Positiva (valor);
-                            //3=Lista Neutra (valor);
-                            //4=Margem Valor Agregado (%);
-                            //5=Pauta (valor);
-                            $modBCST = $produtoArray[$i]['MODBCST'];
-                            $pMVAST = $produtoArray[$i]['PERCMVAST'];
-                            $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
-                            $vBCST = $produtoArray[$i]['VALORBCST'];
-                            $pICMSST = $produtoArray[$i]['ALIQICMSST'];
-                            $vICMSST = $produtoArray[$i]['VALORICMSST'];
-                            //$vICMSDeson = Informar apenas nos motivos de desoneração documentados abaixo.
-                            //Campo será preenchido quando o campo anterior estiver preenchido. Informar o motivo da desoneração:
-                            //6=Utilitários e Motocicletas da Amazônia Ocidental e Áreas de Livre Comércio (Resolução 714/88 e 790/94 – CONTRAN e suas alterações);
-                            //7=SUFRAMA;
-                            //9=Outros;
-                            //motDesICMS =  
-                            break;
-                        case '40': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '40'; //40=Isenta;
-                            //$vICMSDeson //Valor do ICMS
-                            //$motDesICMS //Motivo da desoneração do ICMS                            
-                            break;
-                        case '41': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '40'; //41=Não tributada;
-                            //$vICMSDeson //Valor do ICMS
-                            //$motDesICMS //Motivo da desoneração do ICMS                            
-                            break;
-                        case '50': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '50'; //50=Suspensão.                            
-                            //$vICMSDeson //Valor do ICMS
-                            //$motDesICMS //Motivo da desoneração do ICMS       
-                            break;
-                        case '51': // Tributação com Diferimento (a exigência do preenchimento das
-                            //informações do ICMS diferido fica a critério de cada UF).
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '51'; //51=Diferimento 
-                            //0=Margem Valor Agregado (%);
-                            //1=Pauta (Valor);
-                            //2=Preço Tabelado Máx. (valor);
-                            //3=Valor da operação
-                            $pRedBC = null; // ICMS51 não possui tag pRedBC
-                            $modBC = $produtoArray[$i]['MODBC'];
-                            $vBC = $produtoArray[$i]['BCICMS'];
-                            $pICMS = $produtoArray[$i]['ALIQICMS'];
-                            $vICMSOp = $produtoArray[$i]['VALORICMSOPERACAO']; //Valor como se não tivesse o diferimento
-                            $pDif = $produtoArray[$i]['PERCDIFERIDO']; //No caso de diferimento total, informar o percentual de diferimento "100".
-                            $vICMSDif = $produtoArray[$i]['VALORICMSDIFERIDO'];
-                            $vICMS = $produtoArray[$i]['VALORICMS']; // Informar o valor realmente devido
-                            break;
-                        case '60': // Tributação ICMS cobrado anteriormente por substituição tributária
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '60'; //60=ICMS cobrado anteriormente por substituição tributária
-                            $vBCSTRet = is_null($produtoArray[$i]['VALORBCSTRETIDO']) ? '0.00' : $produtoArray[$i]['VALORBCSTRETIDO'];
-                            $vICMSSTRet = is_null($produtoArray[$i]['VALORICMSSTRETIDO']) ? '0.00' : $produtoArray[$i]['VALORICMSSTRETIDO'];
-                            break;
-                        case '70': // Tributação ICMS com redução de base de cálculo e cobrança
-                            // do ICMS por substituição tributária
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '70'; //70=Com redução de base de cálculo e cobrança do ICMS por substituição tributária
-                            //0=Margem Valor Agregado (%);
-                            //1=Pauta (Valor);
-                            //2=Preço Tabelado Máx. (valor);
-                            //3=Valor da operação.
-                            $modBC = $produtoArray[$i]['MODBC'];
-                            $pRedBC = is_null($produtoArray[$i]['PERCREDUCAOBC']) ? '0.00' : $produtoArray[$i]['PERCREDUCAOBC'];
-                            $vBC = $produtoArray[$i]['BCICMS'];
-                            $pICMS = $produtoArray[$i]['ALIQICMS'];
-                            $vICMS = $produtoArray[$i]['VALORICMS'];
-                            //0=Preço tabelado ou máximo sugerido;
-                            //1=Lista Negativa (valor);
-                            //2=Lista Positiva (valor);
-                            //3=Lista Neutra (valor);
-                            //4=Margem Valor Agregado (%);
-                            //5=Pauta (valor);
-                            $modBCST = $produtoArray[$i]['MODBCST'];
-                            $pMVAST = is_null($produtoArray[$i]['PERCMVAST']) ? '0.00' : $produtoArray[$i]['PERCMVAST'];
-                            $pRedBCST = is_null($produtoArray[$i]['PERCREDUCAOBCST']) ? '0.00' : $produtoArray[$i]['PERCREDUCAOBCST'];
-                            $vBCST = is_null($produtoArray[$i]['VALORBCST']) ? '0.00' : $produtoArray[$i]['VALORBCST'];
-                            $pICMSST = is_null($produtoArray[$i]['ALIQICMSST']) ? '0.00' : $produtoArray[$i]['ALIQICMSST'];
-                            $vICMSST = is_null($produtoArray[$i]['VALORICMSST']) ? '0.00' : $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
-                            //$vICMSDeson Informar apenas nos motivos de desoneração documentados abaixo
-                            //Campo será preenchido quando o campo anterior estiver preenchido. Informar o motivo da desoneração:
-                            //3=Uso na agropecuária;
-                            //9=Outros;
-                            //12=Órgão de fomento e desenvolvimento agropecuário.
-                            //$motDesICMS
-                            break;
-                        case '90': // Tributação ICMS: Outros
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '90'; //90=Outros
-                            //0=Margem Valor Agregado (%);
-                            //1=Pauta (Valor);
-                            //2=Preço Tabelado Máx. (valor);
-                            //3=Valor da operação
-                            $modBC = $produtoArray[$i]['MODBC'];
-                            $vBC = $produtoArray[$i]['BCICMS'];
-                            $pRedBC = $produtoArray[$i]['PERCREDUCAOBC'];
-                            $pICMS = $produtoArray[$i]['ALIQICMS'];
-                            $vICMS = $produtoArray[$i]['VALORICMS'];
-                            //0=Preço tabelado ou máximo sugerido;
-                            //1=Lista Negativa (valor);
-                            //2=Lista Positiva (valor);
-                            //3=Lista Neutra (valor);
-                            //4=Margem Valor Agregado (%);
-                            //5=Pauta (valor);
-                            $modBCST = $produtoArray[$i]['MODBCST'];
-                            $pMVAST = $produtoArray[$i]['PERCMVAST'];
-                            $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
-                            $vBCST = $produtoArray[$i]['VALORBCST'];
-                            $pICMSST = $produtoArray[$i]['ALIQICMSST'];
-                            $vICMSST = $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
-                            //$vICMSDeson Informar apenas nos motivos de desoneração documentados abaixo
-                            //Campo será preenchido quando o campo anterior estiver preenchido. Informar o motivo da desoneração:
-                            //3=Uso na agropecuária;
-                            //9=Outros;
-                            //12=Órgão de fomento e desenvolvimento agropecuário.
-                            //$motDesICMS
-                            break;
-                    } //switch
-
-                    if ($orig != '') {
-                        $std->orig = $orig;
+                    if ($nItem != '') {
+                        $std->item = $nItem;
                     }
-                    if ($cst != '') {
-                        $std->CST = $cst;
+                    if ($clEnq != '') {
+                        $std->clEnq = $clEnq;
                     }
-                    if ($modBC != '') {
-                        $std->modBC = $modBC;
+                    if ($CNPJProd != '') {
+                        $std->CNPJProd = $CNPJProd;
+                    }
+                    if ($cSelo != '') {
+                        $std->cSelo = $cSelo;
+                    }
+                    if ($qSelo != 0) {
+                        $std->qSelo = $qSelo;
+                    }
+                    if ($cEnq != '') {
+                        $std->cEnq = $cEnq;
+                    }
+                    if ($CST != '') {
+                        $std->CST = $CST;
+                    }
+                    if ($vIPI != '') {
+                        $std->vIPI = $vIPI;
                     }
                     if ($vBC != '') {
                         $std->vBC = $vBC;
                     }
-                    if ($pRedBC != '') {
-                        $std->pRedBC = $pRedBC;
+                    if ($pIPI != '') {
+                        $std->pIPI = $pIPI;
                     }
-                    if ($pICMS != '') {
-                        $std->pICMS = $pICMS;
+                    if ($qUnid != '') {
+                        $std->qUnid = $qUnid;
                     }
-                    if ($vICMS != '') {
-                        $std->vICMS = $vICMS;
-                    }
-                    if ($modBCST != '') {
-                        $std->modBCST = $modBCST;
-                    }
-                    if ($pMVAST != '') {
-                        $std->pMVAST = $pMVAST;
-                    }
-                    if ($pRedBCST != '') {
-                        $std->pRedBCST = $pRedBCST;
-                    }
-                    if ($vBCST != '') {
-                        $std->vBCST = $vBCST;
-                    }
-                    if ($pICMSST != '') {
-                        $std->pICMSST = $pICMSST;
-                    }
-                    if ($vICMSST != '') {
-                        $std->vICMSST = $vICMSST;
-                    }
-                    if ($pCredSN != '') {
-                        $std->pCredSN = $pCredSN;
-                    }
-                    if ($vCredICMSSN != '') {
-                        $std->vCredICMSSN = $vCredICMSSN;
+                    if ($vUnid != '') {
+                        $std->vUnid = $vUnid;
                     }
 
-                    $elem = $nfe->tagICMS($std);
-
-                    break;
-
-                case '3':
-                    //ICMS - Imposto sobre Circulação de Mercadorias e Serviços
-                    $orig = '';
-                    $cst = '';
-                    $modBC = '';
-                    $pRedBC = '0';
-                    $vBC = ''; // = $qTrib * $vUnTrib
-                    $pICMS = ''; // Alíquota do Estado de GO p/ 'NCM 2203.00.00 - Cervejas de Malte, inclusive Chope'
-                    $vICMS = ''; // = $vBC * ( $pICMS / 100 )
-                    $vICMSDeson = '';
-                    $motDesICMS = '';
-                    $modBCST = '';
-                    $pMVAST = '';
-                    $pRedBCST = '';
-                    $vBCST = '0.00';
-                    $pICMSST = '';
-                    $vICMSST = '';
-                    $pDif = '';
-                    $vICMSDif = '';
-                    $vICMSOp = '';
-                    $vBCSTRet = '';
-                    $vICMSSTRet = '';
-
-                    switch ($produtoArray[$i]['TRIBICMS']) {
-                        case '00': // tributado integralmente
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '00';
-                            $modBC = '3';
-                            $vBC = number_format($produtoArray[$i]['BCICMS'], 2, '.', '');
-                            $pICMS = $produtoArray[$i]['ALIQICMS']; // Alíquota do Estado
-                            $vICMS = $produtoArray[$i]['VALORICMS']; // = $vBC * ( $pICMS / 100 )
-                            break;
-                        case '10': // Tributada e com cobrança do ICMS por substituição tributária
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '10';
-                            $modBC = '3';
-                            $vBC = $produtoArray[$i]['BCICMS'];
-                            $pICMS = $produtoArray[$i]['ALIQICMS']; // Alíquota do Estado
-                            $vICMS = $produtoArray[$i]['VALORICMS']; // = $vBC * ( $pICMS / 100 )
-                            $modBCST = '5'; // Calculo Por Pauta (valor)
-                            $vBCST = $produtoArray[$i]['VALORBCST'];
-                            $pICMSST = $produtoArray[$i]['ALIQICMSST'];
-                            $vICMSST = $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
-                            break;
-                        case '20': // Tributação com redução de base de cálculo
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '20';
-                            $modBC = '3';
-                            $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
-                            $vBC = $produtoArray[$i]['BCICMS'];
-                            $pICMS = $produtoArray[$i]['ALIQICMS']; // Alíquota do Estado
-                            $vICMS = $produtoArray[$i]['VALORICMS']; // = $vBC * ( $pICMS / 100 )
-                            break;
-                        case '30': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '30';
-                            $modBCST = '5'; // Calculo Por Pauta (valor)
-                            $pMVAST = $produtoArray[$i]['PERCMVAST'];
-                            $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
-                            $vBCST = $produtoArray[$i]['VALORBCST'];
-                            $pICMSST = $produtoArray[$i]['ALIQICMSST'];
-                            $vICMSST = $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
-                            break;
-                        case '40': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
-                        case '41': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
-                        case '50': // Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = $produtoArray[$i]['TRIBICMS'];
-                            break;
-                        case '51': // Tributação com Diferimento (a exigência do preenchimento das
-                            //informações do ICMS diferido fica a critério de cada UF).
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '51';
-                            $modBC = '3';
-                            $pRedBC = '0.00'; // ICMS51 não possui tag pRedBC
-                            $vBC = $produtoArray[$i]['BCICMS'];
-                            $pICMS    = $produtoArray[$i]['ALIQICMS'];
-                            $vICMSOp = $produtoArray[$i]['VALORICMSOPERACAO'];
-                            $pDif    = $produtoArray[$i]['PERCDIFERIDO'];
-                            $vICMSDif = $produtoArray[$i]['VALORICMSDIFERIDO'];
-                            $vICMS = $produtoArray[$i]['VALORICMS']; // = vICMSOp - vICMSDif
-                            break;
-                        case '60': // Tributação ICMS cobrado anteriormente por substituição tributária
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '60';
-                            $modBC = '3';
-                            $pST = is_null($produtoArray[$i]['ALIQICMSST']) ? '18.00' : $produtoArray[$i]['ALIQICMSST'];
-                            $vBCSTRet = is_null($produtoArray[$i]['VALORBCSTRETIDO']) ? '0.00' : $produtoArray[$i]['VALORBCSTRETIDO'];
-                            $vICMSSTRet = is_null($produtoArray[$i]['VALORICMSSTRETIDO']) ? '0.00' : $produtoArray[$i]['VALORICMSSTRETIDO'];
-                            $vICMSSubstituto = is_null($produtoArray[$i]['VICMSSUBSTITUTO']) ? '0.00' : $produtoArray[$i]['VICMSSUBSTITUTO'];
-                            break;
-                        case '70': // Tributação ICMS com redução de base de cálculo e cobrança
-                            // do ICMS por substituição tributária
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '70';
-                            $modBC = '3';
-                            $pRedBC = is_null($produtoArray[$i]['PERCREDUCAOBC']) ? '0.00' : $produtoArray[$i]['PERCREDUCAOBC'];
-                            $vBC = $produtoArray[$i]['BCICMS'];
-                            $pICMS = $produtoArray[$i]['ALIQICMS']; // Alíquota do Estado
-                            $vICMS = $produtoArray[$i]['VALORICMS']; // = $vBC * ( $pICMS / 100 )
-                            $modBCST = '5'; // Calculo Por Pauta (valor)
-                            $pMVAST = is_null($produtoArray[$i]['PERCMVAST']) ? '0.00' : $produtoArray[$i]['PERCMVAST'];
-                            $pRedBCST = is_null($produtoArray[$i]['PERCREDUCAOBCST']) ? '0.00' : $produtoArray[$i]['PERCREDUCAOBCST'];
-                            $vBCST = is_null($produtoArray[$i]['VALORBCST']) ? '0.00' : $produtoArray[$i]['VALORBCST'];
-                            $pICMSST = is_null($produtoArray[$i]['ALIQICMSST']) ? '0.00' : $produtoArray[$i]['ALIQICMSST'];
-                            $vICMSST = is_null($produtoArray[$i]['VALORICMSST']) ? '0.00' : $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
-                            break;
-                        case '90': // Tributação ICMS: Outros
-                            $orig = $produtoArray[$i]['ORIGEM'];
-                            $cst = '90';
-                            $modBC = '3';
-                            $pRedBC = $produtoArray[$i]['PERCREDUCAOBC'];
-                            $vBC = $produtoArray[$i]['BCICMS'];
-                            $pICMS = $produtoArray[$i]['ALIQICMS']; // Alíquota do Estado
-                            $vICMS = $produtoArray[$i]['VALORICMS']; // = $vBC * ( $pICMS / 100 )
-                            if ($finNFe === "4") {
-                                // Devolucao/Retorno: nao informar modalidade/reducao/MVA da ST
-                                $modBCST = '5';
-                                $pMVAST = '';
-                                $pRedBCST = '';
-                            } else {
-                                $modBCST = '4'; // Calculo Por Pauta (valor)
-                                $pMVAST = $produtoArray[$i]['PERCMVAST'];
-                                $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
-                            }
-                            $vBCST = $produtoArray[$i]['VALORBCST'];
-                            $pICMSST = $produtoArray[$i]['ALIQICMSST'];
-                            $vICMSST = $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
-                            break;
-                    } //switch 
-                    //nfe40 $resp = $nfe->tagICMS($nItem, $orig, $cst, $modBC, $pRedBC, $vBC, $pICMS, $vICMS, $vICMSDeson, $motDesICMS, $modBCST, $pMVAST, $pRedBCST, $vBCST, $pICMSST, $vICMSST, $pDif, $vICMSDif, $vICMSOp, $vBCSTRet, $vICMSSTRet);
-                    $std = new stdClass();
-                    $std->item = $nItem; //item da NFe
-                    $std->orig = $orig;
-                    $std->CST = $cst;
-                    $std->modBC = $modBC;
-                    $std->vBC = $vBC;
-                    $std->pICMS = $pICMS;
-                    $std->vICMS = $vICMS;
-                    $std->pFCP = null; // inserido nfe 40
-                    $std->vFCP = null; // inserido nfe 40
-                    $std->vBCFCP = null; // inserido nfe 40
-                    $std->modBCST = $modBCST;
-                    $std->pMVAST = $pMVAST;
-                    $std->pRedBCST = $pRedBCST;
-                    $std->vBCST = $vBCST;
-                    $std->pICMSST = $pICMSST;
-                    $std->vICMSST = $vICMSST;
-                    $std->vBCFCPST = null; // inserido nfe 40
-                    $std->pFCPST = null; // inserido nfe 40
-                    $std->vFCPST = null; // inserido nfe 40
-                    $std->vICMSDeson = $vICMSDeson;
-                    $std->motDesICMS = $motDesICMS;
-                    $std->pRedBC = $pRedBC;
-                    $std->vICMSOp = $vICMSOp;
-                    $std->pDif = $pDif;
-                    $std->vICMSDif = $vICMSDif;
-                    $std->vBCSTRet = $vBCSTRet;
-                    $std->pST = $pST; // inserido nfe 40
-                    $std->vICMSSTRet = $vICMSSTRet;
-                    $std->vBCFCPSTRet = null; // inserido nfe 40
-                    $std->pFCPSTRet = null; // inserido nfe 40
-                    $std->vFCPSTRet = null; // inserido nfe 40
-                    $std->pRedBCEfet = null; // inserido nfe 40
-                    $std->vBCEfet = null; // inserido nfe 40
-                    $std->pICMSEfet = null; // inserido nfe 40
-                    $std->vICMSEfet = null; // inserido nfe 40
-
-                    $elem = $nfe->tagICMS($std);
-            endswitch;
-
-            //if ($crt == '1') {
-            // IPI apenas NF-e (55); NFC-e (65) rejeita grupo IPI (rejeição 742)
-            if (($crt == '1' || $crt == '2' || $crt == '3') && (int) $nfArray[0]['MODELO'] === 55) { //validacao de imposto clientes lucro real, presumido e simples nacional
-                $clEnq = '';    // Classe de enquadramento do IPI para Cigarros e Bebidas
-                $CNPJProd = ''; // CNPJ do produtor da mercadoria, quando diferente do emitente. Somente para os casos de exportação direta ou indireta.
-                $cSelo = '';
-                $qSelo = 0;
-                $cEnq = '';
-                $CST = '';
-                $vIPI = '';
-                $vBC = '';
-                $pIPI = '';
-                $qUni = '';
-                $vUnid = '';
-
-                $CST = $produtoArray[$i]['CSTIPI'];
-                if ($produtoArray[$i]['CSTIPI'] == '') {
-                    if ((($nfArray[0]['FINALIDADEEMISSAO'] == 10) and ($crt == '1')) or
-                        (($nfArray[0]['FINALIDADEEMISSAO'] == 4) and ($produtoArray[$i]['ALIQIPI'] > 0)) or
-                        (($nfArray[0]['FINALIDADEEMISSAO'] == 2) and ($produtoArray[$i]['ALIQIPI'] > 0))
-                    ) {
-                        $CST = '99';
-                    } else {
-                        $CST = '53';
-                    }
-                }
-                //if ($produtoArray[$i]['CSTIPI'] != '') {
-                //    $CST = $produtoArray[$i]['CSTIPI'];
-                if (($CST == '00') || ($CST == '49') or ($CST == '50') or ($CST == '99')) {
-                    $cEnq = '999';     // O06 - Código de Enquadramento Legal do IPI (Tabela a ser criada pela RFB, informar 999 enquanto a tabela não for criada)
-                    $vBC = $produtoArray[$i]['BCIPI'];
-                    $pIPI = $produtoArray[$i]['ALIQIPI'];
-                    $vIPI = $produtoArray[$i]['VALORIPI'];
-                } else {
-                    $cEnq = '999';
-                    $CST = '53';
+                    $elem = $nfe->tagIPI($std);
+                    //}
                 }
 
-                $std = new stdClass();
-                if ($nItem != '') {
-                    $std->item = $nItem;
-                }
-                if ($clEnq != '') {
-                    $std->clEnq = $clEnq;
-                }
-                if ($CNPJProd != '') {
-                    $std->CNPJProd = $CNPJProd;
-                }
-                if ($cSelo != '') {
-                    $std->cSelo = $cSelo;
-                }
-                if ($qSelo != 0) {
-                    $std->qSelo = $qSelo;
-                }
-                if ($cEnq != '') {
-                    $std->cEnq = $cEnq;
-                }
-                if ($CST != '') {
-                    $std->CST = $CST;
-                }
-                if ($vIPI != '') {
-                    $std->vIPI = $vIPI;
-                }
-                if ($vBC != '') {
-                    $std->vBC = $vBC;
-                }
-                if ($pIPI != '') {
-                    $std->pIPI = $pIPI;
-                }
-                if ($qUnid != '') {
-                    $std->qUnid = $qUnid;
-                }
-                if ($vUnid != '') {
-                    $std->vUnid = $vUnid;
+                if ((($nfArray[0]['FINALIDADEEMISSAO'] == 10) or ($nfArray[0]['FINALIDADEEMISSAO'] == 4))
+                    and ($crt == '1')
+                ) {
+                    $produtoArray[$i]['CSTPIS'] = 49;
                 }
 
-                $elem = $nfe->tagIPI($std);
-                //}
-            }
+                // TAG PIS
+                //PIS - Programa de Integração Social   ************* CALCULO PIS POSTERIORMENTE
+                switch ($produtoArray[$i]['CSTPIS']) {
+                    case '01': // Operação Tributável (base de cálculo = valor da operação alíquota normal (cumulativo/não cumulativo)); 
+                    case '02': // Operação Tributável (base de cálculo = valor da operação (alíquota diferenciada)); 
+                        $cst = $produtoArray[$i]['CSTPIS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                        $vBC = $produtoArray[$i]['BCPIS'];
+                        $pPIS = $produtoArray[$i]['ALIQPIS'];
+                        $vPIS = $produtoArray[$i]['VALORPIS'];
+                        $qBCProd = '';
+                        $vAliqProd = '';
+                        break;
+                    case '03': //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                        $cst = $produtoArray[$i]['CSTPIS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                        $vBC = '';
+                        $pPIS = '';
+                        $vPIS = $produtoArray[$i]['VALORPIS'];
+                        $qBCProd = $produtoArray[$i]['BCPIS'];
+                        $vAliqProd = $produtoArray[$i]['ALIQPIS'];
+                        break;
+                    case '04':
+                    case '05':
+                    case '06':
+                    case '07':
+                    case '08':
+                    case '09':
+                        $cst = $produtoArray[$i]['CSTPIS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                        $vBC = '0';
+                        $pPIS = '0';
+                        $vPIS = '0';
+                        $qBCProd = '0';
+                        $vAliqProd = '0';
+                        break;
+                    case '49':
+                        $cst = $produtoArray[$i]['CSTPIS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                        $vBC = $produtoArray[$i]['BCPIS'];
+                        $pPIS = $produtoArray[$i]['ALIQPIS'];
+                        $vPIS = $produtoArray[$i]['VALORPIS'];
+                        $qBCProd = null;
+                        $vAliqProd = null;
+                        break;
+                    default:
+                        $cst = $produtoArray[$i]['CSTPIS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                        $vBC = $produtoArray[$i]['BCPIS'];
+                        $pPIS = $produtoArray[$i]['ALIQPIS'];
+                        $vPIS = $produtoArray[$i]['VALORPIS'];
+                        $qBCProd = '0';
+                        $vAliqProd = '0';
+                }
+                $cst = sprintf("%02d", $produtoArray[$i]['CSTPIS']); //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                //nef40            $resp = $nfe->tagPIS($nItem, $cst, $vBC, $pPIS, $vPIS, $qBCProd, $vAliqProd);
 
-            // TAG medicamentos
-            $cProdANVISA = $produtoArray[$i]['CODPRODUTOANVISA'];
-            if (($nfArray[0]['MODELO'] == 55) and ($cProdANVISA != null)):
-                $vPMC = number_format($produtoArray[$i]['UNITARIO'], 2, '.', '');
                 $std = new stdClass();
                 $std->item = $nItem; //item da NFe
+                $std->CST = $cst;
+                $std->vBC = $vBC;
+                $std->pPIS = $pPIS;
+                $std->vPIS = $vPIS;
+                $std->qBCProd = $qBCProd;
+                $std->vAliqProd = $vAliqProd;
+                $elem = $nfe->tagPIS($std);
 
-                $std->vPMC = $vPMC;
+                if ((($nfArray[0]['FINALIDADEEMISSAO'] == 10) or ($nfArray[0]['FINALIDADEEMISSAO'] == 4)) and ($crt == '1')) {
+                    $produtoArray[$i]['CSTCOFINS'] = 49;
+                }
+                // TAG COFINS
+                //COFINS - Contribuição para o Financiamento da Seguridade Social
+                switch ($produtoArray[$i]['CSTCOFINS']) {
+                    case '01': // Operação Tributável (base de cálculo = valor da operação alíquota normal (cumulativo/não cumulativo)); 
+                    case '02': // Operação Tributável (base de cálculo = valor da operação (alíquota diferenciada)); 
+                        $cst = $produtoArray[$i]['CSTCOFINS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                        $vBC = $produtoArray[$i]['BCCOFINS'];
+                        $pCOFINS = $produtoArray[$i]['ALIQCOFINS'];
+                        $vCOFINS = $produtoArray[$i]['VALORCOFINS'];
+                        $qBCProd = '';
+                        $vAliqProd = '';
+                        break;
+                    case '03': //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                        $cst = $produtoArray[$i]['CSTCOFINS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                        $vBC = '';
+                        $pCOFINS = '';
+                        $vCOFINS = $produtoArray[$i]['VALORCOFINS'];
+                        $qBCProd = $produtoArray[$i]['BCCOFINS'];
+                        $vAliqProd = $produtoArray[$i]['ALIQCOFINS'];
+                        break;
+                    case '04':
+                    case '05':
+                    case '06':
+                    case '07':
+                    case '08':
+                    case '09':
+                        $cst = $produtoArray[$i]['CSTCOFINS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                        $vBC = '0';
+                        $pCOFINS = '0';
+                        $vCOFINS = '0';
+                        $qBCProd = '0';
+                        $vAliqProd = '0';
+                        break;
+                    case '49':
+                        $cst = $produtoArray[$i]['CSTCOFINS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                        $vBC = $produtoArray[$i]['BCCOFINS'];
+                        $pCOFINS = $produtoArray[$i]['ALIQCOFINS'];
+                        $vCOFINS = $produtoArray[$i]['VALORCOFINS'];
+                        $qBCProd = null;
+                        $vAliqProd = null;
+                        break;
+                    default:
+                        $cst = $produtoArray[$i]['CSTCOFINS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                        $vBC = $produtoArray[$i]['BCCOFINS'];
+                        $pCOFINS = $produtoArray[$i]['ALIQCOFINS'];
+                        $vCOFINS = $produtoArray[$i]['VALORCOFINS'];
+                        $qBCProd = '0';
+                        $vAliqProd = '0';
+                }
+                $cst = sprintf("%02d", $produtoArray[$i]['CSTCOFINS']); //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
+                //nfe40            $resp = $nfe->tagCOFINS($nItem, $cst, $vBC, $pCOFINS, $vCOFINS, $qBCProd, $vAliqProd);
 
-                $std->cProdANVISA = $cProdANVISA; //incluido no layout 4.00.00
-
-                $elem = $nfe->tagmed($std);
-
-            endif;
-
-            if ((($nfArray[0]['FINALIDADEEMISSAO'] == 10) or ($nfArray[0]['FINALIDADEEMISSAO'] == 4))
-                and ($crt == '1')
-            ) {
-                $produtoArray[$i]['CSTPIS'] = 49;
-            }
-
-            // TAG PIS
-            //PIS - Programa de Integração Social   ************* CALCULO PIS POSTERIORMENTE
-            switch ($produtoArray[$i]['CSTPIS']) {
-                case '01': // Operação Tributável (base de cálculo = valor da operação alíquota normal (cumulativo/não cumulativo)); 
-                case '02': // Operação Tributável (base de cálculo = valor da operação (alíquota diferenciada)); 
-                    $cst = $produtoArray[$i]['CSTPIS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-                    $vBC = $produtoArray[$i]['BCPIS'];
-                    $pPIS = $produtoArray[$i]['ALIQPIS'];
-                    $vPIS = $produtoArray[$i]['VALORPIS'];
-                    $qBCProd = '';
-                    $vAliqProd = '';
-                    break;
-                case '03': //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-                    $cst = $produtoArray[$i]['CSTPIS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-                    $vBC = '';
-                    $pPIS = '';
-                    $vPIS = $produtoArray[$i]['VALORPIS'];
-                    $qBCProd = $produtoArray[$i]['BCPIS'];
-                    $vAliqProd = $produtoArray[$i]['ALIQPIS'];
-                    break;
-                case '04':
-                case '05':
-                case '06':
-                case '07':
-                case '08':
-                case '09':
-                    $cst = $produtoArray[$i]['CSTPIS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-                    $vBC = '0';
-                    $pPIS = '0';
-                    $vPIS = '0';
-                    $qBCProd = '0';
-                    $vAliqProd = '0';
-                    break;
-                case '49':
-                    $cst = $produtoArray[$i]['CSTPIS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-                    $vBC = $produtoArray[$i]['BCPIS'];
-                    $pPIS = $produtoArray[$i]['ALIQPIS'];
-                    $vPIS = $produtoArray[$i]['VALORPIS'];
-                    $qBCProd = null;
-                    $vAliqProd = null;
-                    break;
-                default:
-                    $cst = $produtoArray[$i]['CSTPIS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-                    $vBC = $produtoArray[$i]['BCPIS'];
-                    $pPIS = $produtoArray[$i]['ALIQPIS'];
-                    $vPIS = $produtoArray[$i]['VALORPIS'];
-                    $qBCProd = '0';
-                    $vAliqProd = '0';
-            }
-            $cst = sprintf("%02d", $produtoArray[$i]['CSTPIS']); //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-            //nef40            $resp = $nfe->tagPIS($nItem, $cst, $vBC, $pPIS, $vPIS, $qBCProd, $vAliqProd);
-
-            $std = new stdClass();
-            $std->item = $nItem; //item da NFe
-            $std->CST = $cst;
-            $std->vBC = $vBC;
-            $std->pPIS = $pPIS;
-            $std->vPIS = $vPIS;
-            $std->qBCProd = $qBCProd;
-            $std->vAliqProd = $vAliqProd;
-            $elem = $nfe->tagPIS($std);
-
-            if ((($nfArray[0]['FINALIDADEEMISSAO'] == 10) or ($nfArray[0]['FINALIDADEEMISSAO'] == 4)) and ($crt == '1')) {
-                $produtoArray[$i]['CSTCOFINS'] = 49;
-            }
-            // TAG COFINS
-            //COFINS - Contribuição para o Financiamento da Seguridade Social
-            switch ($produtoArray[$i]['CSTCOFINS']) {
-                case '01': // Operação Tributável (base de cálculo = valor da operação alíquota normal (cumulativo/não cumulativo)); 
-                case '02': // Operação Tributável (base de cálculo = valor da operação (alíquota diferenciada)); 
-                    $cst = $produtoArray[$i]['CSTCOFINS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-                    $vBC = $produtoArray[$i]['BCCOFINS'];
-                    $pCOFINS = $produtoArray[$i]['ALIQCOFINS'];
-                    $vCOFINS = $produtoArray[$i]['VALORCOFINS'];
-                    $qBCProd = '';
-                    $vAliqProd = '';
-                    break;
-                case '03': //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-                    $cst = $produtoArray[$i]['CSTCOFINS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-                    $vBC = '';
-                    $pCOFINS = '';
-                    $vCOFINS = $produtoArray[$i]['VALORCOFINS'];
-                    $qBCProd = $produtoArray[$i]['BCCOFINS'];
-                    $vAliqProd = $produtoArray[$i]['ALIQCOFINS'];
-                    break;
-                case '04':
-                case '05':
-                case '06':
-                case '07':
-                case '08':
-                case '09':
-                    $cst = $produtoArray[$i]['CSTCOFINS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-                    $vBC = '0';
-                    $pCOFINS = '0';
-                    $vCOFINS = '0';
-                    $qBCProd = '0';
-                    $vAliqProd = '0';
-                    break;
-                case '49':
-                    $cst = $produtoArray[$i]['CSTCOFINS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-                    $vBC = $produtoArray[$i]['BCCOFINS'];
-                    $pCOFINS = $produtoArray[$i]['ALIQCOFINS'];
-                    $vCOFINS = $produtoArray[$i]['VALORCOFINS'];
-                    $qBCProd = null;
-                    $vAliqProd = null;
-                    break;
-                default:
-                    $cst = $produtoArray[$i]['CSTCOFINS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-                    $vBC = $produtoArray[$i]['BCCOFINS'];
-                    $pCOFINS = $produtoArray[$i]['ALIQCOFINS'];
-                    $vCOFINS = $produtoArray[$i]['VALORCOFINS'];
-                    $qBCProd = '0';
-                    $vAliqProd = '0';
-            }
-            $cst = sprintf("%02d", $produtoArray[$i]['CSTCOFINS']); //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
-            //nfe40            $resp = $nfe->tagCOFINS($nItem, $cst, $vBC, $pCOFINS, $vCOFINS, $qBCProd, $vAliqProd);
-
-            $std = new stdClass();
-            $std->item = $nItem; //item da NFe
-            $std->CST = $cst;
-            $std->vBC = $vBC;
-            $std->pCOFINS = $pCOFINS;
-            $std->vCOFINS = $vCOFINS;
-            $std->qBCProd = $qBCProd;
-            $std->vAliqProd = $vAliqProd;
-            $elem = $nfe->tagCOFINS($std);
+                $std = new stdClass();
+                $std->item = $nItem; //item da NFe
+                $std->CST = $cst;
+                $std->vBC = $vBC;
+                $std->pCOFINS = $pCOFINS;
+                $std->vCOFINS = $vCOFINS;
+                $std->qBCProd = $qBCProd;
+                $std->vAliqProd = $vAliqProd;
+                $elem = $nfe->tagCOFINS($std);
 
             // DIFAL — valores calculados em c_pedido_venda_nf e gravados no item da NF.
             // A partilha (ICMSUFDest) só pode ser emitida quando: há base de cálculo, a
@@ -3576,31 +3664,32 @@ class p_nfe_40 extends c_user
 
             $elem = $nfe->tagimposto($std);
 
-            $vST += $vICMSST; // Total de ICMS ST
+            if (!$suprimirImpostosLegados) {
+                $vST += $vICMSST; // Total de ICMS ST
 
-            $vBCTotal += $produtoArray[$i]['BCICMS'];
-            $vICMSTotal += $produtoArray[$i]['VALORICMS'];
+                $vBCTotal += $produtoArray[$i]['BCICMS'];
+                $vICMSTotal += $produtoArray[$i]['VALORICMS'];
+                $vBCSTTotal += $produtoArray[$i]['VALORBCST'];
+                $vSTTotal += $produtoArray[$i]['VALORICMSST'];
+                $vIPITotal += $vIPI;
+                $vPISTotal += $vPIS;
+                $vCOFINSTotal += $vCOFINS;
+            }
             $vICMSDesonTotal = 0;
-            $vBCSTTotal += $produtoArray[$i]['VALORBCST'];
-            $vSTTotal += $produtoArray[$i]['VALORICMSST'];
             $vProdTotal += $produtoArray[$i]['TOTAL'];
             $vSegTotal = 0;
 
             $vIITotal = 0;
-            $vIPITotal += $vIPI;
-            $vPISTotal += $vPIS;
-            $vCOFINSTotal += $vCOFINS;
             //$vOutroTotal=0;
             $vNFTotal = $nfArray[0]['TOTALNF'];
             $vTotTribTotal = 0;
 
             // Ate 2027  a regra se applica apenas ao CRT = 3 
-            if($crt == '3') {
+            if ($crt == '3') {
 
                 #### Validacao de Tributos IBS/CBS ####
-                if($produtoArray[$i]["CCLASSTRIB"] == '' or $produtoArray[$i]["CCLASSTRIB"] == null or $produtoArray[$i]["NCM"] == '' or $produtoArray[$i]["NCM"] == null) {
-                        throw new Exception("Classe de Classificação Tributária do IBS/CBS e/ou NCM não informada para o produto " . $produtoArray[$i]["DESCRICAO"] . " - " . $produtoArray[$i]["CODFABRICANTE"]);
-
+                if ($produtoArray[$i]["CCLASSTRIB"] == '' or $produtoArray[$i]["CCLASSTRIB"] == null or $produtoArray[$i]["NCM"] == '' or $produtoArray[$i]["NCM"] == null) {
+                    throw new Exception("Classe de Classificação Tributária do IBS/CBS e/ou NCM não informada para o produto " . $produtoArray[$i]["DESCRICAO"] . " - " . $produtoArray[$i]["CODFABRICANTE"]);
                 }
 
                 ############### IBS/CBS ############### 
@@ -3617,13 +3706,13 @@ class p_nfe_40 extends c_user
                     'valor_outro' => $produtoArray[$i]['DESPACESSORIAS'],
                     'valor_ii' => 0,
                     'valor_desc' => $produtoArray[$i]['DESCONTO'],
-                    'valor_pis' => $produtoArray[$i]['VALORPIS'],
-                    'valor_cofins' => $produtoArray[$i]['VALORCOFINS'],
-                    'valor_icms' => $produtoArray[$i]['VALORICMS'],
-                    'valor_icms_uf_dest' => $produtoArray[$i]['VALORICMSUFDEST'],
-                    'valor_fcp' => $produtoArray[$i]['VALORFCP'],
-                    'valor_fcp_uf_dest' => $produtoArray[$i]['VALORFCPUFDEST'],
-                    'valor_icms_mono' => $produtoArray[$i]['VALORICMSMONO'],
+                    'valor_pis' => $suprimirImpostosLegados ? 0 : $produtoArray[$i]['VALORPIS'],
+                    'valor_cofins' => $suprimirImpostosLegados ? 0 : $produtoArray[$i]['VALORCOFINS'],
+                    'valor_icms' => $suprimirImpostosLegados ? 0 : $produtoArray[$i]['VALORICMS'],
+                    'valor_icms_uf_dest' => $suprimirImpostosLegados ? 0 : $produtoArray[$i]['VALORICMSUFDEST'],
+                    'valor_fcp' => $suprimirImpostosLegados ? 0 : $produtoArray[$i]['VALORFCP'],
+                    'valor_fcp_uf_dest' => $suprimirImpostosLegados ? 0 : $produtoArray[$i]['VALORFCPUFDEST'],
+                    'valor_icms_mono' => $suprimirImpostosLegados ? 0 : $produtoArray[$i]['VALORICMSMONO'],
                     'valor_issqn' => $produtoArray[$i]['VALORISSQN'],
                     'uf_dest' => $nfArray[0]['UF'],
                     'mun_dest' => $pessoaDestArray[0]['CODMUNICIPIO'],
@@ -3633,7 +3722,7 @@ class p_nfe_40 extends c_user
 
                 $resultado = $calculo_ibs_cbs->calculaImpostoIbsCbs($dados);
 
-                if($resultado['error']) {
+                if ($resultado['error']) {
                     throw new Exception("Erro ao calcular imposto IBS/CBS: " . $resultado['error'] . " - " . $produtoArray[$i]['DESCRICAO'] . " - " . $produtoArray[$i]['CODPRODUTO']);
                 }
 
@@ -3650,7 +3739,7 @@ class p_nfe_40 extends c_user
                 $aliquota_ibs_municipal = $resultado['aliquota_ibs_municipal'];
                 $aliquota_ibs_estadual  = $resultado['aliquota_ibs_estadual'];
                 $aliquota_cbs           = $resultado['aliquota_cbs'];
-                
+
 
 
                 //############################## TAG <det/imposto/IBCCBS> opcional ################################################
@@ -3661,7 +3750,7 @@ class p_nfe_40 extends c_user
                 $ibs->CST        = $cst;                                   // OBRIGATÓRIO CST IBS/CBS 3 dígitos
                 $ibs->cClassTrib = $c_class_trib;                          // OBRIGATÓRIO Código de Classificação Tributária do IBS e CBS 6
                 $ibs->vBC        = $valor_bc ?? 0.00;                      // OBRIGATÓRIO Base de cálculo do IBS e CBS 13v2
-                
+
                 // ================= DADOS IBS ESTADUAL =================
                 $ibs->gIBSUF_pIBSUF     = $aliquota_ibs_estadual ?? 0.00;  // opcional Alíquota do IBS competência UF 3v2-4
                                                                            // OBRIGATÓRIO se vBC for informado
@@ -3682,29 +3771,29 @@ class p_nfe_40 extends c_user
                  * CASE 10: Ajuste de Competência - 811001, 811002, 811003
                  * CASE 11: Sem Tags Específicas (Isenção, Imunidade, Suspensão) - 400001, 410xxx, 550xxx, 820xxx
                  */
-                
+
                 // Determina o CASE de tributação baseado no cClassTrib
                 $case_tributacao = $calculo_ibs_cbs->determinaCaseTributacao($c_class_trib);
-                
-                switch($case_tributacao) {
-                    
+
+                switch ($case_tributacao) {
+
                     // CASE 1: Tributação Padrão (Sem Redução ou Diferimento)
                     // Tags: vBC, gIBSUF (pIBSUF, vIBSUF), gIBSMun, gCBS - SEM gRed e SEM gDif
                     case 1:
                         $ibs->gIBSUF_pDif      = null;             // NÃO permite diferimento
-                        $ibs->gIBSUF_vDif      = null;             
+                        $ibs->gIBSUF_vDif      = null;
                         $ibs->gIBSUF_pRedAliq  = null;             // NÃO permite redução de alíquota
                         break;
-                        
+
                     // CASE 2: Tributação com Redução de Alíquota
                     // Tags: vBC, gIBSUF + gRed (pRedAliq, pAliqEfet), gIBSMun + gRed, gCBS + gRed
                     case 2:
                         $ibs->gIBSUF_pDif      = null;             // NÃO permite diferimento
-                        $ibs->gIBSUF_vDif      = null;             
+                        $ibs->gIBSUF_vDif      = null;
                         // gRed é permitido - preencher redução de alíquota
                         $ibs->gIBSUF_pRedAliq  = $resultado['p_red_aliq_uf'] ?? 0.00;
                         break;
-                        
+
                     // CASE 3: Diferimento Total
                     // Tags: vBC, gIBSUF + gDif (pDif, vDif), gIBSMun + gDif, gCBS + gDif
                     case 3:
@@ -3713,7 +3802,7 @@ class p_nfe_40 extends c_user
                         $ibs->gIBSUF_vDif      = $resultado['v_dif_uf'] ?? $valor_ibs_estadual;
                         $ibs->gIBSUF_pRedAliq  = null;             // NÃO permite redução de alíquota
                         break;
-                        
+
                     // CASE 4: Diferimento com Redução de Alíquota
                     // Tags: vBC, gIBSUF + gDif + gRed, gIBSMun + gDif + gRed, gCBS + gDif + gRed
                     case 4:
@@ -3722,7 +3811,7 @@ class p_nfe_40 extends c_user
                         $ibs->gIBSUF_vDif      = $resultado['v_dif_uf'] ?? 0.00;
                         $ibs->gIBSUF_pRedAliq  = $resultado['p_red_aliq_uf'] ?? 0.00;
                         break;
-                        
+
                     // CASE 5, 6, 7: Monofásica (tratados separadamente via gIBSCBSMono)
                     // CASE 8, 9, 10: Transferência, ZFM, Ajuste (tratados separadamente)
                     // CASE 11: Sem tags específicas
@@ -3737,7 +3826,7 @@ class p_nfe_40 extends c_user
                         $ibs->gIBSUF_vDif      = null;
                         $ibs->gIBSUF_pRedAliq  = null;
                         break;
-                        
+
                     // Default: Tributação Padrão
                     default:
                         $ibs->gIBSUF_pDif      = null;
@@ -3756,39 +3845,39 @@ class p_nfe_40 extends c_user
 
 
 
-                
+
                 // ================= DADOS IBS MUNICIPAL =================
                 // Switch case para IBS Municipal usando o mesmo $case_tributacao definido acima
-                switch($case_tributacao) {
-                    
+                switch ($case_tributacao) {
+
                     // CASE 1: Tributação Padrão (Sem Redução ou Diferimento)
                     case 1:
                         $ibs->gIBSMun_pRedAliq  = null;             // NÃO permite redução de alíquota
                         $ibs->gIBSMun_pDif      = null;             // NÃO permite diferimento
                         $ibs->gIBSMun_vDif      = null;
                         break;
-                        
+
                     // CASE 2: Tributação com Redução de Alíquota
                     case 2:
                         $ibs->gIBSMun_pRedAliq  = $resultado['p_red_aliq_mun'] ?? 0.00;  // gRed permitido
                         $ibs->gIBSMun_pDif      = null;             // NÃO permite diferimento
                         $ibs->gIBSMun_vDif      = null;
                         break;
-                        
+
                     // CASE 3: Diferimento Total
                     case 3:
                         $ibs->gIBSMun_pRedAliq  = null;             // NÃO permite redução de alíquota
                         $ibs->gIBSMun_pDif      = $resultado['p_dif_mun'] ?? 100.00;    // gDif permitido
                         $ibs->gIBSMun_vDif      = $resultado['v_dif_mun'] ?? $valor_ibs_municipal;
                         break;
-                        
+
                     // CASE 4: Diferimento com Redução de Alíquota
                     case 4:
                         $ibs->gIBSMun_pRedAliq  = $resultado['p_red_aliq_mun'] ?? 0.00; // gRed E gDif permitidos
                         $ibs->gIBSMun_pDif      = $resultado['p_dif_mun'] ?? 0.00;
                         $ibs->gIBSMun_vDif      = $resultado['v_dif_mun'] ?? 0.00;
                         break;
-                        
+
                     // CASE 5, 6, 7: Monofásica | CASE 8, 9, 10: Transferência, ZFM, Ajuste | CASE 11: Sem tags
                     case 5:
                     case 6:
@@ -3801,7 +3890,7 @@ class p_nfe_40 extends c_user
                         $ibs->gIBSMun_pDif      = null;
                         $ibs->gIBSMun_vDif      = null;
                         break;
-                        
+
                     default:
                         $ibs->gIBSMun_pRedAliq  = null;
                         $ibs->gIBSMun_pDif      = null;
@@ -3810,52 +3899,52 @@ class p_nfe_40 extends c_user
                 }
 
                 $ibs->gIBSMun_pIBSMun   = $aliquota_ibs_municipal ?? 0.00; // opcional Alíquota IBS Município 3v2-4
-                                                                           // OBRIGATÓRIO se vBC for informado
+                // OBRIGATÓRIO se vBC for informado
                 // removido gIBSMun_vTribOp                                // opcional Valor bruto do tributo na operação 13v2
                 $ibs->gIBSMun_vDevTrib  = $gIBSMun_vDevTrib ?? 0.00;       // opcional Valor do tributo devolvido 13v2
 
                 $ibs->gIBSMun_pAliqEfet = $gIBSMun_pAliqEfet ?? 0.00;      // opcional Alíquota efetiva IBS Município 3v2
                 $valor_ibs_municipal_formatado = number_format($valor_ibs_municipal ?? 0.00, 2, '.', '');
-                $ibs->gIBSMun_vIBSMun   = $valor_ibs_municipal_formatado;   
+                $ibs->gIBSMun_vIBSMun   = $valor_ibs_municipal_formatado;
                 $vIBSMunTotal += is_numeric($valor_ibs_municipal) ? (float)$valor_ibs_municipal : 0;
 
 
 
 
 
-                
+
                 // ================= DADOS CBS (IMPOSTO FEDERAL) =================
                 // Switch case para CBS usando o mesmo $case_tributacao definido acima
-                switch($case_tributacao) {
-                    
+                switch ($case_tributacao) {
+
                     // CASE 1: Tributação Padrão (Sem Redução ou Diferimento)
                     case 1:
                         $ibs->gCBS_pDif     = null;             // NÃO permite diferimento
                         $ibs->gCBS_vDif     = null;
                         $ibs->gCBS_pRedAliq = null;             // NÃO permite redução de alíquota
                         break;
-                        
+
                     // CASE 2: Tributação com Redução de Alíquota
                     case 2:
                         $ibs->gCBS_pDif     = null;             // NÃO permite diferimento
                         $ibs->gCBS_vDif     = null;
                         $ibs->gCBS_pRedAliq = $resultado['p_red_aliq_cbs'] ?? 0.00;  // gRed permitido
                         break;
-                        
+
                     // CASE 3: Diferimento Total
                     case 3:
                         $ibs->gCBS_pDif     = $resultado['p_dif_cbs'] ?? 100.00;    // gDif permitido
                         $ibs->gCBS_vDif     = $resultado['v_dif_cbs'] ?? $valor_cbs;
                         $ibs->gCBS_pRedAliq = null;             // NÃO permite redução de alíquota
                         break;
-                        
+
                     // CASE 4: Diferimento com Redução de Alíquota
                     case 4:
                         $ibs->gCBS_pDif     = $resultado['p_dif_cbs'] ?? 0.00;      // gRed E gDif permitidos
                         $ibs->gCBS_vDif     = $resultado['v_dif_cbs'] ?? 0.00;
                         $ibs->gCBS_pRedAliq = $resultado['p_red_aliq_cbs'] ?? 0.00;
                         break;
-                        
+
                     // CASE 5, 6, 7: Monofásica | CASE 8, 9, 10: Transferência, ZFM, Ajuste | CASE 11: Sem tags
                     case 5:
                     case 6:
@@ -3868,7 +3957,7 @@ class p_nfe_40 extends c_user
                         $ibs->gCBS_vDif     = null;
                         $ibs->gCBS_pRedAliq = null;
                         break;
-                        
+
                     default:
                         $ibs->gCBS_pDif     = null;
                         $ibs->gCBS_vDif     = null;
@@ -3877,18 +3966,18 @@ class p_nfe_40 extends c_user
                 }
 
                 $ibs->gCBS_pCBS = $aliquota_cbs ?? 0.00;                   // opcional Alíquota da CBS 3v2-4
-                                                                           // OBRIGATÓRIO se vBC for informado
-                
+                // OBRIGATÓRIO se vBC for informado
+
                 // removido gCBS_vCBSOp                                    // opcional Valor bruto da CBS na operação
                 $ibs->gCBS_vDevTrib  = $gCBS_vDevTrib ?? 0.00;             // opcional Valor do tributo devolvido 13v2
                 $ibs->gCBS_pAliqEfet = $gCBS_pAliqEfet ?? 0.00;            // opcional Alíquota efetiva CBS 3v2
                 // Formata o valor para 2 casas decimais antes de atribuir ao item
                 $valor_cbs_formatado = number_format($valor_cbs ?? 0.00, 2, '.', '');
                 $ibs->gCBS_vCBS      = $valor_cbs_formatado;                 // opcional Valor da CBS 13v2
-                
+
                 // Acumula o valor NÃO formatado para o total
                 $vCBSTotal += is_numeric($valor_cbs) ? (float)$valor_cbs : 0;
-                
+
                 $nfe->tagIBSCBS($ibs);
                 ########################## FIM TAG <det/imposto/IBSCBS> opcional ################################################
 
@@ -3902,19 +3991,19 @@ class p_nfe_40 extends c_user
                 // $reg->item          = $nItem ?? 0;                          // OBRIGATÓRIO referencia ao item da NFe
                 // $reg->CSTReg        = $CSTReg ?? '';                        // OBRIGATÓRIO Código de Situação Tributária do IBS e CBS 3 dígitos
                 // $reg->cClassTribReg = $cClassTribReg ?? '';                 // OBRIGATÓRIO Código de Classificação Tributária do IBS e CBS 6
-                
+
                 // // ================= IBS UF =================
                 // $reg->pAliqEfetRegIBSUF = $pAliqEfetRegIBSUF ?? 0.00;       // OBRIGATÓRIO Valor da alíquota do IBS da UF 3v2-4
                 // $reg->vTribRegIBSUF     = $vTribRegIBSUF ?? 0.00;           // OBRIGATÓRIO Valor do Tributo do IBS da UF 13v2
-                
+
                 // // ================= IBS MUNICÍPIO =================
                 // $reg->pAliqEfetRegIBSMun = $pAliqEfetRegIBSMun ?? 0.00;     // OBRIGATÓRIO Valor da alíquota do IBS do Município 3v2-4
                 // $reg->vTribRegIBSMun     = $vTribRegIBSMun ?? 0.00;         // OBRIGATÓRIO Valor do Tributo do IBS do Município 13v2
-                
+
                 // // ================= CBS =================
                 // $reg->pAliqEfetRegCBS = $pAliqEfetRegCBS ?? 0.00;           // OBRIGATÓRIO Valor da alíquota da CBS 3v2-4
                 // $reg->vTribRegCBS     = $vTribRegCBS ?? 0.00;               // OBRIGATÓRIO Valor do Tributo da CBS 13v2
-                
+
                 // $nfe->tagIBSCBSTribRegular($reg);
                 ########################## FIM TAG <det/imposto/IBSCBS/gIBSCBS/gTribRegular> opcional ###########################
 
@@ -3929,7 +4018,7 @@ class p_nfe_40 extends c_user
                 */
 
                 // $cred = new stdClass();
-                
+
                 // $cred->item      = $nItem ?? 0;                              // OBRIGATÓRIO referencia ao item da NFe
                 // $cred->cCredPres = $cCredPres ?? '';                         // OBRIGATÓRIO Código de Classificação do Crédito Presumido 2 caracteres
                 // $cred->pCredPres = $pCredPres ?? 0.00;                       // OBRIGATÓRIO Percentual do Crédito Presumido 3v2-4
@@ -3949,7 +4038,7 @@ class p_nfe_40 extends c_user
                 // $cred->pCredPres = $pCredPres ?? 0.00;                       // OBRIGATÓRIO Percentual do Crédito Presumido 3v2-4
                 // $cred->vCredPres = $vCredPres ?? 0.00;                       // OBRIGATÓRIO Valor do Crédito Presumido 13v2
                 // $cred->vCredPresCondSus = $vCredPresCondSus ?? 0.00;         // OBRIGATÓRIO Valor do Crédito Presumido em condição suspensiva 13v2
-                
+
                 // $nfe->tagCBSCredPres($cred);
                 ########################## FIM TAG <det/imposto/IBSCBS/gIBSCBS/gCBSCredPres> opcional ###########################
 
@@ -3964,27 +4053,27 @@ class p_nfe_40 extends c_user
                 // $mono->adRemCBS = $adRemCBS ?? 0.00;                         // OBRIGATÓRIO
                 // $mono->vIBSMono = $vIBSMono ?? 0.00;                         // OBRIGATÓRIO
                 // $mono->vCBSMono = $vCBSMono ?? 0.00;                         // OBRIGATÓRIO
-                
+
                 // $mono->qBCMonoReten  = $qBCMonoReten ?? 0.00;                // opcional
                 // $mono->adRemIBSReten = $adRemIBSReten ?? 0.00;               // opcional
                 // $mono->vIBSMonoReten = $vIBSMonoReten ?? 0.00;               // opcional
                 // $mono->adRemCBSReten = $adRemCBSReten ?? 0.00;               // opcional
                 // $mono->vCBSMonoReten = $vCBSMonoReten ?? 0.00;               // opcional
-                
+
                 // $mono->qBCMonoRet  = $qBCMonoRet ?? 0.00;                    // opcional
                 // $mono->adRemIBSRet = $adRemIBSRet ?? 0.00;                   // opcional
                 // $mono->vIBSMonoRet = $vIBSMonoRet ?? 0.00;                   // opcional
                 // $mono->adRemCBSRet = $adRemCBSRet ?? 0.00;                   // opcional
                 // $mono->vCBSMonoRet = $vCBSMonoRet ?? 0.00;                   // opcional
-                
+
                 // $mono->pDifIBS     = $pDifIBS ?? 0.00;                       // opcional Percentual do diferimento do imposto monofásico 3v2-4
                 // $mono->vIBSMonoDif = $vIBSMonoDif ?? 0.00;                   // opcional Valor do IBS monofásico diferido 13v2
                 // $mono->pDifCBS     = $pDifCBS ?? 0.00;                       // opcional Percentual do diferimento do imposto monofásico 3v2-4
                 // $mono->vCBSMonoDif = $vCBSMonoDif ?? 0.00;                   // opcional Valor do CBS monofásico diferido 13v2
-                
+
                 // $mono->vTotIBSMonoItem = $vTotIBSMonoItem ?? 0.00;           // opcional Total de IBS Monofásico 13v2
                 // $mono->vTotCBSMonoItem = $vTotCBSMonoItem ?? 0.00;           // opcional Total da CBS Monofásica 13v2
-                
+
                 // $nfe->tagIBSCBSMono($mono);
                 ########################## FIM TAG <det/imposto/IBSCBS/gIBSCBS/gIBSCBSMono> opcional ####################################
 
@@ -3996,7 +4085,7 @@ class p_nfe_40 extends c_user
                 // $transf->item = $nItem ?? 0;                                // OBRIGATÓRIO
                 // $transf->vIBS = $vIBS ?? 0.00;                              // OBRIGATÓRIO Valor do IBS a ser transferido 13v2
                 // $transf->vCBS = $vCBS ?? 0.00;                              // OBRIGATÓRIO Valor do CBS a ser transferido 13v2
-                
+
                 // $nfe->taggTranfCred($transf);
                 ########################## FIM TAG <det/imposto/gTransfCred> opcional ##########################################
 
@@ -4008,7 +4097,7 @@ class p_nfe_40 extends c_user
                 // $zfm->item             = $nItem ?? 0;                      // OBRIGATÓRIO
                 // $zfm->tpCredPresIBSZFM = $tpCredPresIBSZFM ?? 0;           // OBRIGATÓRIO Tipo de classificação de acordo com o art. 450, § 1º, da LC 214/25 para o
                 // $zfm->vCredPresIBSZFM  = $vCredPresIBSZFM ?? 0.00;         // opcional Valor do crédito presumido calculado sobre o saldo devedor apurado 13v2
-                
+
                 // $nfe->taggCredPresIBSZFM($zfm);
                 ########################## FIM TAG <det/imposto/gCredPresIBSZFM> opcional ##########################################
 
@@ -4021,13 +4110,38 @@ class p_nfe_40 extends c_user
                 // $idev->item      = $nItem ?? 0;                            // OBRIGATÓRIO referencia ao item da NFe
                 // $idev->pDevol    = $pDevol ?? 0.00;                        // OBRIGATRÓRIO Percentual da mercadoria devolvida 2 devimais max = 100.00
                 // $idev->vIPIDevol = $vIPIDevol ?? 0.00;                     // OBRIGATRÓRIO Valor do IPI devolvido 2 decimais
-                
+
                 // $nfe->tagimpostoDevol($idev);
                 ########################## FIM TAG <det/imposto/impostoDevol> opcional ##########################################
             }
 
+            //############################## TAG <det/DFeReferenciado> opcional ################################################
+            // Documento Fiscal Eletrônico Referenciado — emitido por item conforme tipo IBS/CBS
+            if ($refTipoIbsCbs !== null && !in_array($refTipoIbsCbs, ['NENHUMA', 'NFREF', 'NFREF_PROIBE_DFE'], true)) {
+                $chaveRefProd = trim((string) ($produtoArray[$i]['IBS_CBS_NF_REF'] ?? ''));
+                $nItemRefProd = trim((string) ($produtoArray[$i]['IBS_CBS_NITEM']  ?? ''));
 
+                // DFE_OPCIONAL: só emite se a chave estiver preenchida e válida
+                // DFE_OBRIG_SEM_ITEM / DFE_OBRIG_COM_ITEM: já validado acima, sempre emite
+                $emiteDfe = $chaveRefProd !== '' && strlen($chaveRefProd) === 44;
 
+                if ($emiteDfe) {
+                    $ref = new stdClass();
+                    $ref->item        = $nItem; // OBRIGATÓRIO — referência ao item da NF-e (1 a 990)
+                    $ref->chaveAcesso = $chaveRefProd; // OBRIGATÓRIO — chave de acesso do DF-e referenciado (44 dígitos)
+
+                    // nItem: informado apenas quando o tipo exige (DFE_OBRIG_COM_ITEM) OU quando está preenchido
+                    if (
+                        $nItemRefProd !== '' && is_numeric($nItemRefProd) && (int) $nItemRefProd >= 1
+                        && $refTipoIbsCbs !== 'DFE_OBRIG_SEM_ITEM'
+                    ) {
+                        $ref->nItem = (int) $nItemRefProd; // opcional — número do item do documento referenciado
+                    }
+
+                    $nfe->tagDFeReferenciado($ref);
+                }
+            }
+            //############################## FIM TAG <det/DFeReferenciado> ################################################
 
         } //for produtos        
 
@@ -4074,17 +4188,17 @@ class p_nfe_40 extends c_user
 
         $vNF = number_format($vProd - $vDesc - $vICMSDeson + $vST + $vFrete + $vSeg + $vOutro + $vII + $vIPI, 2, '.', '');
         $vTotTrib = number_format($vICMS + $vST + $vII + $vIPI + $vPIS + $vCOFINS + $vIOF + $vISS, 2, '.', '');
-        
+
         // Formata os totais de IBS/CBS (apenas se CRT = 3)
         $vIBSUF = '';
         $vIBSMun = '';
         $vCBS = '';
-        if($crt == '3') {
+        if ($crt == '3') {
             $vIBSUF = number_format($vIBSUFTotal, 2, '.', '');
             $vIBSMun = number_format($vIBSMunTotal, 2, '.', '');
             $vCBS = number_format($vCBSTotal, 2, '.', '');
         }
-        
+
         //nfe40        $resp = $nfe->tagICMSTot($vBC, $vICMS, $vICMSDeson, $vBCST, $vST, $vProd, $vFrete, $vSeg, $vDesc, $vII, $vIPI, $vPIS, $vCOFINS, $vOutro, $vNF, $vTotTrib);
         $std = new stdClass();
         $std->vBC = $vBC;
@@ -4107,25 +4221,25 @@ class p_nfe_40 extends c_user
         $std->vOutro = $vOutro;
         $std->vNF = $vNF;
         $std->vTotTrib = $vTotTrib;
-        
+
         // Totais IBS/CBS (NFe 4.0) - apenas se CRT = 3
-        if($crt == '3') {
+        if ($crt == '3') {
             $std->vIBSUF = $vIBSUF;
             $std->vIBSMun = $vIBSMun;
             $std->vCBS = $vCBS;
         }
 
         $elem = $nfe->tagICMSTot($std);
-        
+
         //verifica se a natureza de operação tem IR Retido na fonte para emissao de orgao publico
         $getEstNatOp = $ObjNatOperTrib->getEstNatOp($nfArray[0]['IDNATOP']);
         $pIR = floatval($getEstNatOp['IR_PERCENTUAL'] ?? 0);
 
-        if($getEstNatOp['IR'] == 'S' && $pIR > 0) {
+        if ($getEstNatOp['IR'] == 'S' && $pIR > 0) {
 
             $vBCIR = $vNF;
             $vIR = $vBCIR * $pIR / 100;
-            
+
             $std = new \stdClass();
             $std->vRetPIS    = null;
             $std->vRetCOFINS = null;
@@ -4133,7 +4247,7 @@ class p_nfe_40 extends c_user
             $std->vBCIRRF    = number_format($vBCIR, 2, '.', '');
             $std->vIRRF      = number_format($vIR, 2, '.', '');
             $std->vRetPrev   = null;
-            
+
             $nfe->tagretTrib($std);
 
             $mensagem_complementar = "RFB No 1234/2012 - VALOR BASE DO IRRF R$ " . number_format($vBCIR, 2, '.', '') . " - PERCENTUAL " . $pIR . "% - VALOR DO IRRF R$ " . number_format($vIR, 2, '.', '') . ";";
@@ -4150,6 +4264,7 @@ class p_nfe_40 extends c_user
         }
 
         $std->modFrete = $modFrete;
+        
 
         $elem = $nfe->tagtransp($std);
         //nfe40        $resp = $nfe->tagtransp($modFrete);
@@ -4324,13 +4439,13 @@ class p_nfe_40 extends c_user
             $placa = $nfArray[0]["PLACAVEICULO"];
             $UF = $nfArray[0]["UF"];
             $RNTC = $nfArray[0]["CODANTT"];
-            
+
             //nfe40 $resp = $nfe->tagveicTransp($placa, $UF, $RNTC);
             $std = new stdClass();
             $std->placa = $placa;
             $std->UF = $UF;
             $std->RNTC = $RNTC;
-            
+
             $elem = $nfe->tagveicTransp($std);
         }
 
@@ -4378,8 +4493,8 @@ class p_nfe_40 extends c_user
                 */
 
                 if ($indPag !== "0") { // PAGAMENTO A VISTA NAO GERA nDup
-                    if ($finNFe != 2) { // nfe comnplementar
-                        if ($finNFe == 4) { // devolução
+                    if ($finNFe != 2) { // nfe complementar
+                        if (in_array($finNFe, [4, 5, 6])) { // devolução, NF Crédito e NF Débito não geram duplicata real
                             $std = new stdClass();
                             $std->nDup = '001';
                             $std->dVenc = substr($dhEmi, 0, 10); //Vencimento
@@ -4449,10 +4564,7 @@ class p_nfe_40 extends c_user
             // $std = new stdClass();
 
 
-            if (($nfArray[0]['FINALIDADEEMISSAO'] == 4) or //devolução
-                ($nfArray[0]['FINALIDADEEMISSAO'] == 2) or // complementar
-                ($nfArray[0]['FINALIDADEEMISSAO'] == 10)
-            ) {
+            if (in_array($nfArray[0]['FINALIDADEEMISSAO'], [2, 4, 5, 6, 10])) { // complementar, devolução, NF Crédito, NF Débito
                 $std->tPag = '90';
                 $std->vPag = 0; //Obs: deve ser informado o valor pago pelo cliente            
             } else {
@@ -4517,7 +4629,7 @@ class p_nfe_40 extends c_user
 
             $std = new stdClass();
 
-            if ($nfArray[0]['FINALIDADEEMISSAO'] = 4) {
+            if (in_array($nfArray[0]['FINALIDADEEMISSAO'], [2, 4, 5, 6, 10])) { // complementar, devolução, NF Crédito, NF Débito
                 $std->tPag = '90';
                 $std->vPag = 0; //Obs: deve ser informado o valor pago pelo cliente            
             } else {
@@ -4716,7 +4828,7 @@ class p_nfe_40 extends c_user
             //exit;
 
             //    file_put_contents($path.$slash.'nf'.$slash.$anomes.$slash.$gerarXML.$slash.$chave.$nfProt,$xml);
-           // exit;
+            // exit;
             //===============================================
             // ASSINA E GRAVA
             // se modelo 65 inclui qrcode
@@ -4816,7 +4928,7 @@ class p_nfe_40 extends c_user
                         $std = $st->toStd($resp);
 
 
-                        
+
                         if ($std->cStat !== '103' && $std->cStat !== '104') {
                             //erro registrar e voltar
                             $motivo = c_sefaz_erro_mapper::fromMotivo($std->cStat, $std->xMotivo);
@@ -4989,7 +5101,7 @@ class p_nfe_40 extends c_user
                             return $return;
                         }
 
-                            if ($std->cStat == '104') { //lote processado (tudo ok)
+                        if ($std->cStat == '104') { //lote processado (tudo ok)
                             if ($std->protNFe->infProt->cStat == '100') { //Autorizado o uso da NF-e
                                 //                    $return = ["situacao"=>"autorizada",
                                 //                                "numeroProtocolo"=>$std->protNFe->infProt->nProt,
@@ -5001,49 +5113,49 @@ class p_nfe_40 extends c_user
                             } elseif (in_array($std->protNFe->infProt->cStat, ["110", "301", "302"])) { //DENEGADAS
                                 $motivo = c_sefaz_erro_mapper::fromMotivo($std->protNFe->infProt->cStat, $std->protNFe->infProt->xMotivo);
                                 $return = [
-                                "situacao" => "denegada",
-                                "codSituacao" => "D",
+                                    "situacao" => "denegada",
+                                    "codSituacao" => "D",
                                     "numeroProtocolo" => $std->protNFe->infProt->nProt,
-                                "motivo" => $motivo,
+                                    "motivo" => $motivo,
                                     "cstat" => $std->protNFe->infProt->cStat,
                                     "cStatus" => $std->protNFe->infProt->cStat,
                                     "xmlProtocolo" => $xmlResp,
-                                "chave" => $chave,
+                                    "chave" => $chave,
                                     "recibo" => $recibo
-                            ];
+                                ];
                                 return $return;
                             } elseif (in_array($std->protNFe->infProt->cStat, ["539"])) { //DUPLICADO
                                 $motivo = c_sefaz_erro_mapper::fromMotivo($std->protNFe->infProt->cStat, $std->protNFe->infProt->xMotivo);
                                 $return = [
-                                "situacao" => "Duplicidade",
-                                "codSituacao" => "U",
+                                    "situacao" => "Duplicidade",
+                                    "codSituacao" => "U",
                                     "numeroProtocolo" => $std->protNFe->infProt->nProt,
-                                "motivo" => $motivo,
+                                    "motivo" => $motivo,
                                     "cstat" => $std->protNFe->infProt->cStat,
                                     "cStatus" => $std->protNFe->infProt->cStat,
                                     "xmlProtocolo" => $xmlResp,
-                                "chave" => $chave,
+                                    "chave" => $chave,
                                     "recibo" => $recibo
-                            ];
+                                ];
                                 return $return;
                             } else { //não autorizada (rejeição)
                                 $motivo = c_sefaz_erro_mapper::fromMotivo($std->protNFe->infProt->cStat, $std->protNFe->infProt->xMotivo);
                                 $return = [
-                                "situacao" => "rejeitada",
-                                "codSituacao" => "R",
-                                "motivo" => $motivo,
+                                    "situacao" => "rejeitada",
+                                    "codSituacao" => "R",
+                                    "motivo" => $motivo,
                                     "cstat" => $std->protNFe->infProt->cStat,
                                     "cStatus" => $std->protNFe->infProt->cStat,
-                                "chave" => $chave,
+                                    "chave" => $chave,
                                     "recibo" => $recibo
-                            ];
+                                ];
                                 return $return;
-                        }
+                            }
                         } else { //outros erros possíveis
                             $motivo = c_sefaz_erro_mapper::fromMotivo($std->cStat, $std->xMotivo);
-                        $return = [
-                            "situacao" => "rejeitada",
-                            "codSituacao" => "R",
+                            $return = [
+                                "situacao" => "rejeitada",
+                                "codSituacao" => "R",
                                 "motivo" => $motivo,
                                 "cstat" => $std->cStat,
                                 "cStatus" => $std->cStat,
@@ -5070,7 +5182,7 @@ class p_nfe_40 extends c_user
                 }
                 if ($std->cStat == '104') {
 
-                    $aResposta['cStatus'] = $std->protNFe->infProt->cStat;                    
+                    $aResposta['cStatus'] = $std->protNFe->infProt->cStat;
 
                     preg_match('/<protNFe[^>]*>.*?<\/protNFe>/s', $resp, $matches);
 
@@ -5174,7 +5286,7 @@ class p_nfe_40 extends c_user
                     $pdfDanfe = BASE_DIR_PDF;
                     //$pdfDanfe = $path.$slash.'pdf'.$slash.$anomes.$slash.$chave.$nfExtPdf;
 
-                    if ($nfArray[0]['MODELO'] == 55){
+                    if ($nfArray[0]['MODELO'] == 55) {
 
                         // $danfe = new NFePHP\DA\NFe\Danfe($xmlProtocolado, 'P', 'A4', $pathLogo, 'I', '');
                         // $erro = 'PDF DANFE line: 2343 - ' . $pdfDanfe . '<br>';
@@ -5187,15 +5299,15 @@ class p_nfe_40 extends c_user
 
                         // Usar DanfeCustom
                         $danfe = new DanfeCustom($xmlProtocolado);
-                        
+
                         // Configurar parâmetros
                         $danfe->printParameters('P', 'A4');
-                        
+
                         // Configurar logo
                         if (!empty($pathLogo) && file_exists($pathLogo)) {
                             $danfe->setLogoPath($pathLogo);
                         }
-                        
+
                         // Renderizar
                         $pdf = $danfe->render();
 
@@ -5204,11 +5316,9 @@ class p_nfe_40 extends c_user
                         if (!is_dir($directory)) {
                             mkdir($directory, 0777, true);
                         }
-                        
+
                         // Salvar
                         file_put_contents($pdfDanfe, $pdf);
-
-
                     } else {
                         $xmlDanfce = !empty($xmlProtocolado) ? $xmlProtocolado : ($xmlAssinado ?? '');
                         if (empty($xmlDanfce)) {
@@ -5269,23 +5379,23 @@ class p_nfe_40 extends c_user
                     // $nfOBJ->setNumRecibo($recibo);
                     $nfOBJ->alteraNfPath($conn);
 
-                    // envia email
-                    // if (($nfArray[0]['MODELO'] == 55) and ($aResposta['cStatus'] == '100')):
-                    //     $erro = 'EMAIL line: 2367<br>' . $this->enviaEmailDANFE(
-                    //         $nfArray[0]['MODELO'],
-                    //         $pessoaDestArray[0]['EMAILNFE'],
-                    //         $pessoaDestArray[0]['EMAIL'],
-                    //         $std->protNFe->infProt->chNFe,
-                    //         $dhEmi,
-                    //         $cNF,
-                    //         $serie,
-                    //         $xNome,
-                    //         null, // assunto
-                    //         null, // corpo
-                    //         $idNf, // ID da NF para buscar boletos
-                    //         $pessoaDestArray[0]['ID'] // ID da pessoa
-                    //     );
-                    // endif;
+                // envia email
+                // if (($nfArray[0]['MODELO'] == 55) and ($aResposta['cStatus'] == '100')):
+                //     $erro = 'EMAIL line: 2367<br>' . $this->enviaEmailDANFE(
+                //         $nfArray[0]['MODELO'],
+                //         $pessoaDestArray[0]['EMAILNFE'],
+                //         $pessoaDestArray[0]['EMAIL'],
+                //         $std->protNFe->infProt->chNFe,
+                //         $dhEmi,
+                //         $cNF,
+                //         $serie,
+                //         $xNome,
+                //         null, // assunto
+                //         null, // corpo
+                //         $idNf, // ID da NF para buscar boletos
+                //         $pessoaDestArray[0]['ID'] // ID da pessoa
+                //     );
+                // endif;
                 endif;
             }
             return $aResposta;
@@ -5434,7 +5544,6 @@ class p_nfe_40 extends c_user
 
         curl_close($ch);
     }
-
 } //class
 
 // Instancia só quando o form é acessado diretamente (não ao require de outros módulos)

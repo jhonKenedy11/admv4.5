@@ -101,7 +101,7 @@ function fechaProdutoPesquisaAtendimento(e) {
         f.codProduto.value        = id;
         f.codFabricante.value     = codFabricante;
         f.codProdutoNota.value    = codNota 
-        f.uniProduto.value        = unidade
+        $(window.opener.document).find("#uniProduto").val(unidade);
         f.descProduto.value       = descricaoProduto  
         f.vlrUnitarioPecas.value  = vlrUnitario 
     }

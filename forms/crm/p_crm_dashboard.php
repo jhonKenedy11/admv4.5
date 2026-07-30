@@ -18,6 +18,7 @@ $dir = (__DIR__);
 include_once($dir . "/../../../smarty/libs/Smarty.class.php");
 include_once($dir . "/../../class/crm/c_dashboard.php");
 include_once($dir . "/../../class/ped/c_pedido_venda.php");
+include_once($dir . "/../../class/fin/c_lancamento.php");
 include_once($dir . "/../../class/crm/c_contas_acompanhamento.php");
 
 Class p_crm_dashboard extends c_dashboard {
@@ -88,23 +89,56 @@ function controle(){
     case 'buscaAcompanhamentos':
         $this->acompanhamentos('');
     break;
+    case 'buscaAcompPainel':
+        $this->acompPainel();
+    break;
     case 'motivoGeral':
         if ($this->verificaDireitoUsuario('CrmDashboard', 'A')){
-        $objPedVenda = new c_pedidoVenda;
-        $objPedVenda->setId($this->m_idVendaperdida); 
-        $objPedVenda->atualizarMotivoItem($this->m_motivoSelecionados);
-        $objPedVenda->atualizarObsPerda($this->m_obsPerda);
-        $objPedVenda->atualizarFieldPedido(7);
-        $this->m_submenu = null;
-        //Zera o submenu para evitar o reload do form
-        $this->mostraDashboard(''); 
-        echo'<script>
-                swal({
-                    title: "Sucesso!",
-                    text: "Pedido Alterado para VENDA PERDIDA!",
-                    icon: "success",
-                  });
-            </script>';      
+        $banco = new c_banco();
+        $banco->setTab('FAT_PEDIDO');
+        $situacaoPed = $banco->getField('SITUACAO', 'ID=' . (int) $this->m_idVendaperdida);
+        $banco->close_connection();
+        if ($situacaoPed === '' || (int) $situacaoPed !== 5) {
+            $this->m_submenu = null;
+            $this->mostraDashboard('');
+            echo'<script>
+                    swal({
+                        title: "Atenção!",
+                        text: "Venda perdida permitida apenas para pedidos em cotação!",
+                        icon: "warning",
+                      });
+                </script>';
+            break;
+        }
+        $objLancamento = new c_lancamento();
+        $searchLanc = $objLancamento->select_lancamento_doc('PED', $this->m_idVendaperdida);
+        if ($searchLanc == '' || $searchLanc == null) {
+            $objPedVenda = new c_pedidoVenda;
+            $objPedVenda->setId($this->m_idVendaperdida);
+            $objPedVenda->atualizarMotivoItem($this->m_motivoSelecionados);
+            $objPedVenda->atualizarObsPerda($this->m_obsPerda);
+            $objPedVenda->atualizarFieldPedido(7);
+            $objPedVenda->atualizarTotal($objPedVenda->select_totalPedido());
+            $this->m_submenu = null;
+            $this->mostraDashboard('');
+            echo'<script>
+                    swal({
+                        title: "Sucesso!",
+                        text: "Pedido Alterado para VENDA PERDIDA!",
+                        icon: "success",
+                      });
+                </script>';
+        } else {
+            $this->m_submenu = null;
+            $this->mostraDashboard('');
+            echo'<script>
+                    swal({
+                        title: "Atenção!",
+                        text: "Não foi possível atualizar pedido, existe financeiro cadastrado!",
+                        icon: "warning",
+                      });
+                </script>';
+        }
         }
     break;
     default:
@@ -157,16 +191,17 @@ function mostraDashboard($mensagem=NULL){
         $verSomenteInfoDaLoja = $this->verificaDireitoUsuario('PEDVERSOMENTEINFODALOJA', 'S', 'N');
         if ($vertodoslancamentos == false) {
             $vendedor = $this->m_userid;
-        }else{
-            $vendedor = $this->m_par[2];
+        } else {
+            $vendedor = ($this->m_par[2] ?? '') ?: $this->m_userid;
         }
+        $this->m_par[2] = $vendedor;
 
     // ########## CENTROCUSTO ##########
     $cWhere = '';
     if ($verSomenteInfoDaLoja) {
         $cWhere = 'where centrocusto = ' . $this->m_empresacentrocusto;
     }
-    $sql = "select centrocusto as id, descricao from fin_centro_custo " . $cWhere . " order by centrocusto";
+    $sql = "select centrocusto as id, descricao from FIN_CENTRO_CUSTO " . $cWhere . " order by centrocusto";
     $this->comboSql($sql, $centroCusto ?? $this->m_empresacentrocusto, $centroCusto_id, $centroCusto_ids, $centroCusto_names);
     $this->smarty->assign('centroCusto_ids', $centroCusto_ids);
     $this->smarty->assign('centroCusto_names', $centroCusto_names);
@@ -228,6 +263,7 @@ function mostraDashboard($mensagem=NULL){
     //Fim New Meta
 
     $objClassPedVenda = new c_pedidoVenda();
+    $metasFor = ['NUMVENDAS' => 0, 'VALORVENDIDO' => 0, 'METADEVENDAS' => 0];
 
     if($vertodoslancamentos == true){
         //Busca Cotacoes
@@ -311,12 +347,18 @@ function mostraDashboard($mensagem=NULL){
     }
     
     //total de pedidos do periodo
-    $percPed = number_format(($pedMes / $allPedidos * 100) ,2);
-    if($percPed == 'nan'){$percMetaMensal = 0.00;}
-    
+    $pedMesNum = (float)($pedMes ?? 0);
+    $allPedidosNum = (float)($allPedidos ?? 0);
+    $percPed = ($allPedidosNum > 0)
+        ? number_format(($pedMesNum / $allPedidosNum) * 100, 2)
+        : number_format(0, 2);
+
     //meta
-    $percMetaMensal = number_format(($pedMesValor / $vlrMetaMensal) * 100, 2);
-    if($percMetaMensal == 'nan'){$percMetaMensal = 0.00;}
+    $pedMesValorNum = (float)($pedMesValor ?? 0);
+    $vlrMetaMensalNum = (float)($vlrMetaMensal ?? 0);
+    $percMetaMensal = ($vlrMetaMensalNum > 0)
+        ? number_format(($pedMesValorNum / $vlrMetaMensalNum) * 100, 2)
+        : number_format(0, 2);
 
     if($percMetaMensal > 100){
         $this->smarty->assign('iconeFaSort', 'asc');    
@@ -346,12 +388,40 @@ function mostraDashboard($mensagem=NULL){
     $letraCot = $this->m_par[0].'|'. $this->m_par[1].'|'.''.'|'.''.'|'.'5'.'|'.$vendedor.'|'.''.'|'.$centroCusto;
     $resultCot = $objPedVenda->select_pedidoVenda_letra($letraCot);
 
-    if(($vendedor !== '') and ($vendedor !== null)){
+    $resultAcomp = [];
+    if (($vendedor !== '') && ($vendedor !== null)) {
         $objAcomp = new c_contas_acompanhamento;
-        $letraAcomp = $dataIni.'|'.$dataFim.'|'.$vendedor.'|'.''.'|'.$pedido;
+        $letraAcomp = $dataIni.'|'.$dataFim.'|'.$vendedor.'|'.''.'|'.'';
         $resultAcomp = $objAcomp->select_pessoaConsultaAcompanhamento($letraAcomp);
     }
-    
+
+    $vendedorPainel = $vendedor;
+    if ($vertodoslancamentos !== true) {
+        $vendedorPainel = (string)$this->m_userid;
+    }
+    $objAcompPainel = new c_contas_acompanhamento;
+    $dataIniSug = $dataIni;
+    $dataFimSug = $dataFim;
+    if (strpos((string)$dataIniSug, "/")) {
+        $dataIniSug = c_date::convertDateBdSh($dataIniSug, $this->m_banco);
+    }
+    if (strpos((string)$dataFimSug, "/")) {
+        $dataFimSug = c_date::convertDateBdSh($dataFimSug, $this->m_banco);
+    }
+
+    $acompHoje = $objAcompPainel->select_acomp_painel_dashboard($vendedorPainel, 'hoje', $dataIniSug, $dataFimSug, $centroCusto, 200);
+    $acompAtrasados = $objAcompPainel->select_acomp_painel_dashboard($vendedorPainel, 'atrasados', $dataIniSug, $dataFimSug, $centroCusto, 200);
+    $acompProximos = $objAcompPainel->select_acomp_painel_dashboard($vendedorPainel, 'proximos', $dataIniSug, $dataFimSug, $centroCusto, 200);
+    $acompSugestoes = $objAcompPainel->select_sugestoes_acompanhamento($vendedorPainel, $centroCusto, $dataIniSug, $dataFimSug);
+
+    $this->smarty->assign('acompHoje', $acompHoje);
+    $this->smarty->assign('acompAtrasados', $acompAtrasados);
+    $this->smarty->assign('acompProximos', $acompProximos);
+    $this->smarty->assign('acompSugestoes', $acompSugestoes);
+    $this->smarty->assign('acompHojeCount', is_array($acompHoje) ? count($acompHoje) : 0);
+    $this->smarty->assign('acompAtrasadosCount', is_array($acompAtrasados) ? count($acompAtrasados) : 0);
+    $this->smarty->assign('acompProximosCount', is_array($acompProximos) ? count($acompProximos) : 0);
+    $this->smarty->assign('acompSugestoesCount', is_array($acompSugestoes) ? count($acompSugestoes) : 0);
 
     $this->smarty->assign('resultCot', $resultCot);
     $this->smarty->assign('resultAcomp', $resultAcomp);
@@ -390,6 +460,42 @@ public function acompanhamentos(){
     $this->smarty->assign('nomeCliente', "'$this->m_nomeCliente'");
     $this->smarty->display('dashboard.tpl');
 } //FIM ACOMPANHAMENTOS
+
+public function acompPainel()
+{
+    $vendedorPainel = $this->m_par[2] ?? '';
+    $vertodoslancamentos = $this->verificaDireitoUsuario('PEDVERTODOSLANCAMENTOS', 'S', 'N');
+    if ($vertodoslancamentos !== true) {
+        $vendedorPainel = (string)$this->m_userid;
+    }
+
+    $objAcompPainel = new c_contas_acompanhamento;
+    $dataIniSug = $this->m_par[0] ?? '';
+    $dataFimSug = $this->m_par[1] ?? '';
+    if (strpos((string)$dataIniSug, "/")) {
+        $dataIniSug = c_date::convertDateBdSh($dataIniSug, $this->m_banco);
+    }
+    if (strpos((string)$dataFimSug, "/")) {
+        $dataFimSug = c_date::convertDateBdSh($dataFimSug, $this->m_banco);
+    }
+    $centroCustoSug = $this->m_par[3] ?? '';
+
+    $acompHoje = $objAcompPainel->select_acomp_painel_dashboard($vendedorPainel, 'hoje', $dataIniSug, $dataFimSug, $centroCustoSug, 200);
+    $acompAtrasados = $objAcompPainel->select_acomp_painel_dashboard($vendedorPainel, 'atrasados', $dataIniSug, $dataFimSug, $centroCustoSug, 200);
+    $acompProximos = $objAcompPainel->select_acomp_painel_dashboard($vendedorPainel, 'proximos', $dataIniSug, $dataFimSug, $centroCustoSug, 200);
+    $acompSugestoes = $objAcompPainel->select_sugestoes_acompanhamento($vendedorPainel, $centroCustoSug, $dataIniSug, $dataFimSug);
+
+    $this->smarty->assign('acompHoje', $acompHoje);
+    $this->smarty->assign('acompAtrasados', $acompAtrasados);
+    $this->smarty->assign('acompProximos', $acompProximos);
+    $this->smarty->assign('acompSugestoes', $acompSugestoes);
+    $this->smarty->assign('acompHojeCount', is_array($acompHoje) ? count($acompHoje) : 0);
+    $this->smarty->assign('acompAtrasadosCount', is_array($acompAtrasados) ? count($acompAtrasados) : 0);
+    $this->smarty->assign('acompProximosCount', is_array($acompProximos) ? count($acompProximos) : 0);
+    $this->smarty->assign('acompSugestoesCount', is_array($acompSugestoes) ? count($acompSugestoes) : 0);
+
+    $this->smarty->display('dashboard.tpl');
+}
 
 } //FIM CLASSE
 

@@ -533,7 +533,10 @@
                             <div class="col-md-12 col-sm-12 col-xs-12">
                                 <label for="obs">Observações</label>
                                 <textarea class="resizable_textarea form-control input-sm" id="obs" name="obs"
-                                    rows="2">{$obs}</textarea>
+                                    rows="2" {if $situacao == 7}readonly{/if}>{$obs}</textarea>
+                                {if $situacao == 7 && $obsPerda neq ''}
+                                    <p class="help-block small text-muted">Observação da perda registrada no pedido.</p>
+                                {/if}
                             </div>
                         </div>
                         <div id="divTotal" class="form-group line-formated">
@@ -688,9 +691,10 @@
                                                 </div>
                                                 <div class="col-md-1 small col-sm-12 col-xs-12">
                                                     <label for="uniProduto">Unidade</label>
-                                                    <input class="form-control input-sm" type="text" id="uniProduto"
-                                                        maxlength="3" name="uniProduto" placeholder="Unidade"
-                                                        alt="Unidade" value={$uniProduto}>
+                                                    <select class="form-control input-sm" id="uniProduto"
+                                                        name="uniProduto" alt="Unidade">
+                                                        {html_options values=$uni_ids selected=$uniProduto output=$uni_names}
+                                                    </select>
                                                 </div>
 
                                             </div>
@@ -897,9 +901,10 @@
                                             </div>
                                             <div class="col-md-2 small col-sm-12 col-xs-12 has-feedback">
                                                 <label for="unidadeServico">Unidade</label>
-                                                <input class="form-control input-sm" type="text" id="unidadeServico"
-                                                    name="unidadeServico" placeholder="Unidade" alt="Unidade"
-                                                    value={$unidadeServico}>
+                                                <select class="form-control input-sm" id="unidadeServico"
+                                                    name="unidadeServico" alt="Unidade">
+                                                    {html_options values=$uni_ids selected=$unidadeServico output=$uni_names}
+                                                </select>
                                             </div>
 
                                         </div>

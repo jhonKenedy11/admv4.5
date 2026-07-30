@@ -107,7 +107,9 @@
                                 <div class="col-md-1 col-sm-6 col-xs-6 text-left">
                                     <label for="unidade">Unidade</label>
                                     <div class="panel panel-default">
-                                        <input class="form-control" type="text" name="unidade" value={$unidade} maxlength="3">
+                                        <select class="form-control" name="unidade" id="unidade">
+                                            {html_options values=$uni_ids selected=$unidade output=$uni_names}
+                                        </select>
                                     </div>
                                 </div>
                                 <div class="col-md-2 col-sm-6 col-xs-6  text-left">

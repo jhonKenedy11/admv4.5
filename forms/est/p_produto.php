@@ -914,6 +914,9 @@ class p_produto extends c_produto
         } else {
             $this->smarty->assign('uni', $this->getUni());
         }
+        $unidade_combo = $this->select_unidade_combo();
+        $this->smarty->assign('uni_ids', $unidade_combo['ids']);
+        $this->smarty->assign('uni_names', $unidade_combo['names']);
         $this->smarty->assign('uniFracionada', $this->getUniFracionada());
 
         // ANP

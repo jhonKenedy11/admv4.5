@@ -2331,6 +2331,10 @@ Class c_nota_fiscal_produto extends c_user {
                 return $this->rDesp;
         }
     }
+
+    public function setCclasstrib($cclasstrib) { $this->cclasstrib = $cclasstrib; }
+
+    public function getCclasstrib() { return $this->cclasstrib; }
     //############### FIM SETS E GETS ###############
 
 //---------------------------------------------------------------
@@ -2420,7 +2424,7 @@ Class c_nota_fiscal_produto extends c_user {
         $this->setValorIcmsUfRemet($notaFiscal[0]['VALORICMSUFREMET']);
         $this->setRFreteProd($notaFiscal[0]['FRETE']);
         $this->setRDespProd($notaFiscal[0]['DESPACESSORIAS']);
-
+        $this->setCclasstrib($notaFiscal[0]['CCLASSTRIB']);
         $this->setValorIcmsStRetido($notaFiscal[0]['VALORICMSSTRETIDO']);
         $this->setValorIcmsSubstituto($notaFiscal[0]['VICMSSUBSTITUTO']);
         $this->setValorBaseCalculoStRetido($notaFiscal[0]['VALORBCSTRETIDO']);
@@ -2593,7 +2597,7 @@ Class c_nota_fiscal_produto extends c_user {
 		$sql .= "PERCMVAST, PERCREDUCAOBCST, BCFCPST, ALIQFCPST, VALORFCPST, VALORICMSDIFERIDO, ";
         $sql .= "BCCOFINS, ALIQCOFINS, VALORCOFINS, QUANTBCPRODCOFINS, CUSTOPRODUTO, NCM, CEST, NRSERIE, LOTE, BCFCPUFDEST, ALIQFCPUFDEST, ";
         $sql .= "VALORFCPUFDEST, BCICMSUFDEST, ALIQICMSUFDEST, ALIQICMSINTER, ALIQICMSINTERPART, VALORICMSUFDEST, ";
-        $sql .= "VALORICMSUFREMET, VALORBCST, VALORICMSST, VALORTOTALTRIBUTOS, VBCII, VDESPAU, VII, VIOF, ALIQICMSST, MODBCST, PCREDSN, VCREDICMSSN, PST, CSTCOFINS, DATAFABRICACAO, DATAVALIDADE, ";
+        $sql .= "VALORICMSUFREMET, VALORBCST, VALORICMSST, VALORTOTALTRIBUTOS, VBCII, VDESPAU, VII, VIOF, ALIQICMSST, MODBCST, PCREDSN, VCREDICMSSN, PST, CCLASSTRIB,CSTCOFINS, DATAFABRICACAO, DATAVALIDADE, ";
 		$sql .= "DATAGARANTIA, ORDEM, NITEMPED, PROJETO, DATACONFERENCIA, CBENEF, FRETE, CODIGONOTA, VALORICMSOPERACAO, VALORBCSTRETIDO, VALORICMSSTRETIDO, VICMSSUBSTITUTO, DESPACESSORIAS) ";
 
         if ($banco->gerenciadorDB == 'interbase') {
@@ -2671,7 +2675,8 @@ Class c_nota_fiscal_produto extends c_user {
                 . $this->getModBcSt() . "', '"                       
                 . $this->getPCredSN('B') . "', '"                        
                 . $this->getVCredICMSSN('B') . "', "
-                . $this->getPSt('B') . ", ";
+                . $this->getPSt('B') . ", '"
+                . $this->getCclasstrib() . "', ";
 
         if ($this->getCstCofins() == ''):
             $sql .= "null, ";

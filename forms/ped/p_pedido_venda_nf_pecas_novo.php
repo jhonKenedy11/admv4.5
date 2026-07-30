@@ -647,6 +647,7 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
 
                             $objNfProduto->setCodigoNota($arrItemPedido[$i]['CODIGONOTA']);
                             $objNfProduto->setDespAcessorias($arrItemPedido[$i]['DESPACESSORIAS'], true);
+                            $objNfProduto->setCclasstrib($arrItemPedido[$i]['CCLASSTRIB']);
 
                             $result = $objNfProduto->incluiNotaFiscalProduto($transaction->id_connection);
                             // verificar inclusao item

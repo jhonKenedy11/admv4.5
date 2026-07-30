@@ -175,10 +175,11 @@
                                             value={$desc}>
                                     </div>
 
-                                    <div class="col-md-1 col-sm-12 col-xs-12">
+                                    <div class="col-md-2 col-sm-12 col-xs-12">
                                         <label for="uni">Unidade</label>
-                                        <input class="form-control" type="text" name="uni" tabindex="2"
-                                            style="padding: 10px;" maxlength="3" placeholder="Ex.:UN" value={$uni}>
+                                        <select class="js-example-basic-single form-control" name="uni" id="uni" tabindex="2">
+                                            {html_options values=$uni_ids selected=$uni output=$uni_names}
+                                        </select>
                                     </div>
 
                                     <div class="col-md-2 col-sm-6 col-xs-6">

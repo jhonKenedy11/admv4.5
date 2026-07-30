@@ -881,7 +881,7 @@ class c_nota_fiscal extends c_user
         $sql .= "FROM est_nota_fiscal ";
         $sql .= "WHERE (CENTROCUSTO=" . $cc . ") ";
         $sql .= "AND ((TIPO=1) ";
-        $sql .= "OR (TIPO=0 AND ORIGEM='NFE' AND FINALIDADEEMISSAO IN (3, 4) ";
+        $sql .= "OR (TIPO=0 AND ORIGEM='NFE' AND FINALIDADEEMISSAO IN (3, 4, 5, 6) ";
         $sql .= "AND CHNFE IS NOT NULL AND CHNFE<>'' ";
         $sql .= "AND SUBSTR(CHNFE,4,14)=(SELECT CNPJ FROM AMB_EMPRESA WHERE CENTROCUSTO=" . $cc . " LIMIT 1))) ";
         $sql .= "AND (MODELO=" . $modelo . ") AND (SERIE=" . $serie . ") AND (numero=" . $num . ") ";
@@ -1452,7 +1452,7 @@ class c_nota_fiscal extends c_user
             $sql .= $msg->retEvento->infEvento->nProt . "', '";
             $sql .= $msg->retEvento->infEvento->verAplic . "', '";
             $sql .= $msg->retEvento->infEvento->cStat . "', '";
-            
+
             // Obtém o XML do evento se disponível e escapa corretamente
             $xmlEvento = '';
             if (isset($msg->retEvento->infEvento->XML) && !empty($msg->retEvento->infEvento->XML)) {
@@ -2797,18 +2797,18 @@ class c_nota_fiscal extends c_user
         $banco = new c_banco();
         $banco->exec_sql($sql);
         $resultado = $banco->resultado;
-        
+
         if (!empty($resultado) && !empty($resultado[0]['OS']) && $resultado[0]['OS'] != '0') {
             $idOS = $resultado[0]['OS'];
-            
+
             // Atualiza situação da OS para 2 (Em atendimento)
             $sqlUpdate = "UPDATE CAT_ATENDIMENTO SET CAT_SITUACAO_ID = 2 WHERE ID = " . $idOS;
             $banco->exec_sql($sqlUpdate);
             $banco->close_connection();
-            
+
             return true;
         }
-        
+
         $banco->close_connection();
         return false;
     }
@@ -2820,12 +2820,13 @@ class c_nota_fiscal extends c_user
      * @param int $pessoa ID da pessoa/cliente
      * @return void
      */
-    function enviaNotaBoleto(int $id_nota_fiscal, string $numero_nota_fiscal, string $numero_pedido, int $pessoa): void {
+    function enviaNotaBoleto(int $id_nota_fiscal, string $numero_nota_fiscal, string $numero_pedido, int $pessoa): void
+    {
 
         try {
 
-            if(!$this->sessaoValida()){
-                c_api_response::failure('Sessão inválida', [ 'Sessão inválida' ]);
+            if (!$this->sessaoValida()) {
+                c_api_response::failure('Sessão inválida', ['Sessão inválida']);
                 return;
             }
 
@@ -2855,11 +2856,10 @@ class c_nota_fiscal extends c_user
 
             // envia resposta de sucesso
             c_api_response::success($resultado['mensagem'] ?? 'Email enviado com sucesso', $response);
-
         } catch (Exception $e) {
             // cria array de resposta
             // envia resposta de erro
-            c_api_response::failure('Erro ao enviar email', [ $e->getMessage() ]);
+            c_api_response::failure('Erro ao enviar email', [$e->getMessage()]);
         }
     }
 
@@ -2874,7 +2874,6 @@ class c_nota_fiscal extends c_user
         $session = json_decode($_SESSION['user_array'] ?? '[]', true);
         return isset($session[0]) && $session[0] !== '';
     }
-
 }
 
 //	END OF THE CLASS

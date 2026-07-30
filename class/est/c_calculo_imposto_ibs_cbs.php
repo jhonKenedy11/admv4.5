@@ -104,7 +104,7 @@ Class c_calculo_imposto_ibs_cbs {
                 'uf_dest' => $dados['uf_dest'],
                 'mun_dest' => $dados['mun_dest'],
                 'pessoa' => $dados['pessoa'],
-                'cclasstrib' => $dados['id_c_class_trib'],
+                'cclasstrib' => $c_class_trib_infos['CCLASSTRIB'],
                 'ncm' => $dados['ncm'],
             ];
 
@@ -116,70 +116,76 @@ Class c_calculo_imposto_ibs_cbs {
             $aliquota_cbs           = floatval($tributos['ALIQUOTA_CBS'] ?? 0);
 
 
-            // ADD
-            $valor_produto = floatval($dados['valor_produto']) ?? 0;
-            $valor_servico = floatval($dados['valor_servico']) ?? 0;
-            $valor_frete   = floatval($dados['valor_frete']) ?? 0;
-            $valor_seguro  = floatval($dados['valor_seguro']) ?? 0;
-            $valor_outro   = floatval($dados['valor_outro']) ?? 0;
-            $valor_ii      = floatval($dados['valor_ii']) ?? 0;
+            // 1. FORMAÇÃO DA BASE DE CÁLCULO (Regra UB16-10)
+            // ATENÇÃO: Se indSomaPISST=1 ou indSomaCOFINSST=1, PIS/COFINS-ST não são deduzidos (Implementação Futura)
+            $vSomas = ($dados['valor_produto'] ?? 0) +
+                      ($dados['valor_servico'] ?? 0) +
+                      ($dados['valor_frete']   ?? 0) +
+                      ($dados['valor_seguro']  ?? 0) +
+                      ($dados['valor_outro']   ?? 0) +
+                      ($dados['valor_ii']      ?? 0);
 
-            // SUB
-            $valor_desc         = floatval($dados['valor_desc']) ?? 0;
-            $valor_pis          = floatval($dados['valor_pis']) ?? 0;
-            $valor_cofins       = floatval($dados['valor_cofins']) ?? 0;
-            $valor_icms         = floatval($dados['valor_icms']) ?? 0;
-            $valor_icms_uf_dest = floatval($dados['valor_icms_uf_dest']) ?? 0;
-            $valor_fcp          = floatval($dados['valor_fcp']) ?? 0;
-            $valor_fcp_uf_dest  = floatval($dados['valor_fcp_uf_dest']) ?? 0;
-            $valor_icms_mono    = floatval($dados['valor_icms_mono']) ?? 0;
-            $valor_issqn        = floatval($dados['valor_issqn']) ?? 0;
+            $vDeducoes = ($dados['valor_desc']         ?? 0) +
+                         ($dados['valor_pis']          ?? 0) +
+                         ($dados['valor_cofins']       ?? 0) +
+                         ($dados['valor_icms']         ?? 0) +
+                         ($dados['valor_icms_uf_dest'] ?? 0) +
+                         ($dados['valor_fcp']          ?? 0) +
+                         ($dados['valor_fcp_uf_dest']  ?? 0) +
+                         ($dados['valor_icms_mono']    ?? 0) +
+                         ($dados['valor_issqn']        ?? 0);
 
+            $vBC = round($vSomas - $vDeducoes, 2);
 
-            // Somatorio dos valores
-            $somatario_valor_base_calculo = $valor_produto + 
-                                    $valor_servico + 
-                                    $valor_frete + 
-                                    $valor_seguro + 
-                                    $valor_outro + 
-                                    $valor_ii;
-            
-            // Subtracao dos valores e totalizacao
-            $valor_bc = $somatario_valor_base_calculo - 
-                        $valor_desc - 
-                        $valor_pis - 
-                        $valor_cofins - 
-                        $valor_icms - 
-                        $valor_icms_uf_dest - 
-                        $valor_fcp - 
-                        $valor_fcp_uf_dest - 
-                        $valor_icms_mono - 
-                        $valor_issqn;
+            // 2. ALÍQUOTAS DE TRANSIÇÃO 2025/2026 (Regras UB18-10, UB37-10, UB56-10)
+            $pIBSUF  = 0.1;
+            $pIBSMun = 0.0;
+            $pCBS    = 0.9;
 
-            // Calculo do IBS Municipal
-            $valor_ibs_municipal = $valor_bc * $aliquota_ibs_municipal / 100;
+            // 3. CÁLCULO DOS TRIBUTOS com dedução de Diferimentos
+            // IBS Estadual (Regra UB35-10)
+            $vDifUF     = $dados['valor_dif_uf']      ?? 0.0;
+            $vDevTribUF = $dados['valor_dev_trib_uf'] ?? 0.0;
+            $vIBSUF     = round(($vBC * ($pIBSUF / 100)) - $vDifUF - $vDevTribUF, 2);
 
-            // Calculo do IBS Estadual
-            $valor_ibs_estadual = $valor_bc * $aliquota_ibs_estadual / 100;
+            // IBS Municipal (Regra UB54-10)
+            $vDifMun     = $dados['valor_dif_mun']      ?? 0.0;
+            $vDevTribMun = $dados['valor_dev_trib_mun'] ?? 0.0;
+            $vIBSMun     = round(($vBC * ($pIBSMun / 100)) - $vDifMun - $vDevTribMun, 2);
 
-            // Calculo do CBS
-            $valor_cbs = $valor_bc * $aliquota_cbs / 100;
+            // Total IBS do Item (Regra UB54a-10)
+            $vCredPresIBS = $dados['valor_cred_pres_ibs'] ?? 0.0;
+            $vIBS         = round($vIBSUF + $vIBSMun - $vCredPresIBS, 2);
 
+            // CBS (Regra UB67-10)
+            $vDifCBS     = $dados['valor_dif_cbs']      ?? 0.0;
+            $vDevTribCBS = $dados['valor_dev_trib_cbs'] ?? 0.0;
+            $vCBS        = round(($vBC * ($pCBS / 100)) - $vDifCBS - $vDevTribCBS, 2);
 
-            $array_return = [
-                'flags_class_trib' => $flags_class_trib,
-                'flags_cst' => $flags_cst,
-                'valor_bc' => $valor_bc,
-                'valor_ibs_municipal' => $valor_ibs_municipal,
-                'valor_ibs_estadual' => $valor_ibs_estadual,
-                'valor_cbs' => $valor_cbs,
-                'aliquota_ibs_municipal' => $aliquota_ibs_municipal,
-                'aliquota_ibs_estadual' => $aliquota_ibs_estadual,
-                'aliquota_cbs' => $aliquota_cbs,
-                'c_class_trib' => $c_class_trib_infos,
+            // 4. RETORNO — chaves legadas (consumidas em p_nfephp_40.php) + chaves NF-e 4.0
+            return [
+                // Chaves legadas — compatibilidade com p_nfephp_40.php
+                'flags_class_trib'       => $flags_class_trib,
+                'flags_cst'              => $flags_cst,
+                'c_class_trib'           => $c_class_trib_infos,
+                'valor_bc'               => $vBC,
+                'valor_ibs_municipal'    => $vIBSMun,
+                'valor_ibs_estadual'     => $vIBSUF,
+                'valor_cbs'              => $vCBS,
+                'aliquota_ibs_municipal' => $pIBSMun,
+                'aliquota_ibs_estadual'  => $pIBSUF,
+                'aliquota_cbs'           => $pCBS,
+                // Chaves NF-e 4.0 (nomenclatura do schema)
+                'status'  => true,
+                'vBC'     => $vBC,
+                'pIBSUF'  => $pIBSUF,
+                'vIBSUF'  => $vIBSUF,
+                'pIBSMun' => $pIBSMun,
+                'vIBSMun' => $vIBSMun,
+                'vIBS'    => $vIBS,
+                'pCBS'    => $pCBS,
+                'vCBS'    => $vCBS,
             ];
-
-            return $array_return;
 
         } catch (Exception $e) {
             return array(
@@ -290,16 +296,17 @@ Class c_calculo_imposto_ibs_cbs {
                 ]
             ],
 
-            'IND_G_MONO_DIF' => [
-                "grupo" => "gMonoDif", 
-                "campo" => [
-                    "pDifIBS",
-                    "vIBSMonoDif",
-                    "pDifCBS",
-                    "vTotIBSMonoItem",
-                    "vTotCBSMonoItem"
-                ]
-            ],
+            // Descontinuado 
+            // 'IND_G_MONO_DIF' => [
+            //     "grupo" => "gMonoDif", 
+            //     "campo" => [
+            //         "pDifIBS",
+            //         "vIBSMonoDif",
+            //         "pDifCBS",
+            //         "vTotIBSMonoItem",
+            //         "vTotCBSMonoItem"
+            //     ]
+            // ],
 
             'IND_G_ESTORNO_CRED' => [
                 "grupo" => "gEstornoCred", 
@@ -327,7 +334,7 @@ Class c_calculo_imposto_ibs_cbs {
 
     /**
      * Função para obter os dados do tributo IBS/CBS
-     * @param int $id
+     * @param array $dados
      * @return array
      */
     function getEstNaturezaOperacaoTributoIbsCbs($dados)
@@ -337,48 +344,35 @@ Class c_calculo_imposto_ibs_cbs {
         $sql = "SELECT * FROM EST_NATUREZA_OPERACAO_TRIBUTO_IBS_CBS WHERE 1=1";
         $params = [];
 
-        if(!empty($dados['uf_dest']) && 
-        !empty($dados['mun_dest']) && 
-        !empty($dados['pessoa']) && 
-        !empty($dados['ncm']) && 
-        !empty($dados['cclasstrib']))
-        {
-        
-            if (!empty($dados['uf_dest'])) {
-                $sql .= " AND UF_DEST = :uf_dest";
-                $params[':uf_dest'] = [$dados['uf_dest'], PDO::PARAM_STR];
-            }
-
-            if (!empty($dados['mun_dest'])) {
-                $sql .= " AND MUN_DEST = :mun_dest";
-                $params[':mun_dest'] = [$dados['mun_dest'], PDO::PARAM_STR];
-            }
-        
-        
-            if (!empty($dados['pessoa'])) {
-                $sql .= " AND TIPO_PESSOA = :pessoa";
-                $params[':pessoa'] = [$dados['pessoa'], PDO::PARAM_STR];
-            }
-        
-            if (!empty($dados['cclasstrib'])) {
-                $sql .= " AND CCLASSTRIB = :cclasstrib";
-                $params[':cclasstrib'] = [$dados['cclasstrib'], PDO::PARAM_STR];
-            }
-        
-            if (!empty($dados['ncm'])) {
-                $sql .= " AND NCM = :ncm";
-                $params[':ncm'] = [$dados['ncm'], PDO::PARAM_STR];
-            }
-
-        } else {
-
-            $sql .= " AND ID_EST_NAT_OP = :id_est_nat_op";
-            $params[':id_est_nat_op'] = [$dados['id_natureza_operacao'], PDO::PARAM_INT];
-
+        if (!empty($dados['uf_dest'])) {
+            $sql .= " AND UF_DEST = :uf_dest";
+            $params[':uf_dest'] = [$dados['uf_dest'], PDO::PARAM_STR];
         }
 
+        // if (!empty($dados['mun_dest'])) {
+        //     $sql .= " AND MUN_DEST = :mun_dest";
+        //     $params[':mun_dest'] = [$dados['mun_dest'], PDO::PARAM_STR];
+        // }
 
+        if (!empty($dados['pessoa'])) {
+            $sql .= " AND TIPO_PESSOA = :pessoa";
+            $params[':pessoa'] = [$dados['pessoa'], PDO::PARAM_STR];
+        }
 
+        if (!empty($dados['cclasstrib'])) {
+            $sql .= " AND CCLASSTRIB = :cclasstrib";
+            $params[':cclasstrib'] = [$dados['cclasstrib'], PDO::PARAM_STR];
+        }
+
+        // if (!empty($dados['ncm'])) {
+        //     $sql .= " AND NCM = :ncm";
+        //     $params[':ncm'] = [$dados['ncm'], PDO::PARAM_STR];
+        // }
+
+        if (!empty($dados['id_natureza_operacao'])) {
+            $sql .= " AND ID_EST_NAT_OP = :id_est_nat_op";
+            $params[':id_est_nat_op'] = [$dados['id_natureza_operacao'], PDO::PARAM_INT];
+        }
     
         $banco->prepare($sql);
     
@@ -391,8 +385,9 @@ Class c_calculo_imposto_ibs_cbs {
         if ($banco->rowCount() > 0) {
             return $banco->fetch(PDO::FETCH_ASSOC);
         }
-    
-        throw new Exception("Não foi possível encontrar os dados do tributo IBS/CBS");
+
+        $error = $banco->errorInfo();
+        throw new Exception("Não foi possível encontrar os dados do tributo IBS/CBS ". $error[2]);
     }
     
 
@@ -415,7 +410,11 @@ Class c_calculo_imposto_ibs_cbs {
                                 IND_G_MONO_PADRAO,
                                 IND_G_MONO_RETEN,
                                 IND_G_MONO_RET,
-                                IND_G_MONO_DIF,
+                                TP_RBSN,
+                                IND_DIR,
+                                IND_DUIMP,
+                                IND_DUIMP,
+                                IND_GP_BIO_DIFERENCA,
                                 IND_G_ESTORNO_CRED
                                 FROM EST_CCLASS_TRIB 
                                 WHERE ID = :id");

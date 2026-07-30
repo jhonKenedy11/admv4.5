@@ -30,33 +30,21 @@
     }
 
     .btnAcao {
-        height: 30px !important;
+        height: 26px !important;
+        width: 26px !important;
+        padding: 2px 0 !important;
     }
 
-    .btnAcaoText {
-        padding-top: 2px !important;
-        line-height: 0px !important;
+    .btnAcao .glyphicon {
+        font-size: 12px;
+    }
+
+    .acoesManifesto {
+        white-space: nowrap;
     }
 
     .swal-modal {
         width: 562px !important;
-    }
-
-    .input-container {
-        display: none;
-        animation: fade 0.3s ease-in-out;
-    }
-
-    @keyframes fade {
-        0% {
-            opacity: 0;
-            transform: translateY(-5px);
-        }
-
-        100% {
-            opacity: 1;
-            transform: translateY(0);
-        }
     }
 
     .lds-ring {
@@ -230,7 +218,7 @@
                                 <th>
                                     <center>Xml</center>
                                 </th>
-                                <th style="width:145px;">
+                                <th style="width:120px;">
                                     <center>Ação</center>
                                 </th>
 
@@ -248,26 +236,42 @@
                                     <td> {$lanc[i].TOTALNF|number_format:2:",":"."} </td>
                                     <td>
                                         <center>
-                                            <button type="button" title="Autoriza NFe"
+                                            {if $lanc[i].xml == 'TRUE'}
+                                            <button type="button" title="Download XML (disponível)"
+                                                class="btn btn-success btn-xs downloadXml"
+                                                onclick="javascript:submitDownloadXmlExiste('{$lanc[i].ID}');">
+                                                <span class="glyphicon glyphicon-save-file" aria-hidden="true"></span>
+                                            </button>
+                                            {else}
+                                            <button type="button" title="Download XML"
                                                 class="btn btn-info btn-xs downloadXml"
                                                 onclick="javascript:submitDownloadXmlExiste('{$lanc[i].ID}');">
                                                 <span class="glyphicon glyphicon-save-file" aria-hidden="true"></span>
                                             </button>
+                                            {/if}
                                         </center>
                                     </td>
 
                                     <td>
-                                        <center>
-                                            <button type="button" style="padding: 4px;" class="btn btn-success btnAcao"
+                                        <center class="acoesManifesto">
+                                            <button type="button" title="Confirmação da operação"
+                                                class="btn btn-success btn-xs btnAcao"
                                                 {if $lanc[i].SITUACAO !== 'NP'} disabled {/if}
                                                 onclick="javascript:submitEnviaEvento('{$lanc[i].ID}', 'confirma');">
-                                                <span class="btnAcaoText">Confirma</span>
+                                                <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
                                             </button>
-                                            <button type="button" style="padding: 4px;" class="btn btn-danger btnAcao"
-                                                disabled data-toggle="modal" data-target="#modalCancel">
-                                                <span class="btnAcaoText">Cancela</span>
+                                            <button type="button" title="Desconhecimento da operação"
+                                                class="btn btn-warning btn-xs btnAcao"
+                                                {if $lanc[i].SITUACAO !== 'NP'} disabled {/if}
+                                                onclick="javascript:submitEnviaEvento('{$lanc[i].ID}', 'desconhecimento');">
+                                                <span class="glyphicon glyphicon-question-sign" aria-hidden="true"></span>
                                             </button>
-
+                                            <button type="button" title="Operação não realizada"
+                                                class="btn btn-danger btn-xs btnAcao"
+                                                {if $lanc[i].SITUACAO !== 'NP'} disabled {/if}
+                                                onclick="javascript:submitOperacaoNaoRealizada('{$lanc[i].ID}');">
+                                                <span class="glyphicon glyphicon-remove-sign" aria-hidden="true"></span>
+                                            </button>
                                         </center>
                                     </td>
                                 </tr>
@@ -282,45 +286,6 @@
 
         </div> <!-- div class="x_panel" = painel principal-->
 
-        <div class="modal fade" id="modalCancel" role="dialog">
-            <div class="modal-dialog modal-md">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <button type="button" class="close" data-dismiss="modal">&times;</button>
-                        <h4 class="modal-title">Atualiza produto</h4>
-                    </div>
-                    <div class="modal-body">
-                        <div class="container-fluid">
-                            <div class="row">
-                                <div class="col-md-12" style="text-align: center;">
-                                    <button type="button" class="btn btn-danger" onclick="submitCienciaEmissao()">
-                                        Desconhecimento da operação
-                                    </button>
-                                    <button type="button" class="btn btn-danger" onclick="toggleInput()">
-                                        Operação não realizada
-                                    </button>
-
-                                    <div id="textInputContainer" class="input-container">
-                                        <textarea class="resizable_textarea form-control input-sm" id="obs" name="obs"
-                                            rows="2"></textarea>
-                                        <br />
-                                        <div>
-                                            <button type="button" class="btn btn-info" onclick="toggleInput()">
-                                                Confirma
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-default" data-dismiss="modal">Fechar</button>
-                    </div>
-                </div>
-            </div>
-        </div> {* class="modal fade"*}
     </div> {*class="row"*}
 </div> {*class="geral"*}
 </div> {*class="right_col"*}

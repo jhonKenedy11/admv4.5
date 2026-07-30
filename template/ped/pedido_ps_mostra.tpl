@@ -28,7 +28,7 @@
                         <h2>Consulta pedidos
                             <strong>
                                 {if $mensagem neq ''}
-                                    <div class="alert alert-success" role="alert">&nbsp;{$mensagem}</div>
+                                    <div class="alert {if $tipoMsg eq 'alerta'}alert-warning{else}alert-success{/if}" role="alert">&nbsp;{$mensagem}</div>
                                 {/if}
                             </strong>
                         </h2>
@@ -268,7 +268,33 @@
 
                         </div>
                         <!-- end of accordion  -->
-                    </div> 
+                    </div>
+
+                    <div class="modal fade" id="modalVendaPerdida" role="dialog">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-body">
+                                    <div class="col-md-12 col-sm-12 col-xs-12">
+                                        <input hidden type="text" name="cotacao" id="cotacao" value="">
+                                        <label>Motivo</label>
+                                        <div class="panel panel-default small">
+                                            <select name="motivoPerdido" id="motivoPerdido" class="form-control">
+                                                {html_options values=$motivo_ids output=$motivo_names selected=$motivo_id}
+                                            </select>
+                                        </div>
+                                        <label for="obsPerda">Observação da perda</label>
+                                        <textarea name="obsPerda" id="obsPerda" class="form-control" rows="3"
+                                            placeholder="Informe o detalhe ou observação da perda do pedido (opcional)"></textarea>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-primary" data-dismiss="modal"
+                                        onClick="javascript:salvarMotivoNoPedido(cotacao.value);">Salvar</button>
+                                    <button type="button" class="btn btn-default" data-dismiss="modal">Fechar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
 
                 </div> <!-- div class="x_content" = inicio tabela -->
@@ -310,10 +336,19 @@
                                     <td style="text-align:center"> {$lanc[i].TOTAL|number_format:2:",":"."} </td>
                                     <td style="text-align:center">
                                         <button type="submit" class="btn btn-primary btn-xs"
+                                            {if $lanc[i].SITUACAO == 7}disabled{/if}
                                             onclick="javascript:submitAlterar('{$lanc[i].ID}', '{$lanc[i].SITUACAO}', '{$lanc[i].CLIENTE}');"><span
                                                 class="glyphicon glyphicon-pencil" aria-hidden="true"
                                                 data-toggle="tooltip" title="Editar"></span></button>
+                                        {if $lanc[i].SITUACAO == 5}
+                                            <button type="button" class="btn btn-danger btn-xs" data-toggle="modal"
+                                                data-target="#modalVendaPerdida"
+                                                onclick="vendaPerdida({$lanc[i].ID})"><span
+                                                    class="glyphicon glyphicon-alert" aria-hidden="true"
+                                                    data-toggle="tooltip" title="Venda Perdida"></span></button>
+                                        {/if}
                                         <button type="button" class="btn btn-danger btn-xs"
+                                            {if $lanc[i].SITUACAO == 7}disabled{/if}
                                             onclick="javascript:submitCancelar('{$lanc[i].ID}');"><span
                                                 class="glyphicon glyphicon-remove" aria-hidden="true"
                                                 data-toggle="tooltip" title="Cancelar"></span></button>

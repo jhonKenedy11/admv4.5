@@ -261,6 +261,8 @@ Class c_contas_acompanhamento extends c_user {
         $this->setOrigem($acompanhamento[0]['ORIGEM']);
         $this->setDestino($acompanhamento[0]['DESTINO']);
         $this->setKM($acompanhamento[0]['KM']);
+        $stA = $acompanhamento[0]['STATUS'] ?? $acompanhamento[0]['status'] ?? 'A';
+        $this->setStatus($stA);
     } // buscaCadastroAcompanhamento
 
     /**
@@ -276,17 +278,17 @@ Class c_contas_acompanhamento extends c_user {
         $par[0] = c_date::convertDateBdSh($par[0], $this->m_banco);
         $par[1] = c_date::convertDateBdSh($par[1], $this->m_banco);
 
-        $sql = "SELECT a.data, a.atividade,a.RESULTADO, f.descricao, a.ID, a.ligardia, c.cliente, c.nomereduzido, u.nomereduzido as vendedor, a.pedido_id ";
-        $sql .= "FROM fin_cliente c ";
-        $sql .= "inner join fin_cliente_acomp a on c.cliente = a.pessoa ";
-        $sql .= "inner join fat_atividade_acomp f on f.atividade = a.atividade ";
-        $sql .= "left join amb_usuario u on u.usuario = a.usrvendedor ";
+        $sql = "SELECT a.data, a.atividade,a.RESULTADO, f.descricao, a.ID, a.ligardia, a.status AS STATUS, c.cliente, c.nomereduzido, u.nomereduzido as vendedor, a.pedido_id ";
+        $sql .= "FROM FIN_CLIENTE c ";
+        $sql .= "inner join FIN_CLIENTE_ACOMP a on c.cliente = a.pessoa ";
+        $sql .= "inner join FAT_ATIVIDADE_ACOMP f on f.atividade = a.atividade ";
+        $sql .= "left join AMB_USUARIO u on u.usuario = a.usrvendedor ";
         $sql .= " ";
         $count = "SELECT u.nomereduzido, count(u.nomereduzido) as count ";
-        $count .= "FROM fin_cliente c ";
-        $count .= "inner join fin_cliente_acomp a on c.cliente = a.pessoa";
-        $count .= "inner join fat_atividade_acomp f on f.atividade = a.atividade ";
-        $count .= "left join amb_usuario u on u.usuario = a.usrvendedor ";
+        $count .= "FROM FIN_CLIENTE c ";
+        $count .= "inner join FIN_CLIENTE_ACOMP a on c.cliente = a.pessoa";
+        $count .= "inner join FAT_ATIVIDADE_ACOMP f on f.atividade = a.atividade ";
+        $count .= "left join AMB_USUARIO u on u.usuario = a.usrvendedor ";
         $count .= " ";
 
         $where = "";
@@ -338,6 +340,152 @@ Class c_contas_acompanhamento extends c_user {
     }// select_pessoaConsultaAcompanhamento
 
     /**
+     * Painel do dashboard (baseado em LIGARDIA): hoje / atrasados / próximos.
+     */
+    public function select_acomp_painel_dashboard($vendedoresCsv, $grupo, $dataIniBd = null, $dataFimBd = null, $centroCustoCsv = null, $limit = 200)
+    {
+        $limit = (int)$limit;
+        if ($limit <= 0) {
+            $limit = 200;
+        }
+
+        $today = date('Y-m-d');
+        $todayStart = $today . " 00:00:00";
+        $todayEnd = $today . " 23:59:59";
+
+        $dataIniBd = trim((string)$dataIniBd);
+        $dataFimBd = trim((string)$dataFimBd);
+        $periodStart = ($dataIniBd !== '') ? ($dataIniBd . " 00:00:00") : null;
+        $periodEnd = ($dataFimBd !== '') ? ($dataFimBd . " 23:59:59") : null;
+
+        $sql = "SELECT a.data, a.atividade, a.resultado, f.descricao, a.id, a.ligardia, c.cliente, c.nomereduzido, u.nomereduzido as vendedor, a.pedido_id, e.nomefantasia as desccusto ";
+        $sql .= "FROM FIN_CLIENTE c ";
+        $sql .= "INNER JOIN FIN_CLIENTE_ACOMP a ON c.cliente = a.pessoa ";
+        $sql .= "INNER JOIN ( "
+            . "SELECT t.pessoa, t.usrvendedor, MAX(t.id) AS id "
+            . "FROM FIN_CLIENTE_ACOMP t "
+            . "INNER JOIN ( "
+            . "SELECT pessoa, usrvendedor, MAX(ligardia) AS ml "
+            . "FROM FIN_CLIENTE_ACOMP "
+            . "WHERE status IN ('A','1','2','3') AND ligardia IS NOT NULL "
+            . "GROUP BY pessoa, usrvendedor "
+            . ") m ON m.pessoa = t.pessoa AND m.usrvendedor = t.usrvendedor AND t.ligardia = m.ml "
+            . "WHERE t.status IN ('A','1','2','3') "
+            . "GROUP BY t.pessoa, t.usrvendedor "
+            . ") ult ON ult.id = a.id ";
+        $sql .= "INNER JOIN FAT_PEDIDO ped ON ped.id = a.pedido_id AND ped.situacao = 5 ";
+        $sql .= "INNER JOIN FAT_ATIVIDADE_ACOMP f ON f.atividade = a.atividade ";
+        $sql .= "LEFT JOIN AMB_USUARIO u ON u.usuario = a.usrvendedor ";
+        $sql .= "LEFT JOIN AMB_EMPRESA e ON ped.ccusto = e.centrocusto ";
+        $sql .= "WHERE 1=1 ";
+        $sql .= "AND (a.status IN ('A','1','2','3')) ";
+        $sql .= "AND (a.ligardia IS NOT NULL) ";
+        $sql .= "AND (ped.usrfatura = a.usrvendedor) ";
+
+        $vendedoresCsv = trim((string)$vendedoresCsv);
+        if ($vendedoresCsv !== '') {
+            $parts = array_filter(array_map('trim', explode(',', $vendedoresCsv)), static function ($v) {
+                return $v !== '';
+            });
+            $ids = array_values(array_unique(array_map('intval', $parts)));
+            if (count($ids) > 0) {
+                $sql .= "AND (ped.usrfatura IN (" . implode(',', $ids) . ")) ";
+            }
+        }
+
+        $centroCustoCsv = trim((string)$centroCustoCsv);
+        if ($centroCustoCsv !== '') {
+            $parts = array_filter(array_map('trim', explode(',', $centroCustoCsv)), static function ($v) {
+                return $v !== '';
+            });
+            $ids = array_values(array_unique(array_map('intval', $parts)));
+            if (count($ids) > 0) {
+                $sql .= "AND (ped.ccusto IN (" . implode(',', $ids) . ")) ";
+            }
+        }
+
+        if ($grupo === 'hoje') {
+            $sql .= "AND (a.ligardia BETWEEN '{$todayStart}' AND '{$todayEnd}') ";
+            $sql .= "ORDER BY a.ligardia DESC ";
+        } elseif ($grupo === 'atrasados') {
+            $sql .= "AND (a.ligardia < '{$todayStart}') ";
+            $sql .= "ORDER BY a.ligardia DESC ";
+        } else {
+            $tomorrowStart = date('Y-m-d', strtotime($today . ' +1 day')) . " 00:00:00";
+            $sql .= "AND (a.ligardia >= '{$tomorrowStart}') ";
+            if ($periodStart !== null) {
+                $sql .= "AND (a.ligardia >= '{$periodStart}') ";
+            }
+            if ($periodEnd !== null) {
+                $sql .= "AND (a.ligardia <= '{$periodEnd}') ";
+            }
+            $sql .= "ORDER BY a.ligardia DESC ";
+        }
+
+        $sql .= "LIMIT {$limit}";
+
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        return $banco->resultado;
+    }
+
+    /**
+     * Sugestões: cotações (situação 5) sem acompanhamento vinculado.
+     */
+    public function select_sugestoes_acompanhamento($vendedoresCsv, $centroCustoCsv = null, $dataIni = null, $dataFim = null)
+    {
+        $sql = "SELECT p.id, p.pedido as PEDIDO, p.cliente, c.nomereduzido, c.nome, c.cidade, c.uf, u.nomereduzido as vendedor, e.nomefantasia as desccusto ";
+        $sql .= "FROM FAT_PEDIDO p ";
+        $sql .= "INNER JOIN FIN_CLIENTE c ON c.cliente = p.cliente ";
+        $sql .= "LEFT JOIN AMB_USUARIO u ON u.usuario = p.usrfatura ";
+        $sql .= "LEFT JOIN AMB_EMPRESA e ON p.ccusto = e.centrocusto ";
+        $sql .= "WHERE (p.situacao = 5) AND (p.situacao <> 8) ";
+
+        $dataIni = trim((string)$dataIni);
+        $dataFim = trim((string)$dataFim);
+        if ($dataIni !== '') {
+            $sql .= "AND (p.emissao >= '{$dataIni}') ";
+        }
+        if ($dataFim !== '') {
+            $sql .= "AND (p.emissao <= '{$dataFim}') ";
+        }
+
+        $vendedoresCsv = trim((string)$vendedoresCsv);
+        if ($vendedoresCsv !== '') {
+            $parts = array_filter(array_map('trim', explode(',', $vendedoresCsv)), static function ($v) {
+                return $v !== '';
+            });
+            $ids = array_values(array_unique(array_map('intval', $parts)));
+            if (count($ids) > 0) {
+                $sql .= "AND (p.usrfatura IN (" . implode(',', $ids) . ")) ";
+            }
+        }
+
+        $centroCustoCsv = trim((string)$centroCustoCsv);
+        if ($centroCustoCsv !== '') {
+            $parts = array_filter(array_map('trim', explode(',', $centroCustoCsv)), static function ($v) {
+                return $v !== '';
+            });
+            $ids = array_values(array_unique(array_map('intval', $parts)));
+            if (count($ids) > 0) {
+                $sql .= "AND (p.ccusto IN (" . implode(',', $ids) . ")) ";
+            }
+        }
+
+        $sql .= "AND NOT EXISTS ( ";
+        $sql .= "  SELECT 1 FROM FIN_CLIENTE_ACOMP a ";
+        $sql .= "  WHERE a.pedido_id = p.id ";
+        $sql .= ") ";
+        $sql .= "ORDER BY p.emissao DESC ";
+
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        return $banco->resultado;
+    }
+
+    /**
      * Funcao para verificar dados a partir do codigo do cliente
      * @name select_pessoa
      * @param INT GetId Codigo do cliente
@@ -345,7 +493,7 @@ Class c_contas_acompanhamento extends c_user {
      */
     public function select_pessoa(){
         $sql  = "SELECT DISTINCT * ";
-        $sql .= "FROM fin_cliente ";
+        $sql .= "FROM FIN_CLIENTE ";
         $sql .= "WHERE (CLIENTE = ".$this->getPessoa().") ";
         //ECHO strtoupper($sql)."<BR>";
         $banco = new c_banco;
@@ -363,7 +511,7 @@ Class c_contas_acompanhamento extends c_user {
      */
     public function select_pessoaAcomp() {
         $sql = "SELECT * ";
-        $sql .= "FROM fin_cliente_acomp ";
+        $sql .= "FROM FIN_CLIENTE_ACOMP ";
         $sql .= "WHERE (id = " . $this->getId() . ") ";
         //echo strtoupper($sql);
         $banco = new c_banco;
@@ -379,9 +527,9 @@ Class c_contas_acompanhamento extends c_user {
     */
     public function select_pessoaAcomp_geral() {
         $sql = "SELECT c.*, a.descricao, u.nomereduzido ";
-        $sql .= "FROM fin_cliente_acomp c ";
-        $sql .= "left join amb_usuario u on u.usuario = c.usrvendedor ";
-        $sql .= "left join fat_atividade_acomp a on a.atividade = c.atividade ";
+        $sql .= "FROM FIN_CLIENTE_ACOMP c ";
+        $sql .= "left join AMB_USUARIO u on u.usuario = c.usrvendedor ";
+        $sql .= "left join FAT_ATIVIDADE_ACOMP a on a.atividade = c.atividade ";
         $sql .= "WHERE (c.id = " . $this->getId() . ") ";
         $sql .= "ORDER BY c.data desc ";
         //ECHO strtoupper($sql)."<BR>";
@@ -399,7 +547,7 @@ Class c_contas_acompanhamento extends c_user {
     public function incluiPessoaAcomp() {
         $proximoContato = $this->getProximoContato('B');
       
-        $sql = "INSERT INTO fin_cliente_acomp (pessoa, pedido_id, data, atividade, resultado, usrvendedor, ligardia, veiculo, origem, destino, km, userinsert, dateinsert, status) ";
+        $sql = "INSERT INTO FIN_CLIENTE_ACOMP (pessoa, pedido_id, data, atividade, resultado, usrvendedor, ligardia, veiculo, origem, destino, km, userinsert, dateinsert, status) ";
         $sql .= "VALUES (" . $this->getPessoa() . ", ";
 
         if($this->getIdPedido() == ''){
@@ -432,8 +580,8 @@ Class c_contas_acompanhamento extends c_user {
         }
                 //. $this->getUsrIC() . "', ";
         $statusIns = trim((string)($this->getStatus() ?? ''));
-        if ($statusIns === '' || !in_array($statusIns, ['1', '2', '3'], true)) {
-            $statusIns = '1';
+        if ($statusIns === '') {
+            $statusIns = 'A';
         }
         if($this->getDateInsert() == ''){
             $sql .= "NOW(), '" . $statusIns . "');";
@@ -459,7 +607,7 @@ Class c_contas_acompanhamento extends c_user {
     public function alteraPessoaAcomp() {
         $proximoContato = $this->getProximoContato('B');
 
-        $sql = "UPDATE fin_cliente_acomp ";
+        $sql = "UPDATE FIN_CLIENTE_ACOMP ";
         $sql .= "SET atividade = '" . $this->getAcao() . "', ";
         //data ctt
         // if($this->getDataContato() == ''){
@@ -494,12 +642,15 @@ Class c_contas_acompanhamento extends c_user {
         $sql .= "userchange = '" . $this->m_userid . "', ";
         //data atualizacao udpate
         if($this->getDateChange('B') == ''){
-            $sql .= "datechange = null, ";
+            $sql .= "datechange = null ";
         }else{
-            $sql .= "datechange = '" . $this->getDateChange('B') . "', ";
+            $sql .= "datechange = '" . $this->getDateChange('B') . "' ";
         }
 
-        $sql .= "status = '" . $this->getStatus() . "' ";
+        $statusAlt = trim((string)($this->getStatus() ?? ''));
+        if ($statusAlt !== '') {
+            $sql .= ", status = '" . $statusAlt . "' ";
+        }
         $sql .= "WHERE (id = " . $this->getId() . ") ";
         //echo strtoupper($sql);
         $banco = new c_banco;
@@ -518,7 +669,7 @@ Class c_contas_acompanhamento extends c_user {
      * @return string vazio se ocorrer com sucesso
      */
     public function excluiPessoaAcomp() {
-        $sql = "DELETE FROM fin_cliente_acomp ";
+        $sql = "DELETE FROM FIN_CLIENTE_ACOMP ";
         $sql .= "WHERE (id = " . $this->getId() . ") ";
         //echo strtoupper($sql);
         $banco = new c_banco;
@@ -530,6 +681,27 @@ Class c_contas_acompanhamento extends c_user {
             return 'Os dados de Pessoa Acompanhamento ' . $this->getId() . ' n&atilde;o foi excluido!';
         }
     }// excluiPessoaAcomp
+
+    /**
+     * Atualiza apenas o status do acompanhamento (ex.: B = baixado).
+     * @return array{ok: bool, msg?: string, status?: string}
+     */
+    public function atualizaStatusAcompPorId($id, $status = 'B') {
+        $id = (int)$id;
+        if ($id <= 0) {
+            return ['ok' => false, 'msg' => 'Acompanhamento inválido.'];
+        }
+        $status = addslashes(substr((string)$status, 0, 1));
+        $sql = "UPDATE FIN_CLIENTE_ACOMP SET status = '" . $status . "', userchange = '" . $this->m_userid . "', datechange = NOW() "
+            . "WHERE id = " . $id;
+        $banco = new c_banco;
+        $res = $banco->exec_sql($sql);
+        $banco->close_connection();
+        if ($res === false) {
+            return ['ok' => false, 'msg' => 'Falha ao atualizar acompanhamento.'];
+        }
+        return ['ok' => true, 'status' => $status];
+    }
 
     /**
      * Consulta para o Banco atraves do id
@@ -589,7 +761,7 @@ Class c_contas_acompanhamento extends c_user {
         }
 
 
-        $sql = "SELECT DATA FROM fin_cliente_acomp ";
+        $sql = "SELECT DATA FROM FIN_CLIENTE_ACOMP ";
         $sql .= "WHERE ATIVIDADE = 999 and RESULTADO = 'ENTREGA-BLOQUEADA' and ";
         $sql .= "DATA BETWEEN '".$primeiro_dia."' and '".$ultimo_dia. "';";
 

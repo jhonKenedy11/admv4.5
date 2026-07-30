@@ -629,7 +629,9 @@ MODIFY COLUMN `GENERO` varchar(6) NOT NULL;
 -- 37. ADICIONAR CAMPO CASASDECIMAIS NA TABELA FAT_PARAMETRO
 -- =====================================================
 ALTER TABLE `FAT_PARAMETRO` 
-ADD COLUMN `TIPODESCONTO` char(1) DEFAULT 'T' AFTER `LANCPEDBAIXADO`,
+ADD COLUMN `TIPODESCONTO` char(1) DEFAULT 'T' AFTER `LANCPEDBAIXADO`;
+
+ALTER TABLE `FAT_PARAMETRO` 
 ADD COLUMN `CASASDECIMAIS` int DEFAULT 4 NOT NULL AFTER `TIPODESCONTO`;
 
 
@@ -1207,5 +1209,160 @@ WHERE ALIAS = 'FAT_MENU'
 ALTER TABLE `EST_PARAMETRO`
 ADD COLUMN `GENERO_EXTRATO` varchar(10) DEFAULT NULL AFTER `GENERO`;
 
+-- 92. DIREITOS — PARÂMETROS PEDIDO, ESTOQUE E ORDEM DE SERVIÇO (AMB_FORM + grupo 999)
+-- =====================================================
+INSERT INTO `AMB_FORM` (`NOMEFORM`, `DESCRICAO`, `HELP`)
+SELECT 'PedParametros', 'PEDIDOS->ParametrosPedidos', NULL
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `AMB_FORM` WHERE `NOMEFORM` = 'PedParametros');
+
+INSERT INTO `AMB_FORM` (`NOMEFORM`, `DESCRICAO`, `HELP`)
+SELECT 'EstParametros', 'ESTOQUE->ParametrosEstoque', NULL
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `AMB_FORM` WHERE `NOMEFORM` = 'EstParametros');
+
+INSERT INTO `AMB_FORM` (`NOMEFORM`, `DESCRICAO`, `HELP`)
+SELECT 'CatParametros', 'ORDEMSERVICO->ParametrosOS', NULL
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `AMB_FORM` WHERE `NOMEFORM` = 'CatParametros');
+
+INSERT INTO `AMB_USUARIO_AUTORIZA` (`USUARIO`, `PROGRAMA`, `DIREITOS`)
+SELECT 999, 'PedParametros', 'IAECSR'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `AMB_USUARIO_AUTORIZA` WHERE `USUARIO` = 999 AND `PROGRAMA` = 'PedParametros');
+
+INSERT INTO `AMB_USUARIO_AUTORIZA` (`USUARIO`, `PROGRAMA`, `DIREITOS`)
+SELECT 999, 'EstParametros', 'IAECSR'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `AMB_USUARIO_AUTORIZA` WHERE `USUARIO` = 999 AND `PROGRAMA` = 'EstParametros');
+
+INSERT INTO `AMB_USUARIO_AUTORIZA` (`USUARIO`, `PROGRAMA`, `DIREITOS`)
+SELECT 999, 'CatParametros', 'IAECSR'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `AMB_USUARIO_AUTORIZA` WHERE `USUARIO` = 999 AND `PROGRAMA` = 'CatParametros');
+
+
+-- 93. DEVOLUÇÃO NF WIZARD - JUNHO-2026
+-- =====================================================
+INSERT INTO `AMB_FORM` (`NOMEFORM`, `DESCRICAO`, `HELP`)
+SELECT 'NotaFiscalDevolucao', 'Devolução de Nota Fiscal', 'Wizard de devolução de NF com tributos'
+WHERE NOT EXISTS (SELECT 1 FROM `AMB_FORM` WHERE `NOMEFORM` = 'NotaFiscalDevolucao');
+
+INSERT INTO `AMB_USUARIO_AUTORIZA` (`USUARIO`, `PROGRAMA`, `DIREITOS`)
+SELECT 999, 'NotaFiscalDevolucao', 'IAECSR'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `AMB_USUARIO_AUTORIZA` WHERE `USUARIO` = 999 AND `PROGRAMA` = 'NotaFiscalDevolucao');
+
+
+-- 94. FAT_PARAMETRO: tipo de comissao de vendas (Comissao de Vendas)
+-- =====================================================
+-- 1 = Faturamento (AMB_USUARIO.COMISSAOFATURA / situacoes 6,3,9)
+-- 2 = Recebimento (AMB_USUARIO.COMISSAORECEB) - escopo futuro
+ALTER TABLE `FAT_PARAMETRO`
+ADD COLUMN `TIPOCOMISSAO` int NOT NULL DEFAULT 1 COMMENT '1=Faturamento; 2=Recebimento';
+
+-- 95. EST_UNIDADE — cadastro de unidades de medida (estoque)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `EST_UNIDADE` (
+  `ID` int(11) NOT NULL AUTO_INCREMENT,
+  `UNIDADE` varchar(3) NOT NULL,
+  `DESCRICAO` varchar(40) NOT NULL,
+  `ATIVO` char(1) DEFAULT 'S',
+  `USERINSERT` int(11) DEFAULT NULL,
+  `DATEINSERT` timestamp NULL DEFAULT current_timestamp(),
+  `USERCHANGE` int(11) DEFAULT NULL,
+  `DATECHANGE` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `UK_UNIDADE` (`UNIDADE`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT INTO `EST_UNIDADE` (`UNIDADE`, `DESCRICAO`, `ATIVO`)
+SELECT DISTINCT TRIM(`UNIDADE`), TRIM(`UNIDADE`), 'S'
+FROM `EST_PRODUTO`
+WHERE TRIM(`UNIDADE`) <> ''
+  AND NOT EXISTS (
+    SELECT 1 FROM `EST_UNIDADE` u WHERE u.`UNIDADE` = TRIM(`EST_PRODUTO`.`UNIDADE`)
+  );
+
+INSERT INTO `AMB_FORM` (`NOMEFORM`, `DESCRICAO`, `HELP`)
+SELECT 'EstUnidade', 'ESTOQUE->Unidade', NULL
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `AMB_FORM` WHERE `NOMEFORM` = 'EstUnidade');
+
+INSERT INTO `AMB_USUARIO_AUTORIZA` (`USUARIO`, `PROGRAMA`, `DIREITOS`)
+SELECT 999, 'EstUnidade', 'IAECSR'
+FROM DUAL
+WHERE NOT EXISTS (
+  SELECT 1 FROM `AMB_USUARIO_AUTORIZA`
+  WHERE `USUARIO` = 999 AND `PROGRAMA` = 'EstUnidade'
+);
+
+
+-- 96. INTEGRAÇÃO PROTIK — usuário portal (matrícula 2000)
+-- =====================================================
+-- NOME/SENHA → credenciais do php-login no Protik
+-- SMTP       → URL da API Protik
+-- EMAIL      → URL do front Protik
+-- NOME é derivado do schema (admsis_maxifarma → maxifarma), para cada cliente.
+-- Logins esperados: maxifarma, hiperfarma, requemaq, betonex, la, tork,
+--                   telhagres, tratorraffa, bianco, ivemar, modena
+
+SET @protik_login = REPLACE(DATABASE(), 'admsis_', '');
+SET @protik_api   = 'https://protikserv.admsoftware.com.br:30006';
+SET @protik_front = 'https://protik.admsoftware.com.br';
+
+INSERT INTO `AMB_USUARIO` (
+  `USUARIO`,
+  `NOME`,
+  `NOMEREDUZIDO`,
+  `SENHA`,
+  `SITUACAO`,
+  `TIPO`,
+  `GRUPO`,
+  `MENUPRINCIPAL`,
+  `EMPRESA`,
+  `SMTP`,
+  `EMAIL`
+)
+SELECT
+  2000,
+  @protik_login,
+  'Portal Protik',
+  'Cliente@123',
+  'A',
+  'Z',
+  1000,
+  'ALXCGF',
+  1,
+  @protik_api,
+  @protik_front
+FROM DUAL
+WHERE NOT EXISTS (
+  SELECT 1 FROM `AMB_USUARIO` WHERE `USUARIO` = 2000
+);
+
+UPDATE `AMB_USUARIO`
+SET
+  `NOME` = @protik_login,
+  `SMTP` = @protik_api,
+  `EMAIL` = @protik_front,
+  `SITUACAO` = 'A'
+WHERE `USUARIO` = 2000
+  AND (`NOME` IS NULL OR `NOME` = '' OR `NOME` = 'AJUSTAR_NOME_PROTIK' OR `NOME` = @protik_login);
+
+
+-- 94. APURAÇÃO ASSISTIDA IBS/CBS - JULHO-2026
+-- =====================================================
+-- Ver script completo: bib/clientes_migracao_4_5/est_apuracao_cbs.sql
+
+INSERT INTO `AMB_FORM` (`NOMEFORM`, `DESCRICAO`, `HELP`)
+SELECT 'EstApuracaoCbs', 'ESTOQUE->Apuração Assistida IBS/CBS', 'Consulta débitos IBS/CBS via API da Receita Federal'
+WHERE NOT EXISTS (SELECT 1 FROM `AMB_FORM` WHERE `NOMEFORM` = 'EstApuracaoCbs');
+
+INSERT INTO `AMB_USUARIO_AUTORIZA` (`USUARIO`, `PROGRAMA`, `DIREITOS`)
+SELECT 999, 'EstApuracaoCbs', 'IAECSR'
+FROM DUAL
+WHERE NOT EXISTS (SELECT 1 FROM `AMB_USUARIO_AUTORIZA` WHERE `USUARIO` = 999 AND `PROGRAMA` = 'EstApuracaoCbs');
 -- FIM DAS ALTERAÇÕES DOS ARQUIVOS DE ATUALIZAÇÃO
+
   

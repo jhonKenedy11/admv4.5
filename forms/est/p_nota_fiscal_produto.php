@@ -821,6 +821,11 @@ Class p_nota_fiscal_produto extends c_nota_fiscal_produto {
         $casasDecimais = $parametros->getCasasDecimais();
         $this->smarty->assign('casasDecimais', $casasDecimais);
 
+        $objProduto = new c_produto();
+        $unidade_combo = $objProduto->select_unidade_combo();
+        $this->smarty->assign('uni_ids', $unidade_combo['ids']);
+        $this->smarty->assign('uni_names', $unidade_combo['names']);
+
         $this->smarty->display('nota_fiscal_produto_cadastro.tpl');
     }
 

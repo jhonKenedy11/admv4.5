@@ -272,7 +272,11 @@ Class p_nota_fiscal_recebimento extends c_nota_fiscal_produto {
         $this->smarty->assign('projeto_names', $projeto_names);
         $this->smarty->assign('projeto_id', $result_projeto_atend[0]['TIPOATENDIMENTO']);
 
-
+        $objProduto = new c_produto();
+        $unidade_combo = $objProduto->select_unidade_combo();
+        $this->smarty->assign('uni_ids', $unidade_combo['ids']);
+        $this->smarty->assign('uni_names', $unidade_combo['names']);
+        $this->smarty->assign('unidade', $reg_prod[0]['UNIDADE'] ?? '');
 
         $this->smarty->display('nota_fiscal_produto_baixa.tpl');
     }

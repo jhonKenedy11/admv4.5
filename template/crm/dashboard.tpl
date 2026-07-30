@@ -301,37 +301,188 @@ border-radius: 10px;
         <div class="x_panel tile" id="cot">
           <div class="x_title">
             <h2 style="color: #73879C;">Cotações</h2>
-            <button  type="button" class="btn btn-success btn-xs pull-right" id="btnAddCot"
-                onclick="javascript:abrirNewTab(
-                    'index.php?mod=ped&form=pedido_venda_telhas&submenu=cadastrar&opcao=imprimir&dashboard_origem=dashboard_crm');">
-                <span class="glyphicon fa fa-plus-circle" aria-hidden="true" data-toggle="tooltip" title="Adicionar Cotação"></span>
-            </button>
             <div class="clearfix"></div>
           </div>
-          <h4></h4>
-          <ul class="list-unstyled scroll-view table-striped" id="ulCotacao">
-            {section name=i loop=$resultCot}
-            <li class="media event" id="{$resultCot[i].PEDIDO}">
-              <a class="pull-left profile_thumb">
-                <i class="fa fa-user"></i>
-              </a>
-              <button type="button" id="iconesManutCot" class="btn btn-danger btn-xs pull-right" data-toggle="modal" data-target="#modalVendaPerdida" 
-                onclick="vendaPerdida({$resultCot[i].ID})">
-                <span span class="glyphicon glyphicon-alert" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Venda Perdida"></span>
-              </button>
-              <button type="button" id="iconesManutCot" class="btn btn-primary btn-xs pull-right" 
-                onclick="javascript:abrirNewTab('index.php?mod=ped&form=pedido_venda_telhas&submenu=alterar&opcao=imprimir&dashboard_origem=dashboard_crm&id={$resultCot[i].ID}&pessoa={$resultCot[i].CLIENTE}&situacaoCombo={$resultCot[i].SITUACAO}');">
-                <span class="glyphicon glyphicon-pencil" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Editar"></span>
-              </button>
-              <div class="media-body">
-                <a class="title" href="javascript:buscaAcompanhamentos({$resultCot[i].ID}, {$resultCot[i].CLIENTE}, '{$resultCot[i].NOMEREDUZIDO}')">{$resultCot[i].PEDIDO} - {$resultCot[i].NOME} </a>
-                <p><strong>R$ {$resultCot[i].TOTAL|number_format:2:",":"."} </strong> {$resultCot[i].CIDADE} - {$resultCot[i].UF} </p>
-                <p> <small>Emissão: {$resultCot[i].EMISSAO|date_format:"%e %b, %Y"}</small> - <small>C.C.: {$resultCot[i].DESCCUSTO}</small> 
-                </p>
+
+          <div role="tabpanel">
+            <ul class="nav nav-tabs bar_tabs" role="tablist">
+              <li role="presentation" class="active">
+                <a href="#tab_cotacoes" id="cotacoes-tab" role="tab" data-toggle="tab" aria-expanded="true">Cotações</a>
+              </li>
+              <li role="presentation">
+                <a href="#tab_cotacoes_outros" id="cotacoes-outros-tab" role="tab" data-toggle="tab" aria-expanded="false">Proximos Contatos</a>
+              </li>
+            </ul>
+
+            <div class="tab-content">
+              <div role="tabpanel" class="tab-pane fade active in" id="tab_cotacoes" aria-labelledby="cotacoes-tab">
+                <div style="padding-top: 8px;">
+                  <button type="button" class="btn btn-success btn-xs pull-right" id="btnAddCot"
+                      onclick="javascript:abrirNewTab(
+                          'index.php?mod=ped&form=pedido_ps&submenu=cadastrar&opcao=imprimir&dashboard_origem=dashboard_crm');">
+                      <span class="glyphicon fa fa-plus-circle" aria-hidden="true" data-toggle="tooltip" title="Adicionar Cotação"></span>
+                  </button>
+                  <div class="clearfix"></div>
+                </div>
+
+                <h4></h4>
+                <ul class="list-unstyled scroll-view table-striped" id="ulCotacao">
+                  {section name=i loop=$resultCot}
+                  <li class="media event" id="cot-{$resultCot[i].ID}">
+                    <a class="pull-left profile_thumb">
+                      <i class="fa fa-user"></i>
+                    </a>
+                    <button type="button" id="iconesManutCot" class="btn btn-danger btn-xs pull-right" data-toggle="modal" data-target="#modalVendaPerdida" 
+                      onclick="vendaPerdida({$resultCot[i].ID})">
+                      <span span class="glyphicon glyphicon-alert" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Venda Perdida"></span>
+                    </button>
+                    <button type="button" id="iconesManutCot" class="btn btn-primary btn-xs pull-right" 
+                      onclick="javascript:abrirNewTab('index.php?mod=ped&form=pedido_ps&submenu=alterar&opcao=imprimir&dashboard_origem=dashboard_crm&id={$resultCot[i].ID}&pessoa={$resultCot[i].CLIENTE}&situacaoCombo={$resultCot[i].SITUACAO}');">
+                      <span class="glyphicon glyphicon-pencil" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Editar"></span>
+                    </button>
+                    <div class="media-body">
+                      <a class="title" href="javascript:buscaAcompanhamentos({$resultCot[i].ID}, {$resultCot[i].CLIENTE}, '{$resultCot[i].NOMEREDUZIDO}')">{$resultCot[i].PEDIDO} - {$resultCot[i].NOME} </a>
+                      <p><strong>R$ {$resultCot[i].TOTAL|number_format:2:",":"."} </strong> {$resultCot[i].CIDADE} - {$resultCot[i].UF} </p>
+                      <p> <small>Emissão: {$resultCot[i].EMISSAO|date_format:"%e %b, %Y"}</small> - <small>C.C.: {$resultCot[i].DESCCUSTO}</small></p>
+                    </div>
+                  </li>
+                  {/section}
+                </ul>
               </div>
-            </li>
-            {/section}
-          </ul>
+
+              <div role="tabpanel" class="tab-pane fade" id="tab_cotacoes_outros" aria-labelledby="cotacoes-outros-tab">
+                <div style="padding-top: 10px;">
+                  <div role="tabpanel">
+                    <ul class="nav nav-tabs bar_tabs" role="tablist">
+                      <li role="presentation" class="active">
+                        <a href="#tab_acomp_hoje" id="acomp-hoje-tab" role="tab" data-toggle="tab" aria-expanded="true">Hoje <span class="badge" id="badgeAcompHoje">{$acompHojeCount|default:0}</span></a>
+                      </li>
+                      <li role="presentation">
+                        <a href="#tab_acomp_atrasados" id="acomp-atrasados-tab" role="tab" data-toggle="tab" aria-expanded="false">Atrasados <span class="badge" id="badgeAcompAtrasados">{$acompAtrasadosCount|default:0}</span></a>
+                      </li>
+                      <li role="presentation">
+                        <a href="#tab_acomp_proximos" id="acomp-proximos-tab" role="tab" data-toggle="tab" aria-expanded="false">Próximos <span class="badge" id="badgeAcompProximos">{$acompProximosCount|default:0}</span></a>
+                      </li>
+                      <li role="presentation">
+                        <a href="#tab_acomp_sugestoes" id="acomp-sugestoes-tab" role="tab" data-toggle="tab" aria-expanded="false">Sugestões <span class="badge" id="badgeAcompSugestoes">{$acompSugestoesCount|default:0}</span></a>
+                      </li>
+                    </ul>
+
+                    <div class="tab-content" style="padding-top: 10px;">
+                      <div role="tabpanel" class="tab-pane fade active in" id="tab_acomp_hoje" aria-labelledby="acomp-hoje-tab">
+                        <ul class="list-unstyled scroll-view table-striped" id="ulAcompHoje">
+                          {section name=i loop=$acompHoje}
+                          <li class="media event table-striped">
+                            <a class="pull-left border-aero profile_thumb">
+                              <i class="fa fa-user aero"></i>
+                            </a>
+                            <button type="button" class="btn btn-danger btn-xs pull-right" data-toggle="modal" data-target="#modalVendaPerdida"
+                              onclick="vendaPerdida({$acompHoje[i].PEDIDO_ID})">
+                              <span class="glyphicon glyphicon-alert" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Venda Perdida"></span>
+                            </button>
+                            <button type="button" class="btn btn-primary btn-xs pull-right"
+                              onclick="javascript:abrirNewTab('index.php?mod=ped&form=pedido_ps&submenu=alterar&opcao=imprimir&dashboard_origem=dashboard_crm&id={$acompHoje[i].PEDIDO_ID}&pessoa={$acompHoje[i].CLIENTE}&situacaoCombo=5');">
+                              <span class="glyphicon glyphicon-pencil" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Editar"></span>
+                            </button>
+                            <div class="media-body">
+                              <a class="title" href="javascript:buscaAcompanhamentos({$acompHoje[i].PEDIDO_ID}, {$acompHoje[i].CLIENTE}, '{$acompHoje[i].NOMEREDUZIDO}')">{$acompHoje[i].PEDIDO_ID} - {$acompHoje[i].NOMEREDUZIDO}</a>
+                              <p><strong>{$acompHoje[i].DESCRICAO}</strong></p>
+                              <p><small>Vendedor: {$acompHoje[i].VENDEDOR|default:'-'}</small></p>
+                              <p><small>C.C.: {$acompHoje[i].DESCCUSTO|default:'-'}</small></p>
+                              <p><small>Agendado: {$acompHoje[i].LIGARDIA|date_format:"%e %b, %Y - %H:%M:%S"}</small></p>
+                            </div>
+                          </li>
+                          {/section}
+                        </ul>
+                      </div>
+
+                      <div role="tabpanel" class="tab-pane fade" id="tab_acomp_atrasados" aria-labelledby="acomp-atrasados-tab">
+                        <ul class="list-unstyled scroll-view table-striped" id="ulAcompAtrasados">
+                          {section name=i loop=$acompAtrasados}
+                          <li class="media event table-striped">
+                            <a class="pull-left border-aero profile_thumb">
+                              <i class="fa fa-user aero"></i>
+                            </a>
+                            <button type="button" class="btn btn-danger btn-xs pull-right" data-toggle="modal" data-target="#modalVendaPerdida"
+                              onclick="vendaPerdida({$acompAtrasados[i].PEDIDO_ID})">
+                              <span class="glyphicon glyphicon-alert" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Venda Perdida"></span>
+                            </button>
+                            <button type="button" class="btn btn-primary btn-xs pull-right"
+                              onclick="javascript:abrirNewTab('index.php?mod=ped&form=pedido_ps&submenu=alterar&opcao=imprimir&dashboard_origem=dashboard_crm&id={$acompAtrasados[i].PEDIDO_ID}&pessoa={$acompAtrasados[i].CLIENTE}&situacaoCombo=5');">
+                              <span class="glyphicon glyphicon-pencil" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Editar"></span>
+                            </button>
+                            <div class="media-body">
+                              <a class="title" href="javascript:buscaAcompanhamentos({$acompAtrasados[i].PEDIDO_ID}, {$acompAtrasados[i].CLIENTE}, '{$acompAtrasados[i].NOMEREDUZIDO}')">{$acompAtrasados[i].PEDIDO_ID} - {$acompAtrasados[i].NOMEREDUZIDO}</a>
+                              <p><strong>{$acompAtrasados[i].DESCRICAO}</strong></p>
+                              <p><small>Vendedor: {$acompAtrasados[i].VENDEDOR|default:'-'}</small></p>
+                              <p><small>C.C.: {$acompAtrasados[i].DESCCUSTO|default:'-'}</small></p>
+                              <p><small>Agendado: {$acompAtrasados[i].LIGARDIA|date_format:"%e %b, %Y - %H:%M:%S"}</small></p>
+                            </div>
+                          </li>
+                          {/section}
+                        </ul>
+                      </div>
+
+                      <div role="tabpanel" class="tab-pane fade" id="tab_acomp_proximos" aria-labelledby="acomp-proximos-tab">
+                        <ul class="list-unstyled scroll-view table-striped" id="ulAcompProximos">
+                          {section name=i loop=$acompProximos}
+                          <li class="media event table-striped">
+                            <a class="pull-left border-aero profile_thumb">
+                              <i class="fa fa-user aero"></i>
+                            </a>
+                            <button type="button" class="btn btn-danger btn-xs pull-right" data-toggle="modal" data-target="#modalVendaPerdida"
+                              onclick="vendaPerdida({$acompProximos[i].PEDIDO_ID})">
+                              <span class="glyphicon glyphicon-alert" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Venda Perdida"></span>
+                            </button>
+                            <button type="button" class="btn btn-primary btn-xs pull-right"
+                              onclick="javascript:abrirNewTab('index.php?mod=ped&form=pedido_ps&submenu=alterar&opcao=imprimir&dashboard_origem=dashboard_crm&id={$acompProximos[i].PEDIDO_ID}&pessoa={$acompProximos[i].CLIENTE}&situacaoCombo=5');">
+                              <span class="glyphicon glyphicon-pencil" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Editar"></span>
+                            </button>
+                            <div class="media-body">
+                              <a class="title" href="javascript:buscaAcompanhamentos({$acompProximos[i].PEDIDO_ID}, {$acompProximos[i].CLIENTE}, '{$acompProximos[i].NOMEREDUZIDO}')">{$acompProximos[i].PEDIDO_ID} - {$acompProximos[i].NOMEREDUZIDO}</a>
+                              <p><strong>{$acompProximos[i].DESCRICAO}</strong></p>
+                              <p><small>Vendedor: {$acompProximos[i].VENDEDOR|default:'-'}</small></p>
+                              <p><small>C.C.: {$acompProximos[i].DESCCUSTO|default:'-'}</small></p>
+                              <p><small>Agendado: {$acompProximos[i].LIGARDIA|date_format:"%e %b, %Y - %H:%M:%S"}</small></p>
+                            </div>
+                          </li>
+                          {/section}
+                        </ul>
+                      </div>
+
+                      <div role="tabpanel" class="tab-pane fade" id="tab_acomp_sugestoes" aria-labelledby="acomp-sugestoes-tab">
+                        <ul class="list-unstyled scroll-view table-striped" id="ulAcompSugestoes">
+                          {section name=i loop=$acompSugestoes}
+                          <li class="media event table-striped">
+                            <a class="pull-left border-aero profile_thumb">
+                              <i class="fa fa-user aero"></i>
+                            </a>
+                            <button type="button" class="btn btn-danger btn-xs pull-right" data-toggle="modal" data-target="#modalVendaPerdida"
+                              onclick="vendaPerdida({$acompSugestoes[i].ID})">
+                              <span class="glyphicon glyphicon-alert" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Venda Perdida"></span>
+                            </button>
+                            <button type="button" class="btn btn-primary btn-xs pull-right"
+                              onclick="javascript:abrirNewTab('index.php?mod=ped&form=pedido_ps&submenu=alterar&opcao=imprimir&dashboard_origem=dashboard_crm&id={$acompSugestoes[i].ID}&pessoa={$acompSugestoes[i].CLIENTE}&situacaoCombo=5');">
+                              <span class="glyphicon glyphicon-pencil" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Editar"></span>
+                            </button>
+                            <div class="media-body">
+                              <a class="title" href="javascript:buscaAcompanhamentos({$acompSugestoes[i].ID}, {$acompSugestoes[i].CLIENTE}, '{$acompSugestoes[i].NOMEREDUZIDO}')">
+                                {$acompSugestoes[i].PEDIDO} - {$acompSugestoes[i].NOMEREDUZIDO}
+                              </a>
+                              <p><small>{$acompSugestoes[i].CIDADE} - {$acompSugestoes[i].UF}</small></p>
+                              <p><small>Vendedor: {$acompSugestoes[i].VENDEDOR|default:'-'}</small></p>
+                              <p><small>C.C.: {$acompSugestoes[i].DESCCUSTO|default:'-'}</small></p>
+                            </div>
+                          </li>
+                          {/section}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -360,14 +511,22 @@ border-radius: 10px;
               <a class="pull-left border-aero profile_thumb">
                 <i class="fa fa-user aero"></i>
               </a>
+              {if $resultAcomp[i].STATUS|upper neq 'B'}
+              <button type="button" id="iconesManutCot" class="btn btn-success btn-xs pull-right"
+                onclick="finalizarAcompanhamentoPainel({$resultAcomp[i].ID});" title="Finalizar (baixar)">
+                <span class="glyphicon glyphicon-ok" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Finalizar (baixar)"></span>
+              </button>
+              {/if}
+              <button type="button" id="iconesManutCot" class="btn btn-primary btn-xs pull-right"
+                onclick="javascript:editarAcompanhamento({$resultAcomp[i].ID});">
+                <span class="glyphicon glyphicon-pencil" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Editar"></span>
+              </button>
               <div class="media-body">
-                <button type="button" id="iconesManutCot" class="btn btn-primary btn-xs pull-right" 
-                  onclick="javascript:editarAcompanhamento({$resultAcomp[i].ID});">
-                  <span class="glyphicon glyphicon-pencil" style="margin-left: -4px;" aria-hidden="true" data-toggle="tooltip" title="Editar"></span>
-                </button>
                 <a class="title">{$resultAcomp[i].PEDIDO_ID} - {$resultAcomp[i].NOMEREDUZIDO} </a>
                 <p>{$resultAcomp[i].DATA|date_format:"%e %b, %Y - %H:%M:%S"} </p>
                 <p><strong>{$resultAcomp[i].RESULTADO} </strong> </p>
+                <p><small>Vendedor: {$resultAcomp[i].VENDEDOR|default:'-'}</small></p>
+                <p><small>Status: {if $resultAcomp[i].STATUS|upper == 'B'}Baixado{elseif $resultAcomp[i].STATUS|upper == 'A'}Aberto{else}{$resultAcomp[i].STATUS|default:'-'}{/if}</small></p>
                 <p> Ligar: {$resultAcomp[i].LIGARDIA|date_format:"%e %b, %Y - %H:%M:%S"}
                 </p>
               </div>

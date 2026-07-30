@@ -286,14 +286,13 @@
                                     </tr>
                                     <tr>
                                         <th align=left class=ColunaTitulo style="width: 2%">Docto</th>
-                                        <th align=left class=ColunaTitulo style="width: 7%">Filial</th>
-                                        <th align=left class=ColunaTitulo style="width: 15%">Pessoa</th>
+                                        <th align=left class=ColunaTitulo style="width: 18%">Pessoa</th>
                                         <th align=left class=ColunaTitulo style="width: 3%">Série</th>
                                         <th align=left class=ColunaTitulo style="width: 4%">Parc</th>
                                         <th align=left class=ColunaTitulo style="width: 10%">Gênero</th>
-                                        <th align=left class=ColunaTitulo style="width: 6%">Emissão</th>
-                                        <th align=left class=ColunaTitulo style="width: 6%">Vencimento</th>
-                                        <th align=left class=ColunaTitulo style="width: 6%">Pagamento</th>
+                                        <th align=left class=ColunaTitulo style="width: 7%">Emissão</th>
+                                        <th align=left class=ColunaTitulo style="width: 7%">Vencimento</th>
+                                        <th align=left class=ColunaTitulo style="width: 7%">Pagamento</th>
                                         <th align=left class=ColunaTitulo style="width: 5%">Tipo</th>
                                         <th align=left class="ColunaTitulo ColunaObs" style="width: 12%">Obs</th>
                                         <th align=left class=ColunaTitulo style="width: 7%">Usuário</th>
@@ -318,14 +317,13 @@
                                     {assign var="totalParcial" value=$totalParcial+$resultado[i].TOTAL}
                                     <tr>
                                         <th align=left class=ColunaTitulo style="width: 2%">Docto</th>
-                                        <th align=left class=ColunaTitulo style="width: 7%">Filial</th>
-                                        <th align=left class=ColunaTitulo style="width: 15%">Pessoa</th>
+                                        <th align=left class=ColunaTitulo style="width: 18%">Pessoa</th>
                                         <th align=left class=ColunaTitulo style="width: 3%">Série</th>
                                         <th align=left class=ColunaTitulo style="width: 4%">Parc</th>
                                         <th align=left class=ColunaTitulo style="width: 10%">Gênero</th>
-                                        <th align=left class=ColunaTitulo style="width: 6%">Emissão</th>
-                                        <th align=left class=ColunaTitulo style="width: 6%">Vencimento</th>
-                                        <th align=left class=ColunaTitulo style="width: 6%">Pagamento</th>
+                                        <th align=left class=ColunaTitulo style="width: 7%">Emissão</th>
+                                        <th align=left class=ColunaTitulo style="width: 7%">Vencimento</th>
+                                        <th align=left class=ColunaTitulo style="width: 7%">Pagamento</th>
                                         <th align=left class=ColunaTitulo style="width: 5%">Tipo</th>
                                         <th align=left class="ColunaTitulo ColunaObs" style="width: 12%">Obs</th>
                                         <th align=left class=ColunaTitulo style="width: 8%">Usuário</th>
@@ -337,7 +335,6 @@
 
                                 <tr bgcolor="{cycle values="#EBEBEB,#FFFFFF"}" class="DestacaLinha">
                                     <td>{$resultado[i].DOCTO}</td>
-                                    <td>{$resultado[i].FILIAL}</td>
                                     <td>{$resultado[i].NOME}</td>
                                     <td>{$resultado[i].SERIE}</td>
                                     <td>{$resultado[i].PARCELA} / {$resultado[i].TOTALPARCELAS}</td>

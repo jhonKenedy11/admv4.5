@@ -63,6 +63,8 @@ class p_rel_estoque extends c_estoque_relatorio
         $this->setSituacaoNota(isset($parmPost['situacaoNF']) ? $parmPost['situacaoNF'] : (isset($parmGet['situacaoNF']) ? $parmGet['situacaoNF'] : ''));
         $this->setCurvaAbc(isset($parmPost['tipoCurvaABC']) ? $parmPost['tipoCurvaABC'] : (isset($parmGet['tipoCurvaABC']) ? $parmGet['tipoCurvaABC'] : '1'));
         $this->setOrdenacao(isset($parmPost['ordenacaoEstoque']) ? $parmPost['ordenacaoEstoque'] : (isset($parmGet['ordenacaoEstoque']) ? $parmGet['ordenacaoEstoque'] : ''));
+        $this->setForaLinha(isset($parmPost['foraLinha']) ? $parmPost['foraLinha'] : (isset($parmGet['foraLinha']) ? $parmGet['foraLinha'] : '0'));
+        $this->setSomenteComEstoque(isset($parmPost['somenteComEstoque']) ? $parmPost['somenteComEstoque'] : (isset($parmGet['somenteComEstoque']) ? $parmGet['somenteComEstoque'] : ''));
 
         // caminhos absolutos para todos os diretorios biblioteca e sistema
         $this->smarty->assign('pathJs',  ADMhttpBib . '/js');

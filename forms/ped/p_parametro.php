@@ -93,6 +93,9 @@ Class p_parametros extends c_parametros {
             (isset($parmPost['encomenda']) && $parmPost['encomenda'] !== '') ? $parmPost['encomenda'] : 'N'
         );
         $this->setFaturaPedido(isset($parmPost['faturaPedido']) ? $parmPost['faturaPedido'] : 'N');
+        $this->setTipoComissao(
+            (isset($parmPost['tipoComissao']) && $parmPost['tipoComissao'] !== '') ? $parmPost['tipoComissao'] : '1'
+        );
     }
 
     /**
@@ -126,6 +129,7 @@ Class p_parametros extends c_parametros {
                 $this->setFaturaPedido(isset($fat_parametros[0]['FATURAPEDIDO']) ? $fat_parametros[0]['FATURAPEDIDO'] : 'N');
                 $this->setCasasDecimais(isset($fat_parametros[0]['CASASDECIMAIS']) ? $fat_parametros[0]['CASASDECIMAIS'] : '4');
                 $this->setControleVendedor(isset($fat_parametros[0]['CONTROLEVENDEDOR']) ? $fat_parametros[0]['CONTROLEVENDEDOR'] : '0');
+                $this->setTipoComissao(isset($fat_parametros[0]['TIPOCOMISSAO']) ? $fat_parametros[0]['TIPOCOMISSAO'] : '1');
                 $this->desenhaCadastroParametros();
                 }
               break;
@@ -313,6 +317,7 @@ Class p_parametros extends c_parametros {
 
         $this->smarty->assign('casasDecimais', $this->getCasasDecimaisParam() !== '' && $this->getCasasDecimaisParam() !== null ? $this->getCasasDecimaisParam() : '4');
         $this->smarty->assign('controleVendedor', $this->getControleVendedorParam() !== '' && $this->getControleVendedorParam() !== null ? $this->getControleVendedorParam() : '0');
+        $this->smarty->assign('tipoComissao', $this->getTipoComissao() !== '' && $this->getTipoComissao() !== null ? $this->getTipoComissao() : '1');
         
         $this->smarty->display('parametro_cadastro.tpl');
         

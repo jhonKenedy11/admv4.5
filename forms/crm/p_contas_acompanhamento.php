@@ -60,7 +60,7 @@ Class p_acompanhamento extends c_contas_acompanhamento {
 
         // inicializa variaveis de controle
         $this->m_submenu=(isset($parmGet['submenu']) ? $parmGet['submenu'] : (isset($parmPost['submenu']) ? $parmPost['submenu'] : ''));
-        $this->m_opcao=(isset($parmGet['opcao']) ? $parmGet['opcao'] : (isset($parmPost['opcao']) ? $parmPost['op   cao'] : ''));
+        $this->m_opcao=(isset($parmGet['opcao']) ? $parmGet['opcao'] : (isset($parmPost['opcao']) ? $parmPost['opcao'] : ''));
         $this->m_letra = isset($parmPost['letra']) ? $parmPost['letra'] : '';
         $this->m_par = explode("|", $this->m_letra);
         //var dashboard
@@ -116,10 +116,21 @@ Class p_acompanhamento extends c_contas_acompanhamento {
      */
     function controle() {
         switch ($this->m_submenu) {
+            case 'atualizaStatusAcomp':
+                if ($this->verificaDireitoUsuario('FinPessoa', 'I', 'N') !== true) {
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode(['ok' => false, 'msg' => 'Sem permissão.']);
+                    exit;
+                }
+                $res = $this->atualizaStatusAcompPorId($this->m_id, 'B');
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode($res);
+                exit;
             case 'cadastrar':
                 if ($this->verificaDireitoUsuario('FinPessoa', 'I')) {
                     $this->setDataContato('');
                     $this->setVendedorAcomp($this->m_userid);
+                    $this->setStatus('A');
                     $this->desenhaCadastroAcompanhamento('');
                 }
                 break;
@@ -133,7 +144,8 @@ Class p_acompanhamento extends c_contas_acompanhamento {
             case 'altera':
                 if ($this->verificaDireitoUsuario('FinPessoa', 'I')) {
                     $this->alteraPessoaAcomp();
-                    if ($this->m_dashboard_origem == 'dashboard_crm') { // jhon
+                    if ($this->m_dashboard_origem == 'dashboard_crm') {
+                        echo 'Registro salvo.';
                         exit;
                     } else {
                          $this->mostraAcompanhamento('Registro salvo.');
@@ -161,9 +173,10 @@ Class p_acompanhamento extends c_contas_acompanhamento {
                         
                     }
                     else{
-                        if ($this->m_dashboard_origem == 'dashboard_crm') { // jhon
-                            exit;
-                        }else{
+                    if ($this->m_dashboard_origem == 'dashboard_crm') {
+                        echo ($resultInsert == '') ? 'Registro inserido com sucesso!' : 'Erro ao inserir o registro, verifique os dados ou contate o suporte!';
+                        exit;
+                    }else{
                             if($resultInsert == ''){
                                 $msgPedido = "Registro inserido com sucesso!";
                                 echo "<script src='https://unpkg.com/sweetalert/dist/sweetalert.min.js'></script> ";
@@ -193,6 +206,7 @@ Class p_acompanhamento extends c_contas_acompanhamento {
                 $termAjax = (isset($parmPost['term']) ? $parmPost['term'] : '');
 
                 $objConta = new c_conta();
+                $clienteResult = [];
                 $resultPesq = $objConta->select_pessoa_letra($termAjax);
                 for ($i = 0; $i < count($resultPesq); $i++) {
                     $clienteResult[$i]['id'] = trim($resultPesq[$i]['CLIENTE']);
@@ -248,7 +262,7 @@ Class p_acompanhamento extends c_contas_acompanhamento {
 
         //#################### COMBO ACAO ####################
         $consulta = new c_banco();
-        $sql = "select atividade as id, descricao from fat_atividade_acomp";
+        $sql = "select atividade as id, descricao from FAT_ATIVIDADE_ACOMP";
         $consulta->exec_sql($sql);
         $consulta->close_connection();
         $result = $consulta->resultado;
@@ -270,7 +284,7 @@ Class p_acompanhamento extends c_contas_acompanhamento {
             $this->smarty->assign('vendedorAcomp_names', $vendedor[0]['NOME']);
             $this->smarty->assign('vendedorAcomp_id', $vendedor[0]['USUARIO']);
         }else{
-            $sql = "select usuario as id, nomereduzido as descricao from amb_usuario  where (situacao='A') and (TIPO in ('V', 'G')) order by nomereduzido";
+            $sql = "select usuario as id, nomereduzido as descricao from AMB_USUARIO  where (situacao='A') and (TIPO in ('V', 'G')) order by nomereduzido";
             $this->comboSql($sql, $this->m_par[2], $vendedor_id, $vendedor_ids, $vendedor_names);
             $this->smarty->assign('vendedorAcomp_ids', $vendedor_ids);
             $this->smarty->assign('vendedorAcomp_names', $vendedor_names);
@@ -300,7 +314,7 @@ Class p_acompanhamento extends c_contas_acompanhamento {
 
         //#################### COMBO VEICULO ####################
         $consulta = new c_banco();
-        $sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='CAT_MENU') and (campo='Veiculo')";
+        $sql = "select tipo as id, padrao as descricao from AMB_DDM where (alias='CAT_MENU') and (campo='Veiculo')";
         $consulta->exec_sql($sql);
         $consulta->close_connection();
         $result = $consulta->resultado;
@@ -368,7 +382,7 @@ Class p_acompanhamento extends c_contas_acompanhamento {
                 $vendedor_ids[$i + 0] = $result[$i]['ID'];
                 $vendedor_names[$i + 0] = $result[$i]['DESCRICAO'];
             }//FOR
-            $sql = "select usuario as id, nomereduzido as descricao from amb_usuario  where (situacao='A') and (TIPO in ('V', 'G')) order by nomereduzido";
+            $sql = "select usuario as id, nomereduzido as descricao from AMB_USUARIO  where (situacao='A') and (TIPO in ('V', 'G')) order by nomereduzido";
             $this->comboSql($sql, $this->m_par[2], $vendedor_id, $vendedor_ids, $vendedor_names);
             $this->smarty->assign('vendedor_id', $vendedor_id);
             $this->smarty->assign('vendedor_ids',   $vendedor_ids);

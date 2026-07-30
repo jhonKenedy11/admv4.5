@@ -925,7 +925,7 @@ function limpaCamposPeca(){
     document.lancamento.codProduto.value = ''
     document.lancamento.codProdutoNota.value = ''
     document.lancamento.descProduto.value = ''
-    document.lancamento.uniProduto.value  = ''
+    $("#uniProduto").val('')
     document.lancamento.quantidadePecas.value = ''
     document.lancamento.vlrUnitarioPecas.value = ''
     document.lancamento.percDescontoPecas.value = '' 
@@ -1375,7 +1375,7 @@ function buscaProdutoAjax() {
             f.codProduto.value = '';
             f.codProdutoNota.value = '';
             f.descProduto.value = '';
-            f.uniProduto.value = '';
+            $("#uniProduto").val('');
             f.vlrUnitarioPecas.value = '0,00';
             f.percDescontoPecas.value = '0,00';
             f.vlrDescontoPecas.value = '0,00';
@@ -1430,6 +1430,17 @@ function vincularCliqueLinhaEquivalenciaPs() {
     });
 }
 
+function preencherCamposProdutoPedidoPs(produto) {
+    if (!produto) return;
+    var f = document.lancamento;
+    f.codFabricante.value = produto.codFabricante || '';
+    f.codProdutoNota.value = produto.codProdutoNota || '';
+    f.codProduto.value = produto.codProduto || '';
+    f.descProduto.value = produto.descProduto || '';
+    $("#uniProduto").val(produto.uniProduto || '');
+    f.vlrUnitarioPecas.value = produto.vlrUnitarioProduto || '0,00';
+}
+
 function exibirEquivalenciasPedidoPs(htmlEquivalencias, produtoPrincipal, preencherAutomatico) {
     if (!htmlEquivalencias || htmlEquivalencias.trim() === '') {
         $("#secaoEdicaoItem").slideUp();
@@ -1440,6 +1451,10 @@ function exibirEquivalenciasPedidoPs(htmlEquivalencias, produtoPrincipal, preenc
     $("#listaEquivalencias").html(htmlEquivalencias);
     $("#secaoEdicaoItem").slideDown();
     vincularCliqueLinhaEquivalenciaPs();
+
+    if (preencherAutomatico === true && produtoPrincipal) {
+        preencherCamposProdutoPedidoPs(produtoPrincipal);
+    }
 
     if (preencherAutomatico === true) {
         var $checkboxMarcado = $(".checkboxEquivalencia:checked").first();
@@ -1462,12 +1477,12 @@ function exibirEquivalenciasPedidoPs(htmlEquivalencias, produtoPrincipal, preenc
 
             $(".checkboxEquivalencia").not(this).prop('checked', false);
 
-            if (codEquivalente) {
+            if (codEquivalente || codProduto) {
                 f.codFabricante.value = codEquivalente;
                 f.codProdutoNota.value = codEquivalente;
                 f.codProduto.value = codProduto;
                 f.descProduto.value = descricao;
-                f.uniProduto.value = unidade;
+                $("#uniProduto").val(unidade);
                 f.vlrUnitarioPecas.value = valorVenda;
                 f.percDescontoPecas.value = '0,00';
                 f.vlrDescontoPecas.value = '0,00';
@@ -1484,7 +1499,7 @@ function exibirEquivalenciasPedidoPs(htmlEquivalencias, produtoPrincipal, preenc
             f.codProdutoNota.value = '';
             f.codProduto.value = '';
             f.descProduto.value = '';
-            f.uniProduto.value = '';
+            $("#uniProduto").val('');
             f.vlrUnitarioPecas.value = '0,00';
             f.percDescontoPecas.value = '0,00';
             f.vlrDescontoPecas.value = '0,00';

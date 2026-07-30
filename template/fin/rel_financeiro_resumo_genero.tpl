@@ -222,15 +222,14 @@
                                     {assign var="totalParcial" value=$totalParcial+$resultado[i].TOTAL}
 
                                     <tr>
-                                        <td align=left class=ColunaTitulo colspan="12"><b><big>&raquo; {$resultado[i].DESCGENERO}</big></b></td>
+                                        <td align=left class=ColunaTitulo colspan="11"><b><big>&raquo; {$resultado[i].DESCGENERO}</big></b></td>
                                     </tr>
                                     <tr>
                                         <th align=left class=ColunaTitulo style="width: 5%">Docto</th>
-                                        <th align=left class=ColunaTitulo style="width: 8%">Filial</th>
-                                        <th align=left class=ColunaTitulo style="width: 20%">Pessoa</th>
+                                        <th align=left class=ColunaTitulo style="width: 24%">Pessoa</th>
                                         <th align=left class=ColunaTitulo style="width: 4%">Série</th>
                                         <th align=left class=ColunaTitulo style="width: 5%">Parc</th>
-                                        <th align=left class=ColunaTitulo style="width: 10%">Gênero</th>
+                                        <th align=left class=ColunaTitulo style="width: 12%">Gênero</th>
                                         <th align=left class=ColunaTitulo style="width: 7%">Emissão</th>
                                         <th align=left class=ColunaTitulo style="width: 7%">Vencimento</th>
                                         <th align=left class=ColunaTitulo style="width: 7%">Pagamento</th>
@@ -245,21 +244,20 @@
                                 {else}
                                     {* Mudou o gênero - mostra total anterior e cria novo grupo *}
                                     <tr>
-                                        <td align=right class=ColunaTitulo colspan="12"><b><big>Total...: R${$totalParcial|number_format:2:",":"."}</big></b></td>
+                                        <td align=right class=ColunaTitulo colspan="11"><b><big>Total...: R${$totalParcial|number_format:2:",":"."}</big></b></td>
                                     </tr>
                                     <tr>
-                                        <td align=left class=ColunaTitulo colspan="12"><b><big>&raquo; {$resultado[i].DESCGENERO}</big></b></td>
+                                        <td align=left class=ColunaTitulo colspan="11"><b><big>&raquo; {$resultado[i].DESCGENERO}</big></b></td>
                                     </tr>
                                     {assign var="totalParcial" value='0'}
                                     {assign var="generoAnt" value=$resultado[i].GENERO}
                                     {assign var="totalParcial" value=$totalParcial+$resultado[i].TOTAL}
                                     <tr>
                                         <th align=left class=ColunaTitulo style="width: 5%">Docto</th>
-                                        <th align=left class=ColunaTitulo style="width: 8%">Filial</th>
-                                        <th align=left class=ColunaTitulo style="width: 20%">Pessoa</th>
+                                        <th align=left class=ColunaTitulo style="width: 24%">Pessoa</th>
                                         <th align=left class=ColunaTitulo style="width: 4%">Série</th>
                                         <th align=left class=ColunaTitulo style="width: 5%">Parc</th>
-                                        <th align=left class=ColunaTitulo style="width: 10%">Gênero</th>
+                                        <th align=left class=ColunaTitulo style="width: 12%">Gênero</th>
                                         <th align=left class=ColunaTitulo style="width: 7%">Emissão</th>
                                         <th align=left class=ColunaTitulo style="width: 7%">Vencimento</th>
                                         <th align=left class=ColunaTitulo style="width: 7%">Pagamento</th>
@@ -271,7 +269,6 @@
 
                                 <tr bgcolor="{cycle values="#EBEBEB,#FFFFFF"}" class="DestacaLinha">
                                     <td>{$resultado[i].DOCTO}</td>
-                                    <td>{$resultado[i].FILIAL}</td>
                                     <td>{$resultado[i].NOME}</td>
                                     <td>{$resultado[i].SERIE}</td>
                                     <td>{$resultado[i].PARCELA} / {$resultado[i].TOTALPARCELAS}</td>
@@ -286,18 +283,18 @@
 
                             {sectionelse}
                                 <tr>
-                                    <td colspan="12" class="text-center">Não há valores cadastrados para este período</td>
+                                    <td colspan="11" class="text-center">Não há valores cadastrados para este período</td>
                                 </tr>
                             {/section}
 
                             {* Total do último grupo *}
                             <tr class="totais-group">
-                                <td align=right class=ColunaTitulo colspan="12"><b><big>Total...: R${$totalParcial|number_format:2:",":"."}</big></b></td>
+                                <td align=right class=ColunaTitulo colspan="11"><b><big>Total...: R${$totalParcial|number_format:2:",":"."}</big></b></td>
                             </tr>
                             
                             {* Total geral *}
                             <tr class="totais-group">
-                                <td align=right class=ColunaTitulo colspan="12"><b><big>TOTAL GERAL: R${$totalGeral|number_format:2:",":"."}</big></b></td>
+                                <td align=right class=ColunaTitulo colspan="11"><b><big>TOTAL GERAL: R${$totalGeral|number_format:2:",":"."}</big></b></td>
                             </tr>
 
                         </tbody>
@@ -342,7 +339,7 @@
         var ws = XLSX.utils.table_to_sheet(table, { raw: true });
 
         if (typeof converteColunaNumeroBR === 'function') {
-            converteColunaNumeroBR(ws, 11);
+            converteColunaNumeroBR(ws, 10);
         }
 
         XLSX.utils.book_append_sheet(wb, ws, "Resumo Gênero");

@@ -66,6 +66,8 @@ Class p_cclasstrib extends c_cclasstrib {
         $this->setCst(isset($parmPost['cst']) ? $parmPost['cst'] : '');
         $this->setLcRedacao(isset($parmPost['lc_redacao']) ? $parmPost['lc_redacao'] : '');
         $this->setLc21425(isset($parmPost['lc_214_25']) ? $parmPost['lc_214_25'] : '');
+        $this->setRegulamentoCbs(isset($parmPost['regulamento_cbs']) ? $parmPost['regulamento_cbs'] : '');
+        $this->setRegulamentoIbs(isset($parmPost['regulamento_ibs']) ? $parmPost['regulamento_ibs'] : '');
         $this->setTipoAliquota(isset($parmPost['tipo_aliquota']) ? $parmPost['tipo_aliquota'] : '');
         $this->setPredIbs(isset($parmPost['pred_ibs']) ? $parmPost['pred_ibs'] : 0);
         $this->setPredCbs(isset($parmPost['pred_cbs']) ? $parmPost['pred_cbs'] : 0);
@@ -74,8 +76,9 @@ Class p_cclasstrib extends c_cclasstrib {
         $this->setIndGMonoPadrao(isset($parmPost['ind_g_mono_padrao']) ? $parmPost['ind_g_mono_padrao'] : 0);
         $this->setIndGMonoReten(isset($parmPost['ind_g_mono_reten']) ? $parmPost['ind_g_mono_reten'] : 0);
         $this->setIndGMonoRet(isset($parmPost['ind_g_mono_ret']) ? $parmPost['ind_g_mono_ret'] : 0);
-        $this->setIndGMonoDif(isset($parmPost['ind_g_mono_dif']) ? $parmPost['ind_g_mono_dif'] : 0);
+        $this->setIndGpBioDiferenca(isset($parmPost['ind_gp_bio_diferenca']) ? $parmPost['ind_gp_bio_diferenca'] : 0);
         $this->setIndGEstornoCred(isset($parmPost['ind_g_estorno_cred']) ? $parmPost['ind_g_estorno_cred'] : 0);
+        $this->setTpRbsn(isset($parmPost['tp_rbsn']) ? $parmPost['tp_rbsn'] : 0);
         $this->setDIniVig(isset($parmPost['d_ini_vig']) ? $parmPost['d_ini_vig'] : '');
         $this->setDFimVig(isset($parmPost['d_fim_vig']) ? $parmPost['d_fim_vig'] : '');
         $this->setDataAtualizacao(isset($parmPost['data_atualizacao']) ? $parmPost['data_atualizacao'] : '');
@@ -94,6 +97,8 @@ Class p_cclasstrib extends c_cclasstrib {
         $this->setIndNfAg(isset($parmPost['ind_nf_ag']) ? $parmPost['ind_nf_ag'] : 0);
         $this->setIndNfGas(isset($parmPost['ind_nf_gas']) ? $parmPost['ind_nf_gas'] : 0);
         $this->setIndDere(isset($parmPost['ind_dere']) ? $parmPost['ind_dere'] : 0);
+        $this->setIndDir(isset($parmPost['ind_dir']) ? $parmPost['ind_dir'] : 0);
+        $this->setIndDuimp(isset($parmPost['ind_duimp']) ? $parmPost['ind_duimp'] : 0);
     }//construtor
 
 
@@ -201,6 +206,8 @@ Class p_cclasstrib extends c_cclasstrib {
             $this->setCst($registro[0]['CST']);
             $this->setLcRedacao($registro[0]['LC_REDACAO']);
             $this->setLc21425($registro[0]['LC_214_25']);
+            $this->setRegulamentoCbs($registro[0]['REGULAMENTO_CBS']);
+            $this->setRegulamentoIbs($registro[0]['REGULAMENTO_IBS']);
             $this->setTipoAliquota($registro[0]['TIPO_ALIQUOTA']);
             $this->setPredIbs($registro[0]['PRED_IBS']);
             $this->setPredCbs($registro[0]['PRED_CBS']);
@@ -209,8 +216,9 @@ Class p_cclasstrib extends c_cclasstrib {
             $this->setIndGMonoPadrao($registro[0]['IND_G_MONO_PADRAO']);
             $this->setIndGMonoReten($registro[0]['IND_G_MONO_RETEN']);
             $this->setIndGMonoRet($registro[0]['IND_G_MONO_RET']);
-            $this->setIndGMonoDif($registro[0]['IND_G_MONO_DIF']);
+            $this->setIndGpBioDiferenca($registro[0]['IND_GP_BIO_DIFERENCA']);
             $this->setIndGEstornoCred($registro[0]['IND_G_ESTORNO_CRED']);
+            $this->setTpRbsn($registro[0]['TP_RBSN']);
             $this->setDIniVig($registro[0]['D_INI_VIG']);
             $this->setDFimVig($registro[0]['D_FIM_VIG']);
             $this->setDataAtualizacao($registro[0]['DATA_ATUALIZACAO']);
@@ -229,6 +237,8 @@ Class p_cclasstrib extends c_cclasstrib {
             $this->setIndNfAg($registro[0]['IND_NF_AG']);
             $this->setIndNfGas($registro[0]['IND_NF_GAS']);
             $this->setIndDere($registro[0]['IND_DERE']);
+            $this->setIndDir($registro[0]['IND_DIR']);
+            $this->setIndDuimp($registro[0]['IND_DUIMP']);
         }
     }
 
@@ -245,6 +255,8 @@ Class p_cclasstrib extends c_cclasstrib {
         $this->smarty->assign('descricao', "'" . $this->getDescricao() . "'");
         $this->smarty->assign('lc_redacao', $this->getLcRedacao());
         $this->smarty->assign('lc_214_25', "'" . $this->getLc21425() . "'");
+        $this->smarty->assign('regulamento_cbs', $this->getRegulamentoCbs());
+        $this->smarty->assign('regulamento_ibs', $this->getRegulamentoIbs());
         $this->smarty->assign('tipo_aliquota', "'" . $this->getTipoAliquota() . "'");
         
         // Indicadores numéricos
@@ -255,8 +267,9 @@ Class p_cclasstrib extends c_cclasstrib {
         $this->smarty->assign('ind_g_mono_padrao', $this->getIndGMonoPadrao());
         $this->smarty->assign('ind_g_mono_reten', $this->getIndGMonoReten());
         $this->smarty->assign('ind_g_mono_ret', $this->getIndGMonoRet());
-        $this->smarty->assign('ind_g_mono_dif', $this->getIndGMonoDif());
+        $this->smarty->assign('ind_gp_bio_diferenca', $this->getIndGpBioDiferenca());
         $this->smarty->assign('ind_g_estorno_cred', $this->getIndGEstornoCred());
+        $this->smarty->assign('tp_rbsn', $this->getTpRbsn());
         
         // Datas
         $this->smarty->assign('d_ini_vig', $this->getDIniVig('T'));
@@ -279,6 +292,8 @@ Class p_cclasstrib extends c_cclasstrib {
         $this->smarty->assign('ind_nf_ag', $this->getIndNfAg());
         $this->smarty->assign('ind_nf_gas', $this->getIndNfGas());
         $this->smarty->assign('ind_dere', $this->getIndDere());
+        $this->smarty->assign('ind_dir', $this->getIndDir());
+        $this->smarty->assign('ind_duimp', $this->getIndDuimp());
 
         // Combo CST
         $cstCombo = $this->getCstCombo();

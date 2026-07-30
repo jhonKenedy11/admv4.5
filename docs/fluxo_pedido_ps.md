@@ -47,6 +47,8 @@ A consulta `select_pedido_letra` em `c_pedido_ps` também faz join com esse mesm
 | **9**  | Baixado / pago (ex.: extrato cadastrado com sucesso; comentários no código como “PAGO”). Voltar para **3** fica bloqueado se `pedidoPossuiNotaComFinanceiroBaixado()` for verdadeiro |
 | **12** | Situação usada como filtro padrão na listagem (junto com 5) quando o usuário não seleciona situações |
 | **13** | **Encomenda** — aguardando entrada de estoque (`ENCOMENDA=S` e itens indisponíveis na confirmação 5→6); financeiro pode abrir na confirmação |
+| **7**  | **Perdido** — venda perdida do pedido inteiro via `motivoGeral` (motivo em `FAT_PEDIDO_ITEM`, `OBS`, `SITUACAO = 7`) |
+| **10** | Em aprovação |
 
 
 Outros fluxos do sistema (pedido farma, importação, etc.) podem usar outros códigos; este documento cobre o **Pedido PS** em `p_pedido_ps.php` / `c_pedido_ps.php` e o encadeamento em `p_pedido_venda_nf_pecas_novo.php`.
@@ -73,7 +75,7 @@ O método `**controle()`** em `forms/ped/p_pedido_ps.php` faz `switch ($this->m_
 | `prosseguirComDesconto`         | —                     | AJAX: retorna `SITUACAO` atual                                                                                                                                                                                                                                                   |
 | `cadastrarCarrinho`             | I                     | Pedido a partir de JSON (e-commerce); situação inicial **5**                                                                                                                                                                                                                     |
 | `cadastrarCarrinhoPedidoExiste` | I                     | Atualiza pedido existente do carrinho                                                                                                                                                                                                                                            |
-| `vendaPerdida`                  | —                     | Marca itens perdidos / total                                                                                                                                                                                                                                                     |
+| `motivoGeral`                   | A                     | Venda perdida do pedido inteiro (apenas situação **5**): marca motivo em todos os itens, grava `OBS`, `SITUACAO = 7`, recalcula `TOTAL`; bloqueia se existir financeiro `PED`                                                                                                      |
 | `ajax_obra`, `ajax_enderecos`   | —                     | Respostas JSON                                                                                                                                                                                                                                                                   |
 | `simulaImpostos`                | —                     | Relatório de impostos                                                                                                                                                                                                                                                            |
 | `abrirDashboardCrm`             | A                     | Abre última cotação (5) do cliente ou novo cadastro                                                                                                                                                                                                                              |
@@ -101,6 +103,7 @@ Valores de `**submenu`** são definidos no JavaScript (`js/ped/s_pedido_ps.js`),
 | Itens / serviços                                  | `incluiProduto`, `alteraProduto`, `excluiPedidoItemProduto`, `incluiServicos`, `alteraServicos`, `excluiServicosItemAtendimento`, etc.                                                                         |
 | OS                                                | `atualizaOsPedido()`, `estornaDadosOsPedido()`                                                                                                                                                                 |
 | Totais / impostos                                 | `calculaImpostos()`, agregações de itens e serviços                                                                                                                                                            |
+| Venda perdida                                     | `verificarPedidoItem()`, `atualizarMotivoItem()`, `atualizarObsPerda()`, `atualizarTotal()`, `atualizarFieldPedido()` — motivo em `FAT_PEDIDO_ITEM.MOTIVO`; `select_totalPedido()` soma apenas itens com `MOTIVO = 0` |
 
 
 **Estoque (classe `c_produto_estoque`)** — pontos citados no fluxo PS:
@@ -234,6 +237,46 @@ Quando `FAT_PARAMETRO.ENCOMENDA = 'S'` na filial e `EST_PARAMETRO.CONTROLAESTOQU
 7. Opcional após entrada de NF: modal na **movimentação CC** lista pedidos com falta do produto entrado (atalho para liberar).
 
 Parâmetros relacionados: `ENCOMENDA`, `FATURAPEDIDO`, `FLUXOPEDIDO` (conferência/romaneio na Gerência — ver `docs/fluxo_gerencia_pedidos.md`).
+
+---
+
+## Venda perdida
+
+Fluxo portado do `pedido_venda_telhas` (4.3.1) para o Pedido PS. **Sem alteração de banco** — usa `FAT_MOTIVO`, `FAT_PEDIDO_ITEM.MOTIVO` e `FAT_PEDIDO.SITUACAO = 7`.
+
+### Perda do pedido inteiro (`motivoGeral`)
+
+Disponível **somente** para pedidos em **cotação (situação 5)** — na listagem, no CRM e validado no backend.
+
+| Camada | Arquivo | Comportamento |
+| ------ | ------- | ------------- |
+| Listagem | `template/ped/pedido_ps_mostra.tpl` | Botão vermelho (sit. **5**) abre modal com motivo + `obsPerda` |
+| JS | `js/ped/s_pedido_ps.js` | `vendaPerdida()`, `salvarMotivoNoPedido()` → `submenu = motivoGeral` |
+| Backend | `forms/ped/p_pedido_ps.php` | Valida situação 5 e financeiro; marca todos os itens; grava `OBS`; `SITUACAO = 7`; recalcula total |
+| CRM | `template/crm/dashboard.tpl` + `forms/crm/p_crm_dashboard.php` | Modal na aba Cotações; aba **Próximos Contatos** (Hoje/Atrasados/Próximos/Sugestões); finalizar acomp. via `atualizaStatusAcomp` |
+
+### Limitações
+
+- Venda perdida **apenas no pedido inteiro** — sem perda parcial por item no cadastro PS.
+- Motivo aplica-se somente a **peças** (`FAT_PEDIDO_ITEM`). **Serviços** não possuem campo `MOTIVO`.
+- Pedido com situação **7**: edição e cancelamento desabilitados na listagem; observações readonly no cadastro.
+- Filtro por motivo na listagem via `motivoSelected` em `select_pedido_letra()`.
+
+### Checklist de testes manuais
+
+| Cenário | Resultado esperado |
+| ------- | ------------------ |
+| Cotação (5) → venda perdida na listagem | `SITUACAO=7`, motivo nos itens, `OBS` gravada |
+| Cotação com financeiro `PED` | Bloqueio com mensagem de alerta |
+| Pedido em aprovação (10) ou outra situação | Botão não exibido; backend rejeita |
+| Pedido já perdido (7) | Botão editar/perda desabilitado |
+| Filtro por motivo na listagem | Retorna só pedidos com itens daquele motivo |
+| CRM: venda perdida em cotação | Pedido vai para sit. 7 |
+| Pedido com peças + serviços → perda total | Itens marcados, sit. 7; serviços permanecem |
+| CRM: aba Próximos Contatos | Painéis por `ligardia`; sugestões sem acomp. |
+| CRM: finalizar acompanhamento | Status `B`; some do painel; botão ✓ oculto |
+
+Roteiro completo com SQL de dados: `docs/testes_crm_dashboard_pedido_ps.md` e `docs/sql/teste_crm_dashboard_cenarios.sql`.
 
 ---
 

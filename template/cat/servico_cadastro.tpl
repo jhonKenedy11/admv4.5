@@ -94,9 +94,10 @@
                     class="required">*</span>
                 </label>
                 <div class="col-md-6 col-sm-6 col-xs-12">
-                  <input id="unidade" name="unidade" type="text" required="required"
-                    class="form-control col-md-7 col-xs-12" tittle="Preencha este campo com letras, até 3 caracteres."
-                    placeholder="Digite a unidade." value={$unidade}>
+                  <select id="unidade" name="unidade" required="required"
+                    class="form-control col-md-7 col-xs-12">
+                    {html_options values=$uni_ids selected=$unidade output=$uni_names}
+                  </select>
                 </div>
               </div>
 

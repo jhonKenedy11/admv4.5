@@ -258,27 +258,46 @@ function submitConfirmaRemessa() {
     f.mod.value = 'fin';
     f.form.value = 'remessa_bancaria';
 
-    // Verifica se há problemas de validação do nosso número
-    var alertasErro = document.querySelectorAll('.alert-danger');
-    if (alertasErro.length > 0) {
-        alert('Existem problemas na validação do nosso número. Corrija os problemas antes de gerar a remessa bancária.');
+    var btnConfirma = document.getElementById('btnConfirmaRemessa');
+    if (f.banco.value === '748' && btnConfirma && btnConfirma.disabled) {
         return;
     }
 
-    if (confirm('Deseja realmente gerar arquivo de remessa' + f.form.value) == true) {
+    var alertasErro = document.querySelectorAll('.alert-danger');
+    if (alertasErro.length > 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atenção',
+            text: 'Existem problemas na validação do nosso número. Corrija os problemas antes de gerar a remessa bancária.'
+        });
+        return;
+    }
+
+    Swal.fire({
+        title: 'Gerar remessa bancária?',
+        text: 'Deseja realmente gerar o arquivo de remessa?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não'
+    }).then(function (result) {
+        if (!result.isConfirmed) {
+            f.submenu.value = 'mostra';
+            return;
+        }
+
         f.submenu.value = 'gerar' + f.banco.value;
-        // f.submenu.value = 'gerar'; 
         if ((f.contaBanco.value != '') && (f.filial.value != '')) {
             f.letra.value = f.dataConsulta.value + "|" + f.filial.value + "|" + f.contaBanco.value;
             f.submit();
+        } else {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atenção',
+                text: 'Selecione as opções desejadas.'
+            });
         }
-        else {
-            alert('Selecione as opções desejada.');
-        }
-    }
-    else {
-        f.submenu.value = 'mostra';
-    }
+    });
 
 } // fim submitConfirmarRemessa
 

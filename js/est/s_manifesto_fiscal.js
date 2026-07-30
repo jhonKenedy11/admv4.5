@@ -263,47 +263,8 @@ function currencyFormat(num) {
 // }
 
 function calculaTotalMdfe(){
-    f = document.lancamento;
-    var table = document.getElementById("datatable-buttons-nf");
-    var r = table.rows.length;
-    var count = 0;
-    var notaFiscais = "";
-    
-    for (i = 1; i < r; i++) {
-        
-        var row = table.rows.item(i).getElementsByTagName("rowsMdfe");        
-        if (row.length > 0){
-            if (row[0].checked == true) {
-                nfChecked = true;
-                var cells = table.rows[i].getElementsByTagName("td");
-    
-                novaPessoa = cells[7].childNodes[0].data;    
-                nfId   = cells[1].childNodes[0].data;   
-    
-                if (pessoa === ''){
-                    pessoa = novaPessoa;
-                }
-                
-                if(novaPessoa === pessoa){   
-                    notaFiscais = notaFiscais + "|" + nfId.trim();
-                }else{
-                    alert("Selecione a mesma Pessoa para fazer a Devolução de Nf.");
-                    return false;
-                }
-                count += 1
-            }
-        }
-    }
-
-    if(nfChecked == true){
-        f.devolucaoNotaFiscal.value = "";
-        f.devolucaoNotaFiscal.value = notaFiscais;
-        f.submenu.value = "devolucaoNotaFiscal";
-        f.submit();
-    }else{
-        alert("Selecione mais de uma Nf para fazer a Devolução.");
-        return false;
-    }
+    // Reservado para cálculo de totais do MDF-e (devolução via módulo nota_fiscal_devolucao)
+    return false;
 }
 
 

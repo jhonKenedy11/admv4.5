@@ -69,6 +69,7 @@
 </style>
 
 <script type="text/javascript" src="{$pathJs}/est/s_nota_fiscal.js"> </script>
+<script type="text/javascript" src="{$pathJs}/est/s_nota_fiscal_devolucao.js"> </script>
 <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <!-- page content -->
 <div class="right_col" role="main">
@@ -190,6 +191,12 @@
                                                     onClick="javascript:calculoTributos({$id});"><span> C&aacute;lculo
                                                         Tributos</span></button>
                                             </li>
+                                            <li>
+                                                <button type="button" class="btn btn-danger btn-xs btnRelatorios"
+                                                    onClick="javascript:irParaDevolucaoWizard({$id});">
+                                                    <span> Devolver NF</span>
+                                                </button>
+                                            </li>
                                             <li class="linhaMenu">
                                                 __________________________________
                                             </li>
@@ -265,11 +272,13 @@
                                                     data-toggle="modal" data-target="#modalCancela"><span> Cancela
                                                         {if $modelo eq '65'}NFC-e{else}NF-e{/if}</span></button>
                                             </li>
+                                            {if $situacao_id neq 'C'}
                                             <li>
                                                 <button type="button" class="btn btn-danger btn-xs btnRelatorios"
                                                     onClick="javascript:submitExcluir('$id', '{$situacao_id}');"><span> Exclui
                                                         NF-e</span></button>
                                             </li>
+                                            {/if}
                                         {/if}
                                     </ul>
                                 </li>

@@ -123,10 +123,12 @@ Detalhes de campos das abas **Parcelas** e **Transportador / Observação** est�
 
 Estados calculados no Smarty por linha (`pedido_venda_gerente_novo.tpl`):
 
-1. **Pedido** — sit **6** sem financeiro/NF pendente
-2. **Financ.** — existe financeiro ou etapa ativa intermediária
+1. **Pedido (Conferência)** — sit **6** (com ou sem financeiro já cadastrado; ex.: liberação encomenda→pedido)
+2. **Financ.** — verde se existe lançamento ativo (`TEM_FINANCEIRO` por `NUMLCTO` + `SITPGTO <> 'C'`); laranja só enquanto ainda falta cadastrar (encomenda sem fin.)
 3. **NF** — sit **3** (emitir NF)
 4. **Fiscal** — nota em aberto ou rejeitada (`TEM_NOTA_ABERTA`, `TEM_NOTA_REJEITADA`)
+
+Sit **6** com financeiro (típico pós-encomenda): Conferência e Financeiro **concluídos** (verde).
 
 ---
 

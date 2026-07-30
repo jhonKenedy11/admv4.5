@@ -26,6 +26,8 @@ Class c_cclasstrib extends c_user {
     private $cst = NULL;
     private $lc_redacao = NULL;
     private $lc_214_25 = NULL;
+    private $regulamento_cbs = NULL;
+    private $regulamento_ibs = NULL;
     private $tipo_aliquota = NULL;
     private $pred_ibs = NULL;
     private $pred_cbs = NULL;
@@ -34,8 +36,9 @@ Class c_cclasstrib extends c_user {
     private $ind_g_mono_padrao = NULL;
     private $ind_g_mono_reten = NULL;
     private $ind_g_mono_ret = NULL;
-    private $ind_g_mono_dif = NULL;
+    private $ind_gp_bio_diferenca = NULL;
     private $ind_g_estorno_cred = NULL;
+    private $tp_rbsn = NULL;
     private $d_ini_vig = NULL;
     private $d_fim_vig = NULL;
     private $data_atualizacao = NULL;
@@ -54,6 +57,8 @@ Class c_cclasstrib extends c_user {
     private $ind_nf_ag = NULL;
     private $ind_nf_gas = NULL;
     private $ind_dere = NULL;
+    private $ind_dir = NULL;
+    private $ind_duimp = NULL;
 
     //construtor
     function __construct(){
@@ -84,6 +89,12 @@ Class c_cclasstrib extends c_user {
     public function setLc21425($lc_214_25){$this->lc_214_25 = $lc_214_25;}
     public function getLc21425(){return $this->lc_214_25;}
 
+    public function setRegulamentoCbs($regulamento_cbs){$this->regulamento_cbs = $regulamento_cbs;}
+    public function getRegulamentoCbs(){return $this->regulamento_cbs;}
+
+    public function setRegulamentoIbs($regulamento_ibs){$this->regulamento_ibs = $regulamento_ibs;}
+    public function getRegulamentoIbs(){return $this->regulamento_ibs;}
+
     public function setTipoAliquota($tipo_aliquota){$this->tipo_aliquota = $tipo_aliquota;}
     public function getTipoAliquota(){return $this->tipo_aliquota;}
 
@@ -108,11 +119,14 @@ Class c_cclasstrib extends c_user {
     public function setIndGMonoRet($ind_g_mono_ret){$this->ind_g_mono_ret = (int)$ind_g_mono_ret;}
     public function getIndGMonoRet(){return $this->ind_g_mono_ret;}
 
-    public function setIndGMonoDif($ind_g_mono_dif){$this->ind_g_mono_dif = (int)$ind_g_mono_dif;}
-    public function getIndGMonoDif(){return $this->ind_g_mono_dif;}
+    public function setIndGpBioDiferenca($ind_gp_bio_diferenca){$this->ind_gp_bio_diferenca = (int)$ind_gp_bio_diferenca;}
+    public function getIndGpBioDiferenca(){return $this->ind_gp_bio_diferenca;}
 
     public function setIndGEstornoCred($ind_g_estorno_cred){$this->ind_g_estorno_cred = (int)$ind_g_estorno_cred;}
     public function getIndGEstornoCred(){return $this->ind_g_estorno_cred;}
+
+    public function setTpRbsn($tp_rbsn){$this->tp_rbsn = (int)$tp_rbsn;}
+    public function getTpRbsn(){return $this->tp_rbsn;}
 
     public function setDIniVig($d_ini_vig){$this->d_ini_vig = $d_ini_vig;}
     public function getDIniVig($format = null){
@@ -204,6 +218,12 @@ Class c_cclasstrib extends c_user {
     public function setIndDere($ind_dere){$this->ind_dere = (int)$ind_dere;}
     public function getIndDere(){return $this->ind_dere;}
 
+    public function setIndDir($ind_dir){$this->ind_dir = (int)$ind_dir;}
+    public function getIndDir(){return $this->ind_dir;}
+
+    public function setIndDuimp($ind_duimp){$this->ind_duimp = (int)$ind_duimp;}
+    public function getIndDuimp(){return $this->ind_duimp;}
+
     //############### FIM SETS E GETS ###############
 
     /**
@@ -269,21 +289,27 @@ Class c_cclasstrib extends c_user {
         try {
             $banco = new c_banco_pdo();
             $sql = "INSERT INTO EST_CCLASS_TRIB (
-                    CCLASSTRIB, NOME, DESCRICAO, CST, LC_REDACAO, LC_214_25, TIPO_ALIQUOTA,
+                    CCLASSTRIB, NOME, DESCRICAO, CST, LC_REDACAO, LC_214_25,
+                    REGULAMENTO_CBS, REGULAMENTO_IBS, TIPO_ALIQUOTA,
                     PRED_IBS, PRED_CBS, IND_G_TRIB_REGULAR, IND_G_CRED_PRES_OPER,
-                    IND_G_MONO_PADRAO, IND_G_MONO_RETEN, IND_G_MONO_RET, IND_G_MONO_DIF,
-                    IND_G_ESTORNO_CRED, D_INI_VIG, D_FIM_VIG, DATA_ATUALIZACAO,
+                    IND_G_MONO_PADRAO, IND_G_MONO_RETEN, IND_G_MONO_RET,
+                    IND_GP_BIO_DIFERENCA, IND_G_ESTORNO_CRED, TP_RBSN,
+                    D_INI_VIG, D_FIM_VIG, DATA_ATUALIZACAO,
                     IND_NFE_ABI, IND_NFE, IND_NF_CE, IND_CTE, IND_CTE_OS,
                     IND_BPE, IND_BPE_TA, IND_BPE_TM, IND_NF_3E, IND_NFSE,
-                    IND_NFSE_VIA, IND_NF_COM, IND_NF_AG, IND_NF_GAS, IND_DERE, CREATED_USER
+                    IND_NFSE_VIA, IND_NF_COM, IND_NF_AG, IND_NF_GAS, IND_DERE,
+                    IND_DIR, IND_DUIMP, CREATED_USER
                     ) VALUES (
-                    :cclasstrib, :nome, :descricao, :cst, :lcRedacao, :lc21425, :tipoAliquota,
+                    :cclasstrib, :nome, :descricao, :cst, :lcRedacao, :lc21425,
+                    :regulamentoCbs, :regulamentoIbs, :tipoAliquota,
                     :predIbs, :predCbs, :indGTribRegular, :indGCredPresOper,
-                    :indGMonoPadrao, :indGMonoReten, :indGMonoRet, :indGMonoDif,
-                    :indGEstornoCred, :dIniVig, :dFimVig, :dataAtualizacao,
+                    :indGMonoPadrao, :indGMonoReten, :indGMonoRet,
+                    :indGpBioDiferenca, :indGEstornoCred, :tpRbsn,
+                    :dIniVig, :dFimVig, :dataAtualizacao,
                     :indNfeAbi, :indNfe, :indNfCe, :indCte, :indCteOs,
                     :indBpe, :indBpeTa, :indBpeTm, :indNf3e, :indNfse,
-                    :indNfseVia, :indNfCom, :indNfAg, :indNfGas, :indDere, :createdUser
+                    :indNfseVia, :indNfCom, :indNfAg, :indNfGas, :indDere,
+                    :indDir, :indDuimp, :createdUser
                     )";
             
             $banco->prepare($sql);
@@ -293,6 +319,8 @@ Class c_cclasstrib extends c_user {
             $banco->bindValue(':cst', $this->getCst() ?: null);
             $banco->bindValue(':lcRedacao', $this->getLcRedacao());
             $banco->bindValue(':lc21425', $this->getLc21425());
+            $banco->bindValue(':regulamentoCbs', $this->getRegulamentoCbs());
+            $banco->bindValue(':regulamentoIbs', $this->getRegulamentoIbs());
             $banco->bindValue(':tipoAliquota', $this->getTipoAliquota());
             $banco->bindValue(':predIbs', (int)$this->getPredIbs());
             $banco->bindValue(':predCbs', (int)$this->getPredCbs());
@@ -301,8 +329,9 @@ Class c_cclasstrib extends c_user {
             $banco->bindValue(':indGMonoPadrao', (int)$this->getIndGMonoPadrao());
             $banco->bindValue(':indGMonoReten', (int)$this->getIndGMonoReten());
             $banco->bindValue(':indGMonoRet', (int)$this->getIndGMonoRet());
-            $banco->bindValue(':indGMonoDif', (int)$this->getIndGMonoDif());
+            $banco->bindValue(':indGpBioDiferenca', (int)$this->getIndGpBioDiferenca());
             $banco->bindValue(':indGEstornoCred', (int)$this->getIndGEstornoCred());
+            $banco->bindValue(':tpRbsn', (int)$this->getTpRbsn());
             $banco->bindValue(':dIniVig', $this->getDIniVig('F') ?: null);
             $banco->bindValue(':dFimVig', $this->getDFimVig('F') ?: null);
             $banco->bindValue(':dataAtualizacao', $this->getDataAtualizacao('F') ?: null);
@@ -321,6 +350,8 @@ Class c_cclasstrib extends c_user {
             $banco->bindValue(':indNfAg', (int)$this->getIndNfAg());
             $banco->bindValue(':indNfGas', (int)$this->getIndNfGas());
             $banco->bindValue(':indDere', (int)$this->getIndDere());
+            $banco->bindValue(':indDir', (int)$this->getIndDir());
+            $banco->bindValue(':indDuimp', (int)$this->getIndDuimp());
             $banco->bindValue(':createdUser', $this->m_userid);
             $banco->execute();
             return true;
@@ -342,6 +373,8 @@ Class c_cclasstrib extends c_user {
                     CST = :cst,
                     LC_REDACAO = :lcRedacao,
                     LC_214_25 = :lc21425,
+                    REGULAMENTO_CBS = :regulamentoCbs,
+                    REGULAMENTO_IBS = :regulamentoIbs,
                     TIPO_ALIQUOTA = :tipoAliquota,
                     PRED_IBS = :predIbs,
                     PRED_CBS = :predCbs,
@@ -350,8 +383,9 @@ Class c_cclasstrib extends c_user {
                     IND_G_MONO_PADRAO = :indGMonoPadrao,
                     IND_G_MONO_RETEN = :indGMonoReten,
                     IND_G_MONO_RET = :indGMonoRet,
-                    IND_G_MONO_DIF = :indGMonoDif,
+                    IND_GP_BIO_DIFERENCA = :indGpBioDiferenca,
                     IND_G_ESTORNO_CRED = :indGEstornoCred,
+                    TP_RBSN = :tpRbsn,
                     D_INI_VIG = :dIniVig,
                     D_FIM_VIG = :dFimVig,
                     DATA_ATUALIZACAO = :dataAtualizacao,
@@ -370,6 +404,8 @@ Class c_cclasstrib extends c_user {
                     IND_NF_AG = :indNfAg,
                     IND_NF_GAS = :indNfGas,
                     IND_DERE = :indDere,
+                    IND_DIR = :indDir,
+                    IND_DUIMP = :indDuimp,
                     UPDATED_USER = :updatedUser
                     WHERE ID = :id";
             
@@ -379,6 +415,8 @@ Class c_cclasstrib extends c_user {
             $banco->bindValue(':cst', $this->getCst() ?: null);
             $banco->bindValue(':lcRedacao', $this->getLcRedacao());
             $banco->bindValue(':lc21425', $this->getLc21425());
+            $banco->bindValue(':regulamentoCbs', $this->getRegulamentoCbs());
+            $banco->bindValue(':regulamentoIbs', $this->getRegulamentoIbs());
             $banco->bindValue(':tipoAliquota', $this->getTipoAliquota());
             $banco->bindValue(':predIbs', (int)$this->getPredIbs());
             $banco->bindValue(':predCbs', (int)$this->getPredCbs());
@@ -387,8 +425,9 @@ Class c_cclasstrib extends c_user {
             $banco->bindValue(':indGMonoPadrao', (int)$this->getIndGMonoPadrao());
             $banco->bindValue(':indGMonoReten', (int)$this->getIndGMonoReten());
             $banco->bindValue(':indGMonoRet', (int)$this->getIndGMonoRet());
-            $banco->bindValue(':indGMonoDif', (int)$this->getIndGMonoDif());
+            $banco->bindValue(':indGpBioDiferenca', (int)$this->getIndGpBioDiferenca());
             $banco->bindValue(':indGEstornoCred', (int)$this->getIndGEstornoCred());
+            $banco->bindValue(':tpRbsn', (int)$this->getTpRbsn());
             $banco->bindValue(':dIniVig', $this->getDIniVig('F') ?: null);
             $banco->bindValue(':dFimVig', $this->getDFimVig('F') ?: null);
             $banco->bindValue(':dataAtualizacao', $this->getDataAtualizacao('F') ?: null);
@@ -407,6 +446,8 @@ Class c_cclasstrib extends c_user {
             $banco->bindValue(':indNfAg', (int)$this->getIndNfAg());
             $banco->bindValue(':indNfGas', (int)$this->getIndNfGas());
             $banco->bindValue(':indDere', (int)$this->getIndDere());
+            $banco->bindValue(':indDir', (int)$this->getIndDir());
+            $banco->bindValue(':indDuimp', (int)$this->getIndDuimp());
             $banco->bindValue(':updatedUser', $this->m_userid);
             $banco->bindValue(':id', $this->getId());
             $banco->execute();

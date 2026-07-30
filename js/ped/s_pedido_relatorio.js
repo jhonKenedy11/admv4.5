@@ -43,6 +43,10 @@ async function generateReport()
             form.action = "index.php?mod=ped&form=rel_bonus&opcao=imprimir&submenu=relatorioBonus&tipoRelatorio=" + report;
             break;
 
+        case "relatorioComissao":
+            form.action = "index.php?mod=ped&form=rel_comissao&opcao=imprimir&submenu=relatorioComissao&tipoRelatorio=" + report;
+            break;
+
         case "relatorioVendas":
             form.action = "index.php?mod=ped&form=rel_pedidos&opcao=imprimir&submenu=relatorioVendas&tipoRelatorio=" + report;
             break;
@@ -173,6 +177,7 @@ function controlInputs(report)
     $('#condicao_pagamento_container').show();
     $('#tipo_entrega_container').show();
     $('#obra_container').show();
+    $('#desc_produto').show();
 
     switch (report) {
         case "relatorioBonus":            
@@ -180,6 +185,15 @@ function controlInputs(report)
                 document.getElementById("report").value = report;
             }
             controlInputsReportBonus();
+            break;
+        case "relatorioComissao":
+            if(document.getElementById("report")){
+                document.getElementById("report").value = report;
+            }
+            controlInputsReportBonus();
+            // Situação é fixa (6, 3 e 9) para a comissão: não precisa do parâmetro.
+            $('#situacao').prop('disabled', true).val(null).trigger('change');
+            $('#situacao_container').hide();
             break;
         case "relatorioVendas":
             if(document.getElementById("report")){
@@ -292,6 +306,30 @@ function controlInputs(report)
     }
 
     habilitarCampoSituacao();
+    ocultaCamposDesabilitados();
+}
+
+// Esconde no modal os campos que ficaram desabilitados para o relatório selecionado.
+// Mapa: id do container -> controle que define o estado (disabled). Só esconde (nunca
+// força exibir), para preservar os hide() específicos de cada relatório.
+function ocultaCamposDesabilitados()
+{
+    var campos = {
+        'cliente_container': '#buscaCliente',
+        'desc_produto': '#buscaProduto',
+        'centro_custo_container': '#centro_custo',
+        'motivo-venda-container': '#motivo',
+        'vendedor_container': '#vendedor',
+        'condicao_pagamento_container': '#condicao_pagamento',
+        'tipo_entrega_container': '#tipo_entrega',
+        'grupo_container': '#idGrupo'
+    };
+
+    $.each(campos, function (container, controle) {
+        if ($(controle).prop('disabled')) {
+            $('#' + container).hide();
+        }
+    });
 }
 
 function controlInputsReportCompraEncomenda()

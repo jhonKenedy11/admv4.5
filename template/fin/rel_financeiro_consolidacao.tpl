@@ -211,14 +211,13 @@
                     <table class="table table-striped" style="margin-bottom: 0;">
                         <thead>
                             <tr>
-                                <th style="width: 6%">Docto</th>
-                                <th style="width: 8%">Filial</th>
-                                <th style="width: 25%">Pessoa</th>
+                                <th style="width: 7%">Docto</th>
+                                <th style="width: 28%">Pessoa</th>
                                 <th style="width: 4%">Série</th>
                                 <th style="width: 5%">Parc</th>
-                                <th style="width: 12%">Gênero</th>
-                                <th style="width: 8%">Movimento</th>
-                                <th style="width: 8%">Tipo</th>
+                                <th style="width: 14%">Gênero</th>
+                                <th style="width: 9%">Movimento</th>
+                                <th style="width: 9%">Tipo</th>
                                 <th style="width: 10%; text-align: right;">Total</th>
                             </tr>
                         </thead>
@@ -266,7 +265,7 @@
                                     {* Mostra subtotal da data anterior *}
                                     {assign var="saldoParcial" value=$valorCredito-$valorDebito}
                                     <tr class="totais-group">
-                                        <td colspan="9" align="right">
+                                        <td colspan="8" align="right">
                                             <b>Data: {$dataAnt|date_format:"%d/%m/%Y"} | 
                                             Crédito: R$ {$valorCredito|number_format:2:",":"."} | 
                                             Débito: R$ {$valorDebito|number_format:2:",":"."} | 
@@ -293,7 +292,6 @@
                                 {* Linha do lançamento *}
                                 <tr bgcolor="{cycle values="#EBEBEB,#FFFFFF"}" class="DestacaLinha">
                                     <td>{$resultado[i].DOCTO}</td>
-                                    <td>{$resultado[i].FILIAL}</td>
                                     <td>{$resultado[i].NOME}</td>
                                     <td>{$resultado[i].SERIE}</td>
                                     <td>{$resultado[i].PARCELA} / {$resultado[i].TOTALPARCELAS}</td>
@@ -305,7 +303,7 @@
 
                             {sectionelse}
                                 <tr>
-                                    <td colspan="9" class="text-center">Não há lançamentos cadastrados</td>
+                                    <td colspan="8" class="text-center">Não há lançamentos cadastrados</td>
                                 </tr>
                             {/section}
 
@@ -313,7 +311,7 @@
                             {if count($resultado) > 0}
                                 {assign var="saldoParcial" value=$valorCredito-$valorDebito}
                                 <tr class="totais-group">
-                                    <td colspan="9" align="right">
+                                    <td colspan="8" align="right">
                                         <b>Data: {$dataAnt|date_format:"%d/%m/%Y"} | 
                                         Crédito: R$ {$valorCredito|number_format:2:",":"."} | 
                                         Débito: R$ {$valorDebito|number_format:2:",":"."} | 
@@ -324,7 +322,7 @@
                                 {* Total geral *}
                                 {assign var="saldoGeral" value=$totalCredito-$totalDebito}
                                 <tr class="totais-group">
-                                    <td colspan="6" align="right"><b><big>TOTAL GERAL:</big></b></td>
+                                    <td colspan="5" align="right"><b><big>TOTAL GERAL:</big></b></td>
                                     <td align="right" class="saldo-positivo"><b><big>R$ {$totalCredito|number_format:2:",":"."}</big></b></td>
                                     <td align="right" class="saldo-negativo"><b><big>R$ {$totalDebito|number_format:2:",":"."}</big></b></td>
                                     <td align="right" class="{if $saldoGeral >= 0}saldo-positivo{else}saldo-negativo{/if}">
@@ -375,7 +373,7 @@
         var ws = XLSX.utils.table_to_sheet(table, { raw: true });
 
         if (typeof converteColunaNumeroBR === 'function') {
-            converteColunaNumeroBR(ws, 8);
+            converteColunaNumeroBR(ws, 7);
         }
 
         XLSX.utils.book_append_sheet(wb, ws, "Consolidação");

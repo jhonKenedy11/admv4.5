@@ -13,6 +13,7 @@ endif;
 $dir = (__DIR__);
 include_once($dir . "/../../../smarty/libs/Smarty.class.php");
 include_once($dir."/../../class/cat/c_servico.php");
+include_once($dir."/../../class/est/c_produto.php");
 include_once($dir."/../../bib/c_tools.php");
 
 //Class p_cat_servico
@@ -136,10 +137,15 @@ function desenhaCadastroServico($mensagem=NULL){
 
   $this->smarty->assign('id', $this->__get('ID'));
   $this->smarty->assign('descricao', "'".$this->__get('DESCRICAO')."'");
-  $this->smarty->assign('unidade', "'".$this->__get('UNIDADE')."'");
+  $this->smarty->assign('unidade', $this->__get('UNIDADE'));
   $this->smarty->assign('quantidade', "'".$this->__get('QUANTIDADE')."'");
   $this->smarty->assign('valorunitario', "'".$this->__get('VALORUNITARIO')."'");
   $this->smarty->assign('status', $this->__get('STATUS'));
+
+  $objProduto = new c_produto();
+  $unidade_combo = $objProduto->select_unidade_combo();
+  $this->smarty->assign('uni_ids', $unidade_combo['ids']);
+  $this->smarty->assign('uni_names', $unidade_combo['names']);
 
   $this->smarty->display('servico_cadastro.tpl');
     

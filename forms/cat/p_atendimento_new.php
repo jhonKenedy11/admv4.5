@@ -529,13 +529,14 @@ class p_atendimento_new extends c_atendimento
             }
 
 
-            if ($resultProd !== null) {
+            if (!empty($resultProd) && isset($resultProd[0])) {
+                $this->setUnidadePecas($uniProd);
                 $this->smarty->assign('prodExiste', 'yes');
                 $this->smarty->assign('codProduto', $cod);
                 $this->smarty->assign('codFabricante', "'$codFab'");
                 $this->smarty->assign('codProdutoNota', "'$codNota'");
                 $this->smarty->assign('descProduto', $descPrd);
-                $this->smarty->assign('uniProduto', "'$uniProd'");
+                $this->smarty->assign('uniProduto', $uniProd);
 
                 $this->setVlrUnitarioPecas($resultProd[0]['VENDA']);
                 $this->smarty->assign('vlrUnitarioPecas', $this->getVlrUnitarioPecas('F'));
@@ -718,6 +719,13 @@ class p_atendimento_new extends c_atendimento
         $this->smarty->assign('usuario_equipe_ids', $usuario_equipe_ids);
         $this->smarty->assign('usuario_equipe_names', $usuario_equipe_names);
         $this->smarty->assign('usuario_equipe', $this->getUsuarioEquipe());
+
+        $objProduto = new c_produto();
+        $unidade_combo = $objProduto->select_unidade_combo();
+        $this->smarty->assign('uni_ids', $unidade_combo['ids']);
+        $this->smarty->assign('uni_names', $unidade_combo['names']);
+        $this->smarty->assign('uniProduto', $this->getUnidadePecas());
+        $this->smarty->assign('unidadeServico', $this->getUnidadeServico());
 
         $this->smarty->display('atendimento_new_cadastro.tpl');
     }

@@ -175,6 +175,29 @@
                     </div>
 
                     <div class="row">
+                        <!-- Fora de Linha -->
+                        <div class="form-group col-md-3 col-sm-3 col-xs-3">
+                            <label>Fora de Linha</label>
+                            <select class="form-control" id="foraLinha" name="foraLinha">
+                                <option value="0" selected>Todos</option>
+                                <option value="1">Em linha</option>
+                                <option value="2">Fora de linha</option>
+                            </select>
+                        </div>
+
+                        <!-- Apenas com estoque -->
+                        <div class="form-group col-md-3 col-sm-3 col-xs-3">
+                            <label>Estoque</label>
+                            <div class="checkbox" style="margin-top: 5px;">
+                                <label>
+                                    <input type="checkbox" id="somenteComEstoque" name="somenteComEstoque" value="1">
+                                    Apenas produtos com estoque
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
                         <!-- Produto -->
                         <div class="form-group col-md-12 col-sm-12 col-xs-12">
                             <label>Produto(s)</label>

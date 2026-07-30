@@ -30,7 +30,7 @@ class p_conta extends c_conta
     public $from = NULL; // tela de pesquisa (qual tpl esta chamando)
     public $m_check = NULL;
     private $checkPedido = 'N';
-    
+
 
     //---------------------------------------------------------------
     //---------------------------------------------------------------
@@ -84,7 +84,7 @@ class p_conta extends c_conta
         $this->ajax_nrItem   = (isset($parmPost['nrItem']) ? $parmPost['nrItem'] : "");
         $this->ajax_vlrBonus = (isset($parmPost['vlrBonus']) ? $parmPost['vlrBonus'] : "0.00");
         $this->ajax_cliente  = (isset($parmPost['cliente']) ? $parmPost['cliente'] : "");
-       
+
         // credito
         $this->setAjaxIdCredito(isset($parmPost['id_credito']) ? $parmPost['id_credito'] : "");
         $this->setAjaxPedido(isset($parmPost['pedido']) ? $parmPost['pedido'] : "");
@@ -95,7 +95,7 @@ class p_conta extends c_conta
         $this->setAjaxUtilizado(isset($parmPost['utilizado']) ? $parmPost['utilizado'] : "0.00");
         $this->setAjaxEmissao(isset($parmPost['emissao']) ? $parmPost['emissao'] : "");
         $this->setAjaxPedidoUtilizado(isset($parmPost['pedidoutilizado']) ? $parmPost['pedidoutilizado'] : "");
-        $this->setAjaxClienteId(isset($parmPost ['cliente']) ? $parmPost['cliente'] : "");
+        $this->setAjaxClienteId(isset($parmPost['cliente']) ? $parmPost['cliente'] : "");
 
         $this->id_searchAddress = (isset($this->parmGet['id_searchAddress']) ? $this->parmGet['id_searchAddress'] : null);
         $this->object_address  = (isset($this->parmPost) ? $this->parmPost : "");
@@ -266,7 +266,7 @@ class p_conta extends c_conta
                         </script>";
                         $this->desenhaCadastroConta($msg, 'alerta');
                     }
-                }               
+                }
                 break;
             case 'altera':
                 if ($this->verificaDireitoUsuario('FinPessoa', 'A')) {
@@ -290,7 +290,7 @@ class p_conta extends c_conta
                             } else {
                                 $result = $this->alteraConta();
                                 // Se o resultado for true, exibe a mensagem de sucesso
-                                if($result === true) {
+                                if ($result === true) {
 
                                     echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
                                     echo "<script>
@@ -303,7 +303,6 @@ class p_conta extends c_conta
                                     </script>";
 
                                     $this->mostraConta();
-
                                 } else {
                                     // Se o resultado for false, exibe a mensagem de erro
                                     echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
@@ -340,7 +339,7 @@ class p_conta extends c_conta
                         $result = $this->alteraConta();
 
                         // Se o resultado for true, exibe a mensagem de sucesso
-                        if($result === true) {
+                        if ($result === true) {
 
                             echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
                             echo "<script>
@@ -351,7 +350,6 @@ class p_conta extends c_conta
                                 confirmButtonColor: '#3085d6',
                             });
                             </script>";
-
                         } else {
                             // Se o resultado for false, exibe a mensagem de erro
                             echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
@@ -363,11 +361,9 @@ class p_conta extends c_conta
                                 confirmButtonColor: '#d9534f',
                             });
                             </script>";
-
                         }
 
                         $this->mostraConta();
-
                     }
 
                     //if ( $cnpjCpf->valida() ) {
@@ -378,10 +374,12 @@ class p_conta extends c_conta
 
             case 'exclui':
                 if ($this->verificaDireitoUsuario('FinPessoa', 'E')) {
-                    if ($this->existeLancamentosPessoa($this->getId()) == true):
-                        $this->mostraConta("Exclusão não autorizada, lancamentos existentes para esta conta", 'alerta');
+                    $retorno = $this->excluiConta();
+
+                    if (is_array($retorno)):
+                        $this->mostraConta($retorno['mensagem'], $retorno['tipoMsg']);
                     else:
-                        $this->mostraConta($this->excluiConta());
+                        $this->mostraConta($retorno);
                     endif;
                 }
                 break;
@@ -603,18 +601,18 @@ class p_conta extends c_conta
                 }
                 break;
             case 'pesquisaClienteAjax':
-                    $parmPost = filter_input_array(INPUT_POST, FILTER_DEFAULT);
-                    $termAjax = (isset($parmPost['term']) ? $parmPost['term'] : '');
-    
-                    $resultPesq = $this->select_pessoa_letra($termAjax);
-                    for ($i = 0; $i < count($resultPesq); $i++) {
-                        $clienteResult[$i]['id'] = trim($resultPesq[$i]['CLIENTE']);
-                        $clienteResult[$i]['text'] = trim($resultPesq[$i]['NOME']);
-                    }
-                
-                    echo json_encode($clienteResult);
-    
-                    break;
+                $parmPost = filter_input_array(INPUT_POST, FILTER_DEFAULT);
+                $termAjax = (isset($parmPost['term']) ? $parmPost['term'] : '');
+
+                $resultPesq = $this->select_pessoa_letra($termAjax);
+                for ($i = 0; $i < count($resultPesq); $i++) {
+                    $clienteResult[$i]['id'] = trim($resultPesq[$i]['CLIENTE']);
+                    $clienteResult[$i]['text'] = trim($resultPesq[$i]['NOME']);
+                }
+
+                echo json_encode($clienteResult);
+
+                break;
             default:
                 if ($this->verificaDireitoUsuario('FinPessoa', 'C')) {
                     //$this->existeContaDuplicada();  

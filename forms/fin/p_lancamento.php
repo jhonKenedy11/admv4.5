@@ -294,10 +294,27 @@ function controle(){
                         // $this->mostraLancamentos("DOCUMENTO JÁ EXISTENTE, ALTERE O NÚMERO DO DOCUMENTO", $tipoMsg);
                     }                        
                     else {
+                        if (trim((string) $this->getParcela()) === '') {
+                                $this->setParcela('1');
+                        }
                         $this->setOrigem("FIN");
                         $id = $this->incluiLancamento();
                         if (is_numeric($id)) {
                                 $this->incluirRateio($id, $this->m_rateioCC);
+                                $totalParcelas = 1;
+                                if (isset($_POST['totalParcelas']) && is_numeric($_POST['totalParcelas'])) {
+                                        $totalParcelas = max(1, (int) $_POST['totalParcelas']);
+                                }
+                                if ($totalParcelas > 1) {
+                                        $this->setId($id);
+                                        $this->buscaCadastroLancamentoAdd();
+                                        $this->setRemessaNum('');
+                                        $this->setQuantParc($totalParcelas - 1);
+                                        $submenuAnterior = $_POST['submenu'];
+                                        $_POST['submenu'] = 'parcela';
+                                        $this->add_parc_lancamento();
+                                        $_POST['submenu'] = $submenuAnterior;
+                                }
                                 $msgRetorno = "Os dados do lançamento $id foram cadastrados!";
                                 echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script> ";
                                 echo "<script>
@@ -726,6 +743,14 @@ function desenhaCadastroLancamento($mensagem = NULL, $tipoMsg=NULL){
     $this->smarty->assign('docto', $this->getDocto());
     $this->smarty->assign('serie', $this->getSerie());
     $this->smarty->assign('parcela', $this->getParcela());
+    if ($this->m_submenu === 'cadastrar') {
+            if ($this->getParcela() === NULL || trim((string) $this->getParcela()) === '') {
+                    $this->setParcela('1');
+            }
+            if ($this->getTotalParcelas() === NULL || trim((string) $this->getTotalParcelas()) === '') {
+                    $this->setTotalParcelas(1);
+            }
+    }
     $this->smarty->assign('totalParcelas', $this->getTotalParcelas());
     $this->smarty->assign('doctobancario', $this->getDocbancario());
     $this->smarty->assign('cheque', $this->getCheque());
@@ -1265,7 +1290,8 @@ function clonarFinanceiro($mensagem = NULL, $tipoMsg=NULL){
         $this->smarty->assign('pessoaNome', $this->getPessoaNome());
         $this->smarty->assign('docto', '');
         $this->smarty->assign('serie', '');
-        $this->smarty->assign('parcela', '');
+        $this->smarty->assign('parcela', '1');
+        $this->smarty->assign('totalParcelas', 1);
         $this->smarty->assign('doctobancario', $this->getDocbancario());
         $this->smarty->assign('cheque', $this->getCheque());
         $this->smarty->assign('datalanc', $this->getLancamento("F"));
@@ -1437,7 +1463,9 @@ if (isset($_POST['total'])) { $lancamento->setTotal($_POST['total']); } else {$l
 if (isset($_POST['tipolancamento'])) { $lancamento->setTipolancamento($_POST['tipolancamento']); } else {$lancamento->setTipolancamento('');};
 if (isset($_POST['centrocusto'])) { $lancamento->setCentroCusto($_POST['centrocusto']); } else {$lancamento->setCentroCusto('');};
 if (isset($_POST['tipodocto'])) { $lancamento->setTipodocto($_POST['tipodocto']); } else {$lancamento->setTipodocto('');};
-if (isset($_POST['situacaodocto'])) { $lancamento->setSitdocto($_POST['situacaodocto']); } else {$lancamento->setSitdocto('');};
+if (isset($_POST['situacaodocto'])) { $lancamento->setSitdocto($_POST['situacaodocto']); }
+elseif (isset($_REQUEST['submenu']) && $_REQUEST['submenu'] === 'cadastrar') { $lancamento->setSitdocto('N'); }
+else { $lancamento->setSitdocto(''); };
 if (isset($_POST['situacaolancamento'])) { $lancamento->setSitpgto($_POST['situacaolancamento']); } else {$lancamento->setSitpgto('');};
 if (isset($_POST['sitlancAnt'])) { $lancamento->setSitpgtoAnt($_POST['sitlancAnt']); } else {$lancamento->setSitpgtoAnt('');};
 
@@ -1454,6 +1482,7 @@ if (isset($_POST['datamov'])) { $lancamento->setMovimento($_POST['datamov']); } 
 if (isset($_POST['obs'])) { $lancamento->setObs($_POST['obs']); } else {$lancamento->setObs('');};
 if (isset($_POST['obscontabil'])) { $lancamento->setObsContabil($_POST['obscontabil']); } else {$lancamento->setObsContabil('');};
 if (isset($_POST['quantparc'])) { $lancamento->setQuantParc($_POST['quantparc']); } else {$lancamento->setQuantParc('');};
+if (isset($_POST['totalParcelas'])) { $lancamento->setTotalParcelas($_POST['totalParcelas']); } else {$lancamento->setTotalParcelas('');};
 if (isset($_POST['atividade'])) { $lancamento->m_atividade = $_POST['atividade']; } else {$lancamento->m_atividade = '';};
 
 if (isset($_POST['nossonumero'])) { $lancamento->setNossoNumero($_POST['nossonumero']); } else {$lancamento->setNossoNumero('');};

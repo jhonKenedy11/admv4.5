@@ -209,6 +209,25 @@ Class p_importa extends c_conta {
         return $str; 
   }
 
+    /**
+     * Corrige encoding de celulas Excel que retornam UTF-16LE bruto.
+     * O Spreadsheet_Excel_Reader as vezes nao converte strings longas/unicode.
+     * UTF-16LE tem bytes NUL em posicoes impares para chars ASCII, gerando lixo.
+     */
+    function fixCellEncoding($str) {
+        if ($str === null || $str === "") return "";
+        // UTF-16LE: segundo byte de char ASCII e 0x00; detecta esse padrao
+        if (strlen($str) >= 2 && ord($str[1]) === 0 && ord($str[0]) !== 0) {
+            return mb_convert_encoding($str, "UTF-8", "UTF-16LE");
+        }
+        // Ja e UTF-8 valido: retorna sem converter (evita dupla codificacao)
+        if (mb_check_encoding($str, "UTF-8")) {
+            return $str;
+        }
+        // Fallback: trata como Latin-1
+        return utf8_encode($str);
+    }
+
     // function remove_acento($var) {
     //     $var = strtoupper($var);
     //     $var = ereg_replace("[áàâãª]", "a", $var);
@@ -1579,43 +1598,81 @@ Formato ATUALIZADO da planilha (20 colunas):
                 $contadorGeral++;
                 
                 // Estrutura da planilha:
-                // 1 - CST-IBS/CBS
-                // 2 - Descrição CST-IBS/CBS (ignorado)
-                // 3 - cClassTrib
-                // 4 - Nome cClassTrib
-                // 5 - Descrição cClassTrib
-                // 6 - LC Redação
-                // 7 - LC 214/25
-                // 8 - Tipo de Alíquota
-                // 9-35 - Indicadores
+                // 1  - CST-IBS/CBS
+                // 2  - Descricao CST-IBS/CBS (ignorado)
+                // 3  - cClassTrib
+                // 4  - Nome cClassTrib
+                // 5  - Descricao cClassTrib
+                // 6  - LC Redacao
+                // 7  - LC 214/25
+                // 8  - Regulamento CBS (NOVO)
+                // 9  - Regulamento IBS (NOVO)
+                // 10 - Tipo de Aliquota
+                // 11 - pRedIBS
+                // 12 - pRedCBS
+                // 13 - ind_gTribRegular
+                // 14 - ind_gCredPresOper
+                // 15 - ind_gMonoPadrao
+                // 16 - ind_gMonoReten
+                // 17 - ind_gMonoRet
+                // 18 - ind_gMonoDif (ignorado - coluna removida do banco)
+                // 19 - ind_gpBioDiferenca (NOVO)
+                // 20 - ind_gEstornoCred
+                // 21 - tpRBSN (NOVO)
+                // 22 - dIniVig
+                // 23 - dFimVig
+                // 24 - DataAtualizacao
+                // 25 - indNFeABI
+                // 26 - indNFe
+                // 27 - indNFCe
+                // 28 - indCTe
+                // 29 - indCTeOS
+                // 30 - indBPe
+                // 31 - indBPeTA
+                // 32 - indBPeTM
+                // 33 - indNF3e
+                // 34 - indNFSe
+                // 35 - indNFSe Via
+                // 36 - indNFCom
+                // 37 - indNFAg
+                // 38 - indNFGas
+                // 39 - indDERE
+                // 40 - indDIR (NOVO)
+                // 41 - indDUIMP (NOVO)
+                // 42 - ANEXO (ignorado)
+                // 43 - Link (ignorado)
                 
                 // Campos texto
                 $cst = trim($data->sheets[0]['cells'][$i][1]); // CST-IBS/CBS
-                // Coluna 2 ignorada (Descrição CST)
+                // Coluna 2 ignorada (Descricao CST)
                 $cclasstrib = trim($data->sheets[0]['cells'][$i][3]);
-                $nome = $this->remove_acento(utf8_encode(substr($data->sheets[0]['cells'][$i][4], 0, 100)));
-                $descricao = $this->remove_acento(utf8_encode(substr($data->sheets[0]['cells'][$i][5], 0, 260)));
-                $lc_redacao = $this->remove_acento(utf8_encode($data->sheets[0]['cells'][$i][6]));
+                $nome = $this->remove_acento(substr($this->fixCellEncoding($data->sheets[0]['cells'][$i][4]), 0, 100));
+                $descricao = $this->remove_acento(substr($this->fixCellEncoding($data->sheets[0]['cells'][$i][5]), 0, 260));
+                $lc_redacao = $this->remove_acento($this->fixCellEncoding($data->sheets[0]['cells'][$i][6]));
                 $lc_214_25 = $this->remove_acento(utf8_encode(trim(substr($data->sheets[0]['cells'][$i][7], 0, 20))));
-                $tipo_aliquota = $this->remove_acento(utf8_encode(trim(substr($data->sheets[0]['cells'][$i][8], 0, 20))));
+                $regulamento_cbs = $this->remove_acento($this->fixCellEncoding($data->sheets[0]['cells'][$i][8]));
+                $regulamento_ibs = $this->remove_acento($this->fixCellEncoding($data->sheets[0]['cells'][$i][9]));
+                $tipo_aliquota = $this->remove_acento(utf8_encode(trim(substr($data->sheets[0]['cells'][$i][10], 0, 20))));
                 
                 // Campos inteiros/decimais
-                $pred_ibs = (int)$data->sheets[0]['cells'][$i][9];
-                $pred_cbs = (int)$data->sheets[0]['cells'][$i][10];
-                $ind_g_trib_regular = (int)$data->sheets[0]['cells'][$i][11];
-                $ind_g_cred_pres_oper = (int)$data->sheets[0]['cells'][$i][12];
-                $ind_g_mono_padrao = (int)$data->sheets[0]['cells'][$i][13];
-                $ind_g_mono_reten = (int)$data->sheets[0]['cells'][$i][14];
-                $ind_g_mono_ret = (int)$data->sheets[0]['cells'][$i][15];
-                $ind_g_mono_dif = (int)$data->sheets[0]['cells'][$i][16];
-                $ind_g_estorno_cred = (int)$data->sheets[0]['cells'][$i][17];
+                $pred_ibs = (int)$data->sheets[0]['cells'][$i][11];
+                $pred_cbs = (int)$data->sheets[0]['cells'][$i][12];
+                $ind_g_trib_regular = (int)$data->sheets[0]['cells'][$i][13];
+                $ind_g_cred_pres_oper = (int)$data->sheets[0]['cells'][$i][14];
+                $ind_g_mono_padrao = (int)$data->sheets[0]['cells'][$i][15];
+                $ind_g_mono_reten = (int)$data->sheets[0]['cells'][$i][16];
+                $ind_g_mono_ret = (int)$data->sheets[0]['cells'][$i][17];
+                // Coluna 18 (ind_gMonoDif) ignorada - removida do banco
+                $ind_gp_bio_diferenca = (int)$data->sheets[0]['cells'][$i][19];
+                $ind_g_estorno_cred = (int)$data->sheets[0]['cells'][$i][20];
+                $tp_rbsn = (int)$data->sheets[0]['cells'][$i][21];
                 
                 // Campos data - converte para formato AAAA-MM-DD
-                $d_ini_vig_raw = trim($data->sheets[0]['cells'][$i][18]);
-                $d_fim_vig_raw = trim($data->sheets[0]['cells'][$i][19]);
-                $data_atualizacao_raw = trim($data->sheets[0]['cells'][$i][20]);
+                $d_ini_vig_raw = trim($data->sheets[0]['cells'][$i][22]);
+                $d_fim_vig_raw = trim($data->sheets[0]['cells'][$i][23]);
+                $data_atualizacao_raw = trim($data->sheets[0]['cells'][$i][24]);
                 
-                // Função para converter data DD/MM/AAAA para AAAA-MM-DD
+                // Funcao para converter data DD/MM/AAAA para AAAA-MM-DD
                 $d_ini_vig = '';
                 $d_fim_vig = '';
                 $data_atualizacao = '';
@@ -1631,21 +1688,23 @@ Formato ATUALIZADO da planilha (20 colunas):
                 }
                 
                 // Mais campos inteiros
-                $ind_nfe_abi = (int)$data->sheets[0]['cells'][$i][21];
-                $ind_nfe = (int)$data->sheets[0]['cells'][$i][22];
-                $ind_nf_ce = (int)$data->sheets[0]['cells'][$i][23];
-                $ind_cte = (int)$data->sheets[0]['cells'][$i][24];
-                $ind_cte_os = (int)$data->sheets[0]['cells'][$i][25];
-                $ind_bpe = (int)$data->sheets[0]['cells'][$i][26];
-                $ind_bpe_ta = (int)$data->sheets[0]['cells'][$i][27];
-                $ind_bpe_tm = (int)$data->sheets[0]['cells'][$i][28];
-                $ind_nf_3e = (int)$data->sheets[0]['cells'][$i][29];
-                $ind_nfse = (int)$data->sheets[0]['cells'][$i][30];
-                $ind_nfse_via = (int)$data->sheets[0]['cells'][$i][31];
-                $ind_nf_com = (int)$data->sheets[0]['cells'][$i][32];
-                $ind_nf_ag = (int)$data->sheets[0]['cells'][$i][33];
-                $ind_nf_gas = (int)$data->sheets[0]['cells'][$i][34];
-                $ind_dere = (int)$data->sheets[0]['cells'][$i][35];
+                $ind_nfe_abi = (int)$data->sheets[0]['cells'][$i][25];
+                $ind_nfe = (int)$data->sheets[0]['cells'][$i][26];
+                $ind_nf_ce = (int)$data->sheets[0]['cells'][$i][27];
+                $ind_cte = (int)$data->sheets[0]['cells'][$i][28];
+                $ind_cte_os = (int)$data->sheets[0]['cells'][$i][29];
+                $ind_bpe = (int)$data->sheets[0]['cells'][$i][30];
+                $ind_bpe_ta = (int)$data->sheets[0]['cells'][$i][31];
+                $ind_bpe_tm = (int)$data->sheets[0]['cells'][$i][32];
+                $ind_nf_3e = (int)$data->sheets[0]['cells'][$i][33];
+                $ind_nfse = (int)$data->sheets[0]['cells'][$i][34];
+                $ind_nfse_via = (int)$data->sheets[0]['cells'][$i][35];
+                $ind_nf_com = (int)$data->sheets[0]['cells'][$i][36];
+                $ind_nf_ag = (int)$data->sheets[0]['cells'][$i][37];
+                $ind_nf_gas = (int)$data->sheets[0]['cells'][$i][38];
+                $ind_dere = (int)$data->sheets[0]['cells'][$i][39];
+                $ind_dir = (int)$data->sheets[0]['cells'][$i][40];
+                $ind_duimp = (int)$data->sheets[0]['cells'][$i][41];
                 
                 // Verifica se CCLASSTRIB já existe
                 $sql = "SELECT ID FROM EST_CCLASS_TRIB WHERE CCLASSTRIB = '" . $cclasstrib . "'";
@@ -1660,6 +1719,8 @@ Formato ATUALIZADO da planilha (20 colunas):
                         $sql .= "CST = " . ($cst != '' ? "'" . $cst . "'" : "NULL") . ", ";
                         $sql .= "LC_REDACAO = '" . addslashes($lc_redacao) . "', ";
                         $sql .= "LC_214_25 = '" . $lc_214_25 . "', ";
+                        $sql .= "REGULAMENTO_CBS = '" . addslashes($regulamento_cbs) . "', ";
+                        $sql .= "REGULAMENTO_IBS = '" . addslashes($regulamento_ibs) . "', ";
                         $sql .= "TIPO_ALIQUOTA = '" . $tipo_aliquota . "', ";
                         $sql .= "PRED_IBS = " . $pred_ibs . ", ";
                         $sql .= "PRED_CBS = " . $pred_cbs . ", ";
@@ -1668,8 +1729,9 @@ Formato ATUALIZADO da planilha (20 colunas):
                         $sql .= "IND_G_MONO_PADRAO = " . $ind_g_mono_padrao . ", ";
                         $sql .= "IND_G_MONO_RETEN = " . $ind_g_mono_reten . ", ";
                         $sql .= "IND_G_MONO_RET = " . $ind_g_mono_ret . ", ";
-                        $sql .= "IND_G_MONO_DIF = " . $ind_g_mono_dif . ", ";
+                        $sql .= "IND_GP_BIO_DIFERENCA = " . $ind_gp_bio_diferenca . ", ";
                         $sql .= "IND_G_ESTORNO_CRED = " . $ind_g_estorno_cred . ", ";
+                        $sql .= "TP_RBSN = " . $tp_rbsn . ", ";
                         $sql .= "D_INI_VIG = " . ($d_ini_vig != '' ? "'" . $d_ini_vig . "'" : "NULL") . ", ";
                         $sql .= "D_FIM_VIG = " . ($d_fim_vig != '' ? "'" . $d_fim_vig . "'" : "NULL") . ", ";
                         $sql .= "DATA_ATUALIZACAO = " . ($data_atualizacao != '' ? "'" . $data_atualizacao . "'" : "NULL") . ", ";
@@ -1688,6 +1750,8 @@ Formato ATUALIZADO da planilha (20 colunas):
                         $sql .= "IND_NF_AG = " . $ind_nf_ag . ", ";
                         $sql .= "IND_NF_GAS = " . $ind_nf_gas . ", ";
                         $sql .= "IND_DERE = " . $ind_dere . ", ";
+                        $sql .= "IND_DIR = " . $ind_dir . ", ";
+                        $sql .= "IND_DUIMP = " . $ind_duimp . ", ";
                         $sql .= "UPDATED_USER = " . $this->m_userid . " ";
                         $sql .= "WHERE CCLASSTRIB = '" . $cclasstrib . "'";
                         $banco->exec_sql($sql);
@@ -1695,19 +1759,24 @@ Formato ATUALIZADO da planilha (20 colunas):
                     } else {
                         // INSERT
                         $sql = "INSERT INTO EST_CCLASS_TRIB (";
-                        $sql .= "CCLASSTRIB, NOME, DESCRICAO, CST, LC_REDACAO, LC_214_25, TIPO_ALIQUOTA, ";
+                        $sql .= "CCLASSTRIB, NOME, DESCRICAO, CST, LC_REDACAO, LC_214_25, ";
+                        $sql .= "REGULAMENTO_CBS, REGULAMENTO_IBS, TIPO_ALIQUOTA, ";
                         $sql .= "PRED_IBS, PRED_CBS, IND_G_TRIB_REGULAR, IND_G_CRED_PRES_OPER, ";
-                        $sql .= "IND_G_MONO_PADRAO, IND_G_MONO_RETEN, IND_G_MONO_RET, IND_G_MONO_DIF, ";
-                        $sql .= "IND_G_ESTORNO_CRED, D_INI_VIG, D_FIM_VIG, DATA_ATUALIZACAO, ";
+                        $sql .= "IND_G_MONO_PADRAO, IND_G_MONO_RETEN, IND_G_MONO_RET, ";
+                        $sql .= "IND_GP_BIO_DIFERENCA, IND_G_ESTORNO_CRED, TP_RBSN, ";
+                        $sql .= "D_INI_VIG, D_FIM_VIG, DATA_ATUALIZACAO, ";
                         $sql .= "IND_NFE_ABI, IND_NFE, IND_NF_CE, IND_CTE, IND_CTE_OS, ";
                         $sql .= "IND_BPE, IND_BPE_TA, IND_BPE_TM, IND_NF_3E, IND_NFSE, ";
-                        $sql .= "IND_NFSE_VIA, IND_NF_COM, IND_NF_AG, IND_NF_GAS, IND_DERE, CREATED_USER) VALUES (";
+                        $sql .= "IND_NFSE_VIA, IND_NF_COM, IND_NF_AG, IND_NF_GAS, IND_DERE, ";
+                        $sql .= "IND_DIR, IND_DUIMP, CREATED_USER) VALUES (";
                         $sql .= "'" . $cclasstrib . "', ";
                         $sql .= "'" . addslashes($nome) . "', ";
                         $sql .= "'" . addslashes($descricao) . "', ";
                         $sql .= ($cst != '' ? "'" . $cst . "'" : "NULL") . ", ";
                         $sql .= "'" . addslashes($lc_redacao) . "', ";
                         $sql .= "'" . $lc_214_25 . "', ";
+                        $sql .= "'" . addslashes($regulamento_cbs) . "', ";
+                        $sql .= "'" . addslashes($regulamento_ibs) . "', ";
                         $sql .= "'" . $tipo_aliquota . "', ";
                         $sql .= $pred_ibs . ", ";
                         $sql .= $pred_cbs . ", ";
@@ -1716,8 +1785,9 @@ Formato ATUALIZADO da planilha (20 colunas):
                         $sql .= $ind_g_mono_padrao . ", ";
                         $sql .= $ind_g_mono_reten . ", ";
                         $sql .= $ind_g_mono_ret . ", ";
-                        $sql .= $ind_g_mono_dif . ", ";
+                        $sql .= $ind_gp_bio_diferenca . ", ";
                         $sql .= $ind_g_estorno_cred . ", ";
+                        $sql .= $tp_rbsn . ", ";
                         $sql .= ($d_ini_vig != '' ? "'" . $d_ini_vig . "'" : "NULL") . ", ";
                         $sql .= ($d_fim_vig != '' ? "'" . $d_fim_vig . "'" : "NULL") . ", ";
                         $sql .= ($data_atualizacao != '' ? "'" . $data_atualizacao . "'" : "NULL") . ", ";
@@ -1736,6 +1806,8 @@ Formato ATUALIZADO da planilha (20 colunas):
                         $sql .= $ind_nf_ag . ", ";
                         $sql .= $ind_nf_gas . ", ";
                         $sql .= $ind_dere . ", ";
+                        $sql .= $ind_dir . ", ";
+                        $sql .= $ind_duimp . ", ";
                         $sql .= $this->m_userid . ")";
                         $resultado = $banco->exec_sql($sql);
                         $contadorInsert++;

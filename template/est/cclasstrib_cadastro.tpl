@@ -152,6 +152,20 @@
                                                     placeholder="Redação da LC">{$lc_redacao}</textarea>
                                             </div>
                                         </div>
+
+                                        <div class="form-group">
+                                            <div class="col-md-6 col-sm-12 col-xs-12">
+                                                <label for="regulamento_cbs">Regulamento CBS</label>
+                                                <textarea class="form-control" rows="3" id="regulamento_cbs" name="regulamento_cbs" 
+                                                    placeholder="Texto do Regulamento CBS">{$regulamento_cbs}</textarea>
+                                            </div>
+
+                                            <div class="col-md-6 col-sm-12 col-xs-12">
+                                                <label for="regulamento_ibs">Regulamento IBS</label>
+                                                <textarea class="form-control" rows="3" id="regulamento_ibs" name="regulamento_ibs" 
+                                                    placeholder="Texto do Regulamento IBS">{$regulamento_ibs}</textarea>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -223,10 +237,10 @@
                                             </div>
 
                                             <div class="col-md-2 col-sm-6 col-xs-12">
-                                                <label for="ind_g_mono_dif">Mono Dif</label>
-                                                <select class="form-control" id="ind_g_mono_dif" name="ind_g_mono_dif">
-                                                    <option value="0" {if $ind_g_mono_dif eq '0'}selected{/if}>Não</option>
-                                                    <option value="1" {if $ind_g_mono_dif eq '1'}selected{/if}>Sim</option>
+                                                <label for="ind_gp_bio_diferenca">GP Bio Dif</label>
+                                                <select class="form-control" id="ind_gp_bio_diferenca" name="ind_gp_bio_diferenca">
+                                                    <option value="0" {if $ind_gp_bio_diferenca eq '0'}selected{/if}>Não</option>
+                                                    <option value="1" {if $ind_gp_bio_diferenca eq '1'}selected{/if}>Sim</option>
                                                 </select>
                                             </div>
 
@@ -235,6 +249,14 @@
                                                 <select class="form-control" id="ind_g_estorno_cred" name="ind_g_estorno_cred">
                                                     <option value="0" {if $ind_g_estorno_cred eq '0'}selected{/if}>Não</option>
                                                     <option value="1" {if $ind_g_estorno_cred eq '1'}selected{/if}>Sim</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="col-md-2 col-sm-6 col-xs-12">
+                                                <label for="tp_rbsn">tpRBSN</label>
+                                                <select class="form-control" id="tp_rbsn" name="tp_rbsn">
+                                                    <option value="0" {if $tp_rbsn eq '0'}selected{/if}>Não</option>
+                                                    <option value="1" {if $tp_rbsn eq '1'}selected{/if}>Sim</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -371,6 +393,22 @@
                                                 <select class="form-control" id="ind_dere" name="ind_dere">
                                                     <option value="0" {if $ind_dere eq '0'}selected{/if}>Não</option>
                                                     <option value="1" {if $ind_dere eq '1'}selected{/if}>Sim</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="col-md-2 col-sm-4 col-xs-6">
+                                                <label for="ind_dir">DIR</label>
+                                                <select class="form-control" id="ind_dir" name="ind_dir">
+                                                    <option value="0" {if $ind_dir eq '0'}selected{/if}>Não</option>
+                                                    <option value="1" {if $ind_dir eq '1'}selected{/if}>Sim</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="col-md-2 col-sm-4 col-xs-6">
+                                                <label for="ind_duimp">DUIMP</label>
+                                                <select class="form-control" id="ind_duimp" name="ind_duimp">
+                                                    <option value="0" {if $ind_duimp eq '0'}selected{/if}>Não</option>
+                                                    <option value="1" {if $ind_duimp eq '1'}selected{/if}>Sim</option>
                                                 </select>
                                             </div>
                                         </div>

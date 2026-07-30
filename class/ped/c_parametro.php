@@ -29,6 +29,7 @@ private $encomenda      = NULL; //"char(1)"
 private $faturaPedido   = NULL; //"char(1)" S/N — PS cotação→pedido abre financeiro gerente novo
 private $casasDecimais  = NULL; //"int"
 private $controleVendedor = NULL; //"int(1)"
+private $tipoComissao   = NULL; //"int" 1=Faturamento; 2=Recebimento
 
 //construtor
 function __construct(){
@@ -102,6 +103,9 @@ function getCasasDecimaisParam(){return $this->casasDecimais;}
 
 function setControleVendedor($controleVendedor){$this->controleVendedor = $controleVendedor;}
 function getControleVendedorParam(){return $this->controleVendedor;}
+
+function setTipoComissao($tipoComissao){$this->tipoComissao = $tipoComissao;}
+function getTipoComissao(){return $this->tipoComissao;}
 ###### FIM SET's e GET's ######
 
 /**
@@ -173,12 +177,12 @@ public function incluiParametros(){
                     FILIAL, GRUPOSERVICO, APRESENTACAO, OBJETIVO, GARANTIA, IMPOSTOS,
                     PRAZOENTREGA, VALIDADE, ACEITE, OBS, FLUXOPEDIDO, SITEMITIRNF, SITBAIXADO,
                     SITABERTO, VALORPEDIDOMINIMO, APROVACAO, DESCONTOMAXIMO, LANCPEDBAIXADO, TIPODESCONTO,
-                    CASASDECIMAIS, CONTROLEVENDEDOR, ENCOMENDA, FATURAPEDIDO
+                    CASASDECIMAIS, CONTROLEVENDEDOR, ENCOMENDA, FATURAPEDIDO, TIPOCOMISSAO
                 ) VALUES (
                     :filial, :gruposervico, '', '', '', '',
                     '', '', '', '', :fluxopedido, :sitemitirnf, :sitbaixado,
                     :sitaberto, :valorpedidominimo, :aprovacao, :descontomaximo, :lancpedbaixado, :tipodesconto,
-                    :casasdecimais, :controlevendedor, :encomenda, :faturapedido
+                    :casasdecimais, :controlevendedor, :encomenda, :faturapedido, :tipocomissao
                 )";
 
         $banco->prepare($sql);
@@ -204,6 +208,7 @@ public function incluiParametros(){
         $banco->bindValue(':controlevendedor', $controleVendedor);
         $banco->bindValue(':encomenda', $this->getEncomenda() ?? '');
         $banco->bindValue(':faturapedido', $faturaPedido);
+        $banco->bindValue(':tipocomissao', (int)$this->getTipoComissao());
         $banco->execute();
 
         return true;
@@ -240,7 +245,8 @@ public function alteraParametros(){
                     CASASDECIMAIS = :casasdecimais,
                     CONTROLEVENDEDOR = :controlevendedor,
                     ENCOMENDA = :encomenda,
-                    FATURAPEDIDO = :faturapedido
+                    FATURAPEDIDO = :faturapedido,
+                    TIPOCOMISSAO = :tipocomissao
                 WHERE FILIAL = :filial";
 
         $banco->prepare($sql);
@@ -266,6 +272,7 @@ public function alteraParametros(){
         $banco->bindValue(':controlevendedor', $controleVendedor);
         $banco->bindValue(':encomenda', $this->getEncomenda() ?? '');
         $banco->bindValue(':faturapedido', $faturaPedido);
+        $banco->bindValue(':tipocomissao', (int)$this->getTipoComissao());
         $banco->execute();
 
         return true;

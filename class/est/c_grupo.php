@@ -134,7 +134,7 @@ public function select_grupo(){
  * @return ARRAY de todas as colunas da table
  */
 public function select_grupo_geral(){
-	$sql  = "SELECT G.GRUPO, G.DESCRICAO, A.PADRAO, G.NIVEL, G.ID FROM EST_GRUPO G
+	$sql  = "SELECT G.GRUPO, G.DESCRICAO, A.PADRAO, G.NIVEL, G.ID, G.COMISSAOVENDAS FROM EST_GRUPO G
 		INNER JOIN AMB_DDM A ON A.ALIAS = 'EST_MENU' AND A.CAMPO = 'TIPOGRUPO' AND A.TIPO = G.TIPO
 		ORDER BY G.GRUPO, G.NIVEL"
 	;

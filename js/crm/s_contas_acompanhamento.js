@@ -34,9 +34,13 @@ document.addEventListener('keydown', function (event) {
   function ajaxCadAcompDashboard(action, id){
   
   var form = $("form[name=lancamento]");
+  var baseUrl = form.attr("action") || "index.php";
+  if (baseUrl.indexOf("?") >= 0) {
+    baseUrl = baseUrl.split("?")[0];
+  }
   $.ajax({
     type: "POST",
-    url: document.URL+"mod=crm&form=contas_acompanhamento&submenu="+action+"&opcao=blank&dashboard_origem=dashboard_crm&id="+id+"",
+    url: baseUrl + "?mod=crm&form=contas_acompanhamento&submenu="+action+"&opcao=blank&dashboard_origem=dashboard_crm&id="+id,
     data: $(form).serialize(),
     dataType: "text",
     beforeSend: function (xhr) {

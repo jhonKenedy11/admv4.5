@@ -251,9 +251,7 @@
 
                                 <div class="col-md-3 col-sm-12 col-xs-12 ">
                                     <label for="cnpjCpf">*CNPJ/CPF</label>
-                                    <input class="form-control" maxlength="14" type="text" id="cnpjCpf" name="cnpjCpf"
-                                        placeholder="Digite somente numeros." title="Digite CNPJ/CPF somente numeros."
-                                        onchange="showHint(this);" value={$cnpjCpf}>
+                                    <input class="form-control" maxlength="14" type="text" id="cnpjCpf" name="cnpjCpf" placeholder="" title="Digite CNPJ/CPF somente numeros." value={$cnpjCpf}>
                                 </div>
 
                                 <div class="col-md-3 col-sm-12 col-xs-12">

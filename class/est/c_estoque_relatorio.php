@@ -36,6 +36,8 @@ class c_estoque_relatorio extends c_user
     private $ordenacao = NULL; // Tipo de ordenação
     private $grupos = NULL; // Grupos de produtos
     private $tipoCurvaABC = NULL; // Tipo de curva ABC para ordenação
+    private $foraLinha = NULL; // Filtro produtos fora de linha (0=todos, 1=em linha, 2=fora de linha)
+    private $somenteComEstoque = NULL; // Filtro apenas produtos com estoque (1=sim)
 
     /**
      * METODOS DE SETS E GETS
@@ -182,6 +184,26 @@ class c_estoque_relatorio extends c_user
         $this->idCentroCusto = $centroCusto;
     }
 
+    function getForaLinha()
+    {
+        return $this->foraLinha;
+    }
+
+    function setForaLinha($foraLinha)
+    {
+        $this->foraLinha = $foraLinha;
+    }
+
+    function getSomenteComEstoque()
+    {
+        return $this->somenteComEstoque;
+    }
+
+    function setSomenteComEstoque($somenteComEstoque)
+    {
+        $this->somenteComEstoque = $somenteComEstoque;
+    }
+
     //fim dos gets e sets
 
     /**
@@ -247,6 +269,12 @@ class c_estoque_relatorio extends c_user
         // Filtro por centro de custo
         if (!empty($this->getCentroCusto())) {
             $sql .= " AND NF.CENTROCUSTO = '" . $this->getCentroCusto() . "'";
+        }
+
+        if ($this->getForaLinha() === '2') {
+            $sql .= " AND P.DATAFORALINHA IS NOT NULL";
+        } elseif ($this->getForaLinha() === '1') {
+            $sql .= " AND P.DATAFORALINHA IS NULL";
         }
         
         $sql .= " ORDER BY NF.EMISSAO DESC, P.DESCRICAO";
@@ -318,6 +346,12 @@ class c_estoque_relatorio extends c_user
 
         if (!empty($this->getIdGrupo())) {
             $sql .= "AND PRO.GRUPO = '" . $this->getIdGrupo() . "' ";
+        }
+
+        if ($this->getForaLinha() === '2') {
+            $sql .= " AND PRO.DATAFORALINHA IS NOT NULL";
+        } elseif ($this->getForaLinha() === '1') {
+            $sql .= " AND PRO.DATAFORALINHA IS NULL";
         }
         
         // Define campo de ordenação baseado no ID selecionado
@@ -545,6 +579,8 @@ class c_estoque_relatorio extends c_user
                        CASE 
                            WHEN TIPO = 0 THEN 'Entrada'
                            WHEN TIPO = 1 THEN 'Saída'
+                           WHEN TIPO = 5 THEN 'NF Crédito'
+                           WHEN TIPO = 6 THEN 'NF Débito'
                            ELSE CONCAT('Tipo ', TIPO)
                        END as descricao
                 FROM EST_NOTA_FISCAL 
@@ -618,6 +654,7 @@ class c_estoque_relatorio extends c_user
         $dataIni = c_date::convertDateTxt($this->getDataIni());
         $dataFim = c_date::convertDateTxt($this->getDataFim());
         $sql .= " WHERE NF.EMISSAO >= '$dataIni' AND NF.EMISSAO <= '$dataFim'";
+        $sql .= " AND COALESCE(NF.FINALIDADEEMISSAO, 1) NOT IN (5, 6)";
 
         // Filtro por produto
         if (!empty($this->getIdProduto())) {
@@ -640,6 +677,15 @@ class c_estoque_relatorio extends c_user
         // Filtro por centro de custo
         if (!empty($this->getCentroCusto())) {
             $sql .= " AND NF.CENTROCUSTO = '" . $this->getCentroCusto() . "'";
+        }
+
+        if ($this->getForaLinha() === '2') {
+            $sql .= " AND P.DATAFORALINHA IS NOT NULL";
+        } elseif ($this->getForaLinha() === '1') {
+            $sql .= " AND P.DATAFORALINHA IS NULL";
+        }
+        if ($this->getSomenteComEstoque() == '1') {
+            $sql .= " AND EXISTS (SELECT 1 FROM EST_PRODUTO_ESTOQUE E WHERE E.CODPRODUTO = P.CODIGO AND E.STATUS = 0)";
         }
 
         $sql .= " GROUP BY P.CODIGO, P.DESCRICAO, G.DESCRICAO, CC.DESCRICAO, C.NOMEREDUZIDO";
@@ -681,6 +727,7 @@ class c_estoque_relatorio extends c_user
         $dataIni = c_date::convertDateTxt($this->getDataIni());
         $dataFim = c_date::convertDateTxt($this->getDataFim());
         $sqlNF .= " WHERE NF.EMISSAO >= '$dataIni' AND NF.EMISSAO <= '$dataFim'";
+        $sqlNF .= " AND COALESCE(NF.FINALIDADEEMISSAO, 1) NOT IN (5, 6)";
 
         if (!empty($this->getIdProduto())) {
             if (is_array($this->getIdProduto())) {
@@ -713,6 +760,12 @@ class c_estoque_relatorio extends c_user
 
         if (!empty($this->getTipoMovimento())) {
             $sqlNF .= " AND NF.TIPO = '" . $this->getTipoMovimento() . "'";
+        }
+
+        if ($this->getForaLinha() === '2') {
+            $sqlNF .= " AND P.DATAFORALINHA IS NOT NULL";
+        } elseif ($this->getForaLinha() === '1') {
+            $sqlNF .= " AND P.DATAFORALINHA IS NULL";
         }
 
         // PEDIDO (SAÍDA) - apenas quando NÃO houver NF correspondente
@@ -762,6 +815,12 @@ class c_estoque_relatorio extends c_user
             $sqlPED .= " AND EXISTS (SELECT 1 FROM FIN_CLIENTE C WHERE C.CLIENTE = P.CLIENTE AND TRIM(C.NOMEREDUZIDO) LIKE '%$termo%')";
         }
 
+        if ($this->getForaLinha() === '2') {
+            $sqlPED .= " AND PROD.DATAFORALINHA IS NOT NULL";
+        } elseif ($this->getForaLinha() === '1') {
+            $sqlPED .= " AND PROD.DATAFORALINHA IS NULL";
+        }
+
         // UNION
         $sql = $sqlNF . " UNION " . $sqlPED . " ORDER BY DATAEMISSAO, TIPO";
         $banco = new c_banco;
@@ -772,7 +831,9 @@ class c_estoque_relatorio extends c_user
 
     /**
      * Função para gerar relatório de Estoque Geral
-     * Filtros aceitos: idProduto, idGrupo, idLocalizacao, ordenacao
+     * Filtros aceitos: idProduto, idGrupo, idLocalizacao, ordenacao, foraLinha, somenteComEstoque
+     * Colunas: código, descrição, grupo, localização, unidade, cod. fabricante, origem, CST,
+     *          estoque, reserva, disponível, custos e totais
      * @return array
      */
     public function selectEstoqueGeral()
@@ -784,6 +845,9 @@ class c_estoque_relatorio extends c_user
                     P.LOCALIZACAO,
                     P.UNIDADE,
                     P.CODFABRICANTE,
+                    P.NCM,
+                    P.ORIGEM,
+                    P.TRIBICMS AS CST,
                     P.CUSTOCOMPRA,
                     P.PRECOINFORMADO,
                     P.VENDA,
@@ -814,27 +878,37 @@ class c_estoque_relatorio extends c_user
                     GROUP BY I.ITEMESTOQUE
                 ) RESERVA ON (RESERVA.CODPRODUTO = P.CODIGO)";
 
+        $where = [];
+
         // Filtro por produto específico
         if (!empty($this->getIdProduto())) {
             if (is_array($this->getIdProduto())) {
                 $produtos = array_filter($this->getIdProduto());
                 if (!empty($produtos)) {
                     $produtos_str = "'" . implode("','", $produtos) . "'";
-                    $sql .= " WHERE P.CODIGO IN ($produtos_str)";
+                    $where[] = "P.CODIGO IN ($produtos_str)";
                 }
             } else {
-                $sql .= " WHERE P.CODIGO = '" . $this->getIdProduto() . "'";
+                $where[] = "P.CODIGO = '" . $this->getIdProduto() . "'";
             }
-        } else {
-            // Filtro por grupo
-            if (!empty($this->getIdGrupo())) {
-                $sql .= " WHERE P.GRUPO = '" . $this->getIdGrupo() . "'";
-            } else {
-                // Filtro por localização
-                if (!empty($this->getIdLocalizacao())) {
-                    $sql .= " WHERE P.LOCALIZACAO LIKE '%" . $this->getIdLocalizacao() . "%'";
-                }
-            }
+        } elseif (!empty($this->getIdGrupo())) {
+            $where[] = "P.GRUPO = '" . $this->getIdGrupo() . "'";
+        } elseif (!empty($this->getIdLocalizacao())) {
+            $where[] = "P.LOCALIZACAO LIKE '%" . $this->getIdLocalizacao() . "%'";
+        }
+
+        if ($this->getForaLinha() === '2') {
+            $where[] = "P.DATAFORALINHA IS NOT NULL";
+        } elseif ($this->getForaLinha() === '1') {
+            $where[] = "P.DATAFORALINHA IS NULL";
+        }
+        // Filtro: apenas produtos com quantidade em estoque
+        if ($this->getSomenteComEstoque() == '1') {
+            $where[] = "COALESCE(ESTOQUE.QUANTIDADE, 0) > 0";
+        }
+
+        if (count($where) > 0) {
+            $sql .= ' WHERE ' . implode(' AND ', $where);
         }
         
         // Ordenação
@@ -884,6 +958,7 @@ class c_estoque_relatorio extends c_user
                 WHERE NF.SITUACAO = 'B'
                   AND NF.SERIE <> 'INV'
                   AND NF.TIPO = '1'
+                  AND COALESCE(NF.FINALIDADEEMISSAO, 1) NOT IN (5, 6)
                   AND P.CODIGO IS NOT NULL";
 
         $dataIni = $this->getDataIni();
@@ -985,6 +1060,15 @@ class c_estoque_relatorio extends c_user
                 $where[] = "P.LOCALIZACAO = '" . $localizacoes[0] . "' AND P.LOCALIZACAO <> ''";
             }
         }
+
+        if ($this->getForaLinha() === '2') {
+            $where[] = "P.DATAFORALINHA IS NOT NULL";
+        } elseif ($this->getForaLinha() === '1') {
+            $where[] = "P.DATAFORALINHA IS NULL";
+        }
+        if ($this->getSomenteComEstoque() == '1') {
+            $where[] = "COALESCE(ESTOQUE.QUANTIDADE, 0) > 0";
+        }
         
         if (count($where) > 0) {
             $sql .= ' WHERE ' . implode(' AND ', $where);
@@ -1037,7 +1121,8 @@ class c_estoque_relatorio extends c_user
                 LEFT JOIN EST_GRUPO G ON (G.GRUPO = P.GRUPO)
                 LEFT JOIN FIN_CLIENTE C ON (C.CLIENTE = NF.PESSOA)
                 LEFT JOIN AMB_USUARIO U ON (U.USUARIO = NF.USERINSERT)
-                WHERE NF.TIPO = '0' AND NF.SERIE != 'INV' AND NF.SITUACAO = 'B'";
+                WHERE NF.TIPO = '0' AND NF.SERIE != 'INV' AND NF.SITUACAO = 'B'
+                  AND COALESCE(NF.FINALIDADEEMISSAO, 1) NOT IN (5, 6)";
 
         // Filtro por período
         if (!empty($this->getDataIni())) {
@@ -1132,6 +1217,15 @@ class c_estoque_relatorio extends c_user
         if (!empty($this->getIdGrupo())) {
             $sql .= " AND P.GRUPO = '" . $this->getIdGrupo() . "'";
         }
+
+        if ($this->getForaLinha() === '2') {
+            $sql .= " AND P.DATAFORALINHA IS NOT NULL";
+        } elseif ($this->getForaLinha() === '1') {
+            $sql .= " AND P.DATAFORALINHA IS NULL";
+        }
+        if ($this->getSomenteComEstoque() == '1') {
+            $sql .= " AND EXISTS (SELECT 1 FROM EST_PRODUTO_ESTOQUE E WHERE E.CODPRODUTO = P.CODIGO AND E.STATUS = 0)";
+        }
         
         $sql .= " GROUP BY I.ITEMESTOQUE ORDER BY NUMVENDAS DESC";
         
@@ -1201,6 +1295,12 @@ class c_estoque_relatorio extends c_user
             $sqlNF .= " AND NF.CENTROCUSTO = '" . $this->getCentroCusto() . "'";
         }
 
+        if ($this->getForaLinha() === '2') {
+            $sqlNF .= " AND P.DATAFORALINHA IS NOT NULL";
+        } elseif ($this->getForaLinha() === '1') {
+            $sqlNF .= " AND P.DATAFORALINHA IS NULL";
+        }
+
         // PEDIDOS
         $sqlPED = "SELECT 
             COALESCE(C.NOMEREDUZIDO, 'Cliente não identificado') as CLIENTE,
@@ -1245,6 +1345,12 @@ class c_estoque_relatorio extends c_user
         // Filtro por centro de custo para PED
         if (!empty($this->getCentroCusto())) {
             $sqlPED .= " AND PED.CCUSTO = '" . $this->getCentroCusto() . "'";
+        }
+
+        if ($this->getForaLinha() === '2') {
+            $sqlPED .= " AND P.DATAFORALINHA IS NOT NULL";
+        } elseif ($this->getForaLinha() === '1') {
+            $sqlPED .= " AND P.DATAFORALINHA IS NULL";
         }
 
         // UNION dos dois SELECTs
@@ -1346,6 +1452,7 @@ class c_estoque_relatorio extends c_user
                     LEFT JOIN FAT_PEDIDO PED ON (PED.ID = NF.DOC)
                     LEFT JOIN FAT_PEDIDO_ITEM PI ON (PED.ID = PI.ID AND PI.ITEMESTOQUE = NFP.CODPRODUTO)
                     WHERE NF.ORIGEM <> 'AJT' AND NF.TIPO = '1' AND NF.SITUACAO = 'B'
+                      AND COALESCE(NF.FINALIDADEEMISSAO, 1) NOT IN (5, 6)
                     
                     UNION ALL
                     
@@ -1370,6 +1477,7 @@ class c_estoque_relatorio extends c_user
                     INNER JOIN EST_NOTA_FISCAL_PRODUTO NFP ON (NF.ID = NFP.IDNF)
                     LEFT JOIN FIN_CLIENTE C ON (C.CLIENTE = NF.PESSOA)
                     WHERE NF.ORIGEM <> 'AJT' AND NF.TIPO = '0' AND NF.SITUACAO = 'B'
+                      AND COALESCE(NF.FINALIDADEEMISSAO, 1) NOT IN (5, 6)
                     
                     UNION ALL
                     
@@ -1442,6 +1550,15 @@ class c_estoque_relatorio extends c_user
         // Filtro por grupo (independente do produto)
         if (!empty($this->getIdGrupo())) {
             $where[] = "P.GRUPO = '" . $this->getIdGrupo() . "'";
+        }
+
+        if ($this->getForaLinha() === '2') {
+            $where[] = "P.DATAFORALINHA IS NOT NULL";
+        } elseif ($this->getForaLinha() === '1') {
+            $where[] = "P.DATAFORALINHA IS NULL";
+        }
+        if ($this->getSomenteComEstoque() == '1') {
+            $where[] = "EXISTS (SELECT 1 FROM EST_PRODUTO_ESTOQUE E WHERE E.CODPRODUTO = P.CODIGO AND E.STATUS = 0)";
         }
         
         if (count($where) > 0) {

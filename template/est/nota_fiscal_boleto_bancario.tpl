@@ -325,6 +325,7 @@
     <input type="hidden" id="numero_pedido"          value="{$numero_pedido}">
     <input type="hidden" id="pessoa"                 value="{$pessoa}">
     <input type="hidden" id="gera_boleto_automatico" value="{$gera_boleto_automatico}">
+    <input type="hidden" id="finalidade_emissao"     value="{$finalidade_emissao|default:0}">
 </div>
 
 <div class="nf_boleto_wrapper">
@@ -344,6 +345,9 @@
             </div>
         </div>
 
+        <!-- Banner de restrição — preenchido pelo JS quando finalidade_emissao IN (4,5,6) -->
+        <div id="banner_restricao_boleto" style="display:none; margin:10px 15px 0; padding:9px 12px; background:#fff8e1; border-left:4px solid #ffa000; border-radius:4px; font-size:12px; color:#6d4c00; line-height:1.4;"></div>
+
         <div class="sidebar_actions">
             <button 
                 id="btn_imprimir_boleto" 
@@ -356,7 +360,7 @@
                 id="btn_email_nf" 
                 class="btn btn-primary btn-sm" 
                 onclick="enviarEmail()"
-                title="Enviar Boleto e NF por E-mail">
+                title="Enviar NF por E-mail">
                 <i class="fa fa-paper-plane-o"></i> &nbsp; Enviar Nota Fiscal por e-mail
             </button>
 

@@ -9,6 +9,192 @@
     gap: 15px;
   }
 
+  .combo-comissao {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .combo-comissao .form-control {
+    flex: 1;
+  }
+
+  .btn-comissao-info {
+    color: #38478b;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .btn-comissao-info:hover,
+  .btn-comissao-info:focus {
+    color: #6c5ce7;
+  }
+
+  /* Fluxograma da modal de comissoes */
+  .modal-comissao {
+    width: 560px;
+    max-width: 95%;
+  }
+
+  .modal-comissao .modal-body {
+    max-height: 72vh;
+    overflow-y: auto;
+  }
+
+  .fc {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px 0;
+  }
+
+  .fc-node {
+    width: 230px;
+    background: #f7f9fc;
+    border: 1px solid #d6deea;
+    border-radius: 6px;
+    padding: 8px 12px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1f2d69;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  }
+
+  .fc-node small {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    font-weight: 400;
+    color: #6c757d;
+    line-height: 1.3;
+  }
+
+  .fc-start {
+    background: #efeafd;
+    border-color: #c8bdf2;
+    border-radius: 22px;
+  }
+
+  .fc-end {
+    background: #eafaf1;
+    border-color: #b6e6c8;
+    border-radius: 22px;
+  }
+
+  .fc-ok {
+    width: 100%;
+    background: #f3faf5;
+    border-color: #c3e6cf;
+  }
+
+
+  /* Conector vertical com seta */
+  .fc-conn {
+    width: 2px;
+    height: 22px;
+    background: #c2ccda;
+    position: relative;
+  }
+
+  .fc-conn:after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #c2ccda;
+  }
+
+  /* Losango de decisao */
+  .fc-decision {
+    width: 96px;
+    height: 96px;
+    transform: rotate(45deg);
+    background: #fff7e6;
+    border: 2px solid #f0ad4e;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  }
+
+  .fc-decision span {
+    transform: rotate(-45deg);
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #8a6d3b;
+    line-height: 1.2;
+  }
+
+  /* Nota de cancelamento (apos o fluxo) */
+  .fc-nota {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 14px auto 2px;
+    max-width: 480px;
+    background: #fdecea;
+    border: 1px solid #f1b0ab;
+    border-left: 4px solid #d9534f;
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+
+  .fc-nota i {
+    color: #d9534f;
+    font-size: 16px;
+    margin-top: 2px;
+  }
+
+  .fc-nota strong {
+    display: block;
+    color: #a94442;
+    font-size: 13px;
+  }
+
+  .fc-nota span {
+    font-size: 12px;
+    color: #6c757d;
+  }
+
+  /* Ramificacoes SIM / NAO */
+  .fc-branches {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .fc-branch {
+    flex: 0 1 230px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .fc-blabel {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 10px;
+    border-radius: 10px;
+    color: #fff;
+    margin-top: 6px;
+  }
+
+  .fc-sim {
+    background: #28a745;
+  }
+
+  .fc-nao {
+    background: #d9534f;
+  }
+
   .radio-group label {
     display: flex;
     align-items: center;
@@ -1194,6 +1380,22 @@
                       </select>
                     </div>
                   </div>
+                  <div class="col-md-3 col-sm-6 col-xs-12">
+                    <div class="tributo-item">
+                      <label style="color: #374151; margin-bottom: 8px; display: block;">
+                        <i class="fa fa-percent"></i> Tipo de Comiss&atilde;o
+                      </label>
+                      <div class="combo-comissao">
+                        <select name="tipoComissao" class="form-control input-sm">
+                          <option value="1" {if $tipoComissao == 1 || $tipoComissao == ''}selected{/if}>Faturamento</option>
+                          <option value="2" {if $tipoComissao == 2}selected{/if}>Recebimento</option>
+                        </select>
+                        <a href="javascript:void(0)" class="btn-comissao-info" data-toggle="modal" data-target="#ModalComissao" title="Como funcionam as comiss&otilde;es?">
+                          <i class="fa fa-info-circle"></i>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1206,18 +1408,94 @@
   </div>
 </div>
 
+<!-- MODAL EXPLICATIVA DAS COMISSOES (somente front) -->
+<div class="modal fade" id="ModalComissao" tabindex="-1" role="dialog" aria-labelledby="ModalComissao" aria-hidden="true">
+  <div class="modal-dialog modal-comissao" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title"><i class="fa fa-sitemap"></i> Como funcionam as comiss&otilde;es</h4>
+      </div>
+
+      <div class="modal-body">
+        <div class="fc">
+
+          <div class="fc-node fc-start">
+            Tipo de comiss&atilde;o
+            <small>Faturamento ou Recebimento</small>
+          </div>
+          <div class="fc-conn"></div>
+
+          <div class="fc-node">
+            Define os percentuais
+            <small>Vendedor e Grupo do produto</small>
+          </div>
+          <div class="fc-conn"></div>
+
+          <div class="fc-decision">
+            <span>Grupo tem<br>% &gt; 0 ?</span>
+          </div>
+          <div class="fc-branches">
+            <div class="fc-branch">
+              <span class="fc-blabel fc-nao">N&Atilde;O</span>
+              <div class="fc-conn"></div>
+              <div class="fc-node fc-ok">Usa o <strong>% do vendedor</strong></div>
+            </div>
+            <div class="fc-branch">
+              <span class="fc-blabel fc-sim">SIM</span>
+              <div class="fc-conn"></div>
+              <div class="fc-node fc-ok">Usa o <strong>% do grupo</strong></div>
+            </div>
+          </div>
+          <div class="fc-conn"></div>
+
+          <div class="fc-node">
+            Grava no item do pedido
+            <small>percentual (%) e base (R$)</small>
+          </div>
+          <div class="fc-conn"></div>
+
+          <div class="fc-node fc-end">
+            Apura&ccedil;&atilde;o no Relat&oacute;rio
+            <small>Pedido, Emitir NF e Pedido baixado<br>Valor = base &times; % &divide; 100</small>
+          </div>
+
+        </div>
+
+        <div class="fc-nota">
+          <i class="fa fa-exclamation-triangle"></i>
+          <div>
+            <strong>Cancelamento do pedido</strong>
+            <span>Ao cancelar, o percentual e a base do item s&atilde;o zerados &mdash; o item deixa de gerar comiss&atilde;o.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 {include file="template/form.inc"}
-<script src="{$bootstrap}/js/input_mask/jquery.maskMoney.js"></script>
+<script src="{$bootstrap}/input_mask/jquery.maskMoney.js"></script>
 <script>
+// Registra o gatilho da modal informativa de forma independente, para nao
+// depender da execucao do restante do ready (evita que falha de plugin aborte).
+initModalInfoCampo();
+
 $(document).ready(function(){
   $('[data-toggle="tooltip"]').tooltip({ container: 'body' });
 
-  $(".money").maskMoney({            
-   decimal: ",",
-   thousands: ".",
-   allowNegative: true,
-   allowZero: true
-  });
+  if ($.fn.maskMoney) {
+    $(".money").maskMoney({
+     decimal: ",",
+     thousands: ".",
+     allowNegative: true,
+     allowZero: true
+    });
+  }
 
   {if $swalText}
   Swal.fire({

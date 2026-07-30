@@ -204,19 +204,22 @@
                                     <thead>
                                           <tr>
                                                 <th style="width: 5%">Código</th>
-                                                <th style="width: 30%">Descrição</th>
-                                                <th style="width: 13%">Grupo</th>
-                                                <th style="width: 8%">Localização</th>
-                                                <th style="width: 5%">Unidade</th>
-                                                <th style="width: 10%">Cód. Fabricante</th>
-                                                <th style="width: 7%; text-align: center;">Estoque</th>
-                                                <th style="width: 7%; text-align: center;">Reserva</th>
-                                                <th style="width: 7%; text-align: center;">Disponível</th>
-                                                <th style="width: 8%; text-align: center;">Custo Compra</th>
-                                                <th style="width: 8%; text-align: center;">Valor Informado</th>
-                                                <th style="width: 8%; text-align: center;">Preço Venda</th>
-                                                <th style="width: 9%; text-align: center;">Total R$ (custo)</th>
-                                                <th style="width: 9%; text-align: center;">Total R$ (venda)</th>
+                                                <th style="width: 22%">Descrição</th>
+                                                <th style="width: 9%">Grupo</th>
+                                                <th style="width: 6%">Localização</th>
+                                                <th style="width: 4%">Unidade</th>
+                                                <th style="width: 7%">Cód. Fabricante</th>
+                                                <th style="width: 6%; text-align: center;">NCM</th>
+                                                <th style="width: 4%; text-align: center;">Origem</th>
+                                                <th style="width: 4%; text-align: center;">CST</th>
+                                                <th style="width: 5%; text-align: center;">Estoque</th>
+                                                <th style="width: 5%; text-align: center;">Reserva</th>
+                                                <th style="width: 5%; text-align: center;">Disponível</th>
+                                                <th style="width: 6%; text-align: center;">Custo Compra</th>
+                                                <th style="width: 6%; text-align: center;">Valor Informado</th>
+                                                <th style="width: 6%; text-align: center;">Preço Venda</th>
+                                                <th style="width: 7%; text-align: center;">Total R$ (custo)</th>
+                                                <th style="width: 7%; text-align: center;">Total R$ (venda)</th>
                                           </tr>
                                     </thead>
                                     <tbody>
@@ -245,6 +248,9 @@
                                                       <td>{$item.LOCALIZACAO}</td>
                                                       <td>{$item.UNIDADE}</td>
                                                       <td>{$item.CODFABRICANTE}</td>
+                                                      <td style="text-align: center;">{$item.NCM}</td>
+                                                      <td style="text-align: center;">{$item.ORIGEM}</td>
+                                                      <td style="text-align: center;">{$item.CST}</td>
                                                       <td style="text-align: center;">{$item.ESTOQUE|number_format:0:',':'.'}</td>
                                                       <td style="text-align: center;">{$item.RESERVA|number_format:0:',':'.'}</td>
                                                       <td style="text-align: center;">{$item.DISPONIVEL|number_format:0:',':'.'}</td>
@@ -258,7 +264,7 @@
                                     </tbody>
                                     <tfoot>
                                           <tr style="font-weight: bold;">
-                                                <td colspan="6" style="text-align: right;">Totais</td>
+                                                <td colspan="9" style="text-align: right;">Totais</td>
                                                 <td style="text-align: center;">{$_totEstoque|number_format:0:',':'.'}</td>
                                                 <td style="text-align: center;">{$_totReserva|number_format:0:',':'.'}</td>
                                                 <td style="text-align: center;">{$_totDisp|number_format:0:',':'.'}</td>
@@ -324,11 +330,11 @@
             var ws = XLSX.utils.aoa_to_sheet(ws_data);
 
             if (typeof converteColunaNumeroBR === 'function') {
-                  converteColunaNumeroBR(ws, 9);
-                  converteColunaNumeroBR(ws, 10);
-                  converteColunaNumeroBR(ws, 11);
                   converteColunaNumeroBR(ws, 12);
                   converteColunaNumeroBR(ws, 13);
+                  converteColunaNumeroBR(ws, 14);
+                  converteColunaNumeroBR(ws, 15);
+                  converteColunaNumeroBR(ws, 16);
             }
             
             var colWidths = [];

@@ -102,7 +102,7 @@ function fechaProdutoPesquisaAtendimento(e) {
         f.codFabricante.value     = codFabricante 
         f.codProdutoNota.value    = codNota 
         f.descProduto.value       = descricaoProduto  
-        f.uniProduto.value        = unidade
+        $(window.opener.document).find("#uniProduto").val(unidade);
         f.vlrUnitarioPecas.value  = vlrUnitario
         if (f.quantidadePecas) {
             if (!f.quantidadePecas.value) {

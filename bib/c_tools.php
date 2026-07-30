@@ -10,10 +10,12 @@
  * @date      12/04/2016
  */
 //include "c_database.php";
-Class c_tools {
+class c_tools
+{
 
 
-    public function makeTimeStamp($year = "", $month = "", $day = "") {
+    public function makeTimeStamp($year = "", $month = "", $day = "")
+    {
         if (empty($year))
             $year = strftime("%Y");
         if (empty($month))
@@ -24,7 +26,8 @@ Class c_tools {
         return mktime(0, 0, 0, $month, $day, $year);
     }
 
-    public function comboArray($resulta, $primeiraOpcao, $id) {
+    public function comboArray($resulta, $primeiraOpcao, $id)
+    {
         $result = $resulta;
         $teste_result = is_array($result);
         if ($teste_result) {
@@ -41,18 +44,19 @@ Class c_tools {
         } // if
     }
 
-// comboArray
+    // comboArray
 
-    public function combo($sql, $primeiraOpcao, $id) {
+    public function combo($sql, $primeiraOpcao, $id)
+    {
 
-// busca dados para mostrar na consulta
+        // busca dados para mostrar na consulta
         $consulta = new c_banco();
         $consulta->exec_sql($sql);
-//  echo ("String exec_sql: ".$sql."<br>");
+        //  echo ("String exec_sql: ".$sql."<br>");
         $consulta->close_connection();
         $result = $consulta->resultado;
 
-// monta select
+        // monta select
         $teste_result = is_array($result);
         if ($teste_result) {
             if (isset($primeiraOpcao)) {
@@ -68,24 +72,25 @@ Class c_tools {
         } // if
     }
 
-// combo
+    // combo
 
-    public function comboSelectMulti($sql, $opcao, $iniArray) {
+    public function comboSelectMulti($sql, $opcao, $iniArray)
+    {
 
-// multi op��es
-//$par = explode("|", $opcao);
+        // multi op��es
+        //$par = explode("|", $opcao);
         $output = array_slice($opcao, $iniArray); //Extrai uma parcela de um array
         // busca dados para motrar na consulta
         $consulta = new c_banco();
         $consulta->exec_sql($sql);
-//  echo ("String exec_sql: ".$sql."<br>");
+        //  echo ("String exec_sql: ".$sql."<br>");
         $consulta->close_connection();
         $result = $consulta->resultado;
 
-// monta select
+        // monta select
         $teste_result = is_array($result);
         if ($teste_result) {
-//    echo "<option value=''>".print_r($this->m_letra)." </option>";
+            //    echo "<option value=''>".print_r($this->m_letra)." </option>";
             for ($i = 0; $i < count($result); $i++) {
                 $p = array_search($result[$i]['ID'], $output);
                 if ($p !== false) {
@@ -97,11 +102,12 @@ Class c_tools {
         } // if
     }
 
-// comboSelectOpcao
+    // comboSelectOpcao
 
-    public function comboTabela($sql, $primeiraOpcao, $id) {
+    public function comboTabela($sql, $primeiraOpcao, $id)
+    {
 
-// busca dados para motrar na consulta
+        // busca dados para motrar na consulta
         echo ("String exec_sql: " . $sql . "<br>");
         $consulta = new c_banco();
         $consulta->exec_sql($sql);
@@ -109,7 +115,7 @@ Class c_tools {
         $consulta->close_connection();
         $result = $consulta->resultado;
 
-// monta select
+        // monta select
         $teste_result = is_array($result);
         if ($teste_result) {
             if (isset($primeiraOpcao)) {
@@ -125,21 +131,23 @@ Class c_tools {
         } // if
     }
 
-// combo
+    // combo
 
-    public function setConsulta($consulta) {
+    public function setConsulta($consulta)
+    {
 
-// busca dados para motrar na consulta
+        // busca dados para motrar na consulta
         $array = $_SESSION['user_array'];
         $array[9] = $consulta; // nome do formul�rio para consulta
         $_SESSION['user_array'] = $array;
     }
 
-// setConsulta
-//----------------------------------------------------------------------------------------------------------------
-// formata numero para gravar no bando.
-//----------------------------------------------------------------------------------------------------------------
-    static function moedaBd($get_valor) {
+    // setConsulta
+    //----------------------------------------------------------------------------------------------------------------
+    // formata numero para gravar no bando.
+    //----------------------------------------------------------------------------------------------------------------
+    static function moedaBd($get_valor)
+    {
         if ($get_valor != null) {
             $replace = str_replace('.', '', $get_valor);
             $replace = str_replace(',', '.', $replace);
@@ -171,18 +179,18 @@ Class c_tools {
 
         return round((float) str_replace(' ', '', $s), 2);
     }
-    
+
     /**
      * Funcao para retirar todos os espaços da string e aspas
      * @param String $valor
      * @return String valor formatado
      */
-    public static function LimpaCamposGeral($valor) {
+    public static function LimpaCamposGeral($valor)
+    {
         $valor = addslashes($valor);
         $valor = trim($valor);
         //$valor = str_replace(' ', '', $valor);
         return $valor;
-        
     }
 
 
@@ -201,43 +209,45 @@ Class c_tools {
      * @author                  CJDinfo
      * @param  string  $dado    String dado contendo o número (sem o DV)
      * @param  int     $numDig  Número de dígitos a calcular
-     * @param  int     $limMult Limite de multiplicação 
+     * @param  int     $limMult Limite de multiplicação
      * @param  boolean $x10     Se true multiplica soma por 10
      * @return string           Dígitos calculados
      */
-    public function calculaDigitoMod11($numDado, $numDig, $limMult, $x10){
+    public function calculaDigitoMod11($numDado, $numDig, $limMult, $x10)
+    {
 
-      if(!$x10) $numDig = 1;
-      $dado = $numDado;
-      for($n=1; $n<=$numDig; $n++){
-        $soma = 0;
-        $mult = 2;
-        for($i=strlen($dado) - 1; $i>=0; $i--){
-          $sub = $mult * intval(substr($dado, $i ,1));
-          $soma += $sub;
-          if(++$mult > $limMult):
-              $mult = 2;
-          endif;
+        if (!$x10) $numDig = 1;
+        $dado = $numDado;
+        for ($n = 1; $n <= $numDig; $n++) {
+            $soma = 0;
+            $mult = 2;
+            for ($i = strlen($dado) - 1; $i >= 0; $i--) {
+                $sub = $mult * intval(substr($dado, $i, 1));
+                $soma += $sub;
+                if (++$mult > $limMult):
+                    $mult = 2;
+                endif;
+            }
+            if ($x10) {
+                $dig = fmod(fmod(($soma * 10), 11), 10);
+            } else {
+                $resto = fmod($soma, 11);
+                if (($resto == 0) or ($resto == 1)):
+                    $dig = "1";
+                else:
+                    $dig = 11 - $resto;
+                endif;
+                //if($dig == 10) $dig = "X";
+            }
+            $dado .= strval($dig);
         }
-        if($x10){
-          $dig = fmod(fmod(($soma * 10), 11), 10);
-        } else {
-          $resto = fmod($soma, 11);
-          if(($resto == 0) or ($resto == 1)):
-              $dig = "1";
-          else:
-              $dig = 11-$resto;
-          endif;
-          //if($dig == 10) $dig = "X";
-        }
-        $dado .= strval($dig);
-      }
-      return substr($dado, strlen($dado)-$numDig);
+        return substr($dado, strlen($dado) - $numDig);
     }
 
-    public static function buscaConfig($empresaid){
+    public static function buscaConfig($empresaid)
+    {
 
-        // configura JSON com dados acesso - CONFIG NF-e 
+        // configura JSON com dados acesso - CONFIG NF-e
         if ($empresaid == 1) {
             $confPar = explode("|", ADMnfeConfig01);
         } else
@@ -249,7 +259,7 @@ Class c_tools {
         }
         if ($empresaid == 4) {
             $confPar = explode("|", ADMnfeConfig04);
-        } 
+        }
         if ($empresaid == 5) {
             $confPar = explode("|", ADMnfeConfig05);
         }
@@ -265,27 +275,27 @@ Class c_tools {
         //   "versao" => '3.00',
         //   //"tokenIBPT" => $confPar[7]
         // ];
-        
+
         $config = [
-           "atualizacao" => date('Y-m-d H:i:s'),
-           "tpAmb" => intval($confPar[1]), // Se deixar o tpAmb como 2 você emitirá a nota em ambiente de homologação(teste) e as notas fiscais aqui não tem valor fiscal
-           "razaosocial" => $confPar[2],
-           "siglaUF" => $confPar[3],
-           "cnpj" => $confPar[4],
-           "ie" => '',
-           "schemes" => $confPar[5], //PL_009_V4 - 4.0,PL_008i2 - 3.10
-           "versao" => $confPar[6],
-           //"tokenIBPT" => $confPar[7]
+            "atualizacao" => date('Y-m-d H:i:s'),
+            "tpAmb" => intval($confPar[1]), // Se deixar o tpAmb como 2 você emitirá a nota em ambiente de homologação(teste) e as notas fiscais aqui não tem valor fiscal
+            "razaosocial" => $confPar[2],
+            "siglaUF" => $confPar[3],
+            "cnpj" => $confPar[4],
+            "ie" => '',
+            "schemes" => $confPar[5], //PL_009_V4 - 4.0,PL_008i2 - 3.10
+            "versao" => $confPar[6],
+            //"tokenIBPT" => $confPar[7]
         ];
 
         $configJson = json_encode($config);
         return $configJson;
-
     }
 
-    public function buscaConfigMdfe($empresaid){
+    public function buscaConfigMdfe($empresaid)
+    {
 
-        // configura JSON com dados acesso - CONFIG NF-e 
+        // configura JSON com dados acesso - CONFIG NF-e
         if ($empresaid == 1) {
             $confPar = explode("|", ADMnfeConfig01);
         } else
@@ -297,29 +307,28 @@ Class c_tools {
         }
         if ($empresaid == 4) {
             $confPar = explode("|", ADMnfeConfig04);
-        } 
+        }
         if ($empresaid == 5) {
             $confPar = explode("|", ADMnfeConfig05);
         }
 
         $config = [
-          "atualizacao" => date('Y-m-d H:i:s'),
-          "tpAmb" => intval($confPar[1]), // Se deixar o tpAmb como 2 você emitirá a nota em ambiente de homologação(teste) e as notas fiscais aqui não tem valor fiscal
-          "razaosocial" => $confPar[2],
-          "siglaUF" => $confPar[3],
-          "cnpj" => $confPar[4],
-          "ie" => '',
-          //"schemes" => $confPar[5], //PL_009_V4 - 4.0,PL_008i2 - 3.10
-          "versao" => '3.00',
-          //"tokenIBPT" => $confPar[7]
+            "atualizacao" => date('Y-m-d H:i:s'),
+            "tpAmb" => intval($confPar[1]), // Se deixar o tpAmb como 2 você emitirá a nota em ambiente de homologação(teste) e as notas fiscais aqui não tem valor fiscal
+            "razaosocial" => $confPar[2],
+            "siglaUF" => $confPar[3],
+            "cnpj" => $confPar[4],
+            "ie" => '',
+            //"schemes" => $confPar[5], //PL_009_V4 - 4.0,PL_008i2 - 3.10
+            "versao" => '3.00',
+            //"tokenIBPT" => $confPar[7]
         ];
-        
+
         $configJson = json_encode($config);
         return $configJson;
-
     }
 
-        /**
+    /**
      * Busca certificado da empresa
      * @author Jhon Kenedy <jhon.kened11@gmail.com>
      * @access public
@@ -327,30 +336,30 @@ Class c_tools {
      * @return string  file in string
      */
 
-    public static function buscaCertificado($empresaid){
+    public static function buscaCertificado($empresaid)
+    {
 
         // leitura do certirficado digital
         if ($empresaid == 1) {
-            $certificadoDigital = file_get_contents(BASE_DIR_CERT.ADMnfeCert01);
+            $certificadoDigital = file_get_contents(BASE_DIR_CERT . ADMnfeCert01);
         } else
         if ($empresaid == 2) {
-            $certificadoDigital = file_get_contents(BASE_DIR_CERT.ADMnfeCert02);
+            $certificadoDigital = file_get_contents(BASE_DIR_CERT . ADMnfeCert02);
         } else
         if ($empresaid == 3) {
-            $certificadoDigital = file_get_contents(BASE_DIR_CERT.ADMnfeCert03);
-        }        
+            $certificadoDigital = file_get_contents(BASE_DIR_CERT . ADMnfeCert03);
+        }
         if ($empresaid == 4) {
-            $certificadoDigital = file_get_contents(BASE_DIR_CERT.ADMnfeCert04);
+            $certificadoDigital = file_get_contents(BASE_DIR_CERT . ADMnfeCert04);
         }
         if ($empresaid == 5) {
-            $certificadoDigital = file_get_contents(BASE_DIR_CERT.ADMnfeCert05);
+            $certificadoDigital = file_get_contents(BASE_DIR_CERT . ADMnfeCert05);
         }
 
         return $certificadoDigital;
-
     }
 
-            /**
+    /**
      * Busca senha do certificado da empresa
      * @author Jhon Kenedy <jhon.kened11@gmail.com>
      * @access public
@@ -358,7 +367,8 @@ Class c_tools {
      * @return string string
      */
 
-    public static function buscaCertificadoSenha($empresaid){
+    public static function buscaCertificadoSenha($empresaid)
+    {
         if ($empresaid == 1) {
             return ADMnfeSenha01;
         } else
@@ -367,13 +377,14 @@ Class c_tools {
         } else
         if ($empresaid == 3) {
             return ADMnfeSenha03;
-        }        
+        }
         if ($empresaid == 4) {
             return ADMnfeSenha04;
         }
     }
 
-    function limparCaracteresEspeciais($string) {
+    function limparCaracteresEspeciais($string)
+    {
         // Remover caracteres especiais e espaços
         $string = preg_replace('/[^a-zA-Z0-9]/', '', $string);
         return $string;
@@ -395,78 +406,56 @@ Class c_tools {
 // ################################################################################
 
 
-class ValidaCPFCNPJ {
+class ValidaCPFCNPJ
+{
 
     /**
      * Configura o valor (Construtor)
-     * 
+     *
      * Remove caracteres inválidos do CPF ou CNPJ
-     * 
+     *
      * @param string $valor - O CPF ou CNPJ
      */
-    function __construct($valor = null) {
-        // Deixa apenas números no valor
-        $this->valor = preg_replace('/[^0-9]/', '', $valor);
-
-        // Garante que o valor é uma string
-        $this->valor = (string) $this->valor;
+    function __construct($valor = null)
+    {
+        $valor = strtoupper($valor);
+        $this->valor = preg_replace('/[^A-Z0-9]/', '', $valor);
     }
 
     /**
      * Verifica se é CPF ou CNPJ
-     * 
+     *
      * Se for CPF tem 11 caracteres, CNPJ tem 14
-     * 
+     *
      * @access protected
      * @return string CPF, CNPJ ou false
      */
-    protected function verifica_cpf_cnpj() {
-        // Verifica CPF
-        if (strlen($this->valor) === 11) {
+    protected function verifica_cpf_cnpj()
+    {
+        if (preg_match('/^\d{11}$/', $this->valor)) {
             return 'CPF';
         }
-        // Verifica CNPJ
-        elseif (strlen($this->valor) === 14) {
+
+        if (preg_match('/^[A-Z0-9]{12}\d{2}$/', $this->valor)) {
             return 'CNPJ';
         }
-        // Não retorna nada
-        else {
-            return false;
-        }
+
+        return false;
     }
 
     /**
      * Verifica se todos os números são iguais
-     * 	 * 
+     * 	 *
      * @access protected
      * @return bool true para todos iguais, false para números que podem ser válidos
      */
-    protected function verifica_igualdade() {
-        // Todos os caracteres em um array
-        $caracteres = str_split($this->valor);
-
-        // Considera que todos os números são iguais
-        $todos_iguais = true;
-
-        // Primeiro caractere
-        $last_val = $caracteres[0];
-
-        // Verifica todos os caracteres para detectar diferença
-        foreach ($caracteres as $val) {
-
-            // Se o último valor for diferente do anterior, já temos
-            // um número diferente no CPF ou CNPJ
-            if ($last_val != $val) {
-                $todos_iguais = false;
-            }
-
-            // Grava o último número checado
-            $last_val = $val;
+    protected function verifica_igualdade()
+    {
+        if ($this->verifica_cpf_cnpj() == 'CPF') {
+            return preg_match('/^(\d)\1{10}$/', $this->valor);
         }
 
-        // Retorna true para todos os números iguais
-        // ou falso para todos os números diferentes
-        return $todos_iguais;
+        return preg_match('/^(.)\1{13}$/', $this->valor);
     }
 
     /**
@@ -478,7 +467,8 @@ class ValidaCPFCNPJ {
      * @param  int       $soma_digitos A soma das multiplicações entre posições e dígitos
      * @return int                     Os dígitos enviados concatenados com o último dígito
      */
-    protected function calc_digitos_posicoes($digitos, $posicoes = 10, $soma_digitos = 0) {
+    protected function calc_digitos_posicoes($digitos, $posicoes = 10, $soma_digitos = 0)
+    {
         // Faz a soma dos dígitos com a posição
         // Ex. para 10 posições:
         //   0    2    5    4    6    2    8    8   4
@@ -486,7 +476,8 @@ class ValidaCPFCNPJ {
         //   0 + 18 + 40 + 28 + 36 + 10 + 32 + 24 + 8 = 196
         for ($i = 0; $i < strlen($digitos); $i++) {
             // Preenche a soma com o dígito vezes a posição
-            $soma_digitos = $soma_digitos + ( $digitos[$i] * $posicoes );
+            $valor = $this->valorCaractere($digitos[$i]);
+            $soma_digitos += ($valor * $posicoes);
 
             // Subtrai 1 da posição
             $posicoes--;
@@ -530,7 +521,8 @@ class ValidaCPFCNPJ {
      * @param  string    $cpf O CPF com ou sem pontos e traço
      * @return bool           True para CPF correto - False para CPF incorreto
      */
-    protected function valida_cpf() {
+    protected function valida_cpf()
+    {
         // Captura os 9 primeiros dígitos do CPF
         // Ex.: 02546288423 = 025462884
         $digitos = substr($this->valor, 0, 9);
@@ -564,42 +556,35 @@ class ValidaCPFCNPJ {
      * @param  string     $cnpj
      * @return bool             true para CNPJ correto
      */
-    protected function valida_cnpj() {
-        // O valor original
-        $cnpj_original = $this->valor;
+    protected function valida_cnpj()
+    {
+        if (!preg_match('/^[A-Z0-9]{12}\d{2}$/', $this->valor)) {
+            return false;
+        }
 
-        // Captura os primeiros 12 números do CNPJ
-        $primeiros_numeros_cnpj = substr($this->valor, 0, 12);
-
-        // Faz o primeiro cálculo
-        $primeiro_calculo = $this->calc_digitos_posicoes($primeiros_numeros_cnpj, 5);
-
-        // O segundo cálculo é a mesma coisa do primeiro, porém, começa na posição 6
-        $segundo_calculo = $this->calc_digitos_posicoes($primeiro_calculo, 6);
-
-        // Concatena o segundo dígito ao CNPJ
-        $cnpj = $segundo_calculo;
-
-        // Verifica se todos os números são iguais
         if ($this->verifica_igualdade()) {
             return false;
         }
 
-        // Verifica se o CNPJ gerado é idêntico ao enviado
-        if ($cnpj === $cnpj_original) {
-            return true;
-        }
+        $base = substr($this->valor, 0, 12);
+
+        $dv1 = $this->calc_digitos_posicoes($base, 5);
+
+        $dv2 = $this->calc_digitos_posicoes($dv1, 6);
+
+        return $dv2 === $this->valor;
     }
 
     /**
      * Valida
-     * 
+     *
      * Valida o CPF ou CNPJ
-     * 
+     *
      * @access public
      * @return bool      True para válido, false para inválido
      */
-    public function valida() {
+    public function valida()
+    {
         // Valida CPF
         if ($this->verifica_cpf_cnpj() === 'CPF') {
             // Retorna true para cpf válido
@@ -622,7 +607,8 @@ class ValidaCPFCNPJ {
      * @access public
      * @return string  CPF ou CNPJ formatado
      */
-    public function formata() {
+    public function formata()
+    {
         // O valor formatado
         $formatado = false;
 
@@ -650,10 +636,16 @@ class ValidaCPFCNPJ {
             }
         }
 
-        // Retorna o valor 
+        // Retorna o valor
         return $formatado;
     }
 
-}
+    protected function valorCaractere($char)
+    {
+        if (is_numeric($char)) {
+            return intval($char);
+        }
 
-?>
+        return ord($char) - 48;
+    }
+}

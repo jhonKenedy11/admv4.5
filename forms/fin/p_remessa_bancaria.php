@@ -875,7 +875,8 @@ class p_remessa_bancaria extends c_lancamento
             //$this->downloadFile($file_target);
 
         } catch (Exception $ex) {
-            $this->mostraRemessa($ex);
+            $this->mostraRemessa(null, null, $ex->getMessage());
+            return;
         }
         $this->mostraRemessa($file_target, $banco);
     } //fim remessaBancaria001
@@ -1179,10 +1180,10 @@ class p_remessa_bancaria extends c_lancamento
             
         } catch (Exception $ex) {
             $status = false;
-            $this->mostraRemessa(null, null, $ex->getMessage(), false);
+            $this->mostraRemessa(null, null, $ex->getMessage());
         }
     
-        if($status !== false){
+        if ($status !== false) {
             $this->mostraRemessa($file_target, $banco);
         }
     } //fim remessaBancaria237
@@ -1505,7 +1506,8 @@ class p_remessa_bancaria extends c_lancamento
             //$this->downloadFile($file_target);
 
         } catch (Exception $ex) {
-            $this->mostraRemessa($ex);
+            $this->mostraRemessa(null, null, $ex->getMessage());
+            return;
         }
         $this->mostraRemessa($file_target, $banco);
     } //fim remessaBancaria341
@@ -2045,10 +2047,10 @@ public function remessaBancaria748($letra = NULL){
         
     } catch (Exception $ex) {
         $status = false;
-        $this->mostraRemessa(null, null, $ex->getMessage(), false);
+        $this->mostraRemessa(null, null, $ex->getMessage());
     }
 
-    if($status !== false){
+    if ($status !== false) {
         $this->mostraRemessa($file_target, $banco);
     }
     
@@ -2058,35 +2060,51 @@ public function remessaBancaria748($letra = NULL){
 
     //---------------------------------------------------------------
     //---------------------------------------------------------------
-    function mostraRemessa($file, $banco = null)
+    function mostraRemessa($file = null, $banco = null, $mensagem = '')
     {
+        if ($file instanceof Throwable) {
+            $mensagem = $mensagem ?: $file->getMessage();
+            $file = null;
+        }
 
         $par = explode("|", $this->m_letra);
         $arrData = explode("-", $par[0]);
-
+        $lanc = [];
+        $remessaDia = [];
 
         if ($this->m_letra != ''):
-            $lanc = $this->selectRemessaBancaria($this->m_letra);
-            //conta selecionada
+            $lanc = $this->selectRemessaBancaria($this->m_letra) ?? [];
             $objContaBanco = new c_contaBanco;
             $objContaBanco->setId($par[2]);
             $conta = $objContaBanco->select_ContaBanco();
             $banco = $conta[0]['BANCO'];
+            foreach ($this->selectRemessaDoDia($par[2]) as $row) {
+                $arq = ltrim(basename($row['REMESSAARQ'] ?? ''), '/');
+                if ($arq !== '') {
+                    $remessaDia[] = [
+                        'url' => ADMhttpCliente . "/banco/" . $banco . "/remessa/" . date("Y") . "/" . $arq,
+                        'arq' => $arq,
+                    ];
+                }
+            }
         endif;
 
+        $nomeArq = ($file && is_string($file)) ? basename($file) : '';
+        $urlArquivo = ($nomeArq !== '' && $banco) ? ADMhttpCliente . "/banco/" . $banco . "/remessa/" . date("Y") . "/" . $nomeArq : '';
 
         $this->smarty->assign('pathImagem', $this->img);
-        $this->smarty->assign('mensagem', isset($mensagem) ? $mensagem : '');
+        $this->smarty->assign('mensagem', $mensagem);
+        $this->smarty->assign('mensagemErroJson', json_encode($mensagem ?: '', JSON_UNESCAPED_UNICODE));
         $this->smarty->assign('letra', $this->m_letra);
         $this->smarty->assign('subMenu', $this->m_submenu);
         $this->smarty->assign('saldoInicial', isset($saldoTotal) ? $saldoTotal : 0);
         $this->smarty->assign('dataInicio', $par[0]);
         $this->smarty->assign('dataFim', $par[1]);
-        $this->smarty->assign('arquivo', ADMhttpCliente . "/banco/" . $banco . "/remessa/" . date("Y") . "/" . basename($file));
-        //$this->smarty->assign('arquivo', $file);
-        $this->smarty->assign('nomeArq', basename($file));
+        $this->smarty->assign('arquivo', $urlArquivo);
+        $this->smarty->assign('nomeArq', $nomeArq);
         $this->smarty->assign('banco', $banco);
         $this->smarty->assign('lanc', $lanc);
+        $this->smarty->assign('remessaDia', $remessaDia);
 
         $this->smarty->assign('label', isset($arrLabel) ? $arrLabel : []);
         $this->smarty->assign('pag', isset($arrPag) ? $arrPag : []);

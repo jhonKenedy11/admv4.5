@@ -4273,7 +4273,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
                 $sql .= "CASE WHEN P.Unifracionada = 'S' THEN I.QTSOLICITADA ";
                 $sql .= "ELSE E.QUANTIDADE END as QUANTIDADE, ";
                 $sql .= "I.DESCRICAO, I.UNITARIO, E.FABLOTE, E.FABDATAFABRICACAO, ";
-                $sql .= "E.FABDATAVALIDADE, P.unidade, P.unifracionada, p.origem, ";
+                $sql .= "E.FABDATAVALIDADE, P.unidade, P.unifracionada, p.origem, p.cclasstrib, ";
                 $sql .= "p.TRIBICMS, p.ncm, p.cest, p.codigobarras, p.CODPRODUTOANVISA, p.PESO, p.localizacao, P.CODFABRICANTE,";
                 $sql .= "I.DESCONTO, I.FRETE, I.CODIGONOTA, I.DESPACESSORIAS, I.NRITEM, I.ITEMFABRICANTE, I.NUMEROOC FROM ";
                 $sql .= "FAT_PEDIDO_ITEM I ";
@@ -4294,7 +4294,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
                 // $sql .= "group by i.ITEMESTOQUE; ";
                 $sql = "SELECT I.ITEMESTOQUE, I.QTSOLICITADA, I.TOTAL, E.QUANTIDADE, ";
                 $sql .= "I.DESCRICAO, I.UNITARIO, P.unidade, P.unifracionada, p.origem, ";
-                $sql .= "p.TRIBICMS, p.ncm, p.cest, p.codigobarras, p.CODPRODUTOANVISA, ";
+                $sql .= "p.TRIBICMS, p.ncm, p.cest, p.codigobarras, p.CODPRODUTOANVISA, p.cclasstrib, ";
                 $sql .= "I.DESCONTO, I.CODIGONOTA, I.NUMEROOC FROM ";
                 $sql .= "fat_pedido_item i ";
                 $sql .= "LEFT JOIN EST_PRODUTO P ON (P.CODIGO=I.ITEMESTOQUE)  ";
@@ -4305,7 +4305,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
                 break;
             default: // sem lote e data fab
                 $sql = "SELECT i.*, P.unidade, P.unifracionada, p.origem, p.TRIBICMS, ";
-                $sql .= "p.ncm, p.cest, p.codigobarras, p.CODFABRICANTE, I.DESCONTO, p.PRECOMINIMO, I.NUMEROOC FROM ";
+                $sql .= "p.ncm, p.cest, p.codigobarras, p.CODFABRICANTE, p.cclasstrib, I.DESCONTO, p.PRECOMINIMO, I.NUMEROOC FROM ";
                 $sql .= "fat_pedido_item i ";
                 $sql .= "LEFT JOIN EST_PRODUTO P ON (P.CODIGO=I.ITEMESTOQUE)  ";
                 $sql .= "WHERE (i.id = '" . $this->getId() . "')  and ( i.motivo = 0)";

@@ -52,6 +52,7 @@
                                 <th>Descrição</th>
                                 <th>Tipo</th>
                                 <th>Nivel</th>
+                                <th>Comissão (%)</th>
                                 <th class=" no-link last" style="width: 120px;">Manutenção</th>
                             </tr>
                         </thead>
@@ -65,6 +66,7 @@
                                     <td> {$lanc[i].DESCRICAO} </td>
                                     <td> {$lanc[i].PADRAO} </td>
                                     <td> {$lanc[i].NIVEL} </td>
+                                    <td> {if $lanc[i].COMISSAOVENDAS neq '' && $lanc[i].COMISSAOVENDAS neq null}{$lanc[i].COMISSAOVENDAS|number_format:2:",":"."}%{else}-{/if} </td>
                                     <td class=" last">
                                         <button type="button" class="btn btn-warning btn-xs" onclick="javascript:submitCadastro('{$lanc[i].GRUPO}',{$lanc[i].NIVEL});"><span class="glyphicon glyphicon-plus-sign" aria-hidden="true"></span></button>
                                         <button type="button" class="btn btn-primary btn-xs" onclick="javascript:submitAlterar('{$lanc[i].ID}');"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></button>
