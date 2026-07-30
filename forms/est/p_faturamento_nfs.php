@@ -111,14 +111,19 @@ Class p_faturamento_nfs extends c_faturamento_nfs
             case 'searchParcelas':
                 $this->searchParcelas();
                 break;
+            case 'searchGeneros':
+                $this->searchGeneros();
+                break;
             case 'searchEstadosAjax':
                 $this->searchEstadosAjax();
                 break;
-                
+            case 'preVisualizationInvoice':
+                $this->preVisualizationInvoice($this->m_json);
+                break;
             case 'emitirNFS':
                 try {
                     $objNotaFiscalServico = new c_nota_fiscal_servico();
-                    
+
                     // Primeiro valida o JSON
                     //$validacao = $objNotaFiscalServico->validateJsonNotaFiscal($this->m_json);
                     $validacao['valido'] = true;
@@ -138,13 +143,10 @@ Class p_faturamento_nfs extends c_faturamento_nfs
                         return;
                     }
 
-                    // Salva as parcelas
-                    //$objNotaFiscalServico->saveNotaFiscalServicoParcela($idNotaFiscal, $this->m_json);
-                    
-                    
-                    // Se salvou com sucesso, prossegue com o framework de emissão
+                    // Salvo com sucesso, prossegue com o framework de emissão
                     // O typeFramework já cuidará da resposta via c_nfs_response::fromResult()
                     $objNotaFiscalServico->typeFramework('manual', $idNotaFiscal, $this->m_json);
+
                     
                 } catch (Exception $e) {
                     // Captura qualquer erro não tratado
@@ -253,6 +255,12 @@ Class p_faturamento_nfs extends c_faturamento_nfs
 
         $this->smarty->display('faturamento_nfs_mostra.tpl');
 
+    }
+
+    function preVisualizationInvoice($json) {
+        $data = json_decode($this->m_json, true);
+        $this->smarty->assign('data', $data);
+        $this->smarty->display('visualizar_nota_fiscal_servico.tpl');
     }
 
 }

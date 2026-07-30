@@ -13,9 +13,16 @@ include_once($dir . "/../../bib/c_user.php");
 include_once($dir . "/../../bib/c_date.php");
 include_once($dir . "/../../bib/c_tools.php");
 include_once($dir . "/../../class/crm/c_conta.php");
+require_once($dir . "/../../class/est/c_produto_estoque.php");
+require_once($dir . "/../../bib/c_database_pdo.php");
+require_once($dir . "/../../../smarty/libs/Smarty.class.php");
 
 //Class C_PRODUTO
 Class c_produto extends c_user {
+
+    /** @var Smarty|null */
+    private $smartyPed = null;
+
 /**
  * TABLE NAME EST_PRODUTO
  */
@@ -36,6 +43,7 @@ private $localizacao    = NULL; // VARCHAR(10)
 private $dataForaLinha  = NULL; // DATE
 private $ncm            = NULL; // VARCHAR(15)
 private $cest           = NULL; // VARCHAR(15)
+private $cclasstrib     = NULL; // VARCHAR(15)
 private $origem         = NULL; // CHAR(1)
 private $tribIcms       = NULL; // VARCHAR(2)
 private $moeda          = NULL; // SMALLINT(6)
@@ -72,11 +80,21 @@ private $nomeEquivalencia    = NULL;    // INT(11)
 private $quantUltimaCompraEquiv    = NULL;    // INT(11)
 private $nfUltimaCompraEquiv    = NULL;    // INT(11)
 private $dataUltimaCompraEquiv = NULL; // DATE
+private $marcaEquivalente = NULL; // VARCHAR(4) - Marca do equivalente
 private $dateChange = NULL; // DATE
 
 private $peso    = NULL; // DECIMAL(9,2)
 private $anp    = NULL; // DECIMAL(9,2)
 private $marca  = NULL; //varchar(4)
+
+// Paginacao
+public $quantidade_total_produtos_pesquisados = 0;
+public $pagina_atual = 1;
+public $quantidade_maxima_por_pagina = 50;
+public $quantidade_pesquisada = 0;
+public $total_paginas = 1;
+
+
 //construtor
 function __construct(){
     // Cria uma instancia variaveis de sessao
@@ -191,7 +209,7 @@ public function getLocalizacao(){
 
 public function setDataForaLinha($dataForaLinha) { $this->dataForaLinha=$dataForaLinha; }
 public function getDataForaLinha($format = null) { 
-        if ($this->dataForaLinha!=''){
+        if ($this->dataForaLinha != ''){
                 $this->dataForaLinha = strtr($this->dataForaLinha, "/","-");
                 switch ($format) {
                         case 'F':
@@ -218,6 +236,14 @@ public function getNcm(){
 public function setCest($cest) { $this->cest = $cest; }
 public function getCest() {
          return $this->cest;
+}
+
+public function setCclasstrib($cclasstrib) { 
+    $this->cclasstrib = $cclasstrib; 
+}
+
+public function getCclasstrib() {
+         return $this->cclasstrib;
 }	
 
 public function setOrigem($origem){
@@ -280,6 +306,11 @@ public function getCustoMedio($format = null) {
 			break;
 		case 'B':
 			if ($this->custoMedio!=null){
+				// Se for numérico, converte diretamente
+				if (is_numeric($this->custoMedio)) {
+					return number_format(doubleval($this->custoMedio), 2, '.', '');
+				}
+				// Se for string, converte do formato brasileiro para banco
 				$num = str_replace('.', '', $this->custoMedio);
 				$num = str_replace(',', '.', $num);
 				return $num; }
@@ -329,6 +360,11 @@ public function getCustoReposicao($format = null) {
 			break;
 		case 'B':
 			if ($this->custoReposicao!=null){
+				// Se for numérico, converte diretamente
+				if (is_numeric($this->custoReposicao)) {
+					return number_format(doubleval($this->custoReposicao), 2, '.', '');
+				}
+				// Se for string, converte do formato brasileiro para banco
 				$num = str_replace('.', '', $this->custoReposicao);
 				$num = str_replace(',', '.', $num);
 				return $num; }
@@ -573,12 +609,27 @@ public function getFimPromocao1($format=NULL){
 public function setQuantLimite1($quantLimite1){
 	$this->quantLimite1 = $quantLimite1;
 }
-public function getQuantLimite1(){
-	if ($this->quantLimite1!=null):
-            return $this->quantLimite1;
-        else:
-            return 0;
-        endif;
+public function getQuantLimite1($format=null){
+    switch ($format) {
+        case 'F':
+            return number_format(doubleval($this->quantLimite1), 2, ',', '.');
+            break;
+        case 'B':
+            if ($this->quantLimite1 != null) {
+                $num = str_replace('.', '', $this->quantLimite1);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            } else {
+                return 0;
+            }
+            break;
+        default:
+            if($this->quantLimite1 == null){
+                return 0;
+            }else{
+                return $this->quantLimite1;
+            }
+    }
 }
 
 
@@ -859,6 +910,30 @@ public function getQuantUltimaCompraEquiv($format=null){
 	
 }
 
+public function setPrecoUnitarioEquiv($precoUnitarioEquiv){
+	$this->precoUnitarioEquiv = $precoUnitarioEquiv;
+}
+
+public function getPrecoUnitarioEquiv($format=null){
+	 switch ($format){
+		case 'F':
+			return number_format(doubleval($this->precoUnitarioEquiv), 2, ',', '.');
+			break;
+		case 'B':
+            // Retorna valor pronto para uso em SQL (sem aspas) ou literal NULL
+            if ($this->precoUnitarioEquiv === '' || is_null($this->precoUnitarioEquiv)){
+                return 'null';
+            }
+            // garante ponto decimal e 2 casas
+            $val = str_replace(',', '.', $this->precoUnitarioEquiv);
+            $val = number_format(doubleval($val), 2, '.', '');
+            return $val;
+            break;
+		default:
+			return $this->precoUnitarioEquiv;
+	 }					
+}
+
 public function setNfUltimaCompraEquiv($nfUltimaCompraEquiv){
 	$this->nfUltimaCompraEquiv = $nfUltimaCompraEquiv;
 }
@@ -870,6 +945,12 @@ public function getNfUltimaCompraEquiv(){
         endif;
 }
 
+public function setMarcaEquivalente($marca) { 
+	$this->marcaEquivalente = $marca; 
+}
+public function getMarcaEquivalente() { 
+	return $this->marcaEquivalente; 
+}
 
 public function setPeso($peso) { $this->peso = $peso; }
 public function getPeso($format = null) {
@@ -1024,9 +1105,10 @@ public function unificaProduto($codPermanecer, $codRetirar){
 
     public function select_produto_equivalencia(){
 //            $sql  = "SELECT DISTINCT E.* ";
-            $sql  = "SELECT DISTINCT E.*, C.NOME ";
+            $sql  = "SELECT DISTINCT E.*, C.NOME, M.DESCRICAO AS NOMEMARCA ";
             $sql .= "FROM est_produto_equivalencia E ";
             $sql .= "LEFT JOIN FIN_CLIENTE C ON (C.CLIENTE = E.CONTA) ";
+            $sql .= "LEFT JOIN EST_MARCA M ON (M.ID = E.MARCA) ";
             $sql .= "WHERE (idproduto = ".$this->getId().") order by codequivalente";
             //echo strtoupper($sql)."<BR>";
             $banco = new c_banco();
@@ -1034,6 +1116,620 @@ public function unificaProduto($codPermanecer, $codRetirar){
             $banco->close_connection();
             return $banco->resultado;
     } //fim select_PRODUTO
+
+    /**
+     * Busca produtos por termo (código, fabricante, descrição, barras, equivalências).
+     * Usado em cotação, pedido PS, PDV, importação NFe entrada, etc.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function buscarProdutosPorTermo(string $termo): array
+    {
+        $termoPesquisa = trim($termo);
+        if ($termoPesquisa === '') {
+            return [];
+        }
+
+        $termoPesquisaLike = $termoPesquisa . '%';
+        $sql = $this->montaSqlBuscaProdutos($termoPesquisa, $termoPesquisaLike);
+
+        $banco = new c_banco_pdo();
+        $banco->prepare($sql);
+        $banco->execute($this->preparaParametrosBuscaProduto($termoPesquisa, $termoPesquisaLike));
+        $rows = $banco->fetchAll();
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    private function montaSqlBuscaProdutos($termoPesquisa, $termoPesquisaLike)
+    {
+        $union = $this->getSqlBuscaExataCodFabricante() . ' UNION ' .
+               $this->getSqlBuscaExataCodigo() . ' UNION ' .
+               $this->getSqlBuscaExataCodigoBarras() . ' UNION ' .
+               $this->getSqlBuscaParcialCodFabricante() . ' UNION ' .
+               $this->getSqlBuscaParcialCodigo();
+
+        if (ctype_digit($termoPesquisa) && strlen($termoPesquisa) >= 4) {
+            $union .= ' UNION ' . $this->getSqlBuscaParcialCodigoBarras();
+        }
+
+        if (strlen($termoPesquisa) > 3) {
+            $union .= ' UNION ' . $this->getSqlBuscaDescricao();
+        }
+
+        if (strlen($termoPesquisa) > 3) {
+            $union .= ' UNION ' . $this->getSqlBuscaEquivalenciaCodEquivalente() .
+                    ' UNION ' . $this->getSqlBuscaEquivalenciaProdutoRelacionado();
+        }
+
+        return "SELECT busca.CODIGO, busca.DESCRICAO, busca.MARCA, busca.NOMEMARCA, busca.CUSTOCOMPRA, busca.UNIDADE,
+                       busca.CODFABRICANTE, busca.VENDA, busca.NCM, busca.CODEQUIVALENTE,
+                       (CASE
+                            WHEN TRIM(busca.CODFABRICANTE) = :ordTermoSel
+                              OR CAST(busca.CODIGO AS CHAR) = :ordTermoSel2 THEN 1
+                            ELSE 0
+                        END) AS MATCH_EXATO
+                FROM ({$union}) AS busca
+                ORDER BY
+                    CASE
+                        WHEN TRIM(busca.CODFABRICANTE) = :ordTermoFab THEN 0
+                        WHEN CAST(busca.CODIGO AS CHAR) = :ordTermoCod THEN 1
+                        WHEN TRIM(busca.CODEQUIVALENTE) = :ordTermoEq THEN 2
+                        WHEN TRIM(busca.CODFABRICANTE) LIKE :ordLikeFab THEN 3
+                        WHEN CAST(busca.CODIGO AS CHAR) LIKE :ordLikeCod THEN 4
+                        ELSE 5
+                    END,
+                    LENGTH(TRIM(busca.CODFABRICANTE)),
+                    TRIM(busca.CODFABRICANTE)
+                LIMIT 50";
+    }
+
+    private function getSqlBuscaExataCodFabricante($limit = 50)
+    {
+        return "(SELECT DISTINCT P.CODIGO, P.DESCRICAO, P.MARCA, M.DESCRICAO AS NOMEMARCA,
+                        P.CUSTOCOMPRA, P.UNIDADE, P.CODFABRICANTE, P.VENDA, P.NCM,
+                        P.CODFABRICANTE AS CODEQUIVALENTE
+                 FROM EST_PRODUTO P
+                 LEFT JOIN EST_MARCA M ON (M.MARCA = P.MARCA)
+                 WHERE P.CODFABRICANTE = :termoExato
+                 LIMIT {$limit})";
+    }
+
+    private function getSqlBuscaExataCodigo($limit = 50)
+    {
+        return "(SELECT DISTINCT P.CODIGO, P.DESCRICAO, P.MARCA, M.DESCRICAO AS NOMEMARCA,
+                        P.CUSTOCOMPRA, P.UNIDADE, P.CODFABRICANTE, P.VENDA, P.NCM,
+                        P.CODFABRICANTE AS CODEQUIVALENTE
+                 FROM EST_PRODUTO P
+                 LEFT JOIN EST_MARCA M ON (M.MARCA = P.MARCA)
+                 WHERE P.CODIGO = :termoExato
+                 LIMIT {$limit})";
+    }
+
+    private function getSqlBuscaExataCodigoBarras($limit = 50)
+    {
+        return "(SELECT DISTINCT P.CODIGO, P.DESCRICAO, P.MARCA, M.DESCRICAO AS NOMEMARCA,
+                        P.CUSTOCOMPRA, P.UNIDADE, P.CODFABRICANTE, P.VENDA, P.NCM,
+                        P.CODFABRICANTE AS CODEQUIVALENTE
+                 FROM EST_PRODUTO P
+                 LEFT JOIN EST_MARCA M ON (M.MARCA = P.MARCA)
+                 WHERE P.CODIGOBARRAS = :termoExato
+                 LIMIT {$limit})";
+    }
+
+    private function getSqlBuscaParcialCodFabricante($limit = 50)
+    {
+        return "(SELECT DISTINCT P.CODIGO, P.DESCRICAO, P.MARCA, M.DESCRICAO AS NOMEMARCA,
+                        P.CUSTOCOMPRA, P.UNIDADE, P.CODFABRICANTE, P.VENDA, P.NCM,
+                        P.CODFABRICANTE AS CODEQUIVALENTE
+                 FROM EST_PRODUTO P
+                 LEFT JOIN EST_MARCA M ON (M.MARCA = P.MARCA)
+                 WHERE P.CODFABRICANTE LIKE :termoLike
+                 LIMIT {$limit})";
+    }
+
+    private function getSqlBuscaParcialCodigo($limit = 50)
+    {
+        return "(SELECT DISTINCT P.CODIGO, P.DESCRICAO, P.MARCA, M.DESCRICAO AS NOMEMARCA,
+                        P.CUSTOCOMPRA, P.UNIDADE, P.CODFABRICANTE, P.VENDA, P.NCM,
+                        P.CODFABRICANTE AS CODEQUIVALENTE
+                 FROM EST_PRODUTO P
+                 LEFT JOIN EST_MARCA M ON (M.MARCA = P.MARCA)
+                 WHERE P.CODIGO LIKE :termoLike
+                 LIMIT {$limit})";
+    }
+
+    private function getSqlBuscaParcialCodigoBarras($limit = 50)
+    {
+        return "(SELECT DISTINCT P.CODIGO, P.DESCRICAO, P.MARCA, M.DESCRICAO AS NOMEMARCA,
+                        P.CUSTOCOMPRA, P.UNIDADE, P.CODFABRICANTE, P.VENDA, P.NCM,
+                        P.CODFABRICANTE AS CODEQUIVALENTE
+                 FROM EST_PRODUTO P
+                 LEFT JOIN EST_MARCA M ON (M.MARCA = P.MARCA)
+                 WHERE P.CODIGOBARRAS LIKE :termoLike
+                 LIMIT {$limit})";
+    }
+
+    private function getSqlBuscaDescricao($limit = 30)
+    {
+        return "(SELECT DISTINCT P.CODIGO, P.DESCRICAO, P.MARCA, M.DESCRICAO AS NOMEMARCA,
+                        P.CUSTOCOMPRA, P.UNIDADE, P.CODFABRICANTE, P.VENDA, P.NCM,
+                        P.CODFABRICANTE AS CODEQUIVALENTE
+                 FROM EST_PRODUTO P
+                 LEFT JOIN EST_MARCA M ON (M.MARCA = P.MARCA)
+                 WHERE P.DESCRICAO LIKE :termoLikeDesc
+                 LIMIT {$limit})";
+    }
+
+    private function getSqlBuscaEquivalenciaCodEquivalente($limit = 30)
+    {
+        return "(SELECT DISTINCT P.CODIGO, P.DESCRICAO, P.MARCA, M.DESCRICAO AS NOMEMARCA,
+                        P.CUSTOCOMPRA, P.UNIDADE, P.CODFABRICANTE, P.VENDA, P.NCM,
+                        E.CODEQUIVALENTE
+                 FROM EST_PRODUTO P
+                 INNER JOIN EST_PRODUTO_EQUIVALENCIA E ON E.IDPRODUTO = P.CODIGO
+                 LEFT JOIN EST_MARCA M ON (M.MARCA = P.MARCA)
+                 WHERE E.CODEQUIVALENTE LIKE :termoLike
+                 LIMIT {$limit})";
+    }
+
+    private function getSqlBuscaEquivalenciaProdutoRelacionado($limit = 30)
+    {
+        return "(SELECT DISTINCT P.CODIGO, P.DESCRICAO, P.MARCA, M.DESCRICAO AS NOMEMARCA,
+                        P.CUSTOCOMPRA, P.UNIDADE, P.CODFABRICANTE, P.VENDA, P.NCM,
+                        E.CODEQUIVALENTE
+                 FROM EST_PRODUTO P
+                 INNER JOIN EST_PRODUTO_EQUIVALENCIA E ON E.CODEQUIVALENTE = P.CODIGO
+                 INNER JOIN EST_PRODUTO P2 ON P2.CODIGO = E.IDPRODUTO
+                 LEFT JOIN EST_MARCA M ON (M.MARCA = P.MARCA)
+                 WHERE (P2.CODFABRICANTE LIKE :termoLike OR P2.CODIGO LIKE :termoLike)
+                 LIMIT {$limit})";
+    }
+
+    private function preparaParametrosBuscaProduto($termoPesquisa, $termoPesquisaLike)
+    {
+        $params = [
+            ':termoExato' => $termoPesquisa,
+            ':termoLike' => $termoPesquisaLike,
+            ':ordTermoSel' => $termoPesquisa,
+            ':ordTermoSel2' => $termoPesquisa,
+            ':ordTermoFab' => $termoPesquisa,
+            ':ordTermoCod' => $termoPesquisa,
+            ':ordTermoEq' => $termoPesquisa,
+            ':ordLikeFab' => $termoPesquisaLike,
+            ':ordLikeCod' => $termoPesquisaLike,
+        ];
+
+        if (strlen($termoPesquisa) > 3) {
+            $params[':termoLikeDesc'] = '%' . $termoPesquisa . '%';
+        }
+
+        return $params;
+    }
+
+    private function obterSmartyPed()
+    {
+        if ($this->smartyPed === null) {
+            $this->smartyPed = new Smarty();
+            $this->smartyPed->template_dir = ADMraizFonte . '/template/ped';
+            $this->smartyPed->compile_dir = ADMraizCliente . '/smarty/templates_c/';
+            $this->smartyPed->config_dir = ADMraizCliente . '/smarty/configs/';
+            $this->smartyPed->cache_dir = ADMraizCliente . '/smarty/cache/';
+        }
+        return $this->smartyPed;
+    }
+
+    /**
+     * AJAX: busca de produto/equivalências (cotação, pedido PS).
+     */
+    public function retornaHtmlEquivalencias($codFabricante)
+    {
+        $dados = $this->buscarDadosEquivalencias($codFabricante);
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!$dados['success']) {
+            echo json_encode([
+                'success' => false,
+                'produto' => null,
+                'htmlEquivalencias' => '',
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $smarty = $this->obterSmartyPed();
+        foreach ($dados['templateVars'] as $chave => $valor) {
+            $smarty->assign($chave, $valor);
+        }
+
+        $htmlEquivalencias = !empty($dados['templateVars']['equivalencias'])
+            ? $smarty->fetch('cotacao_equivalencias.tpl')
+            : '';
+
+        echo json_encode([
+            'success' => true,
+            'totalProdutos' => $dados['totalProdutos'],
+            'preencherAutomatico' => $dados['preencherAutomatico'],
+            'produto' => $dados['produto'],
+            'htmlEquivalencias' => $htmlEquivalencias,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    /**
+     * AJAX: painel de informações do produto (estoque, compras, vendas, markup).
+     */
+    public function retornaInfoProduto(
+        $codProduto,
+        $centroCusto,
+        $codCliente = '',
+        $vlrUnitario = null,
+        $quantidade = null,
+        $desconto = null
+    ) {
+        $dados = $this->buscarDadosInfoProduto(
+            $codProduto,
+            $centroCusto,
+            $codCliente,
+            $vlrUnitario,
+            $quantidade,
+            $desconto
+        );
+
+        $smarty = $this->obterSmartyPed();
+        foreach ($dados['templateVars'] as $chave => $valor) {
+            $smarty->assign($chave, $valor);
+        }
+
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'success' => true,
+            'htmlInfo' => $smarty->fetch('cotacao_info_produto.tpl'),
+            'quantidadeDisponivel' => $dados['quantidadeDisponivel'],
+            'markup' => $dados['markup'],
+            'custo' => $dados['custo'],
+            'equivalencias' => $dados['equivalencias'],
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    private function buscarDadosEquivalencias($codFabricante)
+    {
+        $termoPesquisa = trim((string) $codFabricante);
+        $todosProdutos = $this->buscarProdutosPorTermo($termoPesquisa);
+
+        if (empty($todosProdutos)) {
+            return [
+                'success' => false,
+                'templateVars' => [],
+                'totalProdutos' => 0,
+                'preencherAutomatico' => false,
+                'produto' => null,
+            ];
+        }
+
+        $equivalencias = [];
+        $produtoPrincipal = $todosProdutos[0];
+        $matchExato = (int) ($todosProdutos[0]['MATCH_EXATO'] ?? 0) === 1;
+        $idSelecionado = ($matchExato || count($todosProdutos) === 1)
+            ? (string) ($todosProdutos[0]['CODIGO'] ?? '')
+            : null;
+
+        foreach ($todosProdutos as $produto) {
+            $codProduto = $produto['CODIGO'] ?? '';
+            $equivalencias[] = [
+                'ID' => $codProduto,
+                'IDPRODUTO' => $codProduto,
+                'CODIGO_FABRICANTE' => $produto['CODFABRICANTE'] ?? '',
+                'CODEQUIVALENTE' => $produto['CODEQUIVALENTE'] ?? '',
+                'DESCEQUIVALENTE' => $produto['DESCRICAO'] ?? '',
+                'MARCA' => $produto['MARCA'] ?? '',
+                'NOMEMARCA' => $produto['NOMEMARCA'] ?? '',
+                'UNIDADE' => $produto['UNIDADE'] ?? '',
+                'VENDA' => isset($produto['VENDA']) ? number_format($produto['VENDA'], 2, ',', '.') : '0,00',
+                'NCM' => $produto['NCM'] ?? '',
+                'SELECIONADO' => ($idSelecionado !== null && (string) $codProduto === $idSelecionado),
+            ];
+        }
+
+        $totalProdutos = count($equivalencias);
+        $preencherAutomatico = ($totalProdutos === 1) || ($idSelecionado !== null);
+        $nomeMarca = $produtoPrincipal['NOMEMARCA'] ?? $produtoPrincipal['MARCA'] ?? '';
+
+        return [
+            'success' => true,
+            'templateVars' => [
+                'equivalencias' => $equivalencias,
+                'totalProdutos' => $totalProdutos,
+                'preencherAutomatico' => $preencherAutomatico,
+                'mostrarMensagemRefinar' => $totalProdutos >= 50,
+            ],
+            'totalProdutos' => $totalProdutos,
+            'preencherAutomatico' => $preencherAutomatico,
+            'produto' => [
+                'codProduto' => $produtoPrincipal['CODIGO'] ?? '',
+                'codProdutoNota' => $produtoPrincipal['CODFABRICANTE'] ?? '',
+                'descProduto' => $produtoPrincipal['DESCRICAO'] ?? '',
+                'marcaProduto' => $nomeMarca,
+                'custoCompraProduto' => $produtoPrincipal['CUSTOCOMPRA'] ?? '',
+                'uniProduto' => $produtoPrincipal['UNIDADE'] ?? '',
+                'vlrUnitarioProduto' => isset($produtoPrincipal['VENDA'])
+                    ? number_format($produtoPrincipal['VENDA'], 2, ',', '.') : '0,00',
+                'codFabricante' => $produtoPrincipal['CODFABRICANTE'] ?? '',
+                'markupProduto' => isset($produtoPrincipal['MARKUP'])
+                    ? number_format($produtoPrincipal['MARKUP'], 2, ',', '.') : '0,00',
+            ],
+        ];
+    }
+
+    private function buscarDadosInfoProduto(
+        $codProduto,
+        $centroCusto,
+        $codCliente = '',
+        $vlrUnitario = null,
+        $quantidade = null,
+        $desconto = null
+    ) {
+        $codProduto = (int) $codProduto;
+        $centroCusto = (int) $centroCusto;
+        $codCliente = trim((string) $codCliente);
+
+        $quantidadeDisponivel = c_produto_estoque::produtoQtde($codProduto, $centroCusto);
+        $ultimasCompras = $this->buscaUltimaCompraProduto($codProduto, 3);
+
+        $ultimasVendas = [];
+        if ($codCliente !== '') {
+            $ultimasVendas = $this->buscaUltimasVendasClienteProduto($codProduto, $codCliente);
+        }
+
+        $dadosMarkup = $this->calculaMarkupProdutoAjax($codProduto, $vlrUnitario, $quantidade, $desconto);
+
+        $this->setId($codProduto);
+        $equivalencias = $this->select_produto_equivalencia();
+        if (!is_array($equivalencias)) {
+            $equivalencias = [];
+        }
+
+        return [
+            'templateVars' => [
+                'quantidadeDisponivel' => $quantidadeDisponivel[0]['QUANTIDADE'] ?? 0,
+                'ultimasCompras' => $ultimasCompras,
+                'ultimasVendas' => $ultimasVendas,
+                'codProduto' => $codProduto,
+                'dadosMarkup' => $dadosMarkup,
+                'equivalencias' => $equivalencias,
+            ],
+            'quantidadeDisponivel' => $quantidadeDisponivel[0]['QUANTIDADE'] ?? 0,
+            'markup' => $dadosMarkup['markup'] ?? '0,00',
+            'custo' => $dadosMarkup['custo'] ?? '0,00',
+            'equivalencias' => $equivalencias,
+        ];
+    }
+
+    private function parseMoedaAjax($valor)
+    {
+        if ($valor === null || $valor === '') {
+            return 0.0;
+        }
+        if (is_numeric($valor)) {
+            return (float) $valor;
+        }
+        return (float) c_tools::moedaBd($valor);
+    }
+
+    private function buscaUltimaCompraProduto($codProduto, $limite = 3)
+    {
+        $banco = new c_banco_pdo();
+        $sqlProduto = 'SELECT CODFABRICANTE FROM EST_PRODUTO WHERE CODIGO = :codProduto LIMIT 1';
+        $banco->prepare($sqlProduto);
+        $banco->execute([':codProduto' => $codProduto]);
+        $produtoInfo = $banco->fetchAll();
+        $codFabricante = !empty($produtoInfo[0]['CODFABRICANTE']) ? $produtoInfo[0]['CODFABRICANTE'] : null;
+
+        if (empty($codFabricante)) {
+            return [];
+        }
+
+        $banco = new c_banco_pdo();
+        $sqlProdutosBase = 'SELECT CODIGO FROM EST_PRODUTO WHERE CODFABRICANTE = :codFabricante';
+        $banco->prepare($sqlProdutosBase);
+        $banco->execute([':codFabricante' => $codFabricante]);
+        $produtosBase = $banco->fetchAll();
+
+        if (empty($produtosBase)) {
+            return [];
+        }
+
+        $idsProdutos = [];
+        foreach ($produtosBase as $prod) {
+            $idsProdutos[] = $prod['CODIGO'];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($idsProdutos), '?'));
+
+        $sqlProdutos = "SELECT DISTINCT P.CODIGO
+                        FROM EST_PRODUTO P
+                        WHERE P.CODFABRICANTE = ?
+                        UNION
+                        SELECT DISTINCT P.CODIGO
+                        FROM EST_PRODUTO P
+                        INNER JOIN EST_PRODUTO_EQUIVALENCIA E ON P.CODIGO = E.IDPRODUTO
+                        WHERE E.IDPRODUTO IN ($placeholders)
+                        UNION
+                        SELECT DISTINCT P.CODIGO
+                        FROM EST_PRODUTO P
+                        INNER JOIN EST_PRODUTO_EQUIVALENCIA E ON P.CODIGO = E.CODEQUIVALENTE
+                        WHERE E.IDPRODUTO IN ($placeholders)";
+
+        $banco = new c_banco_pdo();
+        $banco->prepare($sqlProdutos);
+        $params = array_merge([$codFabricante], $idsProdutos, $idsProdutos);
+        $banco->execute($params);
+        $produtosEquivalentes = $banco->fetchAll();
+
+        if (empty($produtosEquivalentes)) {
+            return [];
+        }
+
+        $codigosProdutos = [];
+        foreach ($produtosEquivalentes as $prod) {
+            $codigosProdutos[] = $prod['CODIGO'];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($codigosProdutos), '?'));
+
+        $sql = "SELECT NF.NUMERO,
+                       NFI.DESCRICAO, NFI.UNITARIO, NFI.TOTAL, NFI.QUANT,
+                       NFI.VALORICMS, NFI.VALORIPI, NFI.VALORPIS, NFI.VALORCOFINS,
+                       NF.FRETE, NF.DESPACESSORIAS, NF.SEGURO,
+                       NF.DATASAIDAENTRADA, NF.EMISSAO,
+                       C.NOME AS FORNECEDOR_NOME
+                FROM EST_NOTA_FISCAL_PRODUTO NFI
+                INNER JOIN EST_NOTA_FISCAL NF ON NFI.IDNF = NF.ID
+                LEFT JOIN FIN_CLIENTE C ON C.CLIENTE = NF.PESSOA
+                WHERE NFI.CODPRODUTO IN ($placeholders)
+                  AND NF.TIPO = 1
+                  AND NF.SITUACAO <> 'I'
+                ORDER BY NF.DATASAIDAENTRADA DESC, NF.EMISSAO DESC, NF.ID DESC
+                LIMIT {$limite}";
+
+        $banco = new c_banco_pdo();
+        $banco->prepare($sql);
+        $banco->execute($codigosProdutos);
+        $result = $banco->fetchAll();
+
+        $compras = [];
+        foreach ($result as $row) {
+            $valorEntrada = floatval($row['TOTAL'] ?? 0);
+            $totalImpostos = floatval($row['VALORICMS'] ?? 0) +
+                            floatval($row['VALORIPI'] ?? 0) +
+                            floatval($row['VALORPIS'] ?? 0) +
+                            floatval($row['VALORCOFINS'] ?? 0);
+
+            $compras[] = [
+                'numeroNota' => $row['NUMERO'] ?? '',
+                'fornecedorNome' => $row['FORNECEDOR_NOME'] ?? '',
+                'descricao' => $row['DESCRICAO'] ?? '',
+                'quantidade' => isset($row['QUANT']) ? number_format($row['QUANT'], 2, ',', '.') : '0,00',
+                'valorUnitario' => isset($row['UNITARIO']) ? number_format($row['UNITARIO'], 2, ',', '.') : '0,00',
+                'valorEntrada' => number_format($valorEntrada, 2, ',', '.'),
+                'totalImpostos' => number_format($totalImpostos, 2, ',', '.'),
+                'dataCompra' => isset($row['DATASAIDAENTRADA']) ? date('d/m/Y', strtotime($row['DATASAIDAENTRADA'])) :
+                               (isset($row['EMISSAO']) ? date('d/m/Y', strtotime($row['EMISSAO'])) : ''),
+            ];
+        }
+
+        return $compras;
+    }
+
+    private function buscaUltimasVendasClienteProduto($codProduto, $codCliente)
+    {
+        $banco = new c_banco_pdo();
+        $sql = "SELECT PI.ITEMESTOQUE, PI.DESCRICAO, PI.UNITARIO, PI.TOTAL, PI.QTSOLICITADA,
+                       P.EMISSAO, P.PEDIDO, P.ID
+                FROM FAT_PEDIDO_ITEM PI
+                INNER JOIN FAT_PEDIDO P ON PI.ID = P.ID
+                WHERE PI.ITEMESTOQUE = :codProduto
+                  AND P.CLIENTE = :codCliente
+                  AND P.SITUACAO NOT IN ('9', '0')
+                ORDER BY P.EMISSAO DESC, P.ID DESC
+                LIMIT 3";
+
+        $banco->prepare($sql);
+        $banco->execute([
+            ':codProduto' => $codProduto,
+            ':codCliente' => $codCliente,
+        ]);
+        $result = $banco->fetchAll();
+
+        $vendas = [];
+        foreach ($result as $row) {
+            $vendas[] = [
+                'descricao' => $row['DESCRICAO'] ?? '',
+                'valorVenda' => isset($row['UNITARIO']) ? number_format($row['UNITARIO'], 2, ',', '.') : '0,00',
+                'valorTotal' => isset($row['TOTAL']) ? number_format($row['TOTAL'], 2, ',', '.') : '0,00',
+                'quantidade' => isset($row['QTSOLICITADA']) ? number_format($row['QTSOLICITADA'], 2, ',', '.') : '0,00',
+                'dataVenda' => isset($row['EMISSAO']) ? date('d/m/Y', strtotime($row['EMISSAO'])) : '',
+                'numeroPedido' => $row['PEDIDO'] ?? '',
+                'idPedido' => $row['ID'] ?? '',
+            ];
+        }
+
+        return $vendas;
+    }
+
+    private function calculaMarkupProdutoAjax($codProduto, $vlrUnitario, $quantidade, $desconto)
+    {
+        $dadosMarkup = [
+            'valorUnitario' => null,
+            'custo' => null,
+            'lucroBruto' => null,
+            'markup' => null,
+            'margemLiquida' => null,
+            'totalItem' => null,
+            'temDados' => false,
+        ];
+
+        $vlrUnitarioNum = $this->parseMoedaAjax($vlrUnitario);
+        if ($vlrUnitarioNum <= 0) {
+            return $dadosMarkup;
+        }
+
+        $this->setId($codProduto);
+        $arrProduto = $this->select_produto();
+
+        if (empty($arrProduto) || empty($arrProduto[0]['CUSTOCOMPRA'])) {
+            return $dadosMarkup;
+        }
+
+        $custo = floatval($arrProduto[0]['CUSTOCOMPRA']);
+        $quantidadeNum = $this->parseMoedaAjax($quantidade);
+        if ($quantidadeNum <= 0) {
+            $quantidadeNum = 1;
+        }
+
+        $totalItem = $vlrUnitarioNum * $quantidadeNum;
+        $descontoNum = $this->parseMoedaAjax($desconto);
+        $totalItemComDesconto = $totalItem - $descontoNum;
+        $custoTotal = $custo * $quantidadeNum;
+        $lucroBruto = $totalItemComDesconto - $custoTotal;
+
+        $markup = 0;
+        if ($totalItemComDesconto > 0) {
+            $markup = ($lucroBruto / $totalItemComDesconto) * 100;
+        }
+
+        return [
+            'valorUnitario' => number_format($vlrUnitarioNum, 2, ',', '.'),
+            'custo' => number_format($custo, 2, ',', '.'),
+            'lucroBruto' => number_format($lucroBruto, 2, ',', '.'),
+            'markup' => number_format($markup, 2, ',', '.'),
+            'margemLiquida' => number_format($lucroBruto, 2, ',', '.'),
+            'totalItem' => number_format($totalItemComDesconto, 2, ',', '.'),
+            'quantidade' => number_format($quantidadeNum, 2, ',', '.'),
+            'custoTotal' => number_format($custoTotal, 2, ',', '.'),
+            'temDados' => true,
+        ];
+    }
+
+    public function vincularProdutoEquivalenteImportacao($idProduto, $pessoa, $codigoXml)
+    {
+        $this->setId($idProduto);
+        $this->setCodEquivalente(substr($codigoXml, 0, 25));
+        $this->setContaEquiv($pessoa);
+        $this->setNfUltimaCompraEquiv(0);
+        $this->setQuantUltimaCompraEquiv(0, true);
+
+        if ($this->alteraProdutoEquivalencia()) {
+            return array('success' => true, 'message' => 'Equivalencia atualizada com sucesso.');
+        }
+
+        $resultInsert = $this->incluiProdutoEquivalencia();
+        if ($resultInsert === true) {
+            return array('success' => true, 'message' => 'Equivalencia vinculada com sucesso.');
+        }
+
+        return array('success' => false, 'message' => 'Nao foi possivel salvar a equivalencia.');
+    }
 
 
 
@@ -1045,9 +1741,16 @@ public function unificaProduto($codPermanecer, $codRetirar){
     public function incluiProdutoEquivalencia($conn=null) {
         $banco = new c_banco;
         $sql = "INSERT INTO EST_PRODUTO_EQUIVALENCIA (";
-        $sql .= "IDPRODUTO, CODEQUIVALENTE, CONTA, NFULTIMACOMPRA, DATAULTIMACOMPRA, QUANTULTIMACOMPRA, USERINSERT, DATEINSERT) ";
+        $sql .= "IDPRODUTO, CODEQUIVALENTE, CONTA, MARCA, PRECOUNITARIO, NFULTIMACOMPRA, DATAULTIMACOMPRA, QUANTULTIMACOMPRA, USERINSERT, DATEINSERT) ";
         $sql .= "values ( ";
         $sql .= $this->getId().", '".  $this->getCodEquivalente()."', ".  $this->getContaEquiv().", ";
+        $marcaEquiv = $this->getMarcaEquivalente();
+        if ($marcaEquiv != null && $marcaEquiv != ''):
+            $sql .= "'".$marcaEquiv."', ";
+        else:
+            $sql .= "null, ";
+        endif;
+        $sql .= $this->getPrecoUnitarioEquiv('B').", ";
         $sql .= $this->getNfUltimaCompraEquiv().", ";
     if ($this->getDataUltimaCompraEquiv('B')==''):
         $sql .= "null, ";
@@ -1075,9 +1778,12 @@ public function alteraProdutoEquivalencia(){
 	$sql .= "NFULTIMACOMPRA = '".$this->getNfUltimaCompraEquiv()."', ";
 	$sql .= "DATAULTIMACOMPRA = '".$this->getDataUltimaCompraEquiv('B')."', ";
 	$sql .= "QUANTULTIMACOMPRA = '".$this->getQuantUltimaCompraEquiv('B')."', ";
+    $sql .= "PRECOUNITARIO = ".$this->getPrecoUnitarioEquiv('B').", ";
+    $sql .= "MARCA = '".$this->getMarcaEquivalente()."', ";
+    $sql .= "CONTA = ".$this->getContaEquiv().", ";
 	$sql .= "userchange = ".$this->m_userid.", ";
 	$sql .= "datechange = '".date("Y-m-d H:i:s")."' ";
-	$sql .= "WHERE (IDPRODUTO = ".$this->getID().") AND (CODEQUIVALENTE = '".$this->getCodEquivalente()."') and (CONTA = ".$this->getContaEquiv().");";
+	$sql .= "WHERE (IDPRODUTO = ".$this->getID().") AND (CODEQUIVALENTE = '".$this->getCodEquivalente()."');";
 	$banco = new c_banco;
 	$resProduto =  $banco->exec_sql($sql);
 	$banco->close_connection();
@@ -1149,7 +1855,23 @@ public function incluiProdutoReparo($idProdutoReparo, $produtoId, $quant, $conn=
         return 'Os Item ' . $produtoId . ' n&atilde;o foi cadastrado!';
 }//fim incluiProdutoReparo
 }
-
+/**
+* Funcao para Concatenar na OBS do atendimento (OS): " produto {descricao} nota entrada {numero NF}".
+* @name     incluiNFProdutoOs
+     * @param    string gets de todos os objetos private da classe
+     * @return   VAZIO caso a atualizacao em CAT_ATENDIMENTO.OBS ocorra com sucesso.
+     *           Atualiza apenas CAT_ATENDIMENTO.OBS concatenando " produto {descricao} nota entrada {numero NF}".
+     */
+    public function incluiNFProdutoOs($NFENTRADA, $ID, $CODPRODUTO) {
+        
+        $sql = "UPDATE CAT_AT_PECAS SET NFENTRADA = '".$NFENTRADA."' ";
+        $sql .= "WHERE CAT_ATENDIMENTO_ID = '" . $ID . "' AND CODPRODUTO = '" . $CODPRODUTO . "'";
+        
+        $banco = new c_banco;
+        $res = $banco->exec_sql($sql);
+        $banco->close_connection();
+        return ($res > 0) ? '' : 'NF ENTRADA n&atilde;o foi atualizado.';
+    }
 /**
 * Funcao para Alteracao dados do produto reaparo
 * @name alteraProdutoReparo
@@ -1229,6 +1951,7 @@ public function alteraProdutoReparo($id, $idProdutoReparo, $produtoId, $quant, $
     $this->setDataForaLinha($produto[0]['DATAFORALINHA']);
     $this->setNcm($produto[0]['NCM']);
     $this->setCest($produto[0]['CEST']);
+    $this->setCclasstrib($produto[0]['CCLASSTRIB']);
     $this->setOrigem($produto[0]['ORIGEM']);
     $this->setTribIcms($produto[0]['TRIBICMS']);
     $this->setMoeda($produto[0]['MOEDA']);
@@ -1258,6 +1981,7 @@ public function alteraProdutoReparo($id, $idProdutoReparo, $produtoId, $quant, $
     $this->setPeso($produto[0]['PESO']);
     $this->setPrecoMinimo($produto[0]['PRECOMINIMO']);
     $this->setAnp($produto[0]['ANP']);
+    $this->setMarca($produto[0]['MARCA']);
      
  }
  /**
@@ -1272,8 +1996,8 @@ public function alteraProdutoReparo($id, $idProdutoReparo, $produtoId, $quant, $
  */
 public function produtoXmlJson($item, $pessoa, $tipoDados = 'J', $obj = null, $codProduto = null, $lastNf = null) {
 
-    $custoMedio = (double) str_replace('.', ',',  $item->prod->vUnCom);
-    $custoReposicao = (double) str_replace('.', ',',  $item->prod->vUnCom);
+    $custoMedio = (float) str_replace('.', ',',  $item->prod->vUnCom);
+    $custoReposicao = (float) str_replace('.', ',',  $item->prod->vUnCom);
     $modBC = 0;
     $vBC = 0;
     $pICMS = 0;
@@ -1298,132 +2022,148 @@ public function produtoXmlJson($item, $pessoa, $tipoDados = 'J', $obj = null, $c
         $cst = (string) $item->imposto->ICMS->ICMS00->CST;
 
         $modBC = (string) $item->imposto->ICMS->ICMS00->modBC;
-        $vBC = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS00->vBC);
-        $pICMS =(double) str_replace('.', ',',  $item->imposto->ICMS->ICMS00->pICMS);
-        $vICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS00->vICMS);
+        $vBC = (float) $item->imposto->ICMS->ICMS00->vBC;
+        $pICMS = (float) $item->imposto->ICMS->ICMS00->pICMS;
+        $vICMS = (float) $item->imposto->ICMS->ICMS00->vICMS;
     elseif ($item->imposto->ICMS->ICMS10->orig != ''):// Tributada e com cobrança do ICMS por substituição tributária
         $origem = (string) $item->imposto->ICMS->ICMS10->orig;
         $cst = (string) $item->imposto->ICMS->ICMS10->CST;
         
         $modBC = (string) $item->imposto->ICMS->ICMS10->modBC;
-        $vBC = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS10->vBC);
-        $pICMS =(double) str_replace('.', ',',  $item->imposto->ICMS->ICMS10->plICMS);
-        $vICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS10->vlICMS);
-        $modBCST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS10->modBCST); // incluir
-        $pMVAST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS10->pMVAST); // incluir
-        $pRedBCST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS10->pRedBCST); // incluir
-        $vBCST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS10->vBCST); // incluir
-        $plICMSST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS10->plICMSST); // incluir
-        $vlICMSST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS10->vlICMSST); // incluir
+        $vBC = (float) $item->imposto->ICMS->ICMS10->vBC;
+        $pICMS = isset($item->imposto->ICMS->ICMS10->pICMS) ? (float) $item->imposto->ICMS->ICMS10->pICMS : (float) $item->imposto->ICMS->ICMS10->plICMS;
+        $vICMS = isset($item->imposto->ICMS->ICMS10->vICMS) ? (float) $item->imposto->ICMS->ICMS10->vICMS : (float) $item->imposto->ICMS->ICMS10->vlICMS;
+        $modBCST = (float) $item->imposto->ICMS->ICMS10->modBCST; // incluir
+        $pMVAST = (float) $item->imposto->ICMS->ICMS10->pMVAST; // incluir
+        $pRedBCST = (float) $item->imposto->ICMS->ICMS10->pRedBCST; // incluir
+        $vBCST = (float) $item->imposto->ICMS->ICMS10->vBCST; // incluir
+        // Tenta pICMSST primeiro, depois plICMSST (dependendo da versão do XML)
+        $plICMSST = isset($item->imposto->ICMS->ICMS10->pICMSST) ? (float) $item->imposto->ICMS->ICMS10->pICMSST : (float) $item->imposto->ICMS->ICMS10->plICMSST;
+        // Tenta vICMSST primeiro, depois vlICMSST (dependendo da versão do XML)
+        $vlICMSST = isset($item->imposto->ICMS->ICMS10->vICMSST) ? (float) $item->imposto->ICMS->ICMS10->vICMSST : (float) $item->imposto->ICMS->ICMS10->vlICMSST;
         
     elseif ($item->imposto->ICMS->ICMS20->orig != ''):// Tributação com redução de base de cálculo
         $origem = (string) $item->imposto->ICMS->ICMS20->orig;
         $cst = (string) $item->imposto->ICMS->ICMS20->CST;
         
         $modBC = (string) $item->imposto->ICMS->ICMS20->modBC;
-        $pRedBC = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS20->pRedBC); // incluir
-        $vBC = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS20->vBC);
-        $plICMS =(double) str_replace('.', ',',  $item->imposto->ICMS->ICMS20->plICMS);
-        $vlICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS20->vlICMS);
-        // $vICMSDeson = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS20->vICMSDeson); // incluir
-        // $motDesICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS20->motDesICMS); // incluir
+        $pRedBC = (float) $item->imposto->ICMS->ICMS20->pRedBC; // incluir
+        $vBC = (float) $item->imposto->ICMS->ICMS20->vBC;
+        $plICMS = (float) $item->imposto->ICMS->ICMS20->plICMS;
+        $vlICMS = (float) $item->imposto->ICMS->ICMS20->vlICMS;
+        $pICMS = $plICMS; // Unifica para uso no case 'N'
+        $vICMS = $vlICMS; // Unifica para uso no case 'N'
+        // $vICMSDeson = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS20->vICMSDeson); // incluir
+        // $motDesICMS = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS20->motDesICMS); // incluir
     elseif ($item->imposto->ICMS->ICMS30->orig != ''):// Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
         $origem = (string) $item->imposto->ICMS->ICMS30->orig;
         $cst = (string) $item->imposto->ICMS->ICMS30->CST;
 
-        $modBCST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS30->modBCST); // incluir
-        $pMVAST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS30->pMVAST); // incluir
-        $pRedBCST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS30->pRedBCST); // incluir
-        $vBCST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS30->vBCST); // incluir
-        $plICMSST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS30->plICMSST); // incluir
-        $vlICMSST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS30->vlICMSST); // incluir
-        // $vICMSDeson = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS30->vICMSDeson); // incluir
-        // $motDesICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS30->motDesICMS); // incluir
+        $modBCST = (float) $item->imposto->ICMS->ICMS30->modBCST; // incluir
+        $pMVAST = (float) $item->imposto->ICMS->ICMS30->pMVAST; // incluir
+        $pRedBCST = (float) $item->imposto->ICMS->ICMS30->pRedBCST; // incluir
+        $vBCST = (float) $item->imposto->ICMS->ICMS30->vBCST; // incluir
+        // Tenta pICMSST primeiro, depois plICMSST (dependendo da versão do XML)
+        $plICMSST = isset($item->imposto->ICMS->ICMS30->pICMSST) ? (float) $item->imposto->ICMS->ICMS30->pICMSST : (float) $item->imposto->ICMS->ICMS30->plICMSST;
+        // Tenta vICMSST primeiro, depois vlICMSST (dependendo da versão do XML)
+        $vlICMSST = isset($item->imposto->ICMS->ICMS30->vICMSST) ? (float) $item->imposto->ICMS->ICMS30->vICMSST : (float) $item->imposto->ICMS->ICMS30->vlICMSST;
+        // $vICMSDeson = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS30->vICMSDeson); // incluir
+        // $motDesICMS = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS30->motDesICMS); // incluir
         elseif ($item->imposto->ICMS->ICMS40->orig != ''):// Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
         $origem = (string) $item->imposto->ICMS->ICMS40->orig;
         $cst = (string) $item->imposto->ICMS->ICMS40->CST;
-        // $vICMSDeson = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS40->vICMSDeson); // incluir
-        // $motDesICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS40->motDesICMS); // incluir
+        // $vICMSDeson = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS40->vICMSDeson); // incluir
+        // $motDesICMS = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS40->motDesICMS); // incluir
         elseif ($item->imposto->ICMS->ICMS41->orig != ''):// Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
         $origem = (string) $item->imposto->ICMS->ICMS41->orig;
         $cst = (string) $item->imposto->ICMS->ICMS41->CST;
-        // $vICMSDeson = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS41->vICMSDeson); // incluir
-        // $motDesICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS41->motDesICMS); // incluir
+        // $vICMSDeson = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS41->vICMSDeson); // incluir
+        // $motDesICMS = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS41->motDesICMS); // incluir
         elseif ($item->imposto->ICMS->ICMS50->orig != ''):// Tributação Isenta ou não tributada e com cobrança do ICMS por substituição tributária
         $origem = (string) $item->imposto->ICMS->ICMS50->orig;
         $cst = (string) $item->imposto->ICMS->ICMS50->CST;
-        // $vICMSDeson = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS50->vICMSDeson); // incluir
-        // $motDesICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS50->motDesICMS); // incluir
+        // $vICMSDeson = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS50->vICMSDeson); // incluir
+        // $motDesICMS = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS50->motDesICMS); // incluir
         elseif ($item->imposto->ICMS->ICMS51->orig != ''):  // Tributação com Diferimento (a exigência do preenchimento das
                                                             //informações do ICMS diferido fica a critério de cada UF).
         $origem = (string) $item->imposto->ICMS->ICMS51->orig;
         $cst = (string) $item->imposto->ICMS->ICMS51->CST;
         
         $modBC = (string) $item->imposto->ICMS->ICMS51->modBC;
-        $pRedBC = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS51->pRedBC); // incluir
-        $vBC = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS51->vBC);
-        $plICMS =(double) str_replace('.', ',',  $item->imposto->ICMS->ICMS51->plICMS);
-        $vlICMSOp = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS51->vlICMSOp);
-        $pDif = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS51->pDif);
-        $vlICMSDif = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS51->vlICMSDif); // incluir
-        $vlICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS51->vlICMS);
+        $pRedBC = (float) $item->imposto->ICMS->ICMS51->pRedBC; // incluir
+        $vBC = (float) $item->imposto->ICMS->ICMS51->vBC;
+        $plICMS = (float) $item->imposto->ICMS->ICMS51->plICMS;
+        $vlICMSOp = (float) $item->imposto->ICMS->ICMS51->vlICMSOp;
+        $pDif = (float) $item->imposto->ICMS->ICMS51->pDif;
+        $vlICMSDif = (float) $item->imposto->ICMS->ICMS51->vlICMSDif; // incluir
+        $vlICMS = (float) $item->imposto->ICMS->ICMS51->vlICMS;
+        $pICMS = $plICMS; // Unifica para uso no case 'N'
+        $vICMS = $vlICMS; // Unifica para uso no case 'N'
         
     elseif ($item->imposto->ICMS->ICMS60->orig != ''): // Tributação ICMS cobrado anteriormente por substituição tributária
         $origem = (string) $item->imposto->ICMS->ICMS60->orig;
         $cst = (string) $item->imposto->ICMS->ICMS60->CST;
         /////////////////////////////// NOVO
-        $vBCSTRet = (double) $item->imposto->ICMS->ICMS60->vBCSTRet; // incluir
-        $vICMSSTRet = (double) $item->imposto->ICMS->ICMS60->vICMSSTRet; // incluir
-        $pST = (double) $item->imposto->ICMS->ICMS60->pST; // incluir ALIQICMSST
+        $vBCSTRet = (float) $item->imposto->ICMS->ICMS60->vBCSTRet; // incluir
+        $vICMSSTRet = (float) $item->imposto->ICMS->ICMS60->vICMSSTRet; // incluir
+        $pST = (float) $item->imposto->ICMS->ICMS60->pST; // incluir ALIQICMSST
 
-        $vICMSSubstituto = (double) $item->imposto->ICMS->ICMS60->vICMSSubstituto; // incluir
-        $vBCFCPSTRet = (double) $item->imposto->ICMS->ICMS60->vBCFCPSTRet; // incluir
-        $pFCPSTRet = (double) $item->imposto->ICMS->ICMS60->pFCPSTRet; // incluir
-        $vFCPSTRet = (double) $item->imposto->ICMS->ICMS60->vFCPSTRet; // incluir
+        $vICMSSubstituto = (float) $item->imposto->ICMS->ICMS60->vICMSSubstituto; // incluir
+        $vBCFCPSTRet = (float) $item->imposto->ICMS->ICMS60->vBCFCPSTRet; // incluir
+        $pFCPSTRet = (float) $item->imposto->ICMS->ICMS60->pFCPSTRet; // incluir
+        $vFCPSTRet = (float) $item->imposto->ICMS->ICMS60->vFCPSTRet; // incluir
 
-        $pRedBCEfet = (double) $item->imposto->ICMS->ICMS60->pRedBCEfet; // incluir
-        $vBCEfet = (double) $item->imposto->ICMS->ICMS60->vBCEfet; // incluir
-        $pICMSEfet = (double) $item->imposto->ICMS->ICMS60->pICMSEfet; // incluir
-        $vICMSEfet = (double) $item->imposto->ICMS->ICMS60->vICMSEfet; // incluir
+        $pRedBCEfet = (float) $item->imposto->ICMS->ICMS60->pRedBCEfet; // incluir
+        $vBCEfet = (float) $item->imposto->ICMS->ICMS60->vBCEfet; // incluir
+        $pICMSEfet = (float) $item->imposto->ICMS->ICMS60->pICMSEfet; // incluir
+        $vICMSEfet = (float) $item->imposto->ICMS->ICMS60->vICMSEfet; // incluir
     elseif ($item->imposto->ICMS->ICMS70->orig != ''): // Tributação ICMS com redução de base de cálculo e cobrança
                                                        // do ICMS por substituição tributária
         $origem = (string) $item->imposto->ICMS->ICMS70->orig;
         $cst = (string) $item->imposto->ICMS->ICMS70->CST;
 
         $modBC = (string) $item->imposto->ICMS->ICMS70->modBC;
-        $pRedBC = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->pRedBC); // incluir
-        $vBC = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->vBC);
-        $plICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->plICMS);
-        $vlICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->vlICMS);
-        $modBCST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->modBCST); // incluir
-        $pMVAST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->pMVAST); // incluir
-        $pRedBCST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->pRedBCST); // incluir
-        $vBCST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->vBCST); // incluir
-        $plICMSST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->plICMSST); // incluir
-        $vlICMSST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->vlICMSST); // incluir
-        // $vICMSDeson = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->vICMSDeson); // incluir
-        // $motDesICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->motDesICMS); // incluir
+        $pRedBC = (float) $item->imposto->ICMS->ICMS70->pRedBC; // incluir
+        $vBC = (float) $item->imposto->ICMS->ICMS70->vBC;
+        $plICMS = (float) $item->imposto->ICMS->ICMS70->plICMS;
+        $vlICMS = (float) $item->imposto->ICMS->ICMS70->vlICMS;
+        $pICMS = $plICMS; // Unifica para uso no case 'N'
+        $vICMS = $vlICMS; // Unifica para uso no case 'N'
+        $modBCST = (float) $item->imposto->ICMS->ICMS70->modBCST; // incluir
+        $pMVAST = (float) $item->imposto->ICMS->ICMS70->pMVAST; // incluir
+        $pRedBCST = (float) $item->imposto->ICMS->ICMS70->pRedBCST; // incluir
+        $vBCST = (float) $item->imposto->ICMS->ICMS70->vBCST; // incluir
+        // Tenta pICMSST primeiro, depois plICMSST (dependendo da versão do XML)
+        $plICMSST = isset($item->imposto->ICMS->ICMS70->pICMSST) ? (float) $item->imposto->ICMS->ICMS70->pICMSST : (float) $item->imposto->ICMS->ICMS70->plICMSST;
+        // Tenta vICMSST primeiro, depois vlICMSST (dependendo da versão do XML)
+        $vlICMSST = isset($item->imposto->ICMS->ICMS70->vICMSST) ? (float) $item->imposto->ICMS->ICMS70->vICMSST : (float) $item->imposto->ICMS->ICMS70->vlICMSST;
+        // $vICMSDeson = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->vICMSDeson); // incluir
+        // $motDesICMS = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->motDesICMS); // incluir
 
-        // $pICMS =(double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->pICMS);
-        // $vICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->vICMS);
+        // $pICMS =(float) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->pICMS);
+        // $vICMS = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS70->vICMS);
         
     elseif ($item->imposto->ICMS->ICMS90->orig != ''): // Tributação ICMS: Outros
         $origem = (string) $item->imposto->ICMS->ICMS90->orig;
         $cst = (string) $item->imposto->ICMS->ICMS90->CST;
         
         $modBC = (string) $item->imposto->ICMS->ICMS90->modBC;
-        $pRedBC = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->pRedBC); // incluir
-        $vBC = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->vBC);
-        $plICMS =(double) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->plICMS);
-        $vlICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->vlICMS);
-        $modBCST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->modBCST); // incluir
-        $pMVAST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->pMVAST); // incluir
-        $pRedBCST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->pRedBCST); // incluir
-        $vBCST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->vBCST); // incluir
-        $plICMSST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->plICMSST); // incluir
-        $vlICMSST = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->vlICMSST); // incluir
-        // $vICMSDeson = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->vICMSDeson); // incluir
-        // $motDesICMS = (double) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->motDesICMS); // incluir
+        $pRedBC = (float) $item->imposto->ICMS->ICMS90->pRedBC; // incluir
+        $vBC = (float) $item->imposto->ICMS->ICMS90->vBC;
+        $plICMS = (float) $item->imposto->ICMS->ICMS90->plICMS;
+        $vlICMS = (float) $item->imposto->ICMS->ICMS90->vlICMS;
+        $pICMS = $plICMS; // Unifica para uso no case 'N'
+        $vICMS = $vlICMS; // Unifica para uso no case 'N'
+        $modBCST = (float) $item->imposto->ICMS->ICMS90->modBCST; // incluir
+        $pMVAST = (float) $item->imposto->ICMS->ICMS90->pMVAST; // incluir
+        $pRedBCST = (float) $item->imposto->ICMS->ICMS90->pRedBCST; // incluir
+        $vBCST = (float) $item->imposto->ICMS->ICMS90->vBCST; // incluir
+        // Tenta pICMSST primeiro, depois plICMSST (dependendo da versão do XML)
+        $plICMSST = isset($item->imposto->ICMS->ICMS90->pICMSST) ? (float) $item->imposto->ICMS->ICMS90->pICMSST : (float) $item->imposto->ICMS->ICMS90->plICMSST;
+        // Tenta vICMSST primeiro, depois vlICMSST (dependendo da versão do XML)
+        $vlICMSST = isset($item->imposto->ICMS->ICMS90->vICMSST) ? (float) $item->imposto->ICMS->ICMS90->vICMSST : (float) $item->imposto->ICMS->ICMS90->vlICMSST;
+        // $vICMSDeson = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->vICMSDeson); // incluir
+        // $motDesICMS = (float) str_replace('.', ',',  $item->imposto->ICMS->ICMS90->motDesICMS); // incluir
     endif;
 
         // Grupo de Partilha do ICMS
@@ -1480,7 +2220,7 @@ public function produtoXmlJson($item, $pessoa, $tipoDados = 'J', $obj = null, $c
                     array('campo' => 'uni', 'valor' => substr((string) $unidade, 0, 2)),
                     array('campo' => 'quantMinima', 'valor' => 0),
                     array('campo' => 'quantMaxima', 'valor' => 10),
-                    array('campo' => 'custoCompra', 'valor' => (double) $item->prod->vUnCom),
+                    array('campo' => 'custoCompra', 'valor' => (float) $item->prod->vUnCom),
                     array('campo' => 'custoMedio', 'valor' => $custoMedio),
                     array('campo' => 'custoReposicao', 'valor' => $custoReposicao),
                     array('campo' => 'origem', 'valor' => $origem),
@@ -1521,6 +2261,7 @@ public function produtoXmlJson($item, $pessoa, $tipoDados = 'J', $obj = null, $c
         case 'N':
             $obj->setIdNf($lastNf);
             $obj->setCodProduto($codProduto);
+            $obj->setCodigoNota(substr($item->prod->cProd, 0, 60));
             $obj->setDescricao(substr($item->prod->xProd, 0, 100));
             $obj->setUnidade(substr($unidade, 0, 2));
             
@@ -1534,15 +2275,85 @@ public function produtoXmlJson($item, $pessoa, $tipoDados = 'J', $obj = null, $c
             $obj->setBcIcms(str_replace('.', ',', $vBC));
             $obj->setCfop($item->prod->CFOP);
             $obj->setValorIcms(str_replace('.', ',', $vICMS));
-            $obj->setValorIpi(0);
             $obj->setAliqIcms(str_replace('.', ',', $pICMS));
-            $obj->setAliqIpi(0);
             $obj->setNcm($item->prod->NCM);
             $obj->setCest($item->prod->CEST);
+            
+            // IPI - Extração dos dados do XML
+            if (isset($item->imposto->IPI)) {
+                // Enquadramento IPI
+                $cEnq = isset($item->imposto->IPI->cEnq) ? (string) $item->imposto->IPI->cEnq : '';
+                $obj->setEnqIpi($cEnq);
+                
+                // Verifica se é IPI Tributado (IPITrib)
+                if (isset($item->imposto->IPI->IPITrib)) {
+                    $cstIpi = isset($item->imposto->IPI->IPITrib->CST) ? (string) $item->imposto->IPI->IPITrib->CST : '';
+                    $vBCIpi = isset($item->imposto->IPI->IPITrib->vBC) ? (string) $item->imposto->IPI->IPITrib->vBC : '0';
+                    $pIpi = isset($item->imposto->IPI->IPITrib->pIPI) ? (string) $item->imposto->IPI->IPITrib->pIPI : '0';
+                    $vIpi = isset($item->imposto->IPI->IPITrib->vIPI) ? (string) $item->imposto->IPI->IPITrib->vIPI : '0';
+                    
+                    $obj->setCstIpi($cstIpi);
+                    $obj->setBaseCalculoIpi(str_replace('.', ',', $vBCIpi));
+                    $obj->setAliqIpi(str_replace('.', ',', $pIpi));
+                    $obj->setValorIpi(str_replace('.', ',', $vIpi));
+                    
+                    // Quantidade e valor unitário (quando cálculo por unidade)
+                    if (isset($item->imposto->IPI->IPITrib->qUnid)) {
+                        $obj->setQUnidIpi(str_replace('.', ',', (string) $item->imposto->IPI->IPITrib->qUnid));
+                    }
+                    if (isset($item->imposto->IPI->IPITrib->vUnid)) {
+                        $obj->setVUnidIpi(str_replace('.', ',', (string) $item->imposto->IPI->IPITrib->vUnid));
+                    }
+                }
+                // Verifica se é IPI Não Tributado (IPINT)
+                elseif (isset($item->imposto->IPI->IPINT)) {
+                    $cstIpi = isset($item->imposto->IPI->IPINT->CST) ? (string) $item->imposto->IPI->IPINT->CST : '';
+                    $obj->setCstIpi($cstIpi);
+                    $obj->setBaseCalculoIpi(0);
+                    $obj->setAliqIpi(0);
+                    $obj->setValorIpi(0);
+                }
+                // Se não tem IPITrib nem IPINT, seta valores zerados
+                else {
+                    $obj->setCstIpi('');
+                    $obj->setBaseCalculoIpi(0);
+                    $obj->setAliqIpi(0);
+                    $obj->setValorIpi(0);
+                }
+            } else {
+                // Se não existe IPI no XML, seta valores zerados
+                $obj->setEnqIpi('');
+                $obj->setCstIpi('');
+                $obj->setBaseCalculoIpi(0);
+                $obj->setAliqIpi(0);
+                $obj->setValorIpi(0);
+            }
+            
+            // ICMS ST - Substituição Tributária
+            // Unifica plICMSST para pICMSST quando necessário
+            $pICMSST = ($plICMSST > 0) ? $plICMSST : 0;
+            
+            // ModBCST pode ser string ou número, trata ambos os casos
+            $modBCSTStr = '';
+            if ($modBCST != 0 && $modBCST != '') {
+                $modBCSTStr = is_string($modBCST) ? $modBCST : (string) $modBCST;
+            }
+            
+            $obj->setModBcSt($modBCSTStr);
+            $obj->setPercMvaSt(str_replace('.', ',', $pMVAST));
+            $obj->setPercReducaoBcSt(str_replace('.', ',', $pRedBCST));
+            $obj->setValorBcSt(str_replace('.', ',', $vBCST));
+            // pST (CST 60) ou pICMSST (CST 10/30/70/90)
+            $aliqStXml = ($pST > 0) ? $pST : $pICMSST;
+            $obj->setAliqIcmsSt(str_replace('.', ',', $aliqStXml));
+            $obj->setValorIcmsSt(str_replace('.', ',', $vlICMSST));
             
             $obj->setVBCSTRet(str_replace('.', ',', $vBCSTRet));
             $obj->setVICMSSubstituto(str_replace('.', ',', $vICMSSubstituto));
             $obj->setVICMSSTRet(str_replace('.', ',', $vICMSSTRet));
+            if ($pST > 0) {
+                $obj->setPSt(str_replace('.', ',', $pST));
+            }
             
             $obj->setCstPis(str_replace('.', ',', $item->imposto->PIS->PISAliq->CST));
             $obj->setBcPis(str_replace('.', ',', $item->imposto->PIS->PISAliq->vBC));
@@ -1775,7 +2586,7 @@ public function select_produto(){
  * @param $letra (descricao|grupo|cod. Fabricante|localizacao)
  * @return type
  */
-public function select_produto_letra($letra = null, $codigo = null){
+public function select_produto_letra($letra = null, $codigo = null, $pagina = 1){
     /*
     par[0] = 'Nome produto';
     par[1] = 'grupo';
@@ -1788,15 +2599,15 @@ public function select_produto_letra($letra = null, $codigo = null){
     $iswhere = false;
     $fora = '';
 
-    $sql  = "SELECT DISTINCT P.*, G.DESCRICAO AS NOMEGRUPO, 0 as ESTOQUE, 0 as RESERVA, ";
+    $sql  = "SELECT P.*, G.DESCRICAO AS NOMEGRUPO, 0 as ESTOQUE, 0 as RESERVA, ";
 	$sql .= $par[2] == '' ? "P.CODFABRICANTE AS CODPRODUTONOTA, " : "'".$par[2]."' AS CODPRODUTONOTA, ";
     $sql .= "GROUP_CONCAT(R.PRODUTO_ID SEPARATOR '|') AS CODPRODUTOREPARO, ";
     $sql .= "M.DESCRICAO AS NOMEMARCA ";
    	$sql .= "FROM EST_PRODUTO P ";
-    $sql .= "LEFT JOIN EST_GRUPO G ON (G.GRUPO=P.GRUPO) ";
+    $sql .= "LEFT JOIN (SELECT GRUPO, MAX(DESCRICAO) AS DESCRICAO FROM EST_GRUPO GROUP BY GRUPO) G ON (G.GRUPO = P.GRUPO) ";
     $sql .= "LEFT JOIN EST_PRODUTO_EQUIVALENCIA E ON (E.IDPRODUTO=P.CODIGO) ";
     $sql .= "LEFT JOIN EST_PRODUTO_REPARO R ON (R.PRODUTO_REPARO = P.CODIGO) ";
-    $sql .= "LEFT JOIN EST_MARCA M ON (M.MARCA=P.MARCA) ";
+    $sql .= "LEFT JOIN EST_MARCA M ON (M.ID=P.MARCA) ";
        
        
     if ($codigo != null) {
@@ -1804,7 +2615,7 @@ public function select_produto_letra($letra = null, $codigo = null){
         $sql .= empty($codigo) ? '':" $cond (p.codigo = $codigo)";
     } else if($par[2] != ''){
         $cond =  strpos($sql, 'where') === false ? 'where' : 'and'; 
-        $sql .= empty($par[2]) ? '':" $cond (p.codFabricante LIKE '".$par[2]."%') OR (E.CODEQUIVALENTE LIKE '".$par[2]."%') OR (p.codigobarras LIKE '%".$par[2]."%') ";
+        $sql .= empty($par[2]) ? '':" $cond (p.codFabricante LIKE '".$par[2]."%') OR (E.CODEQUIVALENTE LIKE '".$par[2]."%') OR (p.codigobarras LIKE '".$par[2]."%') ";
         //condicao para verificar se o codigo é tipo numerico para pesquisar o codigo o nao
         if(is_numeric($par[2])){
             $sql .= " OR (P.CODIGO = '".$par[2]."') ";
@@ -1824,13 +2635,47 @@ public function select_produto_letra($letra = null, $codigo = null){
 
     }
     $sql .= "GROUP BY P.CODIGO, G.DESCRICAO, P.CODFABRICANTE ";
-   	$sql .= "ORDER BY P.DESCRICAO; ";
+   	$sql .= "ORDER BY P.DESCRICAO ";
+
+
+    // OFFSET
+    $pagina = max(1, intval($pagina));
+    $offset = ($pagina - 1) * $this->quantidade_maxima_por_pagina;
+
+    //TOTAL
+    $sql_total = "SELECT COUNT(*) AS TOTAL FROM ($sql) AS total";
+    $banco = new c_banco;
+    $banco->exec_sql($sql_total);
+    $total = $banco->resultado[0]['TOTAL'];
+    $banco->close_connection();
+    
+    // DADOS
+    $banco = new c_banco;
+    $banco->exec_sql($sql . " LIMIT $this->quantidade_maxima_por_pagina OFFSET $offset");
+    $resultado = $banco->resultado;
+    $banco->close_connection();
     
     //echo strtoupper($sql)."<br>";
-	$banco = new c_banco;
-	$banco->exec_sql($sql);
-	$banco->close_connection();
-	return $banco->resultado;
+    // $performanceLogger = new PerformanceLogger('performance_log.txt'); 
+    // $performanceLogger->lineBreak(2);
+    // $performanceLogger->start('select_produto_letra');
+
+    // $performanceLogger->end('select_produto_letra');
+    // $performanceLogger->log('SQL: ' . strtoupper($sql));
+
+    // $performanceLogger->lineBreak(2);
+    $this->pagina_atual = $pagina;
+    $this->total_paginas = ceil($total / $this->quantidade_maxima_por_pagina);
+    $this->quantidade_total_produtos_pesquisados = $total;
+
+    // Se o total de produtos pesquisados for menor que 50, mostra o total de produtos pesquisados
+    // Caso contrario, mostra a quantidade de produtos pesquisados
+    $this->quantidade_pesquisada = $this->quantidade_total_produtos_pesquisados < 50
+    ? $this->quantidade_total_produtos_pesquisados
+    : ($this->quantidade_pesquisada ?: $this->quantidade_maxima_por_pagina);
+
+    return $resultado;
+
 }// fim select_PRODUTO_letra
 
 /**
@@ -1864,7 +2709,7 @@ public function incluiProduto(){
 
 	$sql .= "DESCRICAO, DESCRICAODETALHADA, GRUPO,UNIDADE,UNIFRACIONADA,"; //L1
     $sql .= "FABRICANTE, CODFABRICANTE, CODIGOBARRAS, CODPRODUTOANVISA, LOCALIZACAO,"; //L2
-    $sql .= "DATAFORALINHA, NCM, CEST, ORIGEM, TRIBICMS,"; // L3
+    $sql .= "DATAFORALINHA, NCM, CEST, CCLASSTRIB, ORIGEM, TRIBICMS,"; // L3
     $sql .= "MOEDA, VENDA, CUSTOMEDIO, CUSTOCOMPRA, CUSTOREPOSICAO,"; //L4
 	$sql .= "QUANTMINIMA, QUANTMAXIMA, OBS, PRECOPROMOCAO, TIPOPROMOCAO,"; //L5
     $sql .= "INICIOPROMOCAO, FIMPROMOCAO, QUANTLIMITE, PRECOPROMOCAO1, INICIOPROMOCAO1,"; //L6
@@ -1875,7 +2720,7 @@ public function incluiProduto(){
     $sql .=	$this->getDesc(). "', '" .$this->getDescricaoDetalhada(). "', '" .$this->getGrupo(). "', '" .$this->getUni(). "', '" .$this->getUniFracionada(). "', '"; //L1
     $sql .= $this->getFabricante(). "', '" .$this->getCodFabricante(). "', '" .$this->getCodBarras(). "', '" .$this->getCodProdutoAnvisa(). "', '" .$this->getLocalizacao(). "', "; //L2
             $this->getDataForaLinha('B') == '' ? $sql .= "null, '" : $sql .= "'" .$this->getDataForaLinha('B'). "', '"; //L3
-    $sql .= $this->getNcm(). "', '" .$this->getCest(). "', '" .$this->getOrigem(). "', '" .$this->getTribIcms(). "',"; //L3
+    $sql .= $this->getNcm(). "', '" .$this->getCest(). "', '" .$this->getCclasstrib(). "', '" .$this->getOrigem(). "', '" .$this->getTribIcms(). "',"; //L3
     $sql .= $this->getMoeda(). ", " .$this->getVenda('B'). ", " .$this->getCustoMedio('B'). ", " .$this->getCustoCompra('B'). ", " .$this->getCustoReposicao('B'). ", "; //L4
     $sql .= $this->getQuantMinima('B'). ", " .$this->getQuantMaxima('B'). ", '" .$this->getObs(). "', " .$this->getPrecoPromocao('B'). ", '" .$this->getTipoPromocao(). "', "; //L5
             $this->getInicioPromocao('B') == NULL ? $sql .= "null, " : $sql .= "'".$this->getInicioPromocao('B')."', "; //L6
@@ -1883,7 +2728,7 @@ public function incluiProduto(){
     $sql .= $this->getQuantLimite('B'). ", " .$this->getPrecoPromocao1('B'). ", "; //L6
             $this->getInicioPromocao1('B') == NULL ? $sql .= "null, " : $sql .= "'".$this->getInicioPromocao1('B')."', "; //L6
             $this->getFimPromocao1('B') == NULL ? $sql .= "null, " : $sql .= "'".$this->getFimPromocao1('B')."', "; //L7
-    $sql .= $this->getQuantLimite1(). ", '" .$this->getPrecoBase(). "', " .$this->getPrecoInformado('B'). ", " .$this->getPerCalculo('B'). ","; //L7
+    $sql .= $this->getQuantLimite1('B'). ", '" .$this->getPrecoBase(). "', " .$this->getPrecoInformado('B'). ", " .$this->getPerCalculo('B'). ","; //L7
             $this->getDataUltimaCompra('B') == NULL ?  $sql .= "null, " : $sql .= "'" .$this->getDataUltimaCompra('B'). "', "; //L8
     $sql .= $this->getQuantUltimaCompra('B'). "," .$this->getNfUltimaCompra(). "," .$this->m_userid. ",'" .date("Y-m-d H:i:s"). "', "; //L8
     $sql .= $this->getPeso('B'). ", " .$this->getPrecoMinimo('B'). ", '"  .$this->getAnp(). "', '" .$this->getMarca()."');"; //L9
@@ -1895,7 +2740,11 @@ public function incluiProduto(){
     $status = $banco->result;
 	$banco->close_connection();
 
-    return $status;
+    if ($status > 0 && $lastReg > 0) {
+        return $lastReg;
+    } else {
+        return false;
+    }
 
 } // fim incluiPRODUTO
 
@@ -1924,6 +2773,7 @@ public function alteraProduto(){
 
 	$sql .= "NCM = '".$this->getNcm()."', ";
 	$sql .= "CEST = '".$this->getCest()."', ";
+	$sql .= "CCLASSTRIB = '".$this->getCclasstrib()."', ";
 	$sql .= "ORIGEM = '".$this->getOrigem()."', ";
 	$sql .= "TRIBICMS = '".$this->getTribIcms()."', ";
 	$sql .= "VENDA = '".$this->getVenda('B')."', ";
@@ -1954,8 +2804,8 @@ public function alteraProduto(){
 	$sql .= "TIPOPROMOCAO = '".$this->getTipoPromocao()."', ";
 	$sql .= "PRECOINFORMADO = '".$this->getPrecoInformado('B')."', ";
 	$sql .= "PERCCALCULO = '".$this->getPerCalculo('B')."', ";
-	$sql .= "QUANTLIMITE = ".$this->getQuantLimite().", ";
-	$sql .= "QUANTLIMITE1 = ".$this->getQuantLimite1().", ";
+	$sql .= "QUANTLIMITE = ".$this->getQuantLimite('B').", ";
+	$sql .= "QUANTLIMITE1 = ".$this->getQuantLimite1('B').", ";
 
         if ($this->getDataUltimaCompra('B')==NULL)
             $sql .= "DATAULTIMACOMPRA = null, ";
@@ -1986,12 +2836,152 @@ public function alteraProduto(){
 
 
 /**
+* Funcao privada para buscar parâmetros de cálculo de IPI e ST no custo de reposição
+* @name buscaParametrosCustoReposicao
+* @return array Array com 'calculaIpi' e 'calculaSt' (boolean)
+*/
+private function buscaParametrosCustoReposicao(){
+	$banco = new c_banco;
+	$sqlParam = "SELECT CALCULA_IPI_CUSTO_REPOSICAO, CALCULA_ST_CUSTO_REPOSICAO FROM EST_PARAMETRO WHERE FILIAL = ".$this->m_empresacentrocusto." LIMIT 1";
+	$banco->exec_sql($sqlParam);
+	$parametros = $banco->resultado;
+	$banco->close_connection();
+	
+	// Só valida se os parâmetros forem 'S'
+	$calculaIpi = false;
+	$calculaSt = false;
+	if (is_array($parametros) && isset($parametros[0]['CALCULA_IPI_CUSTO_REPOSICAO']) && $parametros[0]['CALCULA_IPI_CUSTO_REPOSICAO'] == 'S') {
+		$calculaIpi = true;
+	}
+	if (is_array($parametros) && isset($parametros[0]['CALCULA_ST_CUSTO_REPOSICAO']) && $parametros[0]['CALCULA_ST_CUSTO_REPOSICAO'] == 'S') {
+		$calculaSt = true;
+	}
+	
+	return array(
+		'calculaIpi' => $calculaIpi,
+		'calculaSt' => $calculaSt
+	);
+}
+
+/**
+* Funcao privada para calcular custo médio
+* @name calculaCustoMedio
+* @param float $valorIpi Valor do IPI unitário
+* @param float $valorSt Valor do ST unitário
+* @param float $valorFrete Valor do frete unitário
+* @param float $outrosCustos Outros custos unitários
+* @return float Custo médio calculado
+*/
+private function calculaCustoMedio($valorIpi = 0, $valorSt = 0, $valorFrete = 0, $outrosCustos = 0){
+	
+	$banco = new c_banco;
+	
+	// Busca custo médio anterior
+	$sqlProduto = "SELECT CUSTOMEDIO FROM est_produto WHERE codigo = ".$this->getId();
+	$banco->exec_sql($sqlProduto);
+	$produtoAtual = $banco->resultado;
+	$custoMedioAnterior = 0;
+	if (isset($produtoAtual[0]['CUSTOMEDIO']) && $produtoAtual[0]['CUSTOMEDIO'] != null) {
+		$valorCM = $produtoAtual[0]['CUSTOMEDIO'];
+		// Converte valor do banco (trata formato brasileiro se necessário)
+		if (!is_numeric($valorCM) && strpos($valorCM, ',') !== false) {
+			$valorCM = str_replace('.', '', $valorCM);
+			$valorCM = str_replace(',', '.', $valorCM);
+		}
+		$custoMedioAnterior = doubleval($valorCM);
+		// Corrige valores sem ponto decimal (ex: 303900 -> 30.39)
+		if ($custoMedioAnterior > 100000 && strpos($produtoAtual[0]['CUSTOMEDIO'], '.') === false) {
+			$custoMedioAnterior = $custoMedioAnterior / 10000;
+		}
+	}
+	
+	// Busca quantidade em estoque
+	$produtoEstoque = new c_produto_estoque();
+	$estoqueInfo = $produtoEstoque->produtoQtdeCC($this->getId(), $this->m_empresacentrocusto);
+	$quantidadeAnterior = isset($estoqueInfo[0]['ESTOQUE']) ? doubleval($estoqueInfo[0]['ESTOQUE']) : 0;
+	
+	// Valores da nova compra
+	$quantidadeNova = doubleval($this->getQuantUltimaCompra('B'));
+	$valorUnitarioProduto = doubleval($this->getCustoCompra('B'));
+	$custoTotalNovaCompra = ($valorUnitarioProduto + doubleval($valorIpi) + doubleval($valorSt) + doubleval($valorFrete) + doubleval($outrosCustos)) * $quantidadeNova;
+	
+	// Calcula custo médio
+	if ($quantidadeAnterior <= 0 || $custoMedioAnterior <= 0) {
+		// Primeira compra
+		$novoCustoMedio = $quantidadeNova > 0 ? $custoTotalNovaCompra / $quantidadeNova : $valorUnitarioProduto;
+	} else {
+		// Entrada posterior: (Estoque anterior (qtd x CM) + Custo da nova compra) / (Estoque anterior (qtd) + Nova quantidade)
+		$custoTotalAnterior = $quantidadeAnterior * $custoMedioAnterior;
+		$quantidadeTotalAtualizada = $quantidadeAnterior + $quantidadeNova;
+		$novoCustoMedio = $quantidadeTotalAtualizada > 0 ? ($custoTotalAnterior + $custoTotalNovaCompra) / $quantidadeTotalAtualizada : $valorUnitarioProduto;
+	}
+	
+	$banco->close_connection();
+	
+	return $novoCustoMedio;
+}
+
+/**
+* Funcao privada para calcular custo de reposição
+* @name calculaCustoReposicao
+* @param float $valorUnitarioProduto Valor unitário do produto
+* @param float $valorIpi Valor do IPI unitário
+* @param float $valorSt Valor do ST unitário
+* @param bool $calculaIpi Se deve calcular IPI no custo de reposição
+* @param bool $calculaSt Se deve calcular ST no custo de reposição
+* @return float Custo de reposição calculado
+*/
+private function calculaCustoReposicao($valorUnitarioProduto, $valorIpi = 0, $valorSt = 0, $calculaIpi = false, $calculaSt = false){
+	
+	// CÁLCULO DO CUSTO DE REPOSIÇÃO
+	// Produto base unitário + IPI (quando habilitado) + ST (quando habilitado)
+	$custoReposicao = doubleval($valorUnitarioProduto);
+	$valorIpiUnitario = doubleval($valorIpi);
+	$valorStUnitario = doubleval($valorSt);
+	
+	if ($calculaIpi && $valorIpiUnitario > 0) {
+		$custoReposicao += $valorIpiUnitario;
+	}
+	if ($calculaSt && $valorStUnitario > 0) {
+		$custoReposicao += $valorStUnitario;
+	}
+	
+	return $custoReposicao;
+}
+
+/**
 * Funcao para Alteracao dados do produto conforme dados da nf de entrada
 * @name alteraProdutoNFEntrada
+* @param string $altPrecos S para alterar preços, N para não alterar
+* @param string $basePreco Base de preço (I=Informado, C=Compra, M=Médio, R=Reposição)
+* @param float $valorIpi Valor do IPI unitário (opcional)
+* @param float $valorSt Valor do ST unitário (opcional)
+* @param float $valorFrete Valor do frete unitário (opcional)
+* @param float $outrosCustos Outros custos unitários (opcional)
 * @return string vazio se ocorrer com sucesso
  * incluir Numero da Ultima NF entrada e saida no cadastro.
 */
-public function alteraProdutoNFEntrada($altPrecos, $basePreco = null){
+public function alteraProdutoNFEntrada($altPrecos, $basePreco = null, $valorIpi = 0, $valorSt = 0, $valorFrete = 0, $outrosCustos = 0){
+        
+	// Busca parâmetros antes de calcular
+	$parametros = $this->buscaParametrosCustoReposicao();
+	
+	// Calcula custo médio
+	$novoCustoMedio = $this->calculaCustoMedio($valorIpi, $valorSt, $valorFrete, $outrosCustos);
+	
+	// Calcula custo de reposição
+	$valorUnitarioProduto = doubleval($this->getCustoCompra('B'));
+	$novoCustoReposicao = $this->calculaCustoReposicao(
+		$valorUnitarioProduto, 
+		$valorIpi, 
+		$valorSt, 
+		$parametros['calculaIpi'], 
+		$parametros['calculaSt']
+	);
+	
+	// Atualiza o custo médio e custo de reposição no objeto
+	$this->setCustoMedio($novoCustoMedio);
+	$this->setCustoReposicao($novoCustoReposicao);
         
 	$sql  = "UPDATE est_produto ";
 	$sql .= "SET " ;
@@ -2000,16 +2990,17 @@ public function alteraProdutoNFEntrada($altPrecos, $basePreco = null){
 	$sql .= "CODIGOBARRAS = '".$this->getCodBarras()."', ";
 	$sql .= "NCM = '".$this->getNcm()."', ";
 	$sql .= "CEST = '".$this->getCest()."', ";
+	$sql .= "CCLASSTRIB = '".$this->getCclasstrib()."', ";
 	$sql .= "ORIGEM = '".$this->getOrigem()."', ";
 	$sql .= "TRIBICMS = '".$this->getTribIcms()."', ";
 	$sql .= "CUSTOCOMPRA = ".$this->getCustoCompra('B').", ";
 	$sql .= "DATAULTIMACOMPRA = '".$this->getDataUltimaCompra('B')."', ";
 	$sql .= "QUANTULTIMACOMPRA = ".$this->getQuantUltimaCompra('B').", ";
 	$sql .= "NFULTIMACOMPRA = ".$this->getNfUltimaCompra('B').", ";
-//	$sql .= "CUSTOMEDIO = '".$this->getCustoMedio('B')."', ";
-//	$sql .= "CUSTOREPOSICAO = '".$this->getCustoReposicao('B')."', ";
+	$sql .= "CUSTOMEDIO = ".$this->getCustoMedio('B').", ";
+	$sql .= "CUSTOREPOSICAO = ".$this->getCustoReposicao('B').", ";
         
-        if ($altPrecos == S):
+        if ($altPrecos == 'S'){
             $perCalculo = $this->getPerCalculo('B');
                 
             if (isset($precoBase) == false) {
@@ -2026,6 +3017,7 @@ public function alteraProdutoNFEntrada($altPrecos, $basePreco = null){
                     $base = " CUSTOCOMPRA = '".$venda."', ";
                     break;    
                 case 'M': // custo medio
+                    // Usa o custo medio recém calculado (já foi setado acima)
                     $venda = $this->getCustoMedio('B');
                     $base = " CUSTOMEDIO = '".$venda."', ";
                     break;
@@ -2045,7 +3037,7 @@ public function alteraProdutoNFEntrada($altPrecos, $basePreco = null){
             }
 
             
-        endif;
+        }
 
 	$sql .= "userchange = ".$this->m_userid.", ";
 	$sql .= "datechange = '".date("Y-m-d H:i:s")."' ";
@@ -2127,9 +3119,11 @@ public function select_vendas_produto($codigo = null){
 
 public function select_produto_tabela(){
     if ($this->getId() > 0 ) {
-        $sql  = "SELECT I.*, T.NOME, T.VALIDADE ";
+        $sql  = "SELECT I.*, T.NOME, T.VALIDADE, M.DESCRICAO AS NOMEMARCA, G.DESCRICAO AS NOMEGRUPO ";
         $sql .= "FROM EST_TABELA_PRECO T ";
-        $sql .= "LEFT JOIN EST_TABELA_PRECO_ITEM I ON (T.ID = I.ID) ";
+        $sql .= "LEFT JOIN EST_TABELA_PRECO_ITEM I ON (T.ID = I.ID_TABELA_PRECO) ";
+        $sql .= "LEFT JOIN EST_MARCA M ON (I.MARCA = M.ID) ";
+        $sql .= "LEFT JOIN EST_GRUPO G ON (I.GRUPO = G.ID) ";
         $sql .= "WHERE (I.CODIGO = ".$this->getId().") ";
         
         $banco = new c_banco();
@@ -2192,129 +3186,127 @@ $banco->close_connection();
 return $banco->resultado;
 }// fim select_equivalente_letra
 
-    //imagem produto
+    //imagem produto - GED
 
     /**
-    * Funcao para selecionar imagem do produto estoque
-    * @name select_produto_imagem
+    * Funcao para selecionar anexos/imagens do produto no GED
+    * @name select_produto_ged
     * @param INT $id
-    * @return array com as imagens do produto selecionado
+    * @return array com os anexos do produto selecionado
     */
-    public function select_produto_imagem($id=null){
-
+    public function select_produto_ged($id=null){
         if ($id==null):
             $id = $this->getId();
         endif;
         
-        $sql  = "SELECT * ";
-        $sql .= "FROM AMB_IMAGEM ";
-        $sql .= "WHERE (ID_DOC = ".$id.") AND (MODULO = 'EST') ; ";
-            //echo strtoupper($sql);
+        $sql  = "SELECT `ID`, `TABLE`, `TABLE_ID`, `PATH`, ";
+        $sql .= "SUBSTRING_INDEX(`PATH`, '/', -1) AS `FILENAME`, ";
+        $sql .= "SUBSTRING_INDEX(`PATH`, '.', -1) AS `EXTENSAO`, `DESTAQUE` ";
+        $sql .= "FROM AMB_GED ";
+        $sql .= "WHERE (`TABLE_ID` = ".$id.") AND (`TABLE` = 'EST_PRODUTO') ";
+        $sql .= "ORDER BY `DESTAQUE` DESC, `ID` ASC";
+        
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
         return $banco->resultado;
-
-    } //fim select_conta_geral
-
-    /**
-    * Funcao para gravar imagem do produto estoque
-    * @name gravaImagemProduto
-    * @param String $mod
-    * @param String $destaque
-    * @return int id da imagem gravada
-    */
-    public function gravaImagemProduto($mod, $destaque){
-        $sql  = "INSERT INTO AMB_IMAGEM (ID_DOC, DESTAQUE, MODULO, USERINSERT )";
-        $sql .= "VALUES (".$this->getId().", '".$destaque."', '".$mod."', ".$this->m_userid.")";
-            //echo strtoupper($sql);
-        $banco = new c_banco;
-        $banco->exec_sql($sql);
-            if ($banco->result):
-                $lastReg = $banco->insertReg;
-                $banco->close_connection();
-                return $lastReg;
-            else:
-                $banco->close_connection();
-                return '';
-            endif;
-
-    } //fim gravaImagemProduto
+    }
 
     /**
-    * Funcao para excluir imagem do produto estoque
-    * @name excluiImagemProduto
-    * @param int $id
-    * @return string vazio se ocorrer com sucesso
+    * Funcao para gravar anexo/imagem do produto no GED
+    * @name gravaImagemProdutoGed
+    * @param String $path - caminho completo do arquivo
+    * @param String $destaque - S ou N
+    * @return int id do registro gravado
     */
-    public function excluiImagemProduto($id){
-        $sql  = "DELETE FROM AMB_IMAGEM ";
-        $sql .= "WHERE (ID = ".$id.");";
-        $banco = new c_banco;
-        $res_imagem =  $banco->exec_sql($sql);
-        $banco->close_connection();
-            //echo strtoupper($sql);
-        if($res_imagem > 0){
-                return '';
-        }
-        else{
-                return 'A Imagem não foi excluida!';
-        }
-
-    } //fim excluiImagemProduto
-
-    /**
-    * Funcao para por a imagem do produto estoque em destaque
-    * @name destaqueImagemProduto
-    * @param int $id
-    * @param CHAR $destaque
-    * @return string vazio se ocorrer com sucesso
-    */
-    public function destaqueImagemProduto($id, $destaque){
-        if ($destaque == 'N'):
-            $destaque ='S';
-        else:
-            $destaque ='N';
-        endif;
-        $sql  = "UPDATE AMB_IMAGEM ";
-        $sql .= "SET  DESTAQUE = '".$destaque."' ";
-        $sql .= "WHERE ID = ".$id.";";
-        $banco = new c_banco;
-        $res_imagem =  $banco->exec_sql($sql);
-        $banco->close_connection();
-            //echo strtoupper($sql);
-        if($res_imagem > 0):
-                return '';
+    public function gravaImagemProdutoGed($path, $destaque){
+        $sql  = "INSERT INTO AMB_GED (`TABLE`, `TABLE_ID`, `PATH`, `DESTAQUE`, `USER_INSERT`) ";
+        $sql .= "VALUES ('EST_PRODUTO', ".$this->getId().", '".$path."', '".$destaque."', ".$this->m_userid.")";
         
+        $banco = new c_banco;
+        $banco->exec_sql_lower_case($sql);
+        if ($banco->result):
+            $lastReg = $banco->insertReg;
+            $banco->close_connection();
+            return $lastReg;
         else:
-                return 'A Imagem não entrou em destaque!';
-
+            $banco->close_connection();
+            return '';
         endif;
-    } 
-    // fim destaqueImagemProduto
+    }
 
     /**
-    * Funcao para Não por a imagem do produto estoque em destaque
-    * @name destaqueImagemProdutoNao
+    * Funcao para excluir anexo/imagem do produto do GED
+    * @name excluiImagemProdutoGed
+    * @param int $id - ID do registro no AMB_GED
     * @return string vazio se ocorrer com sucesso
     */
-    public function destaqueImagemProdutoNao(){
-
-        $sql  = "UPDATE AMB_IMAGEM ";
-        $sql .= "SET  DESTAQUE = 'N' ";
-        $sql .= "WHERE ID_DOC = ".$this->getId()." AND MODULO = 'EST'";
+    public function excluiImagemProdutoGed($id){
+        $sql  = "DELETE FROM AMB_GED ";
+        $sql .= "WHERE (`ID` = ".$id.") AND (`TABLE` = 'EST_PRODUTO')";
+        
         $banco = new c_banco;
-        $res_imagem =  $banco->exec_sql($sql);
+        $res_imagem = $banco->exec_sql_lower_case($sql);
         $banco->close_connection();
-            //echo strtoupper($sql);
+        
         if($res_imagem > 0){
-                return '';
-        }
-        else{
-                return 'A Imagem não entrou em destaque!';
+            return '';
+        } else {
+            return 'A Imagem não foi excluída!';
         }
     }
-    // fim destaqueImagemProdutoNao
+
+    /**
+    * Funcao para marcar imagem do produto como destaque no GED
+    * @name destaqueImagemProdutoGed
+    * @param int $id - ID do registro no AMB_GED
+    * @param CHAR $destaque - S ou N
+    * @return string vazio se ocorrer com sucesso
+    */
+    public function destaqueImagemProdutoGed($id, $destaque){
+        if ($destaque == 'N'):
+            $destaque = 'S';
+        else:
+            $destaque = 'N';
+        endif;
+        
+        $sql  = "UPDATE AMB_GED ";
+        $sql .= "SET `DESTAQUE` = '".$destaque."' ";
+        $sql .= "WHERE (`ID` = ".$id.") AND (`TABLE` = 'EST_PRODUTO')";
+        
+        $banco = new c_banco;
+        $res_imagem = $banco->exec_sql_lower_case($sql);
+        $banco->close_connection();
+        
+        if($res_imagem > 0):
+            return '';
+        else:
+            return 'A Imagem não entrou em destaque!';
+        endif;
+    }
+
+    /**
+    * Funcao para remover destaque de todas as imagens do produto
+    * @name destaqueImagemProdutoGedNao
+    * @return string vazio se ocorrer com sucesso
+    */
+    public function destaqueImagemProdutoGedNao(){
+        $sql  = "UPDATE AMB_GED ";
+        $sql .= "SET `DESTAQUE` = 'N' ";
+        $sql .= "WHERE (`TABLE_ID` = ".$this->getId().") AND (`TABLE` = 'EST_PRODUTO')";
+        
+        $banco = new c_banco;
+        $res_imagem = $banco->exec_sql_lower_case($sql);
+        $banco->close_connection();
+        
+        if($res_imagem > 0){
+            return '';
+        } else {
+            return 'Erro ao atualizar destaques!';
+        }
+    }
+
+
 
 /**
  * Funcao pesquisa table produtos atraves do codigo fabricante
@@ -2380,6 +3372,291 @@ public function buscaPedidoCotacao($idProd){
     $banco->close_connection();
     return $banco->resultado;
 }
+
+/**
+ * Funcao para buscar dados de CClasstrib para combo
+ * @name getCclasstribCombo
+ * @return ARRAY com arrays 'ids' e 'names' formatados para html_options
+ */
+public function getCclasstribCombo(){
+    $consulta = new c_banco();
+    $sql = "select ID, CCLASSTRIB, NOME from EST_CCLASS_TRIB order by CCLASSTRIB asc";
+    $consulta->exec_sql($sql);
+    $consulta->close_connection();
+    $result = $consulta->resultado;
+    
+    $cclasstrib_ids[0] = ' ';
+    $cclasstrib_names[0] = ' Selecione';
+    
+    if (is_array($result)) {
+        for ($i = 0; $i < count($result); $i++) {
+            $cclasstrib_ids[$i + 1] = $result[$i]['ID'];
+            $nome = trim($result[$i]['NOME']);
+            $cclasstrib_names[$i + 1] = $result[$i]['CCLASSTRIB'] . ($nome != '' ? ' - ' . $nome : '');
+        }
+    }
+    
+    return array(
+        'ids' => $cclasstrib_ids,
+        'names' => $cclasstrib_names
+    );
+}
+
+public function select_marca_combo() {
+
+    $consulta = new c_banco();
+    $sql = "SELECT ID, DESCRICAO FROM EST_MARCA ORDER BY ID ASC";
+    $consulta->exec_sql($sql);
+    $consulta->close_connection();
+    $result = $consulta->resultado ?? [];
+    
+    $marca_ids[0] = '';
+    $marca_names[0] = 'Selecione Marca';
+    for ($i = 0; $i < count($result); $i++) {
+        $marca_ids[$i + 1] = $result[$i]['ID'];
+        $marca_names[$i + 1] = $result[$i]['DESCRICAO'];
+    }
+    return array(
+        'ids' => $marca_ids,
+        'names' => $marca_names
+    );
+
+}
+
+public function select_unidade_combo() {
+    $consulta = new c_banco();
+    $sql = "SELECT UNIDADE, DESCRICAO FROM EST_UNIDADE WHERE ATIVO = 'S' ORDER BY DESCRICAO, UNIDADE";
+    $consulta->exec_sql($sql);
+    $consulta->close_connection();
+    $result = $consulta->resultado ?? [];
+
+    $uni_ids[0] = '';
+    $uni_names[0] = 'Selecione';
+    for ($i = 0; $i < count($result); $i++) {
+        $uni_ids[$i + 1] = $result[$i]['UNIDADE'];
+        $uni_names[$i + 1] = $result[$i]['UNIDADE'] . ' - ' . $result[$i]['DESCRICAO'];
+    }
+    return array(
+        'ids' => $uni_ids,
+        'names' => $uni_names
+    );
+}
+
+/**
+ * Busca os impostos das notas de entrada do produto
+ * @name select_impostos_nota_entrada
+ * @return array Dados dos impostos das notas de entrada
+ */
+public function select_impostos_nota_entrada() {
+    if ($this->getId() == '' || $this->getId() <= 0) {
+        return [];
+    }
+    
+    $sql = "SELECT 
+                NF.NUMERO,
+                NF.SERIE,
+                COALESCE(C.NOMEREDUZIDO, C.NOME, 'Fornecedor não identificado') AS FORNECEDOR_NOME,
+                DATE_FORMAT(COALESCE(NF.DATASAIDAENTRADA, NF.EMISSAO), '%d/%m/%Y') AS DATA_ENTRADA,
+                NFI.QUANT,
+                NFI.UNITARIO,
+                NFI.TOTAL,
+                COALESCE(NFI.VALORICMS, 0) AS VALORICMS,
+                COALESCE(NFI.VALORIPI, 0) AS VALORIPI,
+                COALESCE(NFI.VALORPIS, 0) AS VALORPIS,
+                COALESCE(NFI.VALORCOFINS, 0) AS VALORCOFINS,
+                COALESCE(NFI.VALORICMSST, 0) AS VALORICMSST,
+                COALESCE(NFI.VALORBCST, 0) AS VALORBCST,
+                COALESCE(NFI.ALIQICMSST, 0) AS ALIQICMSST,
+                (COALESCE(NFI.VALORICMS, 0) + 
+                    COALESCE(NFI.VALORIPI, 0) + 
+                    COALESCE(NFI.VALORPIS, 0) + 
+                    COALESCE(NFI.VALORCOFINS, 0) + 
+                    COALESCE(NFI.VALORICMSST, 0)) AS TOTAL_IMPOSTOS
+            FROM EST_NOTA_FISCAL_PRODUTO NFI
+            INNER JOIN EST_NOTA_FISCAL NF ON NFI.IDNF = NF.ID
+            LEFT JOIN FIN_CLIENTE C ON C.CLIENTE = NF.PESSOA
+            WHERE NFI.CODPRODUTO = " . $this->getId() . "
+                AND NF.TIPO = 0
+                AND NF.SITUACAO <> 'I'
+            ORDER BY COALESCE(NF.DATASAIDAENTRADA, NF.EMISSAO) DESC, NF.ID DESC
+            LIMIT 3";
+    
+    $banco = new c_banco();
+    $banco->exec_sql($sql);
+    $banco->close_connection();
+    
+    $result = $banco->resultado ?? [];
+    
+    // Formata os valores para exibição
+    $impostos = [];
+    foreach ($result as $row) {
+        $numeroNota = $row['NUMERO'];
+        if ($row['SERIE'] != '' && $row['SERIE'] != null) {
+            $numeroNota .= '/' . $row['SERIE'];
+        }
+        
+        $impostos[] = [
+            'NUMERO' => $numeroNota,
+            'FORNECEDOR_NOME' => $row['FORNECEDOR_NOME'],
+            'DATA_ENTRADA' => $row['DATA_ENTRADA'],
+            'QUANTIDADE' => number_format($row['QUANT'], 2, ',', '.'),
+            'VALOR_UNITARIO' => number_format($row['UNITARIO'], 2, ',', '.'),
+            'VALOR_TOTAL' => number_format($row['TOTAL'], 2, ',', '.'),
+            'VALOR_ICMS' => number_format($row['VALORICMS'], 2, ',', '.'),
+            'VALOR_IPI' => number_format($row['VALORIPI'], 2, ',', '.'),
+            'VALOR_PIS' => number_format($row['VALORPIS'], 2, ',', '.'),
+            'VALOR_COFINS' => number_format($row['VALORCOFINS'], 2, ',', '.'),
+            'VALOR_ICMSST' => number_format($row['VALORICMSST'], 2, ',', '.'),
+            'VALOR_BCST' => number_format($row['VALORBCST'], 2, ',', '.'),
+            'ALIQ_ICMSST' => number_format($row['ALIQICMSST'], 2, ',', '.'),
+            'TOTAL_IMPOSTOS' => number_format($row['TOTAL_IMPOSTOS'], 2, ',', '.')
+        ];
+    }
+    
+    return $impostos;
+}
+//fim select_impostos_nota_entrada
+//-------------------------------------------------------------
+/**
+ * Dados mínimos para etiqueta do produto (sem NF).
+ * Retorna:
+ * - empresa[0]: NOMEFANTASIA, NOMEEMPRESA, TIPOEND, ENDERECO, NUMERO, COMPLEMENTO, BAIRRO, CIDADE, UF
+ * - produto: CODIGO, DESCRICAO, CODFABRICANTE, LOCALIZACAO, NOMEMARCA
+ */
+public function select_produto_etiqueta($idProduto, $centroCusto)
+{
+    $consulta = new c_banco();
+    $sqlEmpresa  = "SELECT NOMEFANTASIA, NOMEEMPRESA, TIPOEND, ENDERECO, NUMERO, COMPLEMENTO, BAIRRO, CIDADE, UF, FONEAREA, FONENUM, FAXNUM ";
+    $sqlEmpresa .= "FROM AMB_EMPRESA WHERE CENTROCUSTO = ".$centroCusto." LIMIT 1";
+    $consulta->exec_sql($sqlEmpresa);
+    $empresa = $consulta->resultado ?? [];
+    $consulta->close_connection();
+
+    $consulta = new c_banco();
+    $sqlProduto  = "SELECT P.CODIGO, P.DESCRICAO, P.CODFABRICANTE, P.LOCALIZACAO, ";
+    $sqlProduto .= "M.DESCRICAO AS NOMEMARCA ";
+    $sqlProduto .= "FROM EST_PRODUTO P ";
+    $sqlProduto .= "LEFT JOIN EST_MARCA M ON (M.ID = P.MARCA) ";
+    $sqlProduto .= "WHERE P.CODIGO = ".$idProduto." LIMIT 1";
+    $consulta->exec_sql($sqlProduto);
+    $produtoRows = $consulta->resultado ?? [];
+    $consulta->close_connection();
+
+    $produto = (is_array($produtoRows) && count($produtoRows) > 0) ? $produtoRows[0] : [];
+
+    return [
+        'empresa' => $empresa,
+        'produto' => $produto,
+    ];
+}
+
+    /**
+     * Pedidos em encomenda (sit 13) que contêm o produto informado.
+     */
+    public function select_produto_encomenda(int $idProd): array
+    {
+        try {
+            $banco = new c_banco_pdo();
+            $sql = "SELECT C.NOMEREDUZIDO, PI.QTSOLICITADA, PI.QTATENDIDA, PI.DESCRICAO, E.NOMEFANTASIA AS CCUSTO,
+                           P.CENTROCUSTOENTREGA, P.ID AS PEDIDO, P.PRAZOENTREGA, PI.ITEMESTOQUE
+                    FROM FAT_PEDIDO_ITEM PI
+                    INNER JOIN FAT_PEDIDO P ON PI.ID = P.ID
+                    INNER JOIN FIN_CLIENTE C ON P.CLIENTE = C.CLIENTE
+                    INNER JOIN AMB_EMPRESA E ON P.CCUSTO = E.CENTROCUSTO
+                    WHERE P.SITUACAO = '13' AND PI.ITEMESTOQUE = :idProd";
+            $banco->prepare($sql);
+            $banco->bindValue(':idProd', $idProd);
+            $banco->execute();
+            $result = $banco->fetchAll();
+            if (!is_array($result)) {
+                return [];
+            }
+
+            $filtrado = [];
+            foreach ($result as $row) {
+                $solicitado = (float) ($row['QTSOLICITADA'] ?? 0);
+                $qtdFalta = max(0, $solicitado - (float) ($row['QTATENDIDA'] ?? 0));
+                if ($qtdFalta <= 0) {
+                    continue;
+                }
+                $row['QTD_FALTA'] = $qtdFalta;
+                $filtrado[] = $row;
+            }
+
+            return $filtrado;
+        } catch (Exception $e) {
+            error_log('[c_produto] select_produto_encomenda: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Notas TFF vinculadas pelo campo DOC (entrada/saída movimentação CC).
+     */
+    public function selectNotas($idNota): array
+    {
+        $idNota = (int) $idNota;
+        if ($idNota <= 0) {
+            return [];
+        }
+        $sql = "SELECT * FROM EST_NOTA_FISCAL WHERE DOC = " . $idNota . " AND ORIGEM = 'TFF'";
+        $banco = new c_banco();
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        return is_array($banco->resultado) ? $banco->resultado : [];
+    }
+
+    public function selectProdNf($idNota): array
+    {
+        $idNota = (int) $idNota;
+        if ($idNota <= 0) {
+            return [];
+        }
+        $sql = "SELECT CODPRODUTO, DESCRICAO, QUANT, UNIDADE, TOTAL ";
+        $sql .= "FROM EST_NOTA_FISCAL_PRODUTO WHERE IDNF = " . $idNota;
+        $banco = new c_banco();
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        return is_array($banco->resultado) ? $banco->resultado : [];
+    }
+
+    public function selectNotaSaida($idNota): array
+    {
+        $idNota = (int) $idNota;
+        if ($idNota <= 0) {
+            return [];
+        }
+        $sql = "SELECT C.NOME, G.DESCRICAO FROM EST_NOTA_FISCAL N ";
+        $sql .= "INNER JOIN FIN_CLIENTE C ON N.PESSOA = C.CLIENTE ";
+        $sql .= "INNER JOIN FIN_GENERO G ON N.GENERO = G.GENERO ";
+        $sql .= "WHERE N.ID = " . $idNota;
+        $banco = new c_banco();
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        return is_array($banco->resultado) ? $banco->resultado : [];
+    }
+
+    /**
+     * Parcelas financeiras vinculadas ao pedido (DOCTO = ID do pedido).
+     */
+    public function select_lancamento(int $pedido): ?array
+    {
+        try {
+            $banco = new c_banco_pdo();
+            $sql = 'SELECT DISTINCT * FROM FIN_LANCAMENTO '
+                . 'WHERE ORIGEM = :origem AND NUMLCTO = :pedido AND SITPGTO <> :cancelado';
+            $banco->prepare($sql);
+            $banco->bindValue(':origem', 'PED');
+            $banco->bindValue(':pedido', $pedido);
+            $banco->bindValue(':cancelado', 'C');
+            $banco->execute();
+            $result = $banco->fetchAll();
+            return (is_array($result) && count($result) > 0) ? $result : null;
+        } catch (Exception $e) {
+            error_log('[c_produto] select_lancamento: ' . $e->getMessage());
+            return null;
+        }
+    }
 
 }	//	END OF THE CLASS
 

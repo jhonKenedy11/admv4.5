@@ -12,6 +12,15 @@
         font-size: 10px;
     }
 
+    /* Paginação acima/abaixo da grade: mesma base de fonte da tabela */
+    .barra-paginacao-produto {
+        font-size: 10px;
+    }
+
+    .barra-paginacao-produto .btn {
+        font-size: 10px;
+    }
+
     .NoProd {
         color: #022f51;
         text-shadow: 0 1px 0 #ccc,
@@ -67,7 +76,7 @@
         width: 16px;
         position: absolute;
         font-size: 11px;
-        top: 6px;
+        top: 5px;
         right: 24px;
         border-radius: 50%;
         padding: 0;
@@ -114,32 +123,29 @@
 
     .section {
         padding: 87px;
-        height: 48vh;
-
+        min-height: 30vh;
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: center;
     }
 
-    .left {
+    #paraConsultar {
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .left #paraConsultar {
+        align-items: center;
+        text-align: center;
         font-size: 3rem;
         font-family: system-ui, 'Open Sans', 'Helvetica Neue', sans-serif;
         text-shadow: 0 1px 0 #cccccc,
             0 2px 0 #c9c9c9, 0 1px 0 #bbbbbb,
-            0 3px 0 #b9b9b9, 0 2px 0 #aaaaaa,
-            0 4px 1px rgba(0, 0, 0, 0.1),
-            0 0 3px rgba(0, 0, 0, 0.1),
+            0 2px 0 #b9b9b9, 0 2px 0 #aaaaaa,
+            0 2px 1px rgba(0, 0, 0, 0.1),
+            0 0 2px rgba(0, 0, 0, 0.1),
             0 1px 2px rgba(0, 0, 0, 0.3),
+            0 2px 2px rgba(0, 0, 0, 0.2),
+            0 2px 4px rgba(0, 0, 0, 0.25),
             0 2px 3px rgba(0, 0, 0, 0.2),
-            0 3px 6px rgba(0, 0, 0, 0.25),
-            0 5px 5px rgba(0, 0, 0, 0.2),
-            0 12px 12px rgba(0, 0, 0, 0.15);
+            0 9px 9px rgba(0, 0, 0, 0.15);
     }
 
     .right img {
@@ -238,16 +244,23 @@
         <div class="row">
             <div class="col-md-12 col-xs-12">
                 <div class="x_panel">
-                    <div class="x_title">
-                        <h2>Consulta produtos
-                            {if $mensagem neq ''}
-                                <div class="container">
-                                    <div class="alert alert-success fade in"><strong></strong> {$mensagem}</div>
-                                </div>
+                    <div class="x_title" style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2 style="display: flex; align-items: center; margin: 0; flex: 1;">
+                            <span style="color: #2A3F54;">Consulta produtos</span>
+
+                            {if $mensagem_estoque_limitado neq ''}
+                                <span style="color: #856404; font-size: 13px; font-weight: normal; margin-left: 18%; background-color: #fff3cd; padding: 8px 15px; border-radius: 4px; border: 1px solid #ffc107;">
+                                    <i class="fa fa-exclamation-triangle" aria-hidden="true"></i> {$mensagem_estoque_limitado}
+                                </span>
                             {/if}
                         </h2>
+                        {if $mensagem neq ''}
+                            <div class="container" style="margin-top: 10px;">
+                                <div class="alert alert-success fade in"><strong></strong> {$mensagem}</div>
+                            </div>
+                        {/if}
 
-                        <ul class="nav navbar-right">
+                        <ul class="nav navbar-right" style="margin: 0; flex-shrink: 0;">
                             {if $from !== 'nota' && $from !=='pedido_ps'} <button type="button" id="btnCart"
                                     data-toggle="modal" data-target="#modalCart" onclick="abrirModalItens()">
                                     <span class="fa fa-shopping-cart spanCart" aria-hidden="true"></span>
@@ -287,6 +300,13 @@
                             <input name=checkbox type=hidden value="{$checkbox}">
                             <input name=carrinho type=hidden id=carrinho value="{$carrinho}">
                             <input name=idPedido type=hidden id="idPedido" value={$idPedido}>
+                            <!-- Paginacao -->
+                            <input name=pagina_atual type=hidden id="pagina_atual" value={$pagina_atual}>
+                            <input name=quantidade_total_produtos_pesquisados type=hidden id="quantidade_total_produtos_pesquisados" value={$quantidade_total_produtos_pesquisados}>
+                            <input name=quantidade_maxima_por_pagina type=hidden id="quantidade_maxima_por_pagina" value={$quantidade_maxima_por_pagina}>
+                            <input name=quantidade_pesquisada type=hidden id="quantidade_pesquisada" value={$quantidade_pesquisada}>
+                            <input name=total_paginas type=hidden id="total_paginas" value={$total_paginas}>
+                            <!-- Fim Paginacao -->
 
                             <div class="row">
                                 <div class="form-group col-md-2 col-sm-2 col-xs-12">
@@ -384,9 +404,42 @@
                                             <div class="col-md-12 col-sm-12 col-xs-12 tabPrincipal">
 
                                                 {*{if isset($lanc)}*}
+                                                    {if isset($quantidade_total_produtos_pesquisados) && $quantidade_total_produtos_pesquisados > 0}
+                                                        <div class="barra-paginacao-produto" style="background-color: #f5f5f5; font-weight: bold; padding: 10px; margin-bottom: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                                                            <div style="display: flex; align-items: center; width: 100%;">
+                                                                <div style="flex: 1 1 0; min-width: 0;"></div>
+                                                                <div style="flex: 0 0 auto; text-align: center; padding: 0 8px;">
+                                                                    <strong>Mostrando: {$quantidade_pesquisada} de {$quantidade_total_produtos_pesquisados} produtos</strong>
+                                                                </div>
+                                                                <div style="flex: 1 1 0; min-width: 0; text-align: right; white-space: nowrap;">
+                                                                    <button
+                                                                        {if $quantidade_pesquisada < $quantidade_maxima_por_pagina && $pagina_atual == 1}
+                                                                            disabled
+                                                                        {/if}
+                                                                        type="button"
+                                                                        class="btn btn-primary btn-xs"
+                                                                        onclick="javascript:paginacao('anterior');">
+                                                                        Anterior
+                                                                    </button>
+                                                                    <span class="page-info" style="margin: 0 6px;">
+                                                                        Página {$pagina_atual} de {$total_paginas}
+                                                                    </span>
+                                                                    <button
+                                                                        {if $quantidade_pesquisada < $quantidade_maxima_por_pagina}
+                                                                            disabled
+                                                                        {/if}
+                                                                        type="button"
+                                                                        class="btn btn-primary btn-xs"
+                                                                        onclick="javascript:paginacao('proxima');">
+                                                                        Próxima
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    {/if}
                                                     <table id="datatable" class="table table-bordered jambo_table">
                                                         <thead>
-                                                            <tr style="background: #2A3F54; color: white;">
+                                                            <tr class="headings">
                                                                 <th style="width: 10px;"></th>
                                                                 <th style="width: 10px;"></th>
                                                                 <th style="width: 40px;">
@@ -399,7 +452,9 @@
                                                                     <center>C&oacute;d. Fabricante</center>
                                                                 </th>
                                                                 <th style="width: 50px;">Local</th>
-                                                                {* <th style="width: 40px;">Marca</th> *}
+                                                                <th style="width: 60px;">
+                                                                    <center>Marca</center>
+                                                                </th>
                                                                 <th>
                                                                     <center> Descri&ccedil;&atilde;o</center>
                                                                 </th>
@@ -437,28 +492,32 @@
                                                                             Sem Equivalente
                                                                         </button>
                                                                     </td>
-                                                                    <td style="width: 70px;">
+                                                                    <td style="width: 70px;" data-ps-col="codigo">
                                                                         <center> {$lanc[i].CODIGO} </center>
                                                                     </td>
-                                                                    <td>
+                                                                    <td data-ps-col="codnota">
                                                                         <center> {$lanc[i].CODPRODUTONOTA} </center>
                                                                     </td>
-                                                                    <td>
+                                                                    <td data-ps-col="codfab">
                                                                         <center> {$lanc[i].CODFABRICANTE} </center>
                                                                     </td>
-                                                                    <td>
+                                                                    <td data-ps-col="loc">
                                                                         <center> {$lanc[i].LOCALIZACAO} </center>
                                                                     </td>
-                                                                    {* <td><center> {$lanc[i].NOMEMARCA} </center></td> *}
-                                                                    <td> {$lanc[i].DESCRICAO} </td>
-                                                                    <td>
+                                                                    <td data-ps-col="marca">
+                                                                        <center>{$lanc[i].NOMEMARCA}</center>
+                                                                    </td>
+                                                                    <td data-ps-col="desc"> {$lanc[i].DESCRICAO} </td>
+                                                                    <td data-ps-col="un">
                                                                         <center> {$lanc[i].UNIDADE} </center>
                                                                     </td>
-                                                                    <td name="vlrVenda">
+                                                                    <td name="vlrVenda" data-ps-col="venda">
                                                                         <center> {$lanc[i].VENDA|number_format:2:",":"."} </center>
                                                                     </td>
-                                                                    <td>
-                                                                        <center> {$lanc[i].ESTOQUE|number_format:2:",":"."} </center>
+                                                                    <td data-ps-col="est">
+                                                                        <center> 
+                                                                            {$lanc[i].ESTOQUE|number_format:2:",":"."} 
+                                                                        </center>
                                                                     </td>
                                                                     <td class="last" style="padding: 5px !important;">
                                                                         <center>
@@ -469,7 +528,7 @@
                                                                                     onclick="javascript:fechaProdutoNf({$lanc[i].CODIGO}, '{$lanc[i].DESCRICAO}','{$lanc[i].UNIDADE}');">
                                                                                     <span class="glyphicon glyphicon-ok"
                                                                                         aria-hidden="true"></span></button>
-                                                                            {else if ($from == 'baixa_estoque' or $from == 'baixa_estoque_new')}
+                                                                            {else if ($from == 'baixa_estoque' or $from == 'baixa_estoque_new' or $from == 'movimentacao_estoque_cc')}
                                                                                 <button type="button" class="btn btn-success btn-xs"
                                                                                     onclick="javascript:fechaProdutoPesquisaParam({$lanc[i].CODIGO}, '{$lanc[i].DESCRICAO}','{$lanc[i].UNIDADE}','{$lanc[i].CODIGO}', '{$lanc[i].ESTOQUE|number_format:2:",":"."}', '{$lanc[i].VENDA|number_format:2:",":"."}', '{$lanc[i].UNIFRACIONADA}');">
                                                                                     <span class="glyphicon glyphicon-ok"
@@ -520,21 +579,21 @@
                                                                                     onClick="javascript:submitLetraPesquisa({$equi[j].CODIGO},'{$equi[j].CODFABRICANTE}');" />
                                                                             </td>
                                                                             <td style="color: #169F85;"> Equivalente </td>
-                                                                            <td style="width: 40px;">
+                                                                            <td style="width: 40px;" data-ps-col="codigo">
                                                                                 <center> {$equi[j].CODEQUIVALENTE} <center>
                                                                             </td>
-                                                                            <td colspan="3" style="width: 40px;">
+                                                                            <td colspan="3" style="width: 40px;" data-ps-col="codnota">
                                                                                 <center> {$equi[j].CODPRODUTONOTA} <center>
                                                                             </td>
-                                                                            <td style="display:none;"> {$equi[i].LOCALIZACAO} </td>
-                                                                            <td colspan="1">
+                                                                            <td style="display:none;" data-ps-col="codfab">{$equi[j].CODFABRICANTE}</td>
+                                                                            <td colspan="1" data-ps-col="desc">
                                                                                 <center> {$equi[j].DESCRICAO} </center>
                                                                             </td>
-                                                                            <td> {$equi[j].UNIDADE} </td>
-                                                                            <td>
+                                                                            <td data-ps-col="un"> {$equi[j].UNIDADE} </td>
+                                                                            <td data-ps-col="venda">
                                                                                 <center> {$equi[j].VENDA|number_format:2:",":"."} </center>
                                                                             </td>
-                                                                            <td>
+                                                                            <td data-ps-col="est">
                                                                                 <center> {$equi[j].ESTOQUE|number_format:2:",":"."} </center>
                                                                             </td>
                                                                             <td style="width: 30px; padding:6px 0 2px 5px;" class="last">
@@ -543,7 +602,7 @@
                                                                                         onclick="javascript:fechaProdutoNf({$equi[i].CODIGO}, '{$equi[i].DESCRICAO}','{$equi[i].UNIDADE}');">
                                                                                         <span class="glyphicon glyphicon-ok"
                                                                                             aria-hidden="true"></span></button>
-                                                                                {else if $from == 'baixa_estoque'}
+                                                                                {else if ($from == 'baixa_estoque' or $from == 'movimentacao_estoque_cc')}
                                                                                     <button type="button" class="btn btn-success btn-xs"
                                                                                         onclick="javascript:fechaProdutoPesquisaParam({$equi[i].CODIGO}, '{$equi[i].DESCRICAO}','{$equi[i].UNIDADE}','null', '{$equi[i].ESTOQUE|number_format:2:",":"."}', '{$equi[i].VENDA|number_format:2:",":"."}', '{$equi[i].UNIFRACIONADA}');">
                                                                                         <span class="glyphicon glyphicon-ok"
@@ -566,7 +625,7 @@
                                                                                 {/if}
 
 
-                                                                                {if $from !== 'nota'}
+                                                                                {if $from !== 'nota' && $from !=='pedido_ps'}
                                                                                     <button type="button" class="btn btn-primary btn-xs"
                                                                                         data-toggle="modal" data-target="#modalInsertCart"
                                                                                         onclick="javascript:dadosItemsCart('{$lanc[i].CODIGO}', '{$lanc[i].DESCRICAO}');">
@@ -581,27 +640,45 @@
 
                                                             {/section}
                                                             <!-- NAO ALTERAR OS ATRIBUTOS DOS ELEMENTOS DESSE BLOCO SEM VERIFICAR O JS -->
+                                                            {if isset($quantidade_total_produtos_pesquisados) && $quantidade_total_produtos_pesquisados > 0}
+                                                                <tr class="barra-paginacao-produto" style="background-color: #f5f5f5; font-weight: bold;">
+                                                                    <td colspan="12" class="last" style="padding: 10px; vertical-align: middle; border-top: 1px solid #ddd;">
+                                                                        <div style="display: flex; align-items: center; width: 100%;">
+                                                                            <div style="flex: 1 1 0; min-width: 0;"></div>
+                                                                            <div style="flex: 0 0 auto; text-align: center; padding: 0 8px;">
+                                                                                <strong>Mostrando: {$quantidade_pesquisada} de {$quantidade_total_produtos_pesquisados} produtos</strong>
+                                                                            </div>
+                                                                            <div style="flex: 1 1 0; min-width: 0; text-align: right; white-space: nowrap;">
+                                                                                <button
+                                                                                    {if $quantidade_pesquisada < $quantidade_maxima_por_pagina && $pagina_atual == 1}
+                                                                                        disabled
+                                                                                    {/if}
+                                                                                    type="button"
+                                                                                    class="btn btn-primary btn-xs"
+                                                                                    onclick="javascript:paginacao('anterior');">
+                                                                                    Anterior
+                                                                                </button>
+                                                                                
+                                                                                <span class="page-info" style="margin: 0 6px;">
+                                                                                    Página {$pagina_atual} de {$total_paginas}
+                                                                                </span>
+
+                                                                                <button
+                                                                                    {if $quantidade_pesquisada < $quantidade_maxima_por_pagina}
+                                                                                        disabled
+                                                                                    {/if}
+                                                                                    type="button"
+                                                                                    class="btn btn-primary btn-xs"
+                                                                                    onclick="javascript:paginacao('proxima');">
+                                                                                    Próxima
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            {/if}
                                                         </tbody>
                                                     </table>
-                                                {*{else}
-
-                                                                                                                                                    <main class="main">
-                                                                                                                                                        <section class="section">
-                                                                                                                                                            <div class="left">
-                                                                                                                                                                <p id="paraConsultar" style="color: #43401ad6;">Não foi localizado nota fiscal <br> para esse item !</p>
-                                                                                                                                                            </div>
-
-                                                                                                                                                        </section>
-                                                                                                                                                    </main>
-
-
-
-
-
-
-
-
-                                                {/if}*}
 
                                             </div>
                                         </div>
@@ -620,7 +697,7 @@
                                             <div class="x_panel" style="padding:8px;">
                                                 <table id="datatable-cc" class="table table-bordered jambo_table col-md-8">
                                                     <thead>
-                                                        <tr style="background: gray; color: white;">
+                                                        <tr class="headings">
                                                             <th style="width:100px">Código Nota</th>
                                                             <th style="width:82px">
                                                                 <center> Tipo Doc </center>
@@ -652,6 +729,9 @@
                                                             {* <th style="width:100px">Vlr ST</th> *}
                                                             <th style="width:90px">
                                                                 <center> Total Produto </center>
+                                                            </th>
+                                                            <th style="width:90px">
+                                                                <center> Custo Reposi&ccedil;&atilde;o </center>
                                                             </th>
                                                         </tr>
                                                     </thead>
@@ -715,6 +795,15 @@
                                                                             <center> R$ {$notas[i].TOTAL|number_format:2:",":"."} </center>
                                                                         </td>
                                                                     {/if}
+                                                                    <td name="custoReposicao">
+                                                                        <center>
+                                                                            {if $notas[i].CUSTOREPOSICAO > 0}
+                                                                                R$ {$notas[i].CUSTOREPOSICAO|number_format:2:",":"."}
+                                                                            {else}
+                                                                                -
+                                                                            {/if}
+                                                                        </center>
+                                                                    </td>
 
                                                                 </tr>
                                                                 <p>
@@ -727,31 +816,19 @@
 
                                         {else if $existeNota == 'no'}
 
-                                            {* <main class="main">
-                                            <section class="section">
-                                                <div class="left">
-                                                    <p id="paraConsultar" style="color: #43401ad6;">Não foi localizado nota fiscal <br> para esse item !</p>
-                                                </div>
-                                                <div class="right divImgErro">
-                                                    <img src="{$pathBibImagens}/notfound.png" alt="imagem registros não localizados">
-                                                    <div class="shadow"></div>
-                                                </div>
-                                            </section>
-                                        </main> *}
+                                            <main class="main">
+                                                <section class="section">
+                                                    <p id="paraConsultar" style="color: #216b6ed6;">Nenhuma nota fiscal foi localizada<br> para esse item !</p>
+                                                </section>
+                                            </main>
 
                                         {else}
 
-                                            {* <main class="main">
-                                            <section class="section">
-                                                <div class="left">
-                                                    <p id="paraConsultar" style="color: #1c683f;">Para consulta de nota fiscal <br> selecione apenas um produto !</p>
-                                                </div>
-                                                <div class="right divImgErro">
-                                                    <img src="{$pathBibImagens}/error404.png" alt="imagem de erro 404">
-                                                    <div class="shadow"></div>
-                                                </div>
-                                            </section>
-                                        </main> *}
+                                            <main class="main">
+                                                <section class="section">
+                                                    <p id="paraConsultar" style="color: #e72a2a;">Para consulta de notas fiscais <br> selecione apenas um item !</p>
+                                                </section>
+                                            </main>
 
                                         {/if}
                                     </div>
@@ -819,17 +896,11 @@
                                                 </table>
                                             </div>
                                         {else}
-                                            {* <main class="main">
-                                            <section class="section">
-                                                <div class="left">
-                                                    <p id="paraConsultar" style="color: #1c683f;">Para consulta de estoque <br> selecione apenas um item !</p>
-                                                </div>
-                                                <div class="right divImgErro">
-                                                    <img src="{$pathBibImagens}/error404.png" alt="imagem de erro 404">
-                                                    <div class="shadow"></div>
-                                                </div>
-                                            </section>
-                                        </main> *}
+                                            <main class="main">
+                                                <section class="section">
+                                                    <p id="paraConsultar" style="color: #e72a2a;">Para consulta de estoque <br> selecione apenas um item !</p>
+                                                </section>
+                                            </main>
                                         {/if}
 
                                     </div>
@@ -846,7 +917,7 @@
                                             <div class="x_panel">
                                                 <table id="datatable-cot" class="table table-bordered jambo_table">
                                                     <thead>
-                                                        <tr style="background: #2A3F54; color: white;">
+                                                        <tr class="headings">
                                                             <th>Cota&ccedil;&atilde;o</th>
                                                             <th>Cliente</th>
                                                             <th>C&oacute;digo</th>
@@ -874,29 +945,17 @@
                                                 </table>
                                             </div>
                                         {elseif $existeCotacao eq 'no'}
-                                            {* <main class="main">
-                                            <section class="section">
-                                                <div class="left">
-                                                    <p id="paraConsultar" style="color: #43401ad6;">Nenhuma cotação foi localizada<br> para esse item !</p>
-                                                </div>
-                                                <div class="right divImgErro">
-                                                    <img src="{$pathBibImagens}/notfound.png" alt="imagem registros não localizados">
-                                                    <div class="shadow"></div>
-                                                </div>
-                                            </section>
-                                        </main> *}
+                                            <main class="main">
+                                                <section class="section">
+                                                    <p id="paraConsultar" style="color: #216b6ed6;">Nenhuma cotação foi localizada<br> para esse item !</p>
+                                                </section>
+                                            </main>
                                         {else}
-                                            {* <main class="main">
-                                            <section class="section">
-                                                <div class="left">
-                                                    <p id="paraConsultar" style="color: #1c683f;">Para consulta de cotações <br> selecione apenas um item !</p>
-                                                </div>
-                                                <div class="right divImgErro">
-                                                    <img src="{$pathBibImagens}/error404.png" alt="imagem de erro 404">
-                                                    <div class="shadow"></div>
-                                                </div>
-                                            </section>
-                                        </main> *}
+                                            <main class="main">
+                                                <section class="section">
+                                                    <p id="paraConsultar" style="color: #e72a2a;">Para consulta de cotações <br> selecione apenas um item !</p>
+                                                </section>
+                                            </main>
                                         {/if}
 
                                     </div>
@@ -914,7 +973,7 @@
                                             <div class="x_panel">
                                                 <table id="datatable-ped" class="table table-bordered jambo_table">
                                                     <thead>
-                                                        <tr style="background: #2A3F54; color: white;">
+                                                        <tr class="headings">
                                                             <th>Cota&ccedil;&atilde;o</th>
                                                             <th>Cliente</th>
                                                             <th>C&oacute;digo</th>
@@ -943,29 +1002,17 @@
                                             </div>
 
                                         {elseif $existePedido eq 'no'}
-                                            {* <main class="main">
-                                            <section class="section">
-                                                <div class="left">
-                                                    <p id="paraConsultar" style="color: #43401ad6;">Nenhum pedido foi localizado<br> para esse item !</p>
-                                                </div>
-                                                <div class="right divImgErro">
-                                                    <img src="{$pathBibImagens}/notfound.png" alt="imagem registros não localizados">
-                                                    <div class="shadow"></div>
-                                                </div>
-                                            </section>
-                                        </main> *}
+                                            <main class="main">
+                                                <section class="section">
+                                                    <p id="paraConsultar" style="color: #216b6ed6;">Nenhum pedido foi localizado<br> para esse item !</p>
+                                                </section>
+                                            </main>
                                         {else}
-                                            {* <main class="main">
-                                            <section class="section">
-                                                <div class="left">
-                                                    <p id="paraConsultar" style="color: #1c683f;">Para consulta de pedidos <br> selecione apenas um item !</p>
-                                                </div>
-                                                <div class="right divImgErro">
-                                                    <img src="{$pathBibImagens}/error404.png" alt="imagem de erro 404">
-                                                    <div class="shadow"></div>
-                                                </div>
-                                            </section>
-                                        </main> *}
+                                            <main class="main">
+                                                <section class="section">
+                                                    <p id="paraConsultar" style="color: #e72a2a;">Para consulta de pedidos <br> selecione apenas um item !</p>
+                                                </section>
+                                            </main>
                                         {/if}
 
                                     </div>
@@ -1085,29 +1132,19 @@
 
                                         {elseif $existeReparo eq 'no'}
 
-                                            {* <main class="main">
+                                        <main class="main">
                                             <section class="section">
                                                 <div class="left">
-                                                    <p id="paraConsultar" style="color: #43401ad6;">Nenhum reparo foi localizado<br> para esse item !</p>
-                                                </div>
-                                                <div class="right divImgErro">
-                                                    <img src="{$pathBibImagens}/notfound.png" alt="imagem registros não localizados">
-                                                    <div class="shadow"></div>
+                                                    <p id="paraConsultar" style="color: #216b6ed6;">Nenhum reparo foi localizado<br> para esse item !</p>
                                                 </div>
                                             </section>
-                                        </main> *}
+                                        </main>
                                         {else}
-                                            {* <main class="main">
-                                            <section class="section">
-                                                <div class="left">
-                                                    <p id="paraConsultar" style="color: #1c683f;">Para consulta de kit/reparo <br> selecione apenas um item !</p>
-                                                </div>
-                                                <div class="right divImgErro">
-                                                    <img src="{$pathBibImagens}/error404.png" alt="imagem de erro 404">
-                                                    <div class="shadow"></div>
-                                                </div>
-                                            </section>
-                                        </main> *}
+                                            <main class="main">
+                                                <section class="section">
+                                                    <p id="paraConsultar" style="color: #e72a2a;">Para consulta de reparos <br> selecione apenas um item !</p>
+                                                </section>
+                                            </main>
                                         {/if}
 
                                     </div>
@@ -1142,7 +1179,7 @@
                         </div>
                         <div class="col align-self-center">
                             <label for="recipient-quant" class="col-form-label">Quantidade</label>
-                            <input type="money" class="form-control money" id="recipient-quant" value="{$recipientQuant}">
+                            <input type="text" class="form-control" id="recipient-quant" style="text-align:left;" placeholder="0" value="{$recipientQuant}">
                         </div>
                     </form>
                 </div>
@@ -1252,9 +1289,26 @@
 
 <script>
     document.addEventListener("keypress", function(e) {
-        if (e.keyCode === 13) {
-            submitLetraPesquisa();
+        if (e.keyCode !== 13) return;
+
+        // Se a modal de adicionar ao carrinho estiver aberta, Enter confirma o item
+        var modalInsert = document.getElementById('modalInsertCart');
+        var modalInsertOpen = modalInsert && (
+            (modalInsert.classList && modalInsert.classList.contains('in')) ||
+            (modalInsert.getAttribute && modalInsert.getAttribute('aria-hidden') === 'false')
+        );
+
+        if (modalInsertOpen) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof addItemsCart === 'function') addItemsCart();
+            return;
         }
+
+        // Caso contrário, mantém o Enter como pesquisa
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof submitLetraPesquisa === 'function') submitLetraPesquisa();
     });
 </script>
 

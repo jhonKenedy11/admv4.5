@@ -63,20 +63,27 @@
                           class="form-horizontal form-label-left" ACTION={$SCRIPT_NAME}>
                         <input name=mod           type=hidden value="{$mod}">   
                         <input name=form          type=hidden value="{$form}">   
-                        <input name=id            type=hidden value="">
+                        <input name=idCliente     type=hidden value="">
                         <input name=opcao         type=hidden value={$opcao}>
                         <input name=letra         type=hidden value={$letra}>
                         <input name=submenu       type=hidden value={$subMenu}>
                         <input name=credito       type=hidden value={$credito}>
                         <input name=check         type=hidden value="">
                         <input name=checkPedido   type=hidden value="">
+                        <input name=from          type=hidden value={$from}>
+                        
 
-                        <div class="form-group col-md-8 col-sm-12 col-xs-12">
+                        <div class="form-group col-md-6 col-sm-12 col-xs-12">
                             <label>Pessoa</label>
                             <input class="form-control" id="pesNome" name="pesNome" placeholder="Digite o nome do Pessoa."  value={$pesNome} >
                         </div>
 
-                        <div class="form-group col-md-4 col-sm-12 col-xs-12">
+                        <div class="form-group col-md-2 col-sm-3 col-xs-3">
+                            <label>Identificador</label>
+                            <input class="form-control" id="id" name="id" placeholder="Digite o ID."  value={$id} >
+                        </div>
+
+                        <div class="form-group col-md-4 col-sm-9 col-xs-9">
                             <label>CNPJ ou CPF</label>
                             <input  class="form-control" type="text" id="pesCnpjCpf" name="pesCnpjCpf" placeholder="Digite o CNPJ/CPF."   value={$pesCnpjCpf}>
                         </div>    
@@ -171,9 +178,10 @@
                             <!--table id="datatable-responsive" class="table table-striped table-bordered dt-responsive nowrap table-condensed" cellspacing="0" width="100%"-->
                             <table id="datatable-buttons1" class="table table-bordered jambo_table">
                                 <thead>
-                                    <tr style="background: #2A3F54; color: white;">
+                                    <tr class="headings">
                                         <th>Nome</th>
                                         <th>Nome Reduzido</th>
+                                        <th>CNPJ/CPF</th>
                                         <th>Cidade</th>
                                         <th>Telefone</th>
                                         <th>Classe</th>
@@ -188,6 +196,15 @@
                                         <tr>
                                             <td> {$lanc[i].NOME} </td>
                                             <td> {$lanc[i].NOMEREDUZIDO} </td>
+                                            <td>
+                                                {if $lanc[i].CNPJCPF|default:'' neq ''}
+                                                    {if $lanc[i].CNPJCPF|strlen > 11}
+                                                        {$lanc[i].CNPJCPF|substr:0:2}.{$lanc[i].CNPJCPF|substr:2:3}.{$lanc[i].CNPJCPF|substr:5:3}/{$lanc[i].CNPJCPF|substr:8:4}-{$lanc[i].CNPJCPF|substr:12:2}
+                                                    {else}
+                                                        {$lanc[i].CNPJCPF|substr:0:3}.{$lanc[i].CNPJCPF|substr:3:3}.{$lanc[i].CNPJCPF|substr:6:3}-{$lanc[i].CNPJCPF|substr:9:2}
+                                                    {/if}
+                                                {/if}
+                                            </td>
                                             <td> {$lanc[i].CIDADE} - {$lanc[i].UF} </td>
                                             <td> {$lanc[i].FONEAREA} {$lanc[i].FONE} / {$lanc[i].FAXAREA} {$lanc[i].FAX} </td>
                                             <td> {$lanc[i].BLOQUEADO} </td>
@@ -213,9 +230,9 @@
                                                 
                                                 {else}
 
-                                                    {if $lanc[i].BLOQUEADO neq 'BLOQUEADO'}
+                                                    {if $from == 'lancamento' || $lanc[i].BLOQUEADO neq 'BLOQUEADO'}
                                                         <button type="button" class="btn btn-success btn-xs" 
-                                                        onclick="javascript:fechaLancamento('{$lanc[i].CLIENTE}', '{$lanc[i].NOME}', '{$opcao}' , '{$lanc[i].CREDITO|number_format:2:",":"."}', '{$lanc[i].CEP}', '{$lanc[i].CODMUNICIPIO}', '{$lanc[i].BLOQUEADO}', '{$lanc[i].ID_REPRESENTANTE}' );">
+                                                        onclick="javascript:fechaLancamento('{$lanc[i].CLIENTE}', '{$lanc[i].NOME}', '{$opcao}' , '{$lanc[i].CREDITO|number_format:2:",":"."}', '{$lanc[i].CEP}', '{$lanc[i].CODMUNICIPIO}', '{$lanc[i].BLOQUEADO}', '{$lanc[i].ID_REPRESENTANTE}', '{$from}' );">
                                                         <span class="glyphicon glyphicon-ok" aria-hidden="true"></span></button>
                                                     {/if}
 
@@ -244,7 +261,7 @@
                                 {if $existePedido eq 'yes'}
                                     <table id="datatable-ped" class="table table-bordered jambo_table">
                                         <thead>
-                                            <tr style="background: #2A3F54; color: white;">
+                                            <tr class="headings">
                                                 <th style="width: 50px;">Pedido</th>
                                                 <th>Cliente</th>
                                                 <th>Vendedor</th>

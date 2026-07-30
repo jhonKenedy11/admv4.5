@@ -23,6 +23,7 @@
 </style>
 
 <script type="text/javascript" src="{$pathJs}/coc/s_ordem_compra.js"> </script>
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <!-- page content -->
 <div class="right_col" role="main">
     <div class="">
@@ -95,7 +96,8 @@
 
                                     <div class="col-md-1 col-sm-1 col-xs-1">
                                         <label for="serie">Serie</label>
-                                        <input class="form-control" type="text" id="serie" name="serie" value={$serie}>
+                                        <input class="form-control" type="text" id="serie" name="serie"
+                                            value="{$serie}" maxlength="3">
                                     </div>
 
                                     <div class="col-md-3 col-sm-3 col-xs-3  has-feedback">

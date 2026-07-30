@@ -268,7 +268,7 @@
                 {assign var="totalParcial" value=$totalParcial+$lanc[i].TOTAL}
 
                 <tr>
-                  <td align=left class=ColunaTitulo colspan="11"><b><big>&raquo; {$lanc[i].FIELDORDER}:
+                  <td align=left class=ColunaTitulo colspan="16"><b><big>&raquo; {$lanc[i].FIELDORDER}:
                         {$lanc[i].DATEORDER|date_format:"%d/%m/%Y"}</big></b></td>
                 <tr>
                 <tr>
@@ -285,6 +285,8 @@
                   <th align="center" class="ColunaTitulo ColunaObs">Obs</th>
                   <th align=center class=ColunaTitulo width="10px">U.Inclusao</th>
                   <th align=center class=ColunaTitulo width="10px">U.Alteracao</th>
+                  <th align=center class=ColunaTitulo width="10px">Multa</th>
+                  <th align=center class=ColunaTitulo width="10px">Juros</th>
                   <th align=center class=ColunaTitulo>Total</th>
                 </tr>
               {elseif $lanc[i].DATEORDER eq $dataAnt}
@@ -294,11 +296,11 @@
               {else}
                 {assign var="dataAnt" value=$lanc[i].DATEORDER}
                 <tr>
-                  <td align=right class=ColunaTitulo colspan="14"><b><big>Total...:
+                  <td align=right class=ColunaTitulo colspan="16"><b><big>Total...:
                         R${$totalParcial|number_format:2:",":"."}</big></b></td>
                 <tr>
                 <tr>
-                  <td align=left class=ColunaTitulo colspan="14"><b><big>&raquo; {$lanc[i].FIELDORDER}:
+                  <td align=left class=ColunaTitulo colspan="16"><b><big>&raquo; {$lanc[i].FIELDORDER}:
                         {$lanc[i].DATEORDER|date_format:"%d/%m/%Y"}</big></b></td>
                 <tr>
                   {assign var="totalParcial" value='0'}
@@ -318,6 +320,8 @@
                   <th align="center" class="ColunaTitulo ColunaObs">Obs</th>
                   <th align=center class=ColunaTitulo width="10px">U. Inclusao</th>
                   <th align=center class=ColunaTitulo width="10px">U. Alteracao</th>
+                  <th align=center class=ColunaTitulo width="10px">Multa</th>
+                  <th align=center class=ColunaTitulo width="10px">Juros</th>
                   <th align=center class=ColunaTitulo>Total</th>
                 </tr>
               {/if}
@@ -337,22 +341,24 @@
                 <td class="ColunaObs"> {$lanc[i].OBS} </td>
                 <td width="10px"> {$lanc[i].NOMEREDUZIDO_INSERT}</td>
                 <td width="10px"> {$lanc[i].NOMEREDUZIDOALTERACAO}</td>
+                <td width="10px"> {$lanc[i].MULTA|default:0|number_format:2:",":"."} </td>
+                <td width="10px"> {$lanc[i].JUROS|default:0|number_format:2:",":"."} </td>
                 <td> {$lanc[i].TOTAL|number_format:2:",":"."} </td>
 
               </tr>
 
               {sectionelse}
               <tr>
-                <td colspan="14" class="text-center">Não há valores cadastrados para este período</td>
+                <td colspan="16" class="text-center">Não há valores cadastrados para este período</td>
               </tr>
               {/section}
 
               <tr class="totais-group">
-                <td align=right class=ColunaTitulo colspan="14"><b><big>Total...:
+                <td align=right class=ColunaTitulo colspan="16"><b><big>Total...:
                       R${$totalParcial|number_format:2:",":"."}</big></b></td>
               </tr>
               <tr class="totais-group">
-                <td align=right class=ColunaTitulo colspan="14"><b><big>TOTAL GERAL...:
+                <td align=right class=ColunaTitulo colspan="16"><b><big>TOTAL GERAL...:
                       R${$totalGeral|number_format:2:",":"."}</big></b></td>
               </tr>
 
@@ -412,14 +418,18 @@
     }
     
     // Cria o blob e faz o download
-    var blob = new Blob([csv], {ldelim}type: 'text/csv;charset=utf-8;'{rdelim});
+    var blobOptions = {};
+    blobOptions.type = 'text/csv;charset=utf-8;';
+    var blob = new Blob([csv], blobOptions);
     var link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = 'Financeiro_Analitico_{$dataInicio}_a_{$dataFim}.csv';
     link.click();
   }
 
-  // debitos / creditos
+  // debitos / creditos - gráficos desabilitados (elementos não existem no template)
+  // Código comentado para evitar erros de sintaxe quando variáveis não estão definidas
+  /*
   var options = {
     scales: {
       yAxes: [{
@@ -434,7 +444,7 @@
   };
 
   var data = {
-    labels: {$label},
+    labels: [],
     datasets: [{
         label: "Debitos",
         fillColor: "rgba(255,10,0,0.2)",
@@ -443,7 +453,7 @@
         pointStrokeColor: "#fff",
         pointHighlightFill: "#fff",
         pointHighlightStroke: "rgba(220,220,220,1)",
-        data: {$pag}
+        data: []
       },
       {
         label: "Creditos",
@@ -453,27 +463,17 @@
         pointStrokeColor: "#fff",
         pointHighlightFill: "#fff",
         pointHighlightStroke: "rgba(151,187,205,1)",
-        data: {$rec}
+        data: []
       }
     ]
   };
-
-  // saldos
-  //barShowStroke: false,
-  //scaleBeginAtZero : false,
-  //scaleOverride: true,
-  //scaleSteps: 20,
-  //scaleStepWidth: 2,
-  //scaleStartValue: -20,
-  //responsive: true,
-  //barBeginAtOrigin: true,
 
   var optionsSaldo = {
     responsive: true,
   };
 
   var dataSaldo = {
-    labels: {$labelSaldo},
+    labels: [],
     datasets: [{
       label: "Saldo",
       fillColor: "rgba(255,10,0,0.2)",
@@ -482,17 +482,23 @@
       pointStrokeColor: "#fff",
       pointHighlightFill: "#fff",
       pointHighlightStroke: "rgba(220,220,220,1)",
-      data: {$saldo}
+      data: []
     }]
   };
 
-
-
   window.onload = function() {
-
-    var ctx = document.getElementById("lineChart").getContext("2d");
-    var LineChart = new Chart(ctx).Line(data, options);
-    var ctxBar = document.getElementById("barChart").getContext("2d");
-    var BarChart = new Chart(ctxBar).Bar(dataSaldo, optionsSaldo);
+    var lineChartEl = document.getElementById("lineChart");
+    var barChartEl = document.getElementById("barChart");
+    
+    if (lineChartEl) {
+      var ctx = lineChartEl.getContext("2d");
+      var LineChart = new Chart(ctx).Line(data, options);
+    }
+    
+    if (barChartEl) {
+      var ctxBar = barChartEl.getContext("2d");
+      var BarChart = new Chart(ctxBar).Bar(dataSaldo, optionsSaldo);
+    }
   }
+  */
 </script>

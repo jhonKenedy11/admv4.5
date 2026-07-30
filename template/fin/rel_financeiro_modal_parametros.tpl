@@ -84,8 +84,20 @@
                             </div>
                         </div>
 
+                        <!-- Ano (somente DRE Anual) -->
+                        <div class="form-group col-md-6 col-sm-6 col-xs-6" id="ano_container" style="display: none;">
+                            <label class="">Ano</label>
+                            <div>
+                                <select class="form-control" id="ano" name="ano">
+                                    {foreach from=$anos item=anoItem}
+                                        <option value="{$anoItem}" {if $anoItem eq $anoAtual}selected{/if}>{$anoItem}</option>
+                                    {/foreach}
+                                </select>
+                            </div>
+                        </div>
+
                         <!-- Data de Referência -->
-                        <div class="form-group col-md-6 col-sm-6 col-xs-6">
+                        <div class="form-group col-md-6 col-sm-6 col-xs-6" id="referencia_container">
                             <label>Data de Referência</label>
                             <select class="form-control" id="referencia" name="referencia">
                                 {html_options values=$data_referencia_ids output=$data_referencia_names}

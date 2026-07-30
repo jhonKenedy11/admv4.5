@@ -94,7 +94,7 @@
                                         <div class="col-md-9 col-sm-9 col-xs-9">
                                         <table id="datatable" class="table table-bordered jambo_table">
                                             <thead>
-                                                <tr style="background: #2A3F54; color: white;">
+                                                <tr class="headings">
                                                     <th></th>
                                                     <th>C&oacute;digo</th>
                                                     <th>C&oacute;d. Fabricante</th>
@@ -161,7 +161,7 @@
                                         <div class="col-md-3 col-sm-3 col-xs-3">
                                         <table id="datatable" class="table table-bordered jambo_table">
                                             <thead>
-                                                <tr style="background: #2A3F54; color: white;">
+                                                <tr class="headings">
                                                     <th></th>
                                                     <th style="display:none;">C&oacute;digo</th>
                                                     <th>C&oacute;d. Equivalente</th>

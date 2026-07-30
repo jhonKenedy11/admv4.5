@@ -466,6 +466,17 @@ function processaRetorno341($ponteiro){
 
                 $arrLanc = '';
                 $lanc[$i]['idTituloBanco'] = substr($linha, 70,11);
+                // Extrai valorTitulo antes da busca para usar quando lançamento não for encontrado
+                // Formato Itaú: posição 152-164 (13 dígitos sem ponto decimal, últimos 2 são centavos)
+                $valorTituloStr = substr($linha, 152,13);
+                $valorTituloStr = trim($valorTituloStr);
+                if ($valorTituloStr != '' && is_numeric($valorTituloStr)) {
+                    // Converte para número com ponto decimal (últimos 2 dígitos são centavos)
+                    $lanc[$i]['valorTitulo'] = substr($valorTituloStr, 0, -2) . '.' . substr($valorTituloStr, -2);
+                    $lanc[$i]['valorTitulo'] = floatval($lanc[$i]['valorTitulo']);
+                } else {
+                    $lanc[$i]['valorTitulo'] = 0;
+                }
                 // ID = idTituloBanco
                 // $lanc[$i]['idTituloBanco'] = substr($linha, 37,25);
                 // $id = substr($linha, 37,25);
@@ -478,11 +489,13 @@ function processaRetorno341($ponteiro){
                     $lanc[$i]['nf'] = $arrLanc[0]['DOCTO'].$arrLanc[0]['SERIE'].$arrLanc[0]['PARCELA'];
                     $lanc[$i]['id'] = $arrLanc[0]['ID'];
                     $lanc[$i]['sitant'] = $arrLanc[0]['SITPGTO'];
+                    $lanc[$i]['total'] = floatval($arrLanc[0]['TOTAL']);
                 else:    
                     $lanc[$i]['nf'] = 'não localizado';
                     $lanc[$i]['id'] = '0';
+                    // Usa valorTitulo do arquivo quando lançamento não é encontrado
+                    $lanc[$i]['total'] = $lanc[$i]['valorTitulo'];
                 endif;
-                $lanc[$i]['total'] = $arrLanc[0]['TOTAL'];
                 $lanc[$i]['tipoIncr'] = substr($linha, 1,2);
                 $lanc[$i]['numIncr'] = substr($linha, 3,14);
                 $lanc[$i]['idEmpBeneficiaria'] = substr($linha, 20,17);
@@ -494,7 +507,7 @@ function processaRetorno341($ponteiro){
                 case '02':
                     $lanc[$i]['descOcorrencia'] = 'Entrada Confirmada';
                     $quantReg02 ++;
-                    $total02 += $lanc[$i]['total'];
+                    $total02 += floatval($lanc[$i]['total']);
                     break;
                 case '03':
                     $lanc[$i]['descOcorrencia'] = 'Entrada Rejeitada';
@@ -751,6 +764,10 @@ function processaRetorno341($ponteiro){
 
 
 
+
+//---------------------------------------------------------------
+// retorno SICREDI
+//---------------------------------------------------------------
 function processaRetorno748($ponteiro){
 
     $par = explode("|", $this->m_letra);
@@ -861,23 +878,20 @@ function processaRetorno748($ponteiro){
                 $data_objeto = DateTime::createFromFormat('d-m-y', $lanc[$i]['dataOcorrencia']);
                 $lanc[$i]['dataOcorrenciaBD'] = $data_objeto->format('Y-m-d');
 
-                //117 - 126 - 010 - Seu número
-                //Nosso ID do lancamento enviado pelo arquivo de remessa
-                $lanc[$i]['idTituloBanco'] = substr($linha, 116,10);
-                $lanc[$i]['numControle'] = substr($linha, 116,10); // código interno
-                $lanc[$i]['numDoc'] = substr($linha, 116,10); 
+                //117 - 126 - Seu número = ID do lançamento (remessa 748 grava com zeros à esquerda)
+                $lanc[$i]['numControle'] = substr($linha, 116,10);
+                $lanc[$i]['idTituloBanco'] = $lanc[$i]['numControle'];
+                $lanc[$i]['numDoc'] = $lanc[$i]['numControle'];
 
-                //********* COMENTADO POIS O RETORNO VEM COM ZEROS A DIREITA ***************************
-                //busca por id titulo ou nosso numero 
-                //$idLancamento  = rtrim($lanc[$i]['idTituloBanco'], '0');
-                //$this->setId($idLancamento);
-                //$arrLanc = $this->select_lancamento();
-                //se nao localizar pelo id, busca pelo nosso numero
-                //if(!is_array($arrLanc)){
-                    $barra = "/";
-                    $nosso_numero = substr_replace($lanc[$i]['nossoNumero'], $barra, 2, 0);
+                $id = intval(trim($lanc[$i]['numControle']));
+                if ($id > 0) {
+                    $this->setId($id);
+                    $arrLanc = $this->select_lancamento();
+                }
+                if (empty($arrLanc)) {
+                    $nosso_numero = substr_replace($lanc[$i]['nossoNumero'], '/', 2, 0);
                     $arrLanc = $this->select_lancamento_nossonumero_748($nosso_numero, $codContaBanco);
-                //}
+                }
 
                 // **************** buscar nosso numero mais conta
                 if (is_array($arrLanc)){
@@ -888,6 +902,7 @@ function processaRetorno748($ponteiro){
                 }else{
                     $lanc[$i]['nf'] = 'não localizado';
                     $lanc[$i]['id'] = '0';
+                    $lanc[$i]['total'] = '0';
                 }
                 /*127 - 146 - 020 - Filler (Quando tratar-se de um registro de retorno de
                                             liquidação via compensação, na posição 127-131, irá a
@@ -938,7 +953,7 @@ function processaRetorno748($ponteiro){
                     case '02':
                         $lanc[$i]['descOcorrencia'] = 'Entrada Confirmada';
                         $quantReg02 ++;
-                        $total02 += $lanc[$i]['total'];
+                        $total02 += floatval($lanc[$i]['total']);
                         break;
                     case '03':
                         $lanc[$i]['descOcorrencia'] = 'Entrada Rejeitada';
@@ -1101,7 +1116,6 @@ function processaRetorno748($ponteiro){
 
 } //fim processaRetorno748
 
-
 //---------------------------------------------------------------
 //---------------------------------------------------------------
 function mostraRetorno($mensagem=null, $retorno=null){
@@ -1109,6 +1123,13 @@ function mostraRetorno($mensagem=null, $retorno=null){
     $par = explode("|", $this->m_letra);
     $codEmpresaBanco = 0;
     $codContaBanco = 0;
+    $f_name = '';
+    $f_tmp = '';
+    $banco = '';
+    // Garante variáveis do retorno para o template (PHP 8: count() não aceita null)
+    $this->smarty->assign('lanc', []);
+    $this->smarty->assign('lancHeader', []);
+    $this->smarty->assign('lancTrailler', []);
 
     // conta bancaria
     // $consulta = new c_banco();
@@ -1156,6 +1177,10 @@ function mostraRetorno($mensagem=null, $retorno=null){
         //$banco = $this->m_banco;
         $function_name = 'processaRetorno'.$banco;
         $lanc = $this->$function_name($ponteiro);
+        if (!is_array($lanc)) {
+            $lanc = [];
+        }
+        $this->smarty->assign('lanc', $lanc);
         
         // $this->processaRetorno237($ponteiro);
 
@@ -1192,7 +1217,7 @@ function mostraRetorno($mensagem=null, $retorno=null){
     $sql = "select centrocusto as id, descricao from fin_centro_custo where (ativo='S')";
     $consulta->exec_sql($sql);
     $consulta->close_connection();
-    $result = $consulta->resultado;
+    $result = $consulta->resultado ?? [];
     for ($i=0; $i < count($result); $i++){
             $filial_ids[$i] = $result[$i]['ID'];
             $filial_names[$i] = ucwords(strtolower($result[$i]['DESCRICAO']));

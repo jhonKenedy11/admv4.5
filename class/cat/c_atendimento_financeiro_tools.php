@@ -97,7 +97,14 @@ Class c_atendimento_financeiro_tools extends c_atendimento {
     
         //setlocale(LC_MONETARY, 'en_US');
         $descCondPgto = str_replace('DIAS', '', $condPgto);
-        $parcelas = explode("/", $condPgto);
+        
+        // Tratar condições especiais como "CONTRA EMPENHO"
+        if (strpos($condPgto, 'CONTRA EMPENHO') !== false || strpos($condPgto, 'À VISTA') !== false) {
+            $parcelas = array('0'); // Pagamento à vista
+        } else {
+            $parcelas = explode("/", $condPgto);
+        }
+        
         $numParcelas = count($parcelas);
         $total = str_replace('.', '', $total);
         $total = str_replace(',', '.', $total);

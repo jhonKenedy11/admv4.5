@@ -15,17 +15,20 @@ endif;
 $dir = dirname(__FILE__);
 require_once($dir . "/../../../smarty/libs/Smarty.class.php");
 require_once($dir . "/../../class/ped/c_pedido_ps.php");
+require_once($dir . "/../../class/ped/c_cotacao.php");
+require_once($dir . "/../../class/fin/c_lancamento.php");
 require_once($dir . "/../../class/est/c_produto.php");
-require_once($dir . "/../../class/est/c_produto_estoque.php");
+require_once($dir . "/../../class/cat/c_servico.php");
 require_once($dir . "/../../class/ped/c_pedido_ps_tools.php");
 require_once($dir . "/../../class/ped/c_parametro.php");
+include_once($dir . "/../../forms/ped/p_pedido_venda_nf_pecas_novo.php");
 
 //Class p_pedido_ps
 class p_pedido_ps extends c_pedido_ps
 {
 
     private $m_submenu      = NULL;
-    private $m_letra        = NULL;
+    public $m_letra        = NULL;
     private $m_pesq         = NULL;
     private $m_par          = NULL;
     private $m_vlrVisita    = NULL;
@@ -37,6 +40,11 @@ class p_pedido_ps extends c_pedido_ps
     public $m_letra_servico = NULL;
     public $m_param = NULL;
     private $m_cliente      = NULL;
+    private $m_origem       = NULL;
+    private $m_metodo       = NULL;
+    private $m_motivoSelecionados = NULL;
+    private $m_obsPerda     = NULL;
+    private $m_condPagSelected = NULL;
 
 
     /**
@@ -89,8 +97,14 @@ class p_pedido_ps extends c_pedido_ps
         $this->m_situacoesAtendimento = $parmPost['situacoesAtendimento'];
         $this->m_vendedorSelected = $parmPost['vendedorSelected'];
         $this->m_condPagSelected = $parmPost['condPagamentoSelected'];
-        $this->m_param = $parmPost['param'];
+        $this->m_motivoSelecionados = isset($parmPost['motivoSelected']) ? $parmPost['motivoSelected'] : '';
+        $this->m_obsPerda = isset($parmPost['obsPerda']) ? trim($parmPost['obsPerda']) : '';
+        $this->m_param = (isset($parmPost['param']) && $parmPost['param'] !== '' && $parmPost['param'] !== null)
+            ? $parmPost['param']
+            : (isset($parmGet['param']) ? $parmGet['param'] : null);
         $this->m_cliente = isset($parmPost['pessoa']) ? $parmPost['pessoa'] : ''; // Add this line
+        $this->m_origem = (isset($parmGet['origem']) ? $parmGet['origem'] : (isset($parmPost['origem']) ? $parmPost['origem'] : ''));
+        $this->m_metodo = (isset($parmGet['metodo']) ? $parmGet['metodo'] : (isset($parmPost['metodo']) ? $parmPost['metodo'] : ''));
 
 
         $this->m_par = explode("|", $this->m_letra);
@@ -107,8 +121,11 @@ class p_pedido_ps extends c_pedido_ps
         // dados para exportacao e relatorios
         $this->smarty->assign('titulo', "Pedido");
         $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6]");
-        $this->smarty->assign('disableSort', "[ 0 ]");
+        $this->smarty->assign('disableSort', "[ 6 ]");
         $this->smarty->assign('numLine', "25");
+        // Mantém a ordem vinda do backend (select_pedido_letra: ORDER BY A.EMISSAO DESC)
+        // em vez do default do DataTable (1ª coluna asc = "Ped."/ID).
+        $this->smarty->assign('orderDefault', '[]');
 
         // metodo SET dos dados do FORM para o TABLE
         $this->setId(isset($parmPost['id']) ? $parmPost['id'] : (isset($parmGet['id']) ? $parmGet['id'] : ''));
@@ -136,6 +153,7 @@ class p_pedido_ps extends c_pedido_ps
         $this->setCentroCusto(isset($parmPost['centroCusto']) ? $parmPost['centroCusto'] : $this->m_empresacentrocusto);
         $this->setCentroCustoEntrega(isset($parmPost['centroCustoEntrega']) ? $parmPost['centroCustoEntrega'] : $this->m_empresacentrocusto);
         $this->setSituacao(isset($parmPost['situacao']) ? $parmPost['situacao'] : '');
+        $this->setSerie(isset($parmPost['tipoDocFiscal']) ? $parmPost['tipoDocFiscal'] : NULL);
         $this->setObra(isset($parmPost['obra']) ? $parmPost['obra'] : NULL);
         $this->setResponsavelTecnico(isset($parmPost['responsavel_tecnico']) ? $parmPost['responsavel_tecnico'] : NULL);
         $this->setEnderecoEntrega(isset($parmPost['endereco_entrega']) ? $parmPost['endereco_entrega'] : NULL);
@@ -158,6 +176,13 @@ class p_pedido_ps extends c_pedido_ps
         $this->setDesconto(isset($parmPost['valorDesconto']) ? $parmPost['valorDesconto'] : 0);
 
         $this->setCodFabricante(isset($parmPost['codFabricante']) ? $parmPost['codFabricante'] : '');
+        $this->setNumeroOc(isset($parmPost['numeroOcPecas']) ? $parmPost['numeroOcPecas'] : '');
+        $this->setNItemPed(isset($parmPost['nItemPedPecas']) ? $parmPost['nItemPedPecas'] : '');
+        $this->setDataEntregaPeca(isset($parmPost['dataEntregaPeca']) ? $parmPost['dataEntregaPeca'] : '');
+
+        //==========================MARKUP=======================
+        $this->setMarkupProduto(isset($parmPost['markupProduto']) ? $parmPost['markupProduto'] : '');
+        $this->setMarkup(isset($parmPost['markup']) ? $parmPost['markup'] : '');
 
         //==========================SERVICOS=======================
         $this->setIdServico(isset($parmPost['idServicos']) ? $parmPost['idServicos'] : '');
@@ -174,7 +199,7 @@ class p_pedido_ps extends c_pedido_ps
         $this->setDescricaoServico(isset($parmPost['descricaoServico']) ? $parmPost['descricaoServico'] : '');
         $this->setTotalServico(isset($parmPost['totalServico']) ? $parmPost['totalServico'] : 0);
         // observacao do servico/item no pedido, salvo em fat_pedido_servico.
-        $this->setObsItemServico(isset($parmPost['obsItemServico']) ? $parmPost['obsItemServico'] : ''); 
+        $this->setObsItemServico(isset($parmPost['obsItemServico']) ? $parmPost['obsItemServico'] : '');
 
         //==========================OS=======================
         $this->setOs(isset($parmPost['os']) ? $parmPost['os'] : '');
@@ -185,10 +210,8 @@ class p_pedido_ps extends c_pedido_ps
         $this->setPrazoEntregaOs(isset($parmPost['prazoEntregaOs']) ? $parmPost['prazoEntregaOs'] : '');
         $this->setObsOs(isset($parmPost['obsOs']) ? $parmPost['obsOs'] : '');
         // observacao na Os.
-        $this->setObsServicos(isset($parmPost['obsServicos']) ? $parmPost['obsServicos'] : ''); 
-        
+        $this->setObsServicos(isset($parmPost['obsServicos']) ? $parmPost['obsServicos'] : '');
     }
-
 
     /**
      * <b> É responsavel para indicar para onde o sistema ira executar </b>
@@ -211,7 +234,16 @@ class p_pedido_ps extends c_pedido_ps
                     if ($this->getId() > 0) {
                         $this->desenhaCadastroPedidoPs();
                     } else {
-                        $this->mostraPedidoPs('Pedido não pode ser alterado.');
+                        $this->mostraPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro!',
+                                text: 'Pedido não pode ser alterado.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
                     }
                 }
                 break;
@@ -220,23 +252,647 @@ class p_pedido_ps extends c_pedido_ps
                     $idInsert = $this->incluiPedido();
                     $result = $this->getValorTotal();
                     $this->updateField("TOTAL", $result, "FAT_PEDIDO");
-                    $this->mostraPedidoPs('Registro Salvo! N&#176;: ' . $idInsert);
+                    if ($idInsert > 0) {
+                        $this->mostraPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Registro Salvo!',
+                                text: 'N°: " . $idInsert . "',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                    } else {
+                        $this->mostraPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro!',
+                                text: 'Erro ao salvar o registro.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                    }
                 }
                 break;
             case 'altera': // CONCLUIR
                 if ($this->verificaDireitoUsuario('PedVendas', 'A')) {
-                    $this->alteraPedido();
-                    $result = $this->getValorTotal();
-                    
-                    //if($this->getValorDespAcessorias() !== "0.00" or $this->getValorFrete() !== "0.00"){
-                        $this->calculaImpostos();
-                    //}
-
-                    $this->updateField("TOTAL", $result, "FAT_PEDIDO");
-                    if ($this->getOs() != '0') {
-                        $this->atualizaOsPedido();
+                    $idPed = $this->getId();
+                    if ($idPed === '' || $idPed === null || (int) $idPed <= 0) {
+                        $this->mostraPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro!',
+                                text: 'Identificador do pedido inválido.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
                     }
-                    $this->mostraPedidoPs('Registro Salvo! N&#176;: ' . $this->getId());
+
+                    $atendimentoDb = $this->select_pedido_id();
+                    $situacaoDb = isset($atendimentoDb[0]['SITUACAO']) ? $atendimentoDb[0]['SITUACAO'] : null;
+                    $this->setUsrAprovacao($atendimentoDb[0]['USRAPROVACAO'] ?? null);
+                    $situacaoNova = $this->getSituacao();
+                    $msgAlertaEncomenda = '';
+                    $estoqueValidado = isset($_POST['estoqueValidado']) && (string) $_POST['estoqueValidado'] === '1';
+
+                    if ($this->getSituacao() === null) {
+                        $this->mostraPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro!',
+                                text: 'Pedido não localizado.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
+
+                    // Cancelado (8) -> Cotação (5): reativação sem estorno de estoque / financeiro
+                    if ((int) $situacaoDb === 8 && (int) $situacaoNova === 5) {
+                        $this->updateField('SITUACAO', 5, 'FAT_PEDIDO');
+                        $this->buscaPedido();
+                        $this->desenhaCadastroPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Cotação',
+                                text: 'Pedido reativado para cotação.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
+
+                    // Baixado (9) -> Emitir NF (3): apenas fase; baixa de estoque mantém-se
+                    // Com NF já quitada no financeiro, não permite voltar para Emitir NF
+                    if ((int) $situacaoDb === 9 && (int) $situacaoNova === 3) {
+                        if (!$this->verificaFinanceiroNota((int) $this->getId())) {
+                            $this->buscaPedido();
+                            $this->desenhaCadastroPedidoPs('');
+                            echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Alteração não permitida',
+                                    text: 'Não é possível voltar para Emitir NF enquanto existir parcela baixada no financeiro.',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            break;
+                        }
+                        if ($this->pedidoPossuiNotaComFinanceiroBaixado((int) $this->getId())) {
+                            $this->buscaPedido();
+                            $this->desenhaCadastroPedidoPs('');
+                            echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Alteração não permitida',
+                                    text: 'Este pedido está baixado e possui nota com financeiro quitado. Não é possível voltar para Emitir NF.',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            break;
+                        }
+                        $this->updateField('SITUACAO', 3, 'FAT_PEDIDO');
+                        $this->buscaPedido();
+                        $this->desenhaCadastroPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Emitir NF',
+                                text: 'Situação alterada para Emitir NF.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
+
+                    // Emitir NF (3) -> Pedido (6): apenas fase; sem nova reserva
+                    if ((int) $situacaoDb === 3 && (int) $situacaoNova === 6) {
+                        if (!$this->verificaFinanceiroNota((int) $this->getId())) {
+                            $this->buscaPedido();
+                            $this->desenhaCadastroPedidoPs('');
+                            echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Alteração não permitida',
+                                    text: 'Não é possível voltar para Pedido enquanto existir parcela baixada no financeiro.',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            break;
+                        }
+                        $this->updateField('SITUACAO', 6, 'FAT_PEDIDO');
+                        $this->buscaPedido();
+                        $this->desenhaCadastroPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Pedido',
+                                text: 'Situação alterada para Pedido.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
+
+                    if ((int) $situacaoNova === 8) {
+                        $this->buscaPedido();
+                        $this->desenhaCadastroPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'info',
+                                title: 'Cancelado',
+                                text: 'Este pedido está cancelado e não pode ser alterado.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
+
+                    // Emitir NF (3) -> Cotação (5): exige ausência de NF/financeiro baixado
+                    if ((int) $situacaoDb === 3 && (int) $situacaoNova === 5) {
+                        if (!$this->verificaFinanceiroNota((int) $this->getId())) {
+                            $this->buscaPedido();
+                            $this->desenhaCadastroPedidoPs('');
+                            echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Alteração não permitida',
+                                    text: 'Existe nota fiscal ou financeiro baixado vinculado a este pedido. Não é possível voltar para cotação.',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            break;
+                        }
+                        if (c_produto_estoque::pedidoPossuiEstoqueBaixadoPorPedido($this->m_empresacentrocusto, (int) $this->getId())) {
+                            $this->buscaPedido();
+                            $this->desenhaCadastroPedidoPs('');
+                            echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Estorno não permitido',
+                                    text: 'Já houve baixa de estoque pelo financeiro ou NF. Não é possível voltar para cotação.',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            break;
+                        }
+                        $paramEst = new c_banco();
+                        $paramEst->setTab("EST_PARAMETRO");
+                        $controlaEstorno = $paramEst->getField("CONTROLAESTOQUE", "FILIAL=" . $this->m_empresacentrocusto);
+                        $paramEst->close_connection();
+                        if ($controlaEstorno === 'S') {
+                            $cceEstorno = (int) ($this->getCentroCustoEntrega() ?: $this->m_empresacentrocusto);
+                            c_produto_estoque::liberaEstoquePedidoCancelamento($cceEstorno, (int) $this->getId());
+                        }
+                        $this->updateField('SITUACAO', 5, 'FAT_PEDIDO');
+                        $this->buscaPedido();
+                        $this->desenhaCadastroPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Cotação',
+                                text: 'Pedido voltou para cotação.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
+
+                    // Encomenda (13) -> Cotação (5): libera reserva parcial; bloqueia se NF/financeiro baixado
+                    if ((int) $situacaoDb === 13 && (int) $situacaoNova === 5) {
+                        if (!$this->verificaFinanceiroNota((int) $this->getId())) {
+                            $this->buscaPedido();
+                            $this->desenhaCadastroPedidoPs('');
+                            echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Alteração não permitida',
+                                    text: 'Existe nota fiscal ou financeiro baixado vinculado a este pedido. Não é possível voltar para cotação.',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            break;
+                        }
+                        if (c_produto_estoque::pedidoPossuiEstoqueBaixadoPorPedido($this->m_empresacentrocusto, (int) $this->getId())) {
+                            $this->buscaPedido();
+                            $this->desenhaCadastroPedidoPs('');
+                            echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Estorno não permitido',
+                                    text: 'Já houve baixa de estoque pelo financeiro ou NF. Não é possível voltar para cotação.',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            break;
+                        }
+                        $paramEstEnc = new c_banco();
+                        $paramEstEnc->setTab("EST_PARAMETRO");
+                        $controlaEstornoEnc = $paramEstEnc->getField("CONTROLAESTOQUE", "FILIAL=" . $this->m_empresacentrocusto);
+                        $paramEstEnc->close_connection();
+                        if ($controlaEstornoEnc === 'S') {
+                            $this->buscaPedido();
+                            $cceEnc = (int) ($this->getCentroCustoEntrega() ?: $this->m_empresacentrocusto);
+                            c_produto_estoque::liberaEstoquePedidoCancelamento($cceEnc, (int) $this->getId());
+                            $bancoQa = new c_banco();
+                            $bancoQa->exec_sql('UPDATE FAT_PEDIDO_ITEM SET QTATENDIDA = 0 WHERE ID = ' . (int) $this->getId());
+                            $bancoQa->close_connection();
+                        }
+                        $this->updateField('SITUACAO', 5, 'FAT_PEDIDO');
+                        $this->buscaPedido();
+                        $this->desenhaCadastroPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Cotação',
+                                text: 'Encomenda voltou para cotação.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
+
+                    // Estorno: estava confirmado (6) no banco e volta para cotação (5) — libera reserva (status 0 no estoque)
+                    if ((int) $situacaoDb === 6 && (int) $situacaoNova === 5) {
+                        if (c_produto_estoque::pedidoPossuiEstoqueBaixadoPorPedido($this->m_empresacentrocusto, (int) $this->getId())) {
+                            $this->buscaPedido();
+                            $this->desenhaCadastroPedidoPs('');
+                            echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Estorno não permitido',
+                                    text: 'Já houve baixa de estoque pelo financeiro ou NF. Não é possível voltar para cotação.',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            break;
+                        }
+                        $paramEst = new c_banco();
+                        $paramEst->setTab("EST_PARAMETRO");
+                        $controlaEstorno = $paramEst->getField("CONTROLAESTOQUE", "FILIAL=" . $this->m_empresacentrocusto);
+                        $paramEst->close_connection();
+                        if ($controlaEstorno === 'S') {
+                            $this->buscaPedido();
+                            $cceEst = (int) ($this->getCentroCustoEntrega() ?: $this->m_empresacentrocusto);
+                            c_produto_estoque::liberaEstoquePedidoCancelamento($cceEst, (int) $this->getId());
+                            $bancoQaEst = new c_banco();
+                            $bancoQaEst->exec_sql('UPDATE FAT_PEDIDO_ITEM SET QTATENDIDA = 0 WHERE ID = ' . (int) $this->getId());
+                            $bancoQaEst->close_connection();
+                        }
+                        $this->updateField('SITUACAO', 5, 'FAT_PEDIDO');
+                        $this->buscaPedido();
+                        $this->desenhaCadastroPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Estorno',
+                                text: 'Pedido voltou para cotação.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
+
+                    // Pedido (6) -> Pedido (6): permite alterar dados administrativos (frete/obs/vendedor/cond pgto/etc)
+                    // mantendo bloqueio de itens (já controlado pelo frontend e rotas AJAX específicas).
+                    // Também evita refazer reserva de estoque desnecessariamente.
+                    if ((int) $situacaoDb === 6 && (int) $situacaoNova === 6) {
+                        $res = $this->alteraPedido();
+                        if (!is_string($res)) {
+                            $totalPedidoCalc = $this->calculaImpostos();
+                            if ($totalPedidoCalc !== null) {
+                                $this->setValorTotal(round((float) $totalPedidoCalc, 2, PHP_ROUND_HALF_EVEN), true);
+                            }
+                            $this->updateField("TOTAL", $this->getValorTotal(), "FAT_PEDIDO");
+                        }
+                        $this->buscaPedido();
+                        $this->desenhaCadastroPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        if (!is_string($res)) {
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Registro Salvo!',
+                                    text: 'N°: " . $this->getId() . "',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                        } else {
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Erro!',
+                                    text: '" . addslashes($res) . "',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                        }
+                        break;
+                    }
+
+                    // Encomenda (13) -> Pedido (6): exige validação de estoque nas ferramentas
+                    if ((int) $situacaoDb === 13 && (int) $situacaoNova === 6 && !$estoqueValidado) {
+                        $this->buscaPedido();
+                        $this->desenhaCadastroPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Validação necessária',
+                                text: 'Use Ferramentas → Validar Estoque antes de confirmar como pedido.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
+
+                    if (
+                        ((int) $situacaoDb === 5 || (int) $situacaoDb === 13)
+                        && (int) $situacaoNova === 6
+                    ) {
+                        $itensPed = $this->select_pedido_item_id();
+                        $servsPed = $this->select_servicos_atendimento();
+                        $nIt = is_array($itensPed) ? count($itensPed) : 0;
+                        $nSv = is_array($servsPed) ? count($servsPed) : 0;
+                        if ($nIt === 0 && $nSv === 0) {
+                            $this->buscaPedido();
+                            $this->desenhaCadastroPedidoPs('');
+                            echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Pedido',
+                                    text: 'Inclua ao menos um produto ou um serviço antes de confirmar como pedido.',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            break;
+                        }
+
+                        $totalPedidoCalc = $this->calculaImpostos();
+                        if ($totalPedidoCalc !== null) {
+                            $this->setValorTotal(round((float) $totalPedidoCalc, 2, PHP_ROUND_HALF_EVEN), true);
+                        }
+
+                        $fatParamsDesconto = $this->getFatParametrosFilial();
+                        $perDesconto = $this->calcularPercentualDescontoPedido();
+                        $descontoMaximo = (float) ($fatParamsDesconto['descontoMaximo'] ?? 0);
+                        $aprovacaoDesconto = strtoupper((string) ($fatParamsDesconto['aprovacao'] ?? 'N'));
+                        $excedeuDesconto = $descontoMaximo > 0 && $perDesconto > $descontoMaximo;
+
+                        if ($excedeuDesconto) {
+                            $perFmt = number_format($perDesconto, 2, ',', '.');
+                            $maxFmt = number_format($descontoMaximo, 2, ',', '.');
+                            $msgDescontoBase = 'Desconto máximo permitido: ' . $maxFmt
+                                . '%. Desconto aplicado: ' . $perFmt . '%. ';
+
+                            if (!in_array($aprovacaoDesconto, ['S', 'O'], true)) {
+                                $this->setSituacao(5);
+                                $this->buscaPedido();
+                                $this->desenhaCadastroPedidoPs('');
+                                $msgDescontoJs = addslashes($msgDescontoBase . 'Não é possível confirmar o pedido.');
+                                echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                                echo "<script>
+                                    Swal.fire({
+                                        icon: 'warning',
+                                        title: 'Desconto não permitido',
+                                        text: '" . $msgDescontoJs . "',
+                                        confirmButtonText: 'OK'
+                                    });
+                                </script>";
+                                break;
+                            }
+
+                            if (!$this->possuiUsrAprovacaoValido()) {
+                            $toolsPs = new c_pedido_ps_tools();
+                            $resolucaoEstoque = $toolsPs->pedidoPsResolverConfirmacaoEstoque((int) $this->getId());
+                            $destinoAprov = (int) ($resolucaoEstoque['destino'] ?? 6);
+                            if ($destinoAprov === 0) {
+                                $this->setSituacao(5);
+                                $this->buscaPedido();
+                                $this->desenhaCadastroPedidoPs('');
+                                $msgEstJs = addslashes(
+                                    str_replace(["\r\n", "\r", "\n"], ' ', strip_tags((string) ($resolucaoEstoque['msg'] ?? '')))
+                                );
+                                echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                                echo "<script>
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Estoque insuficiente',
+                                        text: '" . $msgEstJs . "',
+                                        confirmButtonText: 'OK'
+                                    });
+                                </script>";
+                                break;
+                            }
+                            $this->setSituacao(5);
+                            $this->alteraPedido();
+                            $totalPedidoCalc = $this->calculaImpostos();
+                            if ($totalPedidoCalc !== null) {
+                                $this->setValorTotal(round((float) $totalPedidoCalc, 2, PHP_ROUND_HALF_EVEN), true);
+                            }
+                            $this->updateField('TOTAL', $this->getValorTotal(), 'FAT_PEDIDO');
+                            $this->alteraSituacaoAprovacaoPedido(10);
+                            $this->buscaPedido();
+                            $msgAprovacao = 'Pedido aguardando aprovação gerencial (desconto acima do limite).';
+                            if ($destinoAprov === 13) {
+                                $msgAprovacao .= '<br>Há itens sem saldo em estoque — após a liberação, seguirá como encomenda.';
+                            }
+                            $this->desenhaCadastroPedidoPs($msgAprovacao);
+                            break;
+                            }
+                        }
+
+                        $objContaBloq = new c_conta();
+                        if (strtoupper((string) $objContaBloq->contaBloqueada((int) $this->getCliente())) === 'S') {
+                            $this->buscaPedido();
+                            $this->desenhaCadastroPedidoPs('');
+                            echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Cliente bloqueado',
+                                    text: 'Cliente bloqueado. Verifique com o financeiro.',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            break;
+                        }
+
+                        $valorPedidoLimite = doubleval($this->getValorTotal('B'));
+                        if ($valorPedidoLimite <= 0) {
+                            $valorPedidoLimite = doubleval($this->select_totalPedido());
+                        }
+                        $checkLimite = c_lancamento::validaLimiteCreditoPedido(
+                            (int) $this->getCliente(),
+                            (int) $this->getId(),
+                            $valorPedidoLimite,
+                            'confirmar'
+                        );
+                        if (!$checkLimite['ok']) {
+                            $this->buscaPedido();
+                            $this->desenhaCadastroPedidoPs('');
+                            $msgLimiteJs = addslashes(
+                                str_replace(["\r\n", "\r", "\n"], '<br>', $checkLimite['mensagem'])
+                            );
+                            echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Limite de crédito',
+                                    html: '" . $msgLimiteJs . "',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            break;
+                        }
+
+                        if ($estoqueValidado) {
+                            $cceVal = (int) ($this->getCentroCustoEntrega() ?: $this->m_empresacentrocusto);
+                            $resultValEnc = $this->validarEncomendaPedido((int) $this->getId(), $cceVal);
+                            if (empty($resultValEnc['estoqueOk'])) {
+                                $this->buscaPedido();
+                                $this->desenhaCadastroPedidoPs('');
+                                $msgValEncJs = addslashes(
+                                    str_replace(["\r\n", "\r", "\n"], '<br>', $resultValEnc['mensagem'] ?? 'Estoque insuficiente.')
+                                );
+                                echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                                echo "<script>
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Estoque insuficiente',
+                                        html: '" . $msgValEncJs . "',
+                                        confirmButtonText: 'OK'
+                                    });
+                                </script>";
+                                break;
+                            }
+                            $this->setSituacao(6);
+                            $situacaoNova = 6;
+                        } elseif ((int) $situacaoDb === 5) {
+                            $toolsPs = new c_pedido_ps_tools();
+                            $resolucaoEstoque = $toolsPs->pedidoPsResolverConfirmacaoEstoque((int) $this->getId());
+                            $destinoEstoque = (int) ($resolucaoEstoque['destino'] ?? 6);
+                            if ($destinoEstoque === 0) {
+                                $this->buscaPedido();
+                                $this->desenhaCadastroPedidoPs('');
+                                $msgEstJs = addslashes(
+                                    str_replace(["\r\n", "\r", "\n"], '<br>', strip_tags($resolucaoEstoque['msg'] ?? 'Estoque insuficiente.'))
+                                );
+                                echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                                echo "<script>
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Estoque insuficiente',
+                                        html: '" . $msgEstJs . "',
+                                        confirmButtonText: 'OK'
+                                    });
+                                </script>";
+                                break;
+                            }
+                            if ($destinoEstoque === 13) {
+                                $this->setSituacao(13);
+                                $situacaoNova = 13;
+                                $msgAlertaEncomenda = addslashes(
+                                    'Pedido em <b>encomenda</b> — aguardando entrada de estoque.<br><br>'
+                                    . str_replace(["\r\n", "\r", "\n"], '<br>', $resolucaoEstoque['msg'] ?? '')
+                                );
+                            }
+                        }
+                    }
+
+                    // Cotação (5) -> Cotação (5): "Confirmar" grava cabeçalho (frete/despesas/etc.) e precisa recalcular TOTAL
+                    if ((int) $situacaoNova === 5) {
+                        $this->alteraPedido();
+                        $totalPedidoCalc = $this->calculaImpostos();
+                        if ($totalPedidoCalc !== null) {
+                            $this->setValorTotal(round((float) $totalPedidoCalc, 2, PHP_ROUND_HALF_EVEN), true);
+                        }
+                        $result = $this->getValorTotal();
+                        $this->updateField("TOTAL", $result, "FAT_PEDIDO");
+                        $this->buscaPedido();
+                        $this->desenhaCadastroPedidoPs('');
+                        break;
+                    }
+
+                    $finalizacao = $this->pedidoPsFinalizarPosConfirmacao((int) $situacaoDb, (int) $situacaoNova);
+                    if (!$finalizacao['ok']) {
+                        $this->buscaPedido();
+                        $this->desenhaCadastroPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro!',
+                                text: '" . addslashes($finalizacao['erro']) . "',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
+
+                    if ($finalizacao['gerouFinanceiro']) {
+                        break;
+                    }
+
+                    if (!is_string($finalizacao['res'])) {
+                        $this->mostraPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        if ($msgAlertaEncomenda !== '') {
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'info',
+                                    title: 'Encomenda',
+                                    html: '" . $msgAlertaEncomenda . "',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                        } else {
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Registro Salvo!',
+                                    text: 'N°: " . $this->getId() . "',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                        }
+                    } else {
+                        $this->mostraPedidoPs('');
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro!',
+                                text: '" . addslashes($finalizacao['res']) . "',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                    }
                 }
                 break;
             case 'digita': //VOLTAR
@@ -247,13 +903,63 @@ class p_pedido_ps extends c_pedido_ps
             case 'cancela': // CANCELA
                 if ($this->verificaDireitoUsuario('PedVendas', 'E')) {
                     // 8 - CAT_SITUACAO  = CANCELADO
-                    $this->updateField("SITUACAO", 8, "FAT_PEDIDO");
-                    $this->mostraPedidoPs('Pedido Excluído!');
+                    if ($this->verificaFinanceiroNota($this->getId())) {
+                        $transaction = new c_banco();
+                        $transaction->inicioTransacao($transaction->id_connection);
+                        try {
+                            $this->pedidoPsLiberarEstoqueCancelamento($transaction->id_connection);
+                            c_lancamento::cancelaLancamentosAbertosPedido(
+                                $this->getId(),
+                                $this->m_userid,
+                                $transaction->id_connection
+                            );
+                            $this->zeraComissaoItens($this->getId(), $transaction->id_connection);
+                            $this->updateField("SITUACAO", 8, "FAT_PEDIDO", $transaction->id_connection);
+                            $transaction->commit($transaction->id_connection);
+                        } catch (Exception $e) {
+                            $transaction->rollback($transaction->id_connection);
+                            echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Erro!',
+                                    text: '" . addslashes($e->getMessage()) . "',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            $this->mostraPedidoPs('');
+                            break;
+                        }
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Pedido Cancelado!',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        $this->mostraPedidoPs('');
+                    } else {
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Erro!',
+                                    text: 'Pedido não pode ser cancelado, pois já foi emitida uma nota fiscal ou financeiro baixado.',
+                                });
+                            </script>";
+                        $this->mostraPedidoPs('');
+                    }
                 }
                 break;
             case 'recalcularDesconto':
                 if ($this->verificaDireitoUsuario('PedVendas', 'I')) {
                     $idAtendimento = $this->getId();
+                    if ($this->getSituacao() === '6' || $this->getSituacao() === '8') {
+                        $this->buscaPedido();
+                        $this->desenhaCadastroPedidoPs('Operação não permitida nesta situação.');
+                        break;
+                    }
                     $novoDescontoAtendimento = $this->getValorDesconto();
                     $objatendimentoTools = new c_pedido_ps_tools();
                     $msg = $objatendimentoTools->recalcularDescontoPecas($idAtendimento, $novoDescontoAtendimento);
@@ -264,7 +970,15 @@ class p_pedido_ps extends c_pedido_ps
                 if ($this->verificaDireitoUsuario('PedVendas', 'E')) {
                     $this->updateField("OS", $this->getId(), "FAT_PEDIDO");
                     $this->setOs($this->getId());
-                    $this->desenhaCadastroPedidoPs('OS Gerada - ' . $this->getId(), 'sucesso');
+                    $this->desenhaCadastroPedidoPs('');
+                    echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                    echo "<script>
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'OS Gerada!',
+                            confirmButtonText: 'OK'
+                        });
+                    </script>";
                 }
                 break;
             case 'estornarOs': // Estornar OS
@@ -272,7 +986,15 @@ class p_pedido_ps extends c_pedido_ps
                     $this->updateField("OS", 0, "FAT_PEDIDO");
                     $this->estornaDadosOsPedido();
                     $this->buscaPedido();
-                    $this->desenhaCadastroPedidoPs('OS Estornada - ' . $this->getId(), 'sucesso');
+                    $this->desenhaCadastroPedidoPs('');
+                    echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                    echo "<script>
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'OS Estornada!',
+                            confirmButtonText: 'OK'
+                        });
+                    </script>";
                 }
                 break;
             case 'duplicaPedido': // Duplica Pedido
@@ -285,7 +1007,15 @@ class p_pedido_ps extends c_pedido_ps
                     $this->duplicaPedidoServicos($idGerado, $idAntigo);
                     $this->buscaPedido();
                     $this->m_submenu = 'alterar';
-                    $this->desenhaCadastroPedidoPs('<b>Editando novo pedido gerado - ' . $this->getId() . '</b>', 'sucesso');
+                    $this->desenhaCadastroPedidoPs('');
+                    echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
+                    echo "<script>
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Pedido Duplicado!',
+                            confirmButtonText: 'OK'
+                        });
+                    </script>";
                 }
                 break;
             case 'atualizarInfo':
@@ -299,7 +1029,7 @@ class p_pedido_ps extends c_pedido_ps
                     $this->desenhaCadastroPedidoPs();
                 }
                 break;
-            
+
             case 'prosseguirComDesconto':
                 $situacao = $this->prosseguirComDesconto();
                 $response = array('situacao' => $situacao);
@@ -391,7 +1121,7 @@ class p_pedido_ps extends c_pedido_ps
                         $this->m_letra = '';
                         $this->m_par = '';
                         $this->mostraPedidoPs('');
-                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                        echo "<script type='text/javascript' src='" . ADMhttpCliente . "/../sweetalert2/dist/sweetalert2.all.min.js'></script>";
                         echo '<script> swal.fire({
                             title: "Atenção!",
                             text: "Pedido não inserido, entre em contato com o suporte!",
@@ -404,7 +1134,7 @@ class p_pedido_ps extends c_pedido_ps
                         $this->calculaImpostos();
                         $this->m_submenu = 'alterar';
                         $this->m_letra = '';
-                        $this->dcontrole();
+                        $this->controle();
                     }
                 }
                 break;
@@ -478,44 +1208,82 @@ class p_pedido_ps extends c_pedido_ps
                     $this->calculaImpostos();
                 }
                 break;
-            case 'vendaPerdida':
-                $item = explode("|", $this->itensperdido);
-                for ($i = 1; $i < count($item); $i++) {
-                    if ($this->verificarPedidoItem($item[$i]) == "") {
-                        $this->atualizarMotivoItem($item[0], $item[$i]);
+            case 'motivoGeral':
+                if ($this->verificaDireitoUsuario('PedVendas', 'A')) {
+                    $pedido = $this->select_pedido_id();
+                    if (empty($pedido) || (int) $pedido[0]['SITUACAO'] !== 5) {
+                        $this->mostraPedidoPs('Venda perdida permitida apenas para pedidos em cotação!', 'alerta');
+                        break;
+                    }
+                    $objLancamento = new c_lancamento();
+                    $searchLanc = $objLancamento->select_lancamento_doc('PED', $this->getId());
+
+                    if ($searchLanc == '' || $searchLanc == null) {
+                        $this->atualizarMotivoItem($this->m_motivoSelecionados);
+                        $this->atualizarObsPerda($this->m_obsPerda);
+                        $this->atualizarFieldPedido(7);
+                        $this->atualizarTotal($this->select_totalPedido());
+                        $this->mostraPedidoPs('Venda perdida confirmada!', 'sucesso');
+                    } else {
+                        $this->mostraPedidoPs('Não foi possível atualizar pedido, existe financeiro cadastrado!', 'alerta');
                     }
                 }
-                $total = $this->select_totalPedido();
-                $this->atualizarTotal($total);
-                $this->desenhaCadastroPedidoPs();
                 break;
             case 'ajax_obra':
                 $cliente_id = $_POST['cliente_id'];
                 $obras = $this->comboObra($cliente_id);
                 $responsaveis = $this->comboResponsavelTecnico();
-                
-                $response = [
+                if (!is_array($obras)) {
+                    $obras = [];
+                }
+                if (!is_array($responsaveis)) {
+                    $responsaveis = [];
+                }
+
+                $response = array_merge([
                     'obras' => $obras,
-                    'responsaveis' => $responsaveis
-                ];
-                
+                    'responsaveis' => $responsaveis,
+                ], $this->saldoCreditoClienteParaJson($cliente_id, (int) $this->getId()));
+
                 header('Content-Type: application/json');
                 echo json_encode($response);
                 break;
             case 'ajax_enderecos':
                 $cliente_id = $_POST['cliente_id'];
                 $enderecos = $this->buscarEnderecosCliente($cliente_id);
-                
-                $response = [
-                    'enderecos' => $enderecos
-                ];
-                
+                $id_representante = $this->busca_representante_cliente($cliente_id);
+                $response = array_merge([
+                    'enderecos' => $enderecos,
+                    'id_representante' => $id_representante,
+                ], $this->saldoCreditoClienteParaJson($cliente_id, (int) $this->getId()));
+
                 header('Content-Type: application/json');
                 echo json_encode($response);
                 break;
+            case 'ajax_validar_encomenda':
+                header('Content-Type: application/json; charset=utf-8');
+                $idPedido = (int) $this->getId();
+                if ($idPedido <= 0 && isset($_POST['id'])) {
+                    $idPedido = (int) $_POST['id'];
+                }
+                if ($idPedido <= 0) {
+                    echo json_encode([
+                        'ok' => false,
+                        'estoqueOk' => false,
+                        'titulo' => 'Erro',
+                        'mensagem' => 'Pedido inválido.',
+                        'itens' => [],
+                    ], JSON_UNESCAPED_UNICODE);
+                    break;
+                }
+                $this->setId($idPedido);
+                $this->buscaPedido();
+                $cce = (int) ($this->getCentroCustoEntrega() ?: $this->m_empresacentrocusto);
+                echo json_encode($this->validarEncomendaPedido($idPedido, $cce), JSON_UNESCAPED_UNICODE);
+                break;
             case 'simulaImpostos':
                 $dadosRelatorio = $this->getRelatorioImpostosPedido($this->getId());
-                if($dadosRelatorio['status'] == false){
+                if ($dadosRelatorio['status'] == false) {
                     $this->smarty->assign('status_relatorio', $dadosRelatorio['status']);
                     $this->smarty->assign('msg_erro', $dadosRelatorio['erro']);
                     $this->smarty->display('relatorio_pedido_impostos.tpl');
@@ -524,6 +1292,54 @@ class p_pedido_ps extends c_pedido_ps
                     $this->smarty->assign('pedido', $dadosRelatorio['pedido']);
                     $this->smarty->assign('itens', $dadosRelatorio['itens']);
                     $this->smarty->display('relatorio_pedido_impostos.tpl');
+                }
+                break;
+            case 'abrirDashboardCrm':
+                if ($this->verificaDireitoUsuario('PedVendas', 'A')) {
+                    $idCliente = ($this->m_param ?? null);
+                    if ($idCliente > 0) {
+                        $idPedido = $this->selectIdUltimaCotacaoAbertaCliente($idCliente);
+                        if ($idPedido > 0) {
+                            $this->setId($idPedido);
+                            $this->buscaPedido();
+                            $this->desenhaCadastroPedidoPs();
+                        } else {
+                            $this->setCliente($idCliente);
+                            $this->m_submenu = 'cadastrar';
+                            $this->desenhaCadastroPedidoPs();
+                        }
+                    } else {
+                        $this->mostraPedidoPs('');
+                    }
+                }
+                break;
+            case 'busca_produto':
+                if ($this->verificaDireitoUsuario('PedVendas', 'I')) {
+                    $produto = new c_produto();
+                    $produto->retornaHtmlEquivalencias($this->getCodFabricante());
+                }
+                break;
+            case 'info_produto':
+                if ($this->verificaDireitoUsuario('PedVendas', 'I')) {
+                    $parmPost = filter_input_array(INPUT_POST, FILTER_DEFAULT) ?: [];
+                    $produto = new c_produto();
+                    $produto->retornaInfoProduto(
+                        $this->getCodProduto(),
+                        $this->getCentroCusto(),
+                        $this->getCliente(),
+                        $parmPost['vlrUnitarioProduto'] ?? $this->getVlrUnitarioProduto(),
+                        $parmPost['quantidadeProduto'] ?? $this->getQuantidadeProduto(),
+                        $parmPost['vlrDescontoProduto'] ?? $this->getDescontoProduto()
+                    );
+                }
+                break;
+            case 'busca_servico':
+                if ($this->verificaDireitoUsuario('PedVendas', 'I')) {
+                    $termo = isset($_POST['termoPesquisaServico'])
+                        ? trim((string) $_POST['termoPesquisaServico'])
+                        : '';
+                    $servico = new c_servico();
+                    $servico->retornaHtmlServicos($termo);
                 }
                 break;
             default:
@@ -537,6 +1353,8 @@ class p_pedido_ps extends c_pedido_ps
     {
         $this->smarty->assign('pathImagem', $this->img);
         $this->smarty->assign('pathCliente', ADMhttpCliente);
+        $this->smarty->assign('pathCleave', ADMhttpBib . '/bib/cleave/dist');
+
         if ($this->m_submenu == 'atualizarInfo') {
             $this->smarty->assign('subMenu', 'alterar');
         } else {
@@ -556,11 +1374,74 @@ class p_pedido_ps extends c_pedido_ps
             $this->setClienteNome();
             $this->smarty->assign('nome', $this->getClienteNome());
         endif;
+        $saldoCreditoCliente = 0.0;
+        $limiteCreditoCliente = 0.0;
+        $saldoLimiteDisponivel = 0.0;
+        $clienteBloqueado = false;
+        if ($this->getCliente() != '') {
+            $objContaCred = new c_conta();
+            $saldoCreditoCliente = $objContaCred->selectSaldoCreditoCliente((int) $this->getCliente());
+            $limiteJson = c_lancamento::limiteCreditoClienteParaJson((int) $this->getCliente(), (int) $this->getId());
+            $limiteCreditoCliente = $limiteJson['limite_credito'];
+            $saldoLimiteDisponivel = $limiteJson['saldo_limite_disponivel'];
+            $clienteBloqueado = strtoupper((string) $objContaCred->contaBloqueada((int) $this->getCliente())) === 'S';
+        }
+        $this->smarty->assign('saldoCreditoCliente', $saldoCreditoCliente);
+        $this->smarty->assign('saldoCreditoClienteFmt', number_format($saldoCreditoCliente, 2, ',', '.'));
+        $this->smarty->assign('limiteCreditoCliente', $limiteCreditoCliente);
+        $this->smarty->assign('limiteCreditoClienteFmt', number_format($limiteCreditoCliente, 2, ',', '.'));
+        $this->smarty->assign('saldoLimiteDisponivel', $saldoLimiteDisponivel);
+        $this->smarty->assign('saldoLimiteDisponivelFmt', number_format(max(0, $saldoLimiteDisponivel), 2, ',', '.'));
+        $this->smarty->assign('clienteBloqueado', $clienteBloqueado);
         $this->smarty->assign('contato', $this->getContato());
         $this->smarty->assign('pedido', $this->getPedido());
-        $this->smarty->assign('situacao', $this->getSituacao());
+        $sitTpl = $this->getSituacao();
+        $sitTpl = ($sitTpl !== '' && $sitTpl !== null) ? (int) $sitTpl : 5;
+        $this->smarty->assign('situacao', $sitTpl);
+        $this->smarty->assign('origem', $this->m_origem);
+        $fatParamsPs = $this->getFatParametrosFilial();
+        $this->smarty->assign('encomendaAtiva', strtoupper((string) ($fatParamsPs['encomenda'] ?? 'N')) === 'S');
 
+        $perDesconto = $this->calcularPercentualDescontoPedido();
+        $descontoMaximo = (float) ($fatParamsPs['descontoMaximo'] ?? 0);
+        $aprovacaoParam = strtoupper((string) ($fatParamsPs['aprovacao'] ?? 'N'));
+        $excedeuDesconto = $descontoMaximo > 0 && $perDesconto > $descontoMaximo;
+        $jaAprovadoGerencial = $this->possuiUsrAprovacaoValido();
+        if (!$jaAprovadoGerencial && $this->getId() != '') {
+            $rowPedAprov = $this->select_pedido_id();
+            $this->setUsrAprovacao($rowPedAprov[0]['USRAPROVACAO'] ?? null);
+            $jaAprovadoGerencial = $this->possuiUsrAprovacaoValido();
+        }
+        $this->smarty->assign('perDesconto', number_format($perDesconto, 2, ',', '.'));
+        $this->smarty->assign('descontoMaximo', number_format($descontoMaximo, 2, ',', '.'));
+        $this->smarty->assign('aprovacaoParam', $aprovacaoParam);
+        $this->smarty->assign('validarDescontoGeral', ($excedeuDesconto && !$jaAprovadoGerencial) ? 'S' : 'N');
 
+        $pedidoPsAprovacaoPrevEncomenda = false;
+        if ((int) $this->getSituacao() === 10) {
+            $toolsPsEnc = new c_pedido_ps_tools();
+            $resEncAprov = $toolsPsEnc->pedidoPsResolverConfirmacaoEstoque((int) $this->getId());
+            $pedidoPsAprovacaoPrevEncomenda = ((int) ($resEncAprov['destino'] ?? 6) === 13);
+            if ($mensagem === null || $mensagem === '') {
+                $mensagem = 'Pedido aguardando aprovação gerencial (desconto acima do limite).';
+                if ($pedidoPsAprovacaoPrevEncomenda) {
+                    $mensagem .= '<br>Há itens sem saldo em estoque — após a liberação, seguirá como encomenda.';
+                }
+            }
+        }
+        $this->smarty->assign('pedidoPsAprovacaoPrevEncomenda', $pedidoPsAprovacaoPrevEncomenda);
+        $this->smarty->assign('mensagem', $mensagem);
+
+        $serieDoc = $this->getSerie();
+        if ($serieDoc !== '65' && $serieDoc !== '55') {
+            $serieDoc = '';
+        }
+        $this->smarty->assign('tipoDocFiscal', $serieDoc);
+        $this->smarty->assign('tipoDocFiscal_options', [
+            '' => 'A definir',
+            '65' => 'Cupom (NFC-e)',
+            '55' => 'Nota fiscal (NF-e)',
+        ]);
 
         if ($this->getEmissao('F') == '') {
             $this->smarty->assign('emissao', date("d/m/Y"));
@@ -697,73 +1578,6 @@ class p_pedido_ps extends c_pedido_ps
             $this->smarty->assign('ajax', $ajax_request);
         endif;
 
-        //$ajax_request = @($_SERVER["HTTP_AJAX_REQUEST_BUSCA_PRODUTO"] == "true");
-        //if($_SERVER["HTTP_AJAX_REQUEST_BUSCA_PRODUTO"] == "true"):
-        //    $ajax_request = 'true';
-        //    $prodObj = new c_produto();
-        //    $produto = $prodObj->select_produto_letra($this->m_pesq);
-        //
-        //    if (count($produto) > 1) {
-        //        $this->smarty->assign('abrePesquisa', 'true');
-        //    }elseif(count($produto) == 1){
-        //        //dados do produto
-        //        $this->smarty->assign('codProduto', $produto[0]['CODIGO']);
-        //        $this->smarty->assign('codFabricante', $produto[0]['CODFABRICANTE']);
-        //        $this->smarty->assign('codProdutoNota', $produto[0]['CODFABRICANTE']);
-        //        $this->smarty->assign('descProduto', $produto[0]['DESCRICAO']);
-        //        $this->smarty->assign('uniProduto', $produto[0]['UNIDADE']);
-        //        $this->smarty->assign('vlrUnitarioPecas', $produto[0]['VENDA']);
-        //        $this->smarty->assign('abrePesquisa', 'false');
-        //    }else{
-        //        $parPesq  = explode("|", $this->m_pesq);
-        //        $this->smarty->assign('codFabricante', $parPesq[2]);
-        //    }
-        //    
-        //
-        //else:
-        //    $ajax_request = 'false';
-        //    $this->smarty->assign('ajax', $ajax_request);
-        //endif; 
-
-        //BUSCA PRODUTO 
-        $ajax_request = @($_SERVER["HTTP_AJAX_REQUEST_BUSCA_PROD"] == "true");
-        if ($_SERVER["HTTP_AJAX_REQUEST_BUSCA_PROD"] == "true") :
-            $ajax_request = 'true';
-
-            $prod       = new c_produto();
-            $codFab     = $this->getCodFabricante();
-            $resultProd = $prod->select_produto_cod_fabricante($codFab);
-            $codFab     = $resultProd[0]['CODFABRICANTE'];
-            $codEqui    = $resultProd[0]['CODEQUIVALENTE'];
-            $descProd   = $resultProd[0]['DESCRICAO'];
-            $unProd     = $resultProd[0]['UNIDADE'];
-
-            if ($resultProd !== null) {
-                $this->smarty->assign('prodExiste', 'yes');
-                $this->smarty->assign('codProduto', $resultProd[0]['CODIGO']);
-                //Testa se é produto ou equivalente
-                if ($resultProd[0]['ORIGEM'] == 'EQUIVALENTE') {
-                    $this->smarty->assign('codFabricante', "'$codFab'");
-                    $this->smarty->assign('codProdutoNota', "'$codEqui'");
-                } else {
-                    $this->smarty->assign('codFabricante', "'$codFab'");
-                    $this->smarty->assign('codProdutoNota', "'$codFab'");
-                }
-
-                $this->smarty->assign('descProduto', "$descProd");
-                $this->smarty->assign('uniProduto', "'$unProd'");
-                $this->setVlrUnitarioProduto($resultProd[0]['VENDA']);
-                $this->smarty->assign('vlrUnitarioPecas', $this->getVlrUnitarioProduto('F'));
-            } else {
-                $this->smarty->assign('prodExiste', 'no');
-            }
-
-        else :
-            $ajax_request = 'false';
-            $this->smarty->assign('ajax', $ajax_request);
-
-        endif;
-
         $this->smarty->assign('prazoEntrega', $this->getPrazoEntrega('F'));
         $this->smarty->assign('condPgto', $this->getCondPgto());
         $this->smarty->assign('obs', $this->getObs());
@@ -774,13 +1588,13 @@ class p_pedido_ps extends c_pedido_ps
         $obra_names = [];
         $responsavel_tecnico_ids = [];
         $responsavel_tecnico_names = [];
-        
+
         if ($this->getCliente()) {
             $obras = $this->comboObra($this->getCliente());
             if (is_array($obras) && count($obras) > 0) {
                 $obra_ids = array_column($obras, 'ID');
                 $obra_names = array_column($obras, 'PROJETO');
-                
+
                 // Se tem obra selecionada, carrega responsáveis técnicos
                 if ($this->getObra() && $this->getObra() != '') {
                     $responsaveis = $this->comboResponsavelTecnico();
@@ -791,7 +1605,7 @@ class p_pedido_ps extends c_pedido_ps
                 }
             }
         }
-        
+
         $this->smarty->assign([
             'obra_ids' => $obra_ids,
             'obra_names' => $obra_names,
@@ -805,7 +1619,7 @@ class p_pedido_ps extends c_pedido_ps
         $endereco_ids = [];
         $endereco_names = [];
         $endereco_entrega_selecionado = $this->getEnderecoEntrega();
-        
+
         if ($this->getCliente()) {
             $enderecos = $this->buscarEnderecosCliente($this->getCliente());
             foreach ($enderecos as $endereco) {
@@ -813,7 +1627,7 @@ class p_pedido_ps extends c_pedido_ps
                 $endereco_names[] = $endereco['ENDERECO_ENTREGA'];
             }
         }
-        
+
         $this->smarty->assign([
             'endereco_ids' => $endereco_ids,
             'endereco_names' => $endereco_names,
@@ -883,14 +1697,22 @@ class p_pedido_ps extends c_pedido_ps
         $consulta->exec_sql($sql);
         $consulta->close_connection();
         $result = $consulta->resultado;
+
+        // Inicializa arrays sequenciais
+        $usrAbertura_ids = array();
+        $usrAbertura_names = array();
+
         // Primeira posição vazia
-        $usrAbertura_ids[0] = '';
-        $usrAbertura_names[0] = '';
-        
+        $usrAbertura_ids[] = '';
+        $usrAbertura_names[] = '';
+
+        // Preenche arrays de forma sequencial, garantindo que IDs sejam strings
         for ($i = 0; $i < count($result); $i++) {
-            $usrAbertura_ids[$i + 1] = $result[$i]['USUARIO'];
-            $usrAbertura_names[$i + 1] = $result[$i]['NOME'];
+            // Converte o ID para string para garantir match correto
+            $usrAbertura_ids[] = strval($result[$i]['USUARIO']);
+            $usrAbertura_names[] = $result[$i]['NOME'];
         }
+
         $this->smarty->assign('usrAbertura_ids',   $usrAbertura_ids);
         $this->smarty->assign('usrAbertura_names', $usrAbertura_names);
 
@@ -898,31 +1720,8 @@ class p_pedido_ps extends c_pedido_ps
             $this->setUsrAbertura($this->m_userid);
         }
 
-
-        $this->smarty->assign('usrAbertura', $this->getUsrAbertura());
-
-        // COMBOBOX SITUACAO
-        $consulta = new c_banco();
-        $sql = "SELECT TIPO AS ID, PADRAO AS DESCRICAO FROM AMB_DDM WHERE (ALIAS='FAT_MENU') AND (CAMPO='SITUACAOPEDIDO')";
-        if (ADMSistema != 'PECAS') {
-            $sql .= " AND ((TIPO = 0) or (TIPO = 5) or (TIPO = 6) or (TIPO = 7) or (TIPO = 9) or (TIPO = 10) or (TIPO = 11) or (TIPO = 12))";
-        }
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
-        $result = $consulta->resultado;
-        for ($i = 0; $i < count($result); $i++) {
-            $situacao_ids[$i + 1] = $result[$i]['ID'];
-            $situacao_names[$i] = $result[$i]['DESCRICAO'];
-        }
-        $this->smarty->assign('situacao_ids',   $situacao_ids);
-        $this->smarty->assign('situacao_names', $situacao_names);
-        if ($this->getSituacao() == '') {
-            $this->smarty->assign('situacao', 5);
-        } else {
-            $this->smarty->assign('situacao', $this->getSituacao());
-        }
-
-
+        $usrAberturaValue = strval($this->getUsrAbertura());
+        $this->smarty->assign('usrAbertura', $usrAberturaValue);
 
         // COMBOBOX COND PAGAMENTO
         $consulta = new c_banco();
@@ -972,9 +1771,19 @@ class p_pedido_ps extends c_pedido_ps
         // Busca parâmetro CONTROLEVENDEDOR
         $controleVendedor = $parametros->getControleVendedor();
         $this->smarty->assign('controleVendedor', $controleVendedor);
-         // Verifica se o usuário tem permissão para alterar vendedor (admin/gerente)
+
+        // Verifica se o usuário tem permissão para alterar vendedor (admin/gerente)
         $permiteAlterarVendedor = $this->verificaDireitoUsuario('PEDPERMITEALTERARVENDEDOR', 'S', 'N');
         $this->smarty->assign('permiteAlterarVendedor', $permiteAlterarVendedor);
+
+        $this->smarty->assign('obsPerda', $this->getObs());
+
+        $objProduto = new c_produto();
+        $unidade_combo = $objProduto->select_unidade_combo();
+        $this->smarty->assign('uni_ids', $unidade_combo['ids']);
+        $this->smarty->assign('uni_names', $unidade_combo['names']);
+        $this->smarty->assign('uniProduto', $this->getUnidadeProduto());
+        $this->smarty->assign('unidadeServico', $this->getUnidadeServico());
 
         $this->smarty->display('pedido_ps_cadastro.tpl');
     }
@@ -982,17 +1791,32 @@ class p_pedido_ps extends c_pedido_ps
     //fim desenhaCadgrupo
     //---------------------------------------------------------------
     //---------------------------------------------------------------
-    function mostraPedidoPs($mensagem = NULL)
+    function mostraPedidoPs($mensagem = NULL, $tipoMsg = NULL)
     {
 
         if ($this->m_situacoesAtendimento == '') {
-            $this->m_situacoesAtendimento = '|5|12';
+            $this->m_situacoesAtendimento = '|5|10|12|13';
         }
 
         $cliente = '';
-        if ($this->m_letra != ''):
-            $lanc = $this->select_pedido_letra($this->m_letra, $this->m_situacoesAtendimento, $this->m_vendedorSelected, $this->m_condPagSelected);
-        endif;
+
+        // Se o método for voltarPedidoPs, seleciona o pedido pelo ID
+        if ($this->m_metodo == 'voltarPedidoPs') {
+            $lanc = $this->select_pedido_letra("|||" . $this->getId(), "", "", "", "");
+        } else {
+            if ($this->m_letra != '') {
+                $motivosFiltro = !empty($this->m_motivoSelecionados) ? $this->m_motivoSelecionados : ($this->m_par[8] ?? '');
+                $lanc = $this->select_pedido_letra(
+                    $this->m_letra,
+                    $this->m_situacoesAtendimento,
+                    $this->m_vendedorSelected,
+                    $this->m_condPagSelected,
+                    $motivosFiltro
+                );
+            }
+        }
+
+
 
         if ($this->m_par[0] == "") $this->smarty->assign('dataIni', date("01/m/Y"));
         else $this->smarty->assign('dataIni', $this->m_par[0]);
@@ -1019,9 +1843,9 @@ class p_pedido_ps extends c_pedido_ps
         // COMBOBOX SITUACAO
         $consulta = new c_banco();
         $sql = "SELECT TIPO AS ID, PADRAO AS DESCRICAO FROM AMB_DDM WHERE (ALIAS='FAT_MENU') AND (CAMPO='SITUACAOPEDIDO')";
-        if (ADMSistema != 'PECAS') {
-            $sql .= " AND ((TIPO = 0) or (TIPO = 5) or (TIPO = 6) or (TIPO = 7) or (TIPO = 9) or (TIPO = 10) or (TIPO = 11) or (TIPO = 12))";
-        }
+        // if (ADMSistema != 'PECAS') {
+        //     $sql .= " AND ((TIPO = 0) or (TIPO = 5) or (TIPO = 6) or (TIPO = 7) or (TIPO = 9) or (TIPO = 10) or (TIPO = 11) or (TIPO = 12))";
+        // }
         $consulta->exec_sql($sql);
         $consulta->close_connection();
         $result = $consulta->resultado;
@@ -1039,6 +1863,7 @@ class p_pedido_ps extends c_pedido_ps
         $this->smarty->assign('pathImagem', $this->img);
         $this->smarty->assign('pathCliente', ADMhttpCliente);
         $this->smarty->assign('mensagem', $mensagem);
+        $this->smarty->assign('tipoMsg', $tipoMsg);
         $this->smarty->assign('letra', $this->m_letra);
         $this->smarty->assign('subMenu', $this->m_submenu);
         $this->smarty->assign('lanc', $lanc);
@@ -1049,10 +1874,11 @@ class p_pedido_ps extends c_pedido_ps
 
         // COMBOBOX MOTIVO
         $sql = "SELECT MOTIVO AS ID, DESCRICAO FROM FAT_MOTIVO";
-        $this->comboSql($sql, $this->m_par[8], $motivo_id, $motivo_ids, $motivo_names);
+        $this->comboSql($sql, $this->m_motivoSelecionados, $motivo_id, $motivo_ids, $motivo_names);
         $this->smarty->assign('motivo_ids', $motivo_ids);
         $this->smarty->assign('motivo_names', $motivo_names);
         $this->smarty->assign('motivo_id', $motivo_id);
+        $this->smarty->assign('motivoSelected', $this->m_motivoSelecionados);
 
         // ########## CENTROCUSTO ##########
         $verSomenteInfoDaLoja = $this->verificaDireitoUsuario('PEDVERSOMENTEINFODALOJA', 'S', 'N');
@@ -1079,7 +1905,7 @@ class p_pedido_ps extends c_pedido_ps
         } else {
             //$sql = "SELECT USUARIO AS ID, NOME AS DESCRICAO FROM AMB_USUARIO WHERE TIPO = 'V'";
             $sql = "SELECT USUARIO AS ID, NOME AS DESCRICAO FROM AMB_USUARIO ";
-            
+
             // Prepara vendedores selecionados
             $vendedorSelecionado = array();
             if (!empty($this->m_vendedorSelected)) {
@@ -1090,7 +1916,7 @@ class p_pedido_ps extends c_pedido_ps
                     }
                 }
             }
-            
+
             $this->comboSql($sql, $this->m_par[5], $vendedor_id, $vendedor_ids, $vendedor_names);
             $this->smarty->assign('vendedor_id', !empty($vendedorSelecionado) ? $vendedorSelecionado : $vendedor_id);
             $this->smarty->assign('vendedor_ids',   $vendedor_ids);
@@ -1166,7 +1992,8 @@ function setTotalGeral($vlrPecas, $vlrServicos, $frete, $vlrDespAcessorias, $vlr
 }
 
 
-// Rotina principal - cria classe
-$pedido = new p_pedido_ps();
-
-$pedido->controle();
+// Rotina principal - cria classe (evita bootstrap ao incluir de outro form)
+if (!defined('PEDIDO_PS_SEM_BOOTSTRAP')) {
+    $pedido = new p_pedido_ps();
+    $pedido->controle();
+}

@@ -64,6 +64,28 @@ Class c_banco {
     	@mysqli_close($conn);
 }
 
+	/**
+	 * Escapa string para uso em SQL (mysqli).
+	 */
+	public function escape($value, $conn = null)
+	{
+		if ($conn === null) {
+			$conn = $this->id_connection;
+		}
+		if ($value === null) {
+			return '';
+		}
+		return mysqli_real_escape_string($conn, (string) $value);
+	}
+
+	/**
+	 * Retorna valor escapado entre aspas simples para literais SQL.
+	 */
+	public function quote($value, $conn = null)
+	{
+		return "'" . $this->escape($value, $conn) . "'";
+	}
+
 
 
 //public-------------------------------------------------------------

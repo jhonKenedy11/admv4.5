@@ -80,9 +80,9 @@ class p_apontamento_os_mobile extends c_apontamento_os_mobile
 
 
         // dados para exportacao e relatorios
-        $this->smarty->assign('titulo', "OS");
-        $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6,7 ]");
-        $this->smarty->assign('disableSort', "[ 0, 6, 7 ]");
+        $this->smarty->assign('titulo', "Apontamento OS");
+        $this->smarty->assign('colVis', "[ 0,1,2,3,4 ]");
+        $this->smarty->assign('disableSort', "[ 4 ]");
         $this->smarty->assign('numLine', "25");
     }
 
@@ -114,7 +114,8 @@ class p_apontamento_os_mobile extends c_apontamento_os_mobile
                    
                     if (is_int($id_os)) {
                         $msgRetorno = 'Apontamento alterado!';
-                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                        $pathSweet = defined('ADMsweetAlert2') ? ADMsweetAlert2 : ADMhttpCliente . '/../sweetalert2';
+                        echo "<script type='text/javascript' src='" . $pathSweet . "/dist/sweetalert2.all.min.js'></script> ";
                         echo "<script>
                         Swal.fire({
                         icon: 'success',
@@ -126,7 +127,8 @@ class p_apontamento_os_mobile extends c_apontamento_os_mobile
                         </script>";
                     } else {
                         $msgRetorno = 'Não foi possível alterar o apontamento, contate o suporte!';
-                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                        $pathSweet = defined('ADMsweetAlert2') ? ADMsweetAlert2 : ADMhttpCliente . '/../sweetalert2';
+                        echo "<script type='text/javascript' src='" . $pathSweet . "/dist/sweetalert2.all.min.js'></script> ";
                         echo "<script>
                         Swal.fire({
                             icon: 'warning',

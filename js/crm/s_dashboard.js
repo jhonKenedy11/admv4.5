@@ -1,5 +1,4 @@
-function abrir(pag) {
-     
+function abrir(pag) {     
     window.open(
         pag,
         "consulta",
@@ -7,16 +6,14 @@ function abrir(pag) {
     );
 }
 
-function abrirNewTab(pag) {
-     
+function abrirNewTab(pag) {     
     window.open(
         pag,
         "toolbar=no,location=no,menubar=no,width=1240,height=900,scrollbars=yes,left="+(window.innerWidth-1240)/2+""
     );
 }
 
-function abrirAcompanhamento(pag) {
-     
+function abrirAcompanhamento(pag) {     
     f = document.lancamento;
     if(f.idCotacao.value !== ''){
         let idCotacao = f.idCotacao.value;
@@ -45,8 +42,6 @@ function editarAcompanhamento(idPed) {
      
     f = document.lancamento;
     let id = idPed;
-    //nelson       verSomenteInfoDaLoja = false - vertodoslancamentos = true
-    //Joelma       verSomenteInfoDaLoja = true - vertodoslancamentos = false
     if(f.verSomenteInfoDaLoja.value === '' && f.vertodoslancamentos.value === '1'){
         window.open(
             'index.php?mod=crm&form=contas_acompanhamento&opcao=imprimir&dashboard_origem=dashboard_crm&submenu=alterar&id='+id+' ',
@@ -64,22 +59,9 @@ function editarAcompanhamento(idPed) {
     }
 }
 
-/*
-function submitAlterar(id, situacao, pessoa) {
-     
-    f = document.lancamento;
-    f.submenu.value = "alterar";
-    f.id.value = id;
-    f.situacaoCombo.value = situacao;
-    f.pessoa.value = pessoa;
-    f.letra_old.value = f.letra.value;
-    f.submit();
-} // submitAlterar
- */
 
 //AJAX ATUALIZA ACOMPANHAMENTO
 function buscaAcompanhamentos(idCotacao, idCliente, nomeCliente) {
-     
     submitLetraParam();
     f = document.lancamento;
     f.idCotacao.value = idCotacao;
@@ -102,7 +84,6 @@ function buscaAcompanhamentos(idCotacao, idCliente, nomeCliente) {
 }
 
 function atualizaViewAcomp(response) {
-     
     f = document.lancamento;
     var idLi = f.idCotacao.value;
     var objCot = $('#ulCotacao').children('li');
@@ -116,9 +97,6 @@ function atualizaViewAcomp(response) {
     }
     //localiza no restorno se gerou resultado
     var objMov = $("<ul />").append(response).find("#ulAcompanhamento").html();
-    //var clienteGreen = $("<input />").append(response).find("[name=tempClienteOtimizaIcone]").val();
-    //$('#' + clienteGreen).removeClass('fa fa-user aero');
-    //$('#' + clienteGreen).toggleClass('fa fa-user green');
     //Atualiza a tela
     $("#ulAcompanhamento").html(objMov);
     //Posiciona tela de acordo com scroll realizado
@@ -166,7 +144,6 @@ function submitLetra() {
 } // fim submit
 
 function salvarMotivoNoPedido(id) {
-   
   f = document.lancamento;
   first = true;
   motivo = "";
@@ -184,12 +161,6 @@ function salvarMotivoNoPedido(id) {
   f.submit();
 }
 
-//function vendaPerdida(cotacao, idCliente, nomeCliente){
-//    var cotacao = cotacao;
-//    $("#cotacao").val(cotacao);
-//    $("#idCliente").val(cotacao);
-//    $("#nomeCliente").val(cotacao);    
-//}
 
 function submitLetraParam() {
      

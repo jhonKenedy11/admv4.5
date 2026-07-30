@@ -174,9 +174,11 @@ Class c_apontamento_os extends c_user {
 
     public function select_apontamento() {
 
-        $sql = "SELECT * ";
-        $sql .= "FROM CAT_AT_TAREFAS ";
-        $sql .= "WHERE (ATENDIMENTO_ID = " . $this->getAtendimentoId() . ") ";
+        $sql = "SELECT T.* ";
+        $sql .= "FROM CAT_AT_TAREFAS T ";
+        $sql .= "INNER JOIN CAT_ATENDIMENTO A ON A.ID = T.ATENDIMENTO_ID ";
+        $sql .= "WHERE (T.ATENDIMENTO_ID = " . $this->getAtendimentoId() . ") ";
+        $sql .= "AND (A.CAT_SITUACAO_ID IS NULL OR A.CAT_SITUACAO_ID <> 8) ";
         $sql .= "ORDER BY ID;";
 
         $banco = new c_banco;

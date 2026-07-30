@@ -116,96 +116,117 @@ Class p_manifesto_fiscal_sefaz extends c_manifesto_fiscal_sefaz {
             break;
             case 'downloadXml':
                 $nfArray = c_nota_fiscal::select_nota_fiscal_id($this->getIdNf());
-                $chave = $nfArray[0]['CHNFE'];
+                $chave = $nfArray[0]['CHNFE'] ?? '';
 
                 if (empty($chave)) {
                     $return = [
                         'code' => 404, // Key not found in database
-                        'id_nota' => $this->getIdNf()
+                        'id_nota' => $this->getIdNf(),
+                        'message' => 'Chave de acesso não localizada no banco de dados',
+                        'chave_acesso' => ''
                     ];
                     $this->respondWithJson($return);
                 } else {
-                    //$xmlnf = c_nota_fiscal::select_xml_nota_fiscal($this->getIdNf());
-                    //if xml no does not exist will download in sefaz
-                    $xmlRet = $xmlnf[0]['XMLCONSULTA'] ?? $this->downloadChaveAcesso($this->getIdNf(), $chave);
-                    if ($xmlRet) {
-                        $return = [
-                            'code' => 100, //Download accomplished
-                            'id_nota' => $this->getIdNf(),
-                            'xml' => $xmlRet,
-                            'fileName' => $chave
-                        ];
-                        $this->respondWithJson($return);
+                    // Verifica se já existe XML no banco
+                    $xmlnf = c_nota_fiscal::select_xml_nota_fiscal($this->getIdNf());
+                    if (!empty($xmlnf) && !empty($xmlnf[0]['XMLCONSULTA'])) {
+                        $xmlRet = $xmlnf[0]['XMLCONSULTA'];
+                        
+                        // Verifica se o XML do banco é resumo (resNFe) em vez de XML completo
+                        if (stripos($xmlRet, '<resNFe') !== false && stripos($xmlRet, '<NFe') === false) {
+                            // É resumo - retorna código especial
+                            $return = [
+                                'code' => 406, // Resumo retornado (resNFe)
+                                'id_nota' => $this->getIdNf(),
+                                'chave_acesso' => $chave,
+                                'message' => 'O XML armazenado no banco de dados é apenas um resumo da nota fiscal (resNFe), não o XML completo. É necessário consultar a nota fiscal completa em outro sistema.'
+                            ];
+                            $this->respondWithJson($return);
+                        } else {
+                            // XML completo recuperado do banco
+                            $return = [
+                                'code' => 100, //Download accomplished
+                                'id_nota' => $this->getIdNf(),
+                                'xml' => $xmlRet,
+                                'fileName' => $chave,
+                                'message' => 'XML recuperado do banco de dados'
+                            ];
+                            $this->respondWithJson($return);
+                        }
                     } else {
-                        $this->respondWithJson(405); // Donwload sefaz no fulfilled
+                        // Tenta fazer download na SEFAZ
+                        $xmlRet = $this->downloadChaveAcesso($this->getIdNf(), $chave);
+                        
+                        // Verifica se retornou resumo (resNFe) em vez de XML completo
+                        if (is_array($xmlRet) && isset($xmlRet['tipo']) && $xmlRet['tipo'] === 'resNFe') {
+                            // Retorna código especial para resumo
+                            $return = [
+                                'code' => 406, // Resumo retornado (resNFe)
+                                'id_nota' => $this->getIdNf(),
+                                'chave_acesso' => $chave,
+                                'message' => 'A SEFAZ retornou apenas um resumo da nota fiscal (resNFe), não o XML completo. É necessário consultar a nota fiscal completa em outro sistema.'
+                            ];
+                            $this->respondWithJson($return);
+                        } elseif ($xmlRet && $xmlRet !== false && !is_array($xmlRet)) {
+                            // Verifica se é string mas contém resNFe (caso a verificação anterior não tenha funcionado)
+                            if (stripos($xmlRet, '<resNFe') !== false && stripos($xmlRet, '<NFe') === false) {
+                                // É resumo mesmo sendo string
+                                $return = [
+                                    'code' => 406, // Resumo retornado (resNFe)
+                                    'id_nota' => $this->getIdNf(),
+                                    'chave_acesso' => $chave,
+                                    'message' => 'A SEFAZ retornou apenas um resumo da nota fiscal (resNFe), não o XML completo. É necessário consultar a nota fiscal completa em outro sistema.'
+                                ];
+                                $this->respondWithJson($return);
+                            } else {
+                                // XML completo baixado com sucesso
+                                $return = [
+                                    'code' => 100, //Download accomplished
+                                    'id_nota' => $this->getIdNf(),
+                                    'xml' => $xmlRet,
+                                    'fileName' => $chave,
+                                    'message' => 'XML baixado da SEFAZ com sucesso'
+                                ];
+                                $this->respondWithJson($return);
+                            }
+                        } else {
+                            // Erro no download - retorna JSON com chave de acesso para o usuário
+                            $return = [
+                                'code' => 405, // Download sefaz no fulfilled
+                                'id_nota' => $this->getIdNf(),
+                                'chave_acesso' => $chave,
+                                'message' => 'Não foi possível realizar o download do XML na SEFAZ. Verifique a chave de acesso ou tente novamente mais tarde.'
+                            ];
+                            $this->respondWithJson($return);
+                        }
                     }
                 }
                 
             break;
             case 'eventoManifestoNotaFiscal':
-
-                $this->m_msg = $this->enviaEventoManifesto($this->getIdNf(), $this->typeEvent, $this->param);
-
-                if (is_numeric($this->m_msg)){
-                    $return = $this->m_msg;
-                    header('Content-type: application/json');
-                    echo json_encode($return, JSON_FORCE_OBJECT);
-                }else{
-                    $return = 'Erro ao enviar o evento, entre em contato com o suporte';
-                    header('Content-type: application/json');
-                    echo json_encode($return, JSON_FORCE_OBJECT);
+                $return = $this->enviaEventoManifesto($this->getIdNf(), $this->typeEvent, $this->param);
+                $this->respondWithJson($return);
+            break;
+            case 'consultarDocumentosSefazPreparar':
+                try {
+                    $prep = $this->obterDadosConsultaManifestoSefaz();
+                    if ($prep['cStat'] === '405') {
+                        $this->respondWithJson($prep);
+                        break;
+                    }
+                    $nfe = new p_nfe_40();
+                    $this->respondWithJson($nfe->consultaDistNfeIniciar($prep['ultimaNSU']));
+                } catch (\Throwable $e) {
+                    $this->respondWithJson(['cStat' => 'error', 'message' => $e->getMessage()]);
                 }
             break;
-            case 'consultarDocumentosSefaz':
-                //$teste= date('Y-m-d H:i:s');
-                $atual = new DateTime();
-                $consulta = new c_banco();
-                $sql = "SELECT * FROM EST_MANIFESTO WHERE CENTROCUSTO = ".$this->m_empresacentrocusto." ORDER BY id DESC LIMIT 1;";
-                $consulta->exec_sql($sql);
-                $consulta->close_connection();
-                $result = $consulta->resultado;
-                $proximaCons = $result[0]['PROXIMACONSULTA'];
-                $proximaConsExplode = explode(' ', $proximaCons);
-
-                if(!isset($result[0]['ULTNSU'])){
-                    $ultimaNSU = null;
-                }else{
-                    $ultimaNSU = $result[0]['ULTNSU'];
+            case 'consultarDocumentosSefazLote':
+                try {
+                    $msg = (new p_nfe_40())->consultaDistNfeUmLote();
+                    $this->respondWithJson(is_array($msg) ? $msg : ['cStat' => 'error', 'message' => 'Resposta inválida da consulta SEFAZ.']);
+                } catch (\Throwable $e) {
+                    $this->respondWithJson(['cStat' => 'error', 'message' => $e->getMessage()]);
                 }
-
-                //$diferenca = $atual - $proximaCons;
-
-                //$ultimaNSU = null;
-                //checks the time difference or if rejected because of NSU
-                if(($atual > $proximaCons or $atual->format('H:i:s') == $proximaConsExplode[1]) or $result[0]['CSTAT'] == '589'){
-                    $danfe = new p_nfe_40();
-                    $msg = $danfe->consultaDistNfe($ultimaNSU);
-
-                    if($msg == null){
-                        $msg = array(
-                            "cStat" => false,
-                            "message" => 'Realizado consulta, mas não localizado eventos recentes de NF-e'
-                        );
-                    } else if($msg == 'true'){
-                        $msg = array(
-                            "cStat" => 'true',
-                            "message" => ''
-                        );
-                    }
-
-                    header('Content-type: application/json');
-                    echo json_encode($msg, JSON_FORCE_OBJECT);
-                } else {
-                    
-                    $msg = 'Consulta bloqueada, próxima consulta disponivel  '.$proximaConsExplode[1].'.';
-                    $return = array(
-                        "cStat" => '405',
-                        "message" => $msg
-                    );
-                    header('Content-type: application/json');
-                    echo json_encode($return, JSON_FORCE_OBJECT);
-                }
-
             break;
             default:
                 if ($this->verificaDireitoUsuario('EstNotaFiscal', 'C')) {
@@ -305,11 +326,8 @@ Class p_manifesto_fiscal_sefaz extends c_manifesto_fiscal_sefaz {
         }
         $this->smarty->assign('filial_ids', $filial_ids);
         $this->smarty->assign('filial_names', $filial_names);
-        if ((!is_null($this->m_par[0])) and ($this->m_par[0]!='')) {
-            $this->smarty->assign('filial_id', $this->m_par[0]);
-        } else {
-            $this->smarty->assign('filial_id',  $this->m_empresacentrocusto);
-        }        
+        // Corrigido: filial_id deve usar o centro de custo padrão, não m_par[0] que contém data
+        $this->smarty->assign('filial_id', $this->m_empresacentrocusto);
 
         //sql para mostrar a situacao no combobox
         $consulta = new c_banco();
@@ -325,11 +343,8 @@ Class p_manifesto_fiscal_sefaz extends c_manifesto_fiscal_sefaz {
         }
         $this->smarty->assign('situacao_ids', $situacao_ids);
         $this->smarty->assign('situacao_names', $situacao_names);
-        if ($this->m_par[1] == ""){
-            $this->smarty->assign('situacao_id', 'B');
-        }else{
-            $this->smarty->assign('situacao_id', $this->m_par[1]);
-        }
+        // Corrigido: situacao_id deve ter valor padrão 'B', não usar m_par[1] que contém data
+        $this->smarty->assign('situacao_id', 'B');
 
         $this->smarty->display('manifesto_fiscal_sefaz_mostra.tpl');
         
@@ -337,11 +352,16 @@ Class p_manifesto_fiscal_sefaz extends c_manifesto_fiscal_sefaz {
 
 //fim mostraManifestoFiscal
 
-
-function respondWithJson($data) {
-    header('Content-type: application/json');
-    echo json_encode($data);
-}
+    function respondWithJson($data) {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 //-------------------------------------------------------------
 }
 

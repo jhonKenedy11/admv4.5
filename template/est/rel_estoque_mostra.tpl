@@ -146,6 +146,18 @@
                     </div>
 
                     <div class="col-md-3 col-lg-2 divRelatorios">
+                        <div class="panel panel-default btn panelPrincipal" role="button" data-toggle="modal"
+                            data-target="#modalParametros" onclick="javascript:controlInputs('bloco_h')" data-relatorio-nome="Bloco H (Inventário)">
+                            <div class="panel-heading">
+                                <h3 class="panel-title">Bloco H</h3>
+                            </div>
+                            <div class="panel-body panelText">
+                                Relatório de estoque para Bloco H
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-3 col-lg-2 divRelatorios">
                         <div class="panel panel-info btn panelPrincipal" role="button" data-toggle="modal"
                             data-target="#modalParametros" onclick="javascript:controlInputs('compras')" data-relatorio-nome="Relatório de Compras">
                             <div class="panel-heading">

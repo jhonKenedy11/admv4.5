@@ -292,7 +292,7 @@ function submitCadastro(id) {
 function submitVoltar(formulario) {
   f = document.lancamento;
   f.mod.value = "ped";
-  f.form.value = "pedido_venda_telhas";
+  f.form.value = "pedido_venda_gerente";
   f.submenu.value = "";
   f.submit();
 } // fim submitVoltar
@@ -312,10 +312,13 @@ function submitConfirmar(formulario) {
   f.opcao.value = formulario;
   if (confirm("Deseja realmente " + f.submenu.value + " este item") == true) {
     f.submenu.value = "incluir";
+    f.submit();
   } else {
+    // Ao cancelar, redireciona para a tela de gerência
+    f.form.value = "pedido_venda_gerente";
     f.submenu.value = "";
+    f.submit();
   } // else
-  f.submit();
 } // fim submitConfirmar
 
 function submitCadastraNf(id) {
@@ -325,11 +328,23 @@ function submitCadastraNf(id) {
   if (confirm("Deseja realmente INCLUIR NFe e FATURAMENTO") == true) {
     f.submenu.value = "cadastraNf";
     f.id.value = id;
+    f.submit();
   } else {
+    // Ao cancelar, redireciona para a tela de gerência
+    f.form.value = "pedido_venda_gerente";
     f.submenu.value = "";
+    f.submit();
   } // else
-  f.submit();
 } // submitAlterar
+
+function submitGeraEspelhoJson(id) {
+  f = document.lancamento;
+  f.mod.value = "ped";
+  f.form.value = "pedido_venda_nf";
+  f.submenu.value = "geraEspelhoJson";
+  f.id.value = id;
+  f.submit();
+} // fim submitGeraEspelhoJson
 
 function abrir(pag) {
   window.open(

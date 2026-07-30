@@ -83,9 +83,9 @@ class p_nat_tributos extends c_nat_tributos
         // else:    
         //     $this->setIdNatop(isset($parmPost['idNatop']) ? $parmPost['idNatop'] : '');
         // endif;
-        $this->setIdNatop(isset($parmPost['idNatop']) ? $parmPost['idNatop'] : '');
-        $this->setuf(isset($parmPost['uf']) ? $parmPost['uf'] : '');
-        $this->setPessoa(isset($parmPost['pessoa']) ? $parmPost['pessoa'] : '');
+        $this->setIdNatop(isset($parmPost['idNatop']) ? $parmPost['idNatop'] : (isset($parmGet['idNatop']) ? $parmGet['idNatop'] : ''));
+        $this->setuf(isset($parmPost['uf']) ? $parmPost['uf'] : (isset($parmGet['uf']) ? $parmGet['uf'] : ''));
+        $this->setPessoa(isset($parmPost['pessoa']) ? $parmPost['pessoa'] : (isset($parmGet['pessoa']) ? $parmGet['pessoa'] : ''));
         $this->setOrigem(isset($parmPost['origem']) ? $parmPost['origem'] : '');
         $this->setTribIcms(isset($parmPost['tribIcms']) ? $parmPost['tribIcms'] : '');
         $this->setTribIcmsSaida(isset($parmPost['tribIcmsSaida']) ? $parmPost['tribIcmsSaida'] : '');
@@ -274,7 +274,7 @@ class p_nat_tributos extends c_nat_tributos
                     $this->setAliqIcmsSt($nat_operacao[0]['ALIQICMSST']);
                     $this->setPercReducaoBcSt($nat_operacao[0]['PERCREDUCAOBCST']);
                     $this->setIss($nat_operacao[0]['ISS']);
-                    $this->setIpi($nat_operacao[0]['IPI']);
+                    $this->setIpi($nat_operacao[0]['ALIQIPI']);
                     $this->setInsideIpiBc($nat_operacao[0]['INSIDEIPIBC']);
                     $this->setCalculaIpi($nat_operacao[0]['CALCULAIPI']);
                     $this->setCstPis($nat_operacao[0]['CSTPIS']);

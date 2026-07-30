@@ -156,7 +156,12 @@ public function existe_meta_mensal() {
 public function select_meta_mensal() {
 	$sql = "SELECT * ";
 	$sql .= "FROM FAT_META_MENSAL ";
-	$sql .= "WHERE (ID = '" . $this->getID() . "'); ";
+	if($this->m_param == "formVendedor"){
+		$sql .= "WHERE (ID = '" . $this->getMetaId() . "'); ";
+	}else{
+		$sql .= "WHERE (ID = '" . $this->getID() . "'); ";
+	}
+	
 
 	$banco = new c_banco;
 	$banco->exec_sql($sql);
@@ -165,9 +170,9 @@ public function select_meta_mensal() {
 }
 
 public function select_meta_mensal_geral() {
-	$sql = "SELECT * ";
-	$sql .= "FROM FAT_META_MENSAL ";
-	$sql .= "ORDER BY ID; ";
+	$sql = "SELECT M.*, E.NOMEFANTASIA FROM FAT_META_MENSAL M ";
+	$sql .= "INNER JOIN AMB_EMPRESA E ON M.CCUSTO = E.CENTROCUSTO ";
+	$sql .= "ORDER BY ANO DESC, MES DESC;";
 
 	$banco = new c_banco;
 	$banco->exec_sql($sql);
@@ -253,9 +258,15 @@ public function incluir_meta_mensal_vendedor($conn=null) {
 } 
 
 public function buscar_meta_vendedores() {
-	$sql = "SELECT * ";
-	$sql .= "FROM FAT_META_MENSAL_VENDEDOR ";
-	$sql .= "WHERE (METAID = '" . $this->getId() . "'); ";
+	$sql = "SELECT m.*, u.NOME ";
+	$sql .= "FROM FAT_META_MENSAL_VENDEDOR m ";
+	$sql .= "JOIN AMB_USUARIO u ON m.vendedor = u.USUARIO ";
+
+	if($this->m_param == "formVendedor"){
+		$sql .= "WHERE (METAID = '" . $this->getMetaId() . "'); ";
+	}else{
+		$sql .= "WHERE (METAID = '" . $this->getId() . "'); ";
+	}
 
 	$banco = new c_banco;
 	$banco->exec_sql($sql);

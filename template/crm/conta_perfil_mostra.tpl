@@ -170,12 +170,11 @@
           <div class="well profile_view">
             <div class="col-sm-12">
               <div class="col-sm-12">
-                <h4 class="brief"><i>{$lanc[i].NOME_REDUZIDO}</i></h4>
+                <h4 class="brief"><i>{$lanc[i].NOMEREDUZIDO}</i></h4>
                 <h2>{$lanc[i].NOME}</h2>
                 <small>
                   <ul class="list-unstyled">
-                    <li class="infoCard"><i class="fa fa-building"></i> Endereço: {$lanc[i].ENDERECO}, {$lanc[i].NUMERO}
-                    </li>
+                    <li class="infoCard"><i class="fa fa-building"></i> Endereço: {$lanc[i].ENDERECO}, {$lanc[i].NUMERO}</li>
                     <li><i class="fa fa-home"></i> Cidade: {$lanc[i].CIDADE}</li>
                     <li><i class="fa fa-phone"></i> Telefone: {$lanc[i].FONE} / {$lanc[i].CELULAR}</li>
                     <li><i class="fa fa-at"></i> Email: {$lanc[i].EMAIL}</li>

@@ -136,6 +136,19 @@ public function getNfAuto(){return $this->nfAuto;}
 public function setModeloNf($modeloNf){$this->modeloNf = $modeloNf;}
 public function getModeloNf(){return $this->modeloNf;}
 
+public function setIr($ir){$this->ir = $ir;}
+public function getIr(){return $this->ir;}
+
+public function setIrPercentual($irPercentual){$this->irPercentual = $irPercentual;}
+public function getIrPercentual($format = null) {
+    if ($format=='F') {
+        return number_format((float)$this->irPercentual, 2, ',', '.'); 
+    }elseif ($format=='B') {
+        $this->irPercentual = c_tools::moedaBd($this->irPercentual);
+        return $this->irPercentual;	
+    }
+    return $this->irPercentual;
+}
 
 //############### FIM SETS E GETS ###############
 
@@ -196,7 +209,7 @@ public function selectNatOperacaoGeral(){
  */public function incluiNatOperacao(){
 
 	$sql  = "INSERT INTO est_nat_op (NATOPERACAO, TIPO, CODFISCORIGEM, USRMENSAGEM, COMPOECREDITO, ALTERAQUANT, ";
-        $sql .= "INTEGRAFIN, POSICAOTRIBUTOS, ALTERAPRECOS, TRIBSIMPLES, PRECCREDITOSIMPLES, OBS, DESCCOMPLETA, UTILIZACAO, NFAUTO, MODELONF) VALUES ('";
+        $sql .= "INTEGRAFIN, POSICAOTRIBUTOS, ALTERAPRECOS, TRIBSIMPLES, PRECCREDITOSIMPLES, OBS, DESCCOMPLETA, UTILIZACAO, NFAUTO, MODELONF, IR, IR_PERCENTUAL) VALUES ('";
         $sql .= $this->getNatOperacao()."', '";
         $sql .= $this->getTipo()."', ";
         $sql .= $this->getCodFiscOrigem('B').", ";
@@ -212,7 +225,9 @@ public function selectNatOperacaoGeral(){
         $sql .= $this->getDescCompleta()."', '";
         $sql .= $this->getUtilizacao()."', '";
         $sql .= $this->getNfAuto()."', '";
-        $sql .= $this->getModeloNf()."') ";
+        $sql .= $this->getModeloNf()."', '";
+        $sql .= $this->getIr()."', ";
+        $sql .= $this->getIrPercentual('B').") ";
 					
     // echo $sql;
 	$banco = new c_banco;
@@ -249,7 +264,9 @@ public function alteraNatOperacao(){
         $sql .= "desccompleta= '".$this->getDescCompleta()."', ";
         $sql .= "utilizacao= '".$this->getUtilizacao()."', ";
         $sql .= "nfauto= '".$this->getNfAuto()."', ";
-        $sql .= "modelonf= '".$this->getModeloNf()."' ";
+        $sql .= "modelonf= '".$this->getModeloNf()."', ";
+        $sql .= "ir= '".$this->getIr()."', ";
+        $sql .= "ir_percentual= ".$this->getIrPercentual('B')." ";
 	$sql .= "WHERE id = '".$this->getId()."';";
         //echo $sql;
 	$banco = new c_banco;

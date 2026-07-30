@@ -21,7 +21,7 @@ async function generateReport()
     params = await mountParameters();
 
     // Verifica se os parâmetros são nulos ou vazios antes de prosseguir
-    if (isEmpty(params)) {
+    if (isEmpty(params) && report !== 'relatorioCompraEncomenda') {
 
         swal({
             title: "Atenção!",
@@ -97,7 +97,10 @@ async function generateReport()
             break; 
         case "relatorioEstoqueDisponivelVenda":
             form.action = "index.php?mod=ped&form=rel_estoque_disponivel_venda&opcao=imprimir&submenu=relatorioEstoqueDisponivelVenda&tipoRelatorio=" + report;
-            break; 
+            break;
+        case "relatorioCompraEncomenda":
+            form.action = "index.php?mod=ped&form=rel_compra_encomenda&opcao=imprimir&submenu=relatorio&tipoRelatorio=" + report;
+            break;
         } 
 
     // Adicionar os parâmetros como inputs ocultos
@@ -141,13 +144,13 @@ function mountParameters()
 
                     params[element.name] = selectedOptions;
 
-                    console.log(`${element.name}: ${selectedOptions}`);
+                   
 
                 } else if (element.value) {
 
                     params[element.name] = element.value;
                     
-                    console.log(`${element.name}: ${element.value}`);
+                   
                 }
             }
         });
@@ -159,6 +162,18 @@ function mountParameters()
 
 function controlInputs(report)
 {
+    $('#grupo_container').hide();
+    $('#idGrupo').prop('disabled', true);
+    $('#periodo_container').show();
+    $('#cliente_container').show();
+    $('#situacao_container').show();
+    $('#centro_custo_container').show();
+    $('#motivo-venda-container').show();
+    $('#vendedor_container').show();
+    $('#condicao_pagamento_container').show();
+    $('#tipo_entrega_container').show();
+    $('#obra_container').show();
+
     switch (report) {
         case "relatorioBonus":            
             if(document.getElementById("report")){
@@ -267,10 +282,52 @@ function controlInputs(report)
             }
             controlInputsReportItemEntrega();
         break;
+        case "relatorioCompraEncomenda":
+            if(document.getElementById("report")){
+                document.getElementById("report").value = report;
+            }
+            controlInputsReportCompraEncomenda();
+        break;
         
     }
 
+    habilitarCampoSituacao();
 }
+
+function controlInputsReportCompraEncomenda()
+{
+    $('#grupo_container').show();
+    $('#idGrupo').prop('disabled', false);
+
+    $('#periodo_container').hide();
+    $('#cliente_container').hide();
+    $('#situacao_container').hide();
+    $('#centro_custo_container').hide();
+    $('#motivo-venda-container').hide();
+    $('#vendedor_container').hide();
+    $('#condicao_pagamento_container').hide();
+    $('#tipo_entrega_container').hide();
+    $('#obra_container').hide();
+
+    $('#buscaCliente').prop('disabled', true);
+    $('#buscaProduto').prop('disabled', false);
+    $('#desc_produto').show();
+}
+
+function habilitarCampoSituacao()
+{
+    if($('#situacao').prop('disabled')){
+
+        $('#situacao').prop('disabled', false);
+
+        $("#situacao.select2_multiple").select2({
+            placeholder: "Escolha a situacao do pedido",
+            allowClear: true,
+            width: "100%"
+        });
+    }
+}
+
 function controlInputsReportItemEntrega()
 {
     if($('#buscaCliente').prop('disabled')){
@@ -280,17 +337,6 @@ function controlInputsReportItemEntrega()
     if($('#buscaProduto').prop('disabled')){
 
         $('#buscaProduto').prop('disabled', true);
-    }
-
-    if(!$('#situacao').prop('disabled')){
-
-        $('#situacao').prop('disabled', true);
-
-        $("#situacao.select2_multiple").select2({
-            placeholder: "Desabilitado para o relatório selecionado",
-            allowClear: true,
-            width: "100%"
-        });
     }
 
     // select centro custo
@@ -355,17 +401,6 @@ function controlInputsReportItem()
     if($('#buscaProduto').prop('disabled')){
 
         $('#buscaProduto').prop('disabled', false);
-    }
-
-    if(!$('#situacao').prop('disabled')){
-
-        $('#situacao').prop('disabled', true);
-
-        $("#situacao.select2_multiple").select2({
-            placeholder: "Desabilitado para o relatório selecionado",
-            allowClear: true,
-            width: "100%"
-        });
     }
 
     // select centro custo
@@ -446,17 +481,6 @@ function controlInputsReportMotivo()
         $('#buscaProduto').prop('disabled', true);
     }
 
-    if(!$('#situacao').prop('disabled')){
-
-        $('#situacao').prop('disabled', true);
-
-        $("#situacao.select2_multiple").select2({
-            placeholder: "Desabilitado para o relatório selecionado",
-            allowClear: true,
-            width: "100%"
-        });
-    }
-
     // select centro custo
     if($('#centro_custo').prop('disabled')){
 
@@ -519,18 +543,6 @@ function controlInputsReportBonus()
         $('#buscaCliente').prop('disabled', false);
     }
 
-    // select situacao
-//    if(!$('#situacao').prop('disabled')){
-
-  //      $('#situacao').prop('disabled', true);
-
-    //    $("#situacao.select2_multiple").select2({
-      //      placeholder: "Desabilitado para o relatório selecionado",
-            //allowClear: true,
-            //width: "100%"
-        //});
-    //}
-
     // select centro custo
     if($('#centro_custo').prop('disabled')){
 
@@ -592,20 +604,6 @@ function controlInputsReportVendas()
     if($('#buscaCliente').prop('disabled')){
 
         $('#buscaCliente').prop('disabled', false);
-    }
-
-    // select situacao
-    if($('#situacao').prop('disabled')){
-
-        $('#situacao').prop('disabled', false);
-
-        $(document).ready(function() {
-            $("#situacao.select2_multiple").select2({
-                placeholder: "Escolha a situacao do pedido",
-                allowClear: true,
-                width: "100%"
-            });
-        });
     }
 
     // select centro custo
@@ -761,20 +759,6 @@ function controlInputsReportSintetica()
     if($('#buscaCliente').prop('disabled')){
 
         $('#buscaCliente').prop('disabled', false);
-    }
-
-    // select situacao
-    if($('#situacao').prop('disabled')){
-
-        $('#situacao').prop('disabled', false);
-
-        $(document).ready(function() {
-            $("#situacao.select2_multiple").select2({
-                placeholder: "Escolha a situacao do pedido",
-                allowClear: true,
-                width: "100%"
-            });
-        });
     }
 
     // select centro custo
@@ -953,5 +937,35 @@ function limparCampos() {
         }
     });
    
+}
+
+function converteColunaNumeroBR(ws, colIndex, primeiraLinhaDados) {
+    debugger;
+    if (!ws || !ws['!ref']) return;
+
+    var range = XLSX.utils.decode_range(ws['!ref']);
+    var rInicio = (typeof primeiraLinhaDados === 'number')
+        ? primeiraLinhaDados
+        : range.s.r + 1;
+
+    for (var r = rInicio; r <= range.e.r; r++) {
+        var cell = ws[XLSX.utils.encode_cell({ r: r, c: colIndex })];
+        if (!cell || cell.v == null) continue;
+
+        var txt = (cell.v + '').trim();
+        if (!txt) continue;
+
+        txt = txt
+            .replace(/^R\$\s*/i, '')
+            .replace(/\./g, '')
+            .replace(',', '.');
+
+        var num = parseFloat(txt);
+        if (!isNaN(num)) {
+            cell.t = 'n';
+            cell.v = num;
+            cell.z = '#,##0.00';
+        }
+    }
 }
 

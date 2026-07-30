@@ -8,9 +8,25 @@ function submitVoltar(formulario) {
 } // fim submitVoltar
 
 function submitConfirmar(formulario) {
+    debugger
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = formulario;
+
+    if (f.irrf.value == "S") {
+        var percentualIRRF = f.percIRRF.value;
+
+        if(percentualIRRF == "" || percentualIRRF == '0,00' ) {
+            Swal.fire({
+                title: "Atenção!",
+                text: "Percentual de IRRF não informado!",
+                icon: "warning",
+                confirmButtonText: "OK"
+            });
+            return false;
+        }
+    } 
+
     swal.fire({
         title: "Atenção!",
         text: "Deseja realmente " + f.submenu.value + " este item?",
@@ -166,6 +182,15 @@ function submitTributos(formulario, idNatop) {
         f.submit();
 }
 
+function submitTribIbsCbs(formulario, idNatop) {
+        f = document.lancamento;
+        f.mod.value = 'est';
+        f.form.value = formulario;
+        f.submenu.value = '';
+        f.idNatop.value = idNatop;
+        f.submit();
+}
+
 
 function fechaNatOperacao(codFiscal, natOperacao, tipo) {
     f = window.opener.document.lancamento;
@@ -266,3 +291,15 @@ function enviarFile() {
     f.submenu.value = 'enviarFile';
     f.submit();
 }    
+
+
+function helpIRRF() {
+    Swal.fire({
+        title: 'Retenção de IRRF',
+        icon: 'info',
+        html: 'Ao selecionar esta opção, o texto seguinte será incluso nas observações complementares da nota fiscal, sem a necessidade de preencher o campo "Observações da Nota" nessa tela: </br></br> <strong>RFB Nº 1234/2012 - VALOR BASE DO IRRF R$100,00 - PERCENTUAL 1,20% - VALOR DO IRRF R$ 1,20;</strong>',
+        confirmButtonText: 'Fechar',
+        width: 400
+    });
+}
+

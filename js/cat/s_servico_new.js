@@ -12,7 +12,6 @@ function submitCadastro(formulario) {
 
 //fecha pesquisa de produto e atualiza campos da form que chamou
 function fechaServicoPesquisaAtendimento(e) {
-    debugger;
     f = window.opener.document.lancamento;
 
     var linha = $(e).closest("tr");
@@ -24,6 +23,12 @@ function fechaServicoPesquisaAtendimento(e) {
 
     
     f.codServico.value          = id;
+    if (f.termoPesquisaServico) {
+        f.termoPesquisaServico.value = id;
+        if (f.idServicos) {
+            f.idServicos.value = id;
+        }
+    }
     f.descricaoServico.value    = descricaoServico  
     f.unidadeServico.value      = unidade
     f.vlrUnitarioServico.value  = vlrUnitario  

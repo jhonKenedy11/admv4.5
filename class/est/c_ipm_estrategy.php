@@ -8,6 +8,22 @@
  * @link      http://www.admservice.com.br/
  * @author    Jhon Kenedy Dos Santos Mello <jhon.kened11@hotmail.com>
  * @date      03/06/2025
+ * 
+ * MODO TESTE - ENVIO SEM COOKIE:
+ * Para realizar testes sem enviar o cookie de sessão, existem duas formas:
+ * 
+ * 1. Passando o parâmetro no construtor:
+ *    $ipm = new IpmStrategy($config, $id_nota_fiscal, $origem_nfse, true);
+ * 
+ * 2. Definindo após a instanciação:
+ *    $ipm = new IpmStrategy($config, $id_nota_fiscal, $origem_nfse);
+ *    $ipm->setSkipCookie(true);  // Ativa modo teste (sem cookie)
+ *    // Fazer requisições de teste aqui
+ *    $ipm->setSkipCookie(false); // Desativa modo teste (com cookie)
+ * 
+ * O parâmetro $skipCookie controla se o cookie será enviado nas requisições HTTP.
+ * Quando true, nenhum cookie de sessão será enviado, útil para testes isolados.
+ * Quando false (padrão), o cookie será enviado normalmente seguindo o manual IPM.
  */
 
 $dir = (__DIR__);
@@ -21,19 +37,26 @@ include_once($dir . "/c_nota_fiscal_servico.php");
 
 class IpmStrategy extends c_user
 {
-    private $schemaPath = NULL;
-    private $config     = NULL;
-    private $prestador  = NULL;
+    private $schemaPath     = NULL;
+    private $id_nota_fiscal = NULL;
+    private $config         = NULL;
+    private $prestador      = NULL;
+    public  $origem_nfse    = NULL; // NULL ou 'OS' or 'Pedido' or 'NFe';
+    private $skipCookie     = NULL; // Controla se o cookie deve ser enviado ou não (útil para testes)
 
 
-    public function __construct(...$params)
+    public function __construct($config, $id_nota_fiscal, ?string $origem_nfse = null, bool $skipCookie = true)
     {
         // Cria uma instancia variaveis de sessao
         c_user::from_array($_SESSION['user_array']);
         //$this->schemaPath = __DIR__ . '/Schemas/ipm_v1.json';
+        $this->config         = $config;
+        $this->id_nota_fiscal = $id_nota_fiscal;
+        $this->origem_nfse    = $origem_nfse;
+        $this->skipCookie     = $skipCookie;
     }
 
-    public function processForShipping(array $config, string $origem_dados, ? int $idNotaFiscal = null, ?string $json = null)
+    public function processForShipping(string $origem_dados, ? int $idNotaFiscal = null, ?string $json = null)
     {
         $jsonNFS = null;
         switch ($origem_dados) {
@@ -55,16 +78,9 @@ class IpmStrategy extends c_user
         $xml = $object->mountXmlIpm($jsonNFS);
         // Lógica específica de envio para IPM
 
-        $this->config = array(
-            "url" => "https://pinhais.atende.net/?pg=rest&service=WNERestServiceNFSe",
-            "user" => "26179567000160",
-            "password" => "Evi#7285",
-            "cookie_session" => null
-        );
-
 
         // Responsavel pelo envio do XML para o webservice
-        $responseXml = $this->sendForWebServiceIpm($xml, $config);
+        $responseXml = $this->sendForWebServiceIpm($xml, $this->config);
 
         // Verificar se houve erro na comunicação
         if (is_array($responseXml)) {
@@ -74,40 +90,9 @@ class IpmStrategy extends c_user
 
         // Validar o XML de retorno (sucesso ou erro)
         $resultadoValidacao = $this->validarRetornoXml($responseXml);
-        
-        if (!$resultadoValidacao['sucesso']) {
-            // ERRO: Registrar evento de erro
-            if ($idNotaFiscal) {
-                $this->registrarEventoNFS($idNotaFiscal, 'E', 'ERRO', $responseXml);
-            }
-            
-            c_nfs_response::error($resultadoValidacao['mensagem']);
-            return;
-        }
-        
-        // SUCESSO: Extrair dados do XML de retorno
-        $dadosNfse = $this->extrairDadosNfseRetorno($responseXml);
-        
-        // Atualizar nota fiscal com os dados retornados
-        if ($idNotaFiscal && !empty($dadosNfse)) {
-            $this->atualizarNotaFiscalComRetorno($idNotaFiscal, $dadosNfse);
-            
-            // Registrar evento de sucesso
-            $this->registrarEventoNFS(
-                $idNotaFiscal, 
-                'S', 
-                'SUCESSO', 
-                $responseXml, 
-                $dadosNfse['numero_nfse']
-            );
-        }
-        
-        // Retornar sucesso com dados da nota
-        c_nfs_response::success(
-            'NFS-e emitida com sucesso!',
-            $dadosNfse
-        );
-        return;
+
+
+        return $resultadoValidacao;
     }
 
 
@@ -470,103 +455,218 @@ class IpmStrategy extends c_user
      * @param array $config As credenciais e URL para o envio. Deve conter: 'url', 'usuario', 'senha' e opcionalmente 'cookie_session'.
      * @return string|array A resposta do webservice (string) ou array com erro.
      */
-    private function sendForWebServiceIpm(string $xmlContent, array &$config)
+    private function sendForWebServiceIpm(string $xmlContent)
     {
         try {
+
             // 1. Definição dos Parâmetros da Requisição
-            $url = $this->config['url'];
-            $username = $this->config['user']; // CPF/CNPJ do emissor 
-            $password = $this->config['password']; // Senha de acesso ao sistema 
+            $url      = $this->config['url'];
+            $username = $this->config['user'];
+            $password = $this->config['password'];
 
-            // Validação básica dos parâmetros obrigatórios
+            // 2. Validação dos Parâmetros
             if (empty($url) || empty($username) || empty($password)) {
-                throw new \Exception("Parâmetros obrigatórios não informados: url, user ou password");
+                throw new \Exception("Parâmetros obrigatórios não informados");
             }
-
-            // Codificação das credenciais em Base64 para o cabeçalho de autorização 
+    
+            // CRIAR ARQUIVO TEMPORÁRIO REAL
+            $tempFile = tempnam(sys_get_temp_dir(), 'nfse_');
+            file_put_contents($tempFile, $xmlContent);
+    
             $authorization = 'Authorization: Basic ' . base64_encode($username . ':' . $password);
-
-            // 2. Preparação do arquivo XML para envio via POST (multipart/form-data)
+            
+            // Usar o arquivo real
             $postFields = [
-                'arquivo' => new \CURLFile('data://text/xml;base64,' . base64_encode($xmlContent), 'nfse.xml', 'text/xml')
+                'arquivo' => new \CURLFile(
+                    $tempFile,      // ← arquivo físico
+                    'text/xml',
+                    'nfse.xml'
+                )
             ];
-
-            // 3. Montagem dos Cabeçalhos HTTP
-            $headers = [
-                $authorization,
-                'Content-Type: multipart/form-data' // Tipo de conteúdo exigido pelo webservice 
-            ];
-
-            // O manual recomenda o reuso da sessão para performance.
-            // Se um cookie de sessão já existir, ele é adicionado ao cabeçalho.
-            if (SessionCookieManager::hasCookie('cookie_session')) {
-                $cookieValue = SessionCookieManager::getCookie('cookie_session');
-                $headers[] = 'Cookie: ' . $cookieValue;
+    
+            // 3. Montagem dos Headers
+            $headers = [$authorization, 'Content-Type: multipart/form-data'];
+            
+            // 3. Inclusão do Cookie de Sessão (se não estiver no modo teste)
+            if (!$this->skipCookie && SessionCookieManager::hasCookie('cookie_session')) {
+                $headers[] = 'Cookie: ' . SessionCookieManager::getCookie('cookie_session');
             }
-
-            // 4. Inicialização e Configuração do cURL, baseado no exemplo do manual (Figura 3) 
+    
+            // 4. Inicialização da Requisição cURL
             $ch = curl_init();
 
-            if ($ch === false) {
-                throw new \Exception("Falha ao inicializar cURL");
-            }
-
-            $curlOptions = [
-                CURLOPT_URL => $url,
-                CURLOPT_RETURNTRANSFER => true, // Retorna a resposta como string 
-                CURLOPT_POST => true,           // Método da requisição é POST 
-                CURLOPT_POSTFIELDS => $postFields,
-                CURLOPT_HTTPHEADER => $headers,
-                CURLOPT_HEADER => true,           // Inclui os cabeçalhos na resposta para extrair o cookie 
-                CURLOPT_SSL_VERIFYPEER => false,  // Conforme exemplo do manual, mas não recomendado em produção 
-                CURLOPT_CUSTOMREQUEST => 'POST',  // Garante o método POST
-                CURLOPT_TIMEOUT => 30,            // Timeout de 30 segundos
-                CURLOPT_CONNECTTIMEOUT => 10      // Timeout de conexão de 10 segundos
-            ];
-
-            if (!curl_setopt_array($ch, $curlOptions)) {
-                curl_close($ch);
-                throw new \Exception("Falha ao configurar opções do cURL");
-            }
-
-            // 5. Execução da Requisição e Tratamento da Resposta
+            // 5. Configuração da Requisição cURL
+            curl_setopt_array($ch, [
+                CURLOPT_URL            => $url,
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => $postFields,
+                CURLOPT_HTTPHEADER     => $headers,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_HEADER         => true,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_TIMEOUT        => 30,
+                CURLOPT_CONNECTTIMEOUT => 10
+            ]);
+    
             $response = curl_exec($ch);
-
+            
+            // LIMPAR arquivo temporário
+            @unlink($tempFile);
+    
+            // 6. Verificação do Resultado da Requisição
             if ($response === false) {
-                $error_msg = curl_error($ch);
-                curl_close($ch);
-                throw new \Exception("Erro na comunicação cURL: " . $error_msg);
+                throw new \Exception("Erro cURL: " . curl_error($ch));
             }
-
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            
+            // 7. Extração dos Headers e do Conteúdo da Resposta
+            $httpCode   = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-
             curl_close($ch);
-
-            // Verifica se o código HTTP indica sucesso
+    
+            // 8. Verificação do Código de Status da Resposta
             if ($httpCode < 200 || $httpCode >= 300) {
-                throw new \Exception("Erro HTTP: Código {$httpCode} retornado pelo webservice");
+                throw new \Exception("Erro HTTP: {$httpCode}");
+            }
+    
+            // 9. Extração dos Headers e do Conteúdo da Resposta
+            $rawHeaders = substr($response, 0, $headerSize);
+            $this->saveSessionCookieFromHeader($rawHeaders);
+    
+            // 10. Retorno do Conteúdo da Resposta
+            return substr($response, $headerSize);
+    
+        } catch (\Exception $e) {
+            // Garantir limpeza se houver erro
+            if (isset($tempFile) && file_exists($tempFile)) {
+                @unlink($tempFile);
+            }
+            
+            $this->log_personalizado("Erro webservice: " . $e->getMessage());
+            
+            return [
+                'sucesso'     => false,
+                'mensagem'    => $e->getMessage(),
+                'codigo_erro' => $e->getCode(),
+                'responseXml' => null
+            ];
+        }
+    }
+
+
+
+
+
+    /**
+     * Cancela uma NFS-e através do webservice IPM
+     *
+     * @param array $nota_fiscal_servico Dados da nota fiscal (array com índice 0)
+     * @param string $motivo_cancelamento Motivo do cancelamento
+     * @return array ['sucesso' => bool, 'mensagem' => string, 'dados' => array]
+     */
+    public function cancelInvoiceIpm(array $nota_fiscal_servico, string $motivo_cancelamento)
+    {
+        try {
+            // 1. Monta o XML de cancelamento
+            $objIpm = new IpmStrategyXml();
+            $xml = $objIpm->mountXmlCancelInvoice($nota_fiscal_servico, $motivo_cancelamento);
+
+            if (empty($xml)) {
+                return [
+                    'sucesso' => false,
+                    'mensagem' => 'Erro ao montar o XML de cancelamento',
+                    'dados' => []
+                ];
             }
 
+            // 2. Envia o XML para o webservice
+            // Retorna string (XML) em caso de sucesso ou array em caso de erro de comunicação
+            $responseXml = $this->sendForWebServiceIpm($xml);
 
-            // 6. Extração e Armazenamento do Cookie de Sessão para requisições futuras
-            $responseHeader = substr($response, 0, $headerSize);
-            $this->saveSessionCookieFromHeader($responseHeader);
+            // 3. Verifica se houve erro na comunicação (retorna array)
+            if (is_array($responseXml)) {
+                // Erro na comunicação HTTP/cURL
+                $mensagemErro = $responseXml['mensagem'] ?? 'Erro desconhecido na comunicação';
+                
+                $this->salvarEventoCancelamento(
+                    $nota_fiscal_servico,
+                    $xml,
+                    false,
+                    $mensagemErro,
+                    null
+                );
 
-            // Retorna apenas o corpo da resposta (o XML de retorno) 
-            $responseBody = substr($response, $headerSize);
-            return $responseBody;
+                return [
+                    'sucesso' => false,
+                    'mensagem' => $mensagemErro,
+                    'dados' => []
+                ];
+            }
+
+            // 4. Valida o XML de retorno do cancelamento
+            $resultadoValidacao = $objIpm->validarRetornoCancelamento($responseXml);
+
+            // 5. Salva o evento no banco de dados
+            $this->salvarEventoCancelamento(
+                $nota_fiscal_servico,
+                $xml,
+                $resultadoValidacao['sucesso'],
+                $resultadoValidacao['mensagem'],
+                isset($resultadoValidacao['responseXml']) ? $resultadoValidacao['responseXml'] : null
+            );
+
+            // 6. Retorna o resultado
+            return $resultadoValidacao;
+
         } catch (\Exception $e) {
+            $mensagemErro = 'Erro ao cancelar NFS-e: ' . $e->getMessage();
+            $this->log_personalizado($mensagemErro);
 
-            // Lanca o log
-            $this->log_personalizado("Erro ao comunicar com webservice IPM: " . $e->getMessage() ."-". $e->getCode());
-
-            // Retornar erro estruturado em vez de lançar exceção
             return [
-                'success' => false,
-                'message' => 'Erro ao comunicar com webservice IPM: ' . $e->getMessage(),
-                'codigo_erro' => $e->getCode()
+                'sucesso' => false,
+                'mensagem' => $mensagemErro,
+                'dados' => []
             ];
+        }
+    }
+
+    /**
+     * Salva o evento de cancelamento no banco de dados
+     *
+     * @param array $nota_fiscal_servico Dados da nota fiscal
+     * @param string $xmlEnviado XML enviado
+     * @param bool $sucesso Se o cancelamento foi bem-sucedido
+     * @param string $mensagem Mensagem de retorno
+     * @param string|null $xmlRetorno XML de retorno (opcional)
+     * @return void
+     */
+    private function salvarEventoCancelamento(
+        array $nota_fiscal_servico,
+        string $xmlEnviado,
+        bool $sucesso,
+        string $mensagem,
+        ?string $xmlRetorno = null
+    ): void {
+        try {
+            $objNotaFiscalServico = new c_nota_fiscal_servico();
+
+            $dados = [
+                'id_nfs' => $this->id_nota_fiscal,
+                'centro_custo' => $nota_fiscal_servico[0]['CENTRO_CUSTO'] ?? null,
+                'serie' => $nota_fiscal_servico[0]['SERIE'] ?? null,
+                'numero' => $nota_fiscal_servico[0]['NUMERO'] ?? null,
+                'origem' => 'NFS',
+                'tipo_evento' => 'C', // C = Cancelamento
+                'codigo_retorno' => $sucesso ? '1' : '0',
+                'mensagem_retorno' => $mensagem,
+                'created_user' => $this->m_empresaid,
+                'xml_retorno' => $xmlRetorno
+            ];
+
+            $objNotaFiscalServico->saveEventInvoice($dados, $xmlEnviado);
+
+        } catch (\Exception $e) {
+            $this->log_personalizado("Erro ao salvar evento de cancelamento: " . $e->getMessage());
         }
     }
 
@@ -582,6 +682,10 @@ class IpmStrategy extends c_user
         try {
             // Converter de ISO-8859-1 para UTF-8
             $xmlUtf8 = mb_convert_encoding($responseXml, 'UTF-8', 'ISO-8859-1');
+            
+            // Atualizar o encoding no cabeçalho XML para UTF-8
+            $xmlUtf8 = preg_replace('/encoding="ISO-8859-1"/i', 'encoding="UTF-8"', $xmlUtf8);
+            
             $xml = simplexml_load_string($xmlUtf8);
             
             if ($xml === false) {
@@ -599,7 +703,8 @@ class IpmStrategy extends c_user
                     // Código 1 = Emitida = SUCESSO
                     return [
                         'sucesso' => true,
-                        'mensagem' => 'NFS-e emitida com sucesso'
+                        'mensagem' => 'NFS-e emitida com sucesso',
+                        'responseXml' => $responseXml
                     ];
                 } else {
                     // Outros códigos = ERRO ou situação inválida
@@ -609,7 +714,8 @@ class IpmStrategy extends c_user
                     
                     return [
                         'sucesso' => false,
-                        'mensagem' => "Situação da NFS-e: {$descricaoSituacao} (Código: {$codigoSituacao})"
+                        'mensagem' => "Situação da NFS-e: {$descricaoSituacao} (Código: {$codigoSituacao})",
+                        'responseXml' => $responseXml
                     ];
                 }
             }
@@ -623,7 +729,8 @@ class IpmStrategy extends c_user
                 
                 return [
                     'sucesso' => false,
-                    'mensagem' => implode('<br>', $erros)
+                    'mensagem' => implode('<br>', $erros),
+                    'responseXml' => $responseXml
                 ];
             }
             
@@ -631,14 +738,16 @@ class IpmStrategy extends c_user
             if (isset($xml->erro)) {
                 return [
                     'sucesso' => false,
-                    'mensagem' => (string)$xml->erro
+                    'mensagem' => (string)$xml->erro,
+                    'responseXml' => $responseXml
                 ];
             }
             
             if (isset($xml->error)) {
                 return [
                     'sucesso' => false,
-                    'mensagem' => (string)$xml->error
+                    'mensagem' => (string)$xml->error,
+                    'responseXml' => $responseXml
                 ];
             }
             
@@ -649,148 +758,27 @@ class IpmStrategy extends c_user
                 
                 return [
                     'sucesso' => false,
-                    'mensagem' => $mensagemFault
+                    'mensagem' => $mensagemFault,
+                    'responseXml' => $responseXml
                 ];
             }
             
             // Se não tem situacao_codigo_nfse nem erros, considera erro desconhecido
             return [
                 'sucesso' => false,
-                'mensagem' => 'Resposta do webservice sem código de situação'
+                'mensagem' => 'Resposta do webservice sem código de situação',
+                'responseXml' => $responseXml
             ];
             
         } catch (\Exception $e) {
             return [
                 'sucesso' => false,
-                'mensagem' => 'Erro ao processar resposta: ' . $e->getMessage()
+                'mensagem' => 'Erro ao processar resposta: ' . $e->getMessage(),
+                'responseXml' => $responseXml
             ];
         }
     }
 
-    /**
-     * Extrai todos os dados da NFS-e do XML de retorno de sucesso
-     *
-     * @param string $responseXml XML de resposta do webservice
-     * @return array Dados extraídos da NFS-e
-     */
-    private function extrairDadosNfseRetorno(string $responseXml): array
-    {
-        try {
-            // Converter de ISO-8859-1 para UTF-8
-            $xmlUtf8 = mb_convert_encoding($responseXml, 'UTF-8', 'ISO-8859-1');
-            $xml = simplexml_load_string($xmlUtf8);
-            
-            if ($xml === false) {
-                return [];
-            }
-            
-            // Extrair todos os dados disponíveis
-            $dados = [
-                'numero_nfse' => isset($xml->numero_nfse) ? (int)$xml->numero_nfse : null,
-                'serie_nfse' => isset($xml->serie_nfse) ? (int)$xml->serie_nfse : null,
-                'data_nfse' => isset($xml->data_nfse) ? (string)$xml->data_nfse : null,
-                'hora_nfse' => isset($xml->hora_nfse) ? (string)$xml->hora_nfse : null,
-                'situacao_codigo_nfse' => isset($xml->situacao_codigo_nfse) ? (int)$xml->situacao_codigo_nfse : null,
-                'situacao_descricao_nfse' => isset($xml->situacao_descricao_nfse) ? (string)$xml->situacao_descricao_nfse : null,
-                'link_nfse' => isset($xml->link_nfse) ? (string)$xml->link_nfse : null,
-                'cod_verificador_autenticidade' => isset($xml->cod_verificador_autenticidade) ? (string)$xml->cod_verificador_autenticidade : null,
-            ];
-            
-            // Filtrar apenas valores não nulos
-            return array_filter($dados, function($value) {
-                return $value !== null;
-            });
-            
-        } catch (\Exception $e) {
-            $this->log_personalizado("Erro ao extrair dados da NFS-e: " . $e->getMessage());
-            return [];
-        }
-    }
-
-    /**
-     * Atualiza a nota fiscal no banco com os dados retornados do webservice
-     *
-     * @param int $idNotaFiscal ID da nota fiscal a ser atualizada
-     * @param array $dadosNfse Dados extraídos do XML de retorno
-     * @return bool True se sucesso, False se erro
-     */
-    private function atualizarNotaFiscalComRetorno(int $idNotaFiscal, array $dadosNfse): bool
-    {
-        try {
-            $sql = "
-                UPDATE EST_NOTA_FISCAL_SERVICO 
-                SET 
-                    NUMERO = :numero,
-                    SERIE = :serie,
-                    DATA_EMISSAO = :data_emissao,
-                    HORA_EMISSAO = :hora_emissao,
-                    COD_VERIFICADOR_AUTENTICIDADE = :cod_verificador,
-                    LINK_NFSE = :link_nfse,
-                    SITUACAO = :situacao,
-                    UPDATED_USER = :updated_user,
-                    UPDATED_AT = NOW()
-                WHERE ID = :id
-            ";
-            
-            $banco = new c_banco_pdo();
-            $banco->prepare($sql);
-            
-            // Converter data do formato brasileiro para banco (13/10/2025 -> 2025-10-13)
-            $dataEmissao = null;
-            if (isset($dadosNfse['data_nfse'])) {
-                $dataEmissao = c_date::convertDateBdSh($dadosNfse['data_nfse']);
-            }
-            
-            $banco->bindValue(':numero', $dadosNfse['numero_nfse'] ?? null, PDO::PARAM_INT);
-            $banco->bindValue(':serie', $dadosNfse['serie_nfse'] ?? null, PDO::PARAM_INT);
-            $banco->bindValue(':data_emissao', $dataEmissao, PDO::PARAM_STR);
-            $banco->bindValue(':hora_emissao', $dadosNfse['hora_nfse'] ?? null, PDO::PARAM_STR);
-            $banco->bindValue(':cod_verificador', $dadosNfse['cod_verificador_autenticidade'] ?? null, PDO::PARAM_STR);
-            $banco->bindValue(':link_nfse', $dadosNfse['link_nfse'] ?? null, PDO::PARAM_STR);
-            $banco->bindValue(':situacao', $dadosNfse['situacao_codigo_nfse'] ?? 1, PDO::PARAM_INT);
-            $banco->bindValue(':updated_user', $this->m_userid, PDO::PARAM_INT);
-            $banco->bindValue(':id', $idNotaFiscal, PDO::PARAM_INT);
-
-            $banco->execute();
-            
-            return $banco->rowCount() > 0;
-            
-        } catch (\PDOException $e) {
-            $this->log_personalizado("Erro ao atualizar nota fiscal: " . $e->getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * Registra evento da NFS-e na tabela EST_NOTA_FISCAL_SERVICO_EVENTOS
-     *
-     * @param int $idNotaFiscal ID da nota fiscal
-     * @param string $tipoEvento Tipo do evento (E=Emissão, C=Cancelamento, etc.)
-     * @param string $codigoRetorno Código de retorno/status
-     * @param string $xmlResposta XML de resposta do webservice
-     * @param string|null $numeroNota Número da nota fiscal (se disponível)
-     */
-    private function registrarEventoNFS(int $idNotaFiscal, string $tipoEvento, string $codigoRetorno, string $xmlResposta, string $numeroNota = null): void
-    {
-        try {
-            $objNotaFiscalServico = new c_nota_fiscal_servico();
-            
-            $dados = [
-                "id_nfs" => $idNotaFiscal,
-                "centro_custo" => $this->m_empresacentrocusto, // Valor padrão - pode ser ajustado conforme necessário
-                "serie" => $this->m_empresaserie, // Valor padrão - pode ser ajustado conforme necessário
-                "numero" => $numeroNota ? (int)$numeroNota : 0,
-                "tipo_evento" => $tipoEvento,
-                "codigo_retorno" => $codigoRetorno
-            ];
-            
-            $objNotaFiscalServico->saveEventInvoice($dados, $xmlResposta);
-            
-        } catch (\Exception $e) {
-            // Log do erro mas não interrompe o fluxo principal
-            error_log("Erro ao registrar evento NFS: " . $e->getMessage());
-        }
-    }
 
     /**
      * Extrai e salva cookies de sessão do cabeçalho de resposta HTTP.

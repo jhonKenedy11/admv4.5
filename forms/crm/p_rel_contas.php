@@ -77,6 +77,9 @@ class p_rel_contas extends c_contas_relatorio
             case 'relatorio_contas':
                 $this->mostraRelatorioAniversario();
                 break;
+            case 'relatorio_obras':
+                $this->mostraRelatorioAniversario();
+                break;
             default:
                 $this->mostraRelatorio();
         }
@@ -123,6 +126,8 @@ class p_rel_contas extends c_contas_relatorio
 
         if($this->m_submenu == 'relatorio_aniversario'){
             $lanc = $this->select_conta_aniversario() ?? [];
+        }else if($this->m_submenu == 'relatorio_obras'){
+            $lanc = $this->selectRelatorioObras() ?? [];
         }else { 
             $this->setDataConsulta('');
             $lanc = $this->selectRelatorioContas() ?? [];
@@ -140,11 +145,13 @@ class p_rel_contas extends c_contas_relatorio
             case 'relatorio_contas':
                 $this->smarty->display('relatorio_contas.tpl');
                 break;
+            case 'relatorio_obras':
+                $this->smarty->display('rel_obras.tpl');
+                break;
             }
 
        
     }
-
 
 }
 

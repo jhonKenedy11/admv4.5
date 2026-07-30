@@ -2,11 +2,6 @@
     <!-- page content -->
     <div class="right_col" role="main">      
       <div class="">
-
-        <div class="page-title">
-          <div class="title_left">
-              <h3>Pedido</h3>
-          </div>
         </div>
         <div class="clearfix"></div>
         <form id="lancamento" data-parsley-validate  class="form-horizontal form-label-left" NAME="lancamento"  
@@ -40,6 +35,12 @@
 
                     
                     <ul class="nav navbar-right panel_toolbox">
+                        <li>
+                            <button type="button" class="btn btn-info" onClick="javascript:submitGeraEspelhoJson('{$id}');">
+                                <span class="glyphicon glyphicon-print" aria-hidden="true"></span>
+                                <span> Espelho</span>
+                            </button>
+                        </li>
                         <li><button type="button" class="btn btn-primary"  onClick="javascript:submitCadastraNf({$id});">
                                 <span class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span><span> Confirmar</span></button>
                         </li>
@@ -95,8 +96,9 @@
                         </div>
                         <div class="col-md-4 col-sm-4 col-xs-4">
                             <label for="idNatop">Natureza Opera&ccedil;&atilde;o</label>
-                            <div class="panel panel-default">
-                                    <select id="idNatop" name="idNatop" class="form-control" onChange="javascript:submitAtualNaturezaOperacao({$id});">
+                                    <div class="panel panel-default">
+                                <select id="idNatop" name="idNatop" class="form-control" 
+                                        {if ADMcliente !== "hiperfarma" && ADMcliente !== "maxifarma"} onChange="javascript:submitAtualNaturezaOperacao({$id});"  {/if} >
                                         {html_options values=$natOperacao_ids selected=$natOperacao_id output=$natOperacao_names}
                                     </select>
                             </div>

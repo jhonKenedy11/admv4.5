@@ -1114,7 +1114,7 @@ Class c_pedidoVendaFarma extends c_user {
                 
  //       echo strtoupper($sql) . "<BR>";
         $res_pedidoVenda = $banco->exec_sql($sql, $conn);
-        $lastReg = mysqli_insert_id($banco->id_connection);
+        $lastReg = $banco->insertReg; // Usa insertReg que foi capturado ANTES do log
         $banco->close_connection();
         if ($res_pedidoVenda > 0) {
             return $lastReg;
@@ -1149,7 +1149,7 @@ Class c_pedidoVendaFarma extends c_user {
                 
  //       echo strtoupper($sql) . "<BR>";
         $res_pedidoVenda = $banco->exec_sql($sql, $conn);
-        $lastReg = mysqli_insert_id($banco->id_connection);
+        $lastReg = $banco->insertReg; // Usa insertReg que foi capturado ANTES do log
         $banco->close_connection();
         if ($res_pedidoVenda > 0) {
             return $lastReg;
@@ -1269,6 +1269,7 @@ Class c_pedidoVendaFarma extends c_user {
          * [5] = reservado        
          * [6] = reservado        
          * [7] = situacao        
+         * [8] = id (pedido) - se par[7] estiver vazio ou '0', caso contrário par[8] é situação
          */
         $isWhere = true;
         $par = explode("|", $letra);
@@ -1279,6 +1280,14 @@ Class c_pedidoVendaFarma extends c_user {
         $sql .= "FROM fat_pedido p ";
         $sql .= "INNER JOIN AMB_DDM D ON ((D.TIPO=P.SITUACAO) AND (ALIAS='FAT_MENU') AND (CAMPO='SITUACAOPEDIDO')) ";
         $sql .= "LEFT JOIN FIN_CLIENTE C ON (C.CLIENTE=P.CLIENTE) ";
+        // [8] = id (pedido) - se par[7] estiver vazio ou '0', caso contrário par[8] é situação
+        if (isset($par[7]) && ($par[7] == '' || $par[7] == '0') && isset($par[8]) && $par[8] != '' && $par[8] != '0'){
+            $cond =  strpos($sql, 'where') === false ? 'where' : 'and';
+            $sql .= " $cond (p.id  = " . intval($par[8]) . ")";
+            if ($cond == 'where') {
+                $isWhere = false;
+            }
+        }
         if ($par[4] != '') {
             $sql .= "INNER JOIN FAT_PEDIDO_ITEM I ON (I.ID=P.ID) AND (I.ITEMESTOQUE= ".$par[4].")";
             }
@@ -1287,7 +1296,7 @@ Class c_pedidoVendaFarma extends c_user {
                 $sql .= "where (p.emissao >= '" . $dataIni . "') ";
                 $isWhere = false;
             } else {
-                $sql .= "(p.emissao >= '" . $dataIni . "') ";
+                $sql .= "AND (p.emissao >= '" . $dataIni . "') ";
             }
         }//if
         if ($par[1] != '') {
@@ -1352,8 +1361,6 @@ Class c_pedidoVendaFarma extends c_user {
         if (strlen($sqlMotivo)>3){
             $sql .= $sqlMotivo;
         }
-
-
        // $sql .= "ORDER BY p.situacao, p.emissao, p.cliente ";
        // $sql .= "ORDER BY c.nome ";
         // $sql .= "ORDER BY p.emissao Desc";
@@ -1742,7 +1749,7 @@ Class c_pedidoVendaFarma extends c_user {
         $sql .= $this->m_userid.",'".date("Y-m-d H:i:s"). "' );";
         // echo strtoupper($sql) . "<BR>";
         $res_pedidoVenda = $banco->exec_sql($sql);
-        $lastReg = mysqli_insert_id($banco->id_connection);
+        $lastReg = $banco->insertReg; // Usa insertReg que foi capturado ANTES do log
         $banco->close_connection();
 
         if ($res_pedidoVenda > 0) {
@@ -2277,7 +2284,7 @@ Class c_pedidoVendaFarma extends c_user {
                 . $this->getVlIcmsSt('B') . ");";
  //       echo strtoupper($sql) . "<BR>";
         $res_pedidoVenda = $banco->exec_sql($sql, $conn);
-        $lastReg = mysqli_insert_id($banco->id_connection);
+        $lastReg = $banco->insertReg; // Usa insertReg que foi capturado ANTES do log
         $banco->close_connection();
         if ($res_pedidoVenda > 0) {
             return $lastReg;
@@ -2597,7 +2604,7 @@ Class c_pedidoVendaFarma extends c_user {
         $banco->close_connection();
     }
     
-    static public function select_itens_pedido($idPedido)
+    static public function select_itens_pedido($idPedido, $conn = null)
     {
         $sql = "SELECT ITEMESTOQUE, ITEMFABRICANTE, QTSOLICITADA, DESCRICAO ";
         $sql .= "FROM fat_pedido_item ";
@@ -2605,7 +2612,7 @@ Class c_pedidoVendaFarma extends c_user {
         //echo strtoupper($sql)."<BR>";
 
         $banco = new c_banco;
-        $banco->exec_sql($sql);
+        $banco->exec_sql($sql, $conn);
         $banco->close_connection();
         return $banco->resultado;
     }

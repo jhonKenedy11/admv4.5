@@ -19,12 +19,14 @@ Class p_parametros extends c_parametros {
 
     private $m_submenu = NULL;
     private $m_letra = NULL;
+    private $filtro_empresa = NULL;
     public $smarty = NULL;
 
     function __construct(){
 
         //Assim obtém os dados passando pelo filtro contra INJECTION ( segurança PHP )
-        $parmPost = filter_input_array(INPUT_POST, FILTER_DEFAULT);
+        $parmPost = filter_input_array(INPUT_POST, FILTER_DEFAULT) ?? [];
+        $parmGet  = filter_input_array(INPUT_GET, FILTER_DEFAULT) ?? [];
 
         // Cria uma instancia variaveis de sessao
         session_start();
@@ -39,12 +41,22 @@ Class p_parametros extends c_parametros {
         $this->smarty->config_dir = ADMraizCliente . "/smarty/configs/";
         $this->smarty->cache_dir = ADMraizCliente . "/smarty/cache/";
 
-        // inicializa variaveis de controle
-        $this->m_submenu = isset($parmPost['submenu']) ? $parmPost['submenu'] : '';
+        $submenu = $parmPost['submenu'] ?? $parmGet['submenu'] ?? '';
+        if ($submenu === 'cadastro') {
+            $submenu = 'cadastrar';
+        }
+        if ($submenu === 'excluir') {
+            $submenu = 'exclui';
+        }
+        $this->m_submenu = $submenu;
+
+        $filtro = $parmPost['filtro_empresa'] ?? $parmGet['filtro_empresa'] ?? null;
+        $this->filtro_empresa = ($filtro !== null && $filtro !== '') ? trim($filtro) : null;
 
         // caminhos absolutos para todos os diretorios biblioteca e sistema
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
         $this->smarty->assign('bootstrap', ADMbootstrap);
+        $this->smarty->assign('pathSweet', ADMhttpCliente . '/../sweetalert2');
         $this->smarty->assign('raizCliente', $this->raizCliente);
 
         // dados para exportacao e relatorios
@@ -56,24 +68,31 @@ Class p_parametros extends c_parametros {
         // metodo SET dos dados do FORM para o TABLE
         $this->setFilial(isset($parmPost['filial']) ? $parmPost['filial'] : '');
         $this->setGrupoServico(isset($parmPost['grupoServico']) ? $parmPost['grupoServico'] : '');
-        $this->setApresentacao(isset($parmPost['apresentacao']) ? $parmPost['apresentacao'] : '');
-        $this->setObjetivo(isset($parmPost['objetivo']) ? $parmPost['objetivo'] : '');
-        $this->setGarantia(isset($parmPost['garantia']) ? $parmPost['garantia'] : '');
-        $this->setImpostos(isset($parmPost['impostos']) ? $parmPost['impostos'] : '');
-        $this->setPrazoEntrega(isset($parmPost['prazoEntrega']) ? $parmPost['prazoEntrega'] : '');
-        $this->setValidade(isset($parmPost['validade']) ? $parmPost['validade'] : '');
-        $this->setAceite(isset($parmPost['aceite']) ? $parmPost['aceite'] : '');
-        $this->setObs(isset($parmPost['obs']) ? $parmPost['obs'] : '');
-        $this->setFluxoPedido(isset($parmPost['fluxoPedido']) ? $parmPost['fluxoPedido'] : '');
+        $this->setCasasDecimais(isset($parmPost['casasDecimais']) ? $parmPost['casasDecimais'] : '4');
+        $this->setControleVendedor(isset($parmPost['controleVendedor']) ? $parmPost['controleVendedor'] : '0');
+        $this->setFluxoPedido(
+            (isset($parmPost['fluxoPedido']) && $parmPost['fluxoPedido'] !== '') ? $parmPost['fluxoPedido'] : 'S'
+        );
         $this->setSitAberto(isset($parmPost['sitAberto']) ? $parmPost['sitAberto'] : '');
         $this->setSitEmitirNf(isset($parmPost['sitEmitirNf']) ? $parmPost['sitEmitirNf'] : '');
         $this->setSitBaixado(isset($parmPost['sitBaixado']) ? $parmPost['sitBaixado'] : '');
         $this->setValorPedMinimo(isset($parmPost['valorPedMinimo']) ? $parmPost['valorPedMinimo'] : '');
         $this->setAprovacao(isset($parmPost['aprovacao']) ? $parmPost['aprovacao'] : '');
         $this->setDescontoMaximo(isset($parmPost['descontoMaximo']) ? $parmPost['descontoMaximo'] : '');
-        $this->setLancPedBaixado(isset($parmPost['lancPedBaixado']) ? $parmPost['lancPedBaixado'] : '');
         $this->setTipoDesconto(isset($parmPost['tipoDesconto']) ? $parmPost['tipoDesconto'] : '');
-        $this->setEncomenda(isset($parmPost['encomenda']) ? $parmPost['encomenda'] : '');
+        $controleDescontoPost = (isset($parmPost['controleDesconto']) && $parmPost['controleDesconto'] === 'S');
+        if (!$controleDescontoPost) {
+            $this->setDescontoMaximo('0');
+            $this->setTipoDesconto('');
+            $this->setAprovacao('N');
+        }
+        $this->setLancPedBaixado(
+            (isset($parmPost['lancPedBaixado']) && $parmPost['lancPedBaixado'] !== '') ? $parmPost['lancPedBaixado'] : 'N'
+        );
+        $this->setEncomenda(
+            (isset($parmPost['encomenda']) && $parmPost['encomenda'] !== '') ? $parmPost['encomenda'] : 'N'
+        );
+        $this->setFaturaPedido(isset($parmPost['faturaPedido']) ? $parmPost['faturaPedido'] : 'N');
     }
 
     /**
@@ -85,22 +104,15 @@ Class p_parametros extends c_parametros {
     function controle(){
         switch ($this->m_submenu){
             case 'cadastrar':
-              //if ($this->verificaDireitoUsuario('CatParametros', 'I')){
-                $this->desenhaCadastroParametros();
-              //}
-              break;
+                if ($this->verificaDireitoUsuario('PedParametros', 'I')) {
+                    $this->desenhaCadastroParametros();
+                }
+                break;
             case 'alterar':
+                if ($this->verificaDireitoUsuario('PedParametros', 'A')) {
                 $fat_parametros = $this->selectParametros();
                 $this->setFilial($fat_parametros[0]['FILIAL']);
                 $this->setGrupoServico($fat_parametros[0]['GRUPOSERVICO']);
-                $this->setApresentacao($fat_parametros[0]['APRESENTACAO']);
-                $this->setObjetivo($fat_parametros[0]['OBJETIVO']);
-                $this->setGarantia($fat_parametros[0]['GARANTIA']);
-                $this->setImpostos($fat_parametros[0]['IMPOSTOS']);
-                $this->setPrazoEntrega( $fat_parametros[0]['PRAZOENTREGA']);
-                $this->setValidade($fat_parametros[0]['VALIDADE']);
-                $this->setAceite($fat_parametros[0]['ACEITE']);
-                $this->setObs($fat_parametros[0]['OBS']);
                 $this->setFluxoPedido($fat_parametros[0]['FLUXOPEDIDO']);
                 $this->setSitEmitirNf($fat_parametros[0]['SITEMITIRNF']);
                 $this->setSitBaixado($fat_parametros[0]['SITBAIXADO']);
@@ -111,69 +123,87 @@ Class p_parametros extends c_parametros {
                 $this->setLancPedBaixado($fat_parametros[0]['LANCPEDBAIXADO']);
                 $this->setTipoDesconto($fat_parametros[0]['TIPODESCONTO']);
                 $this->setEncomenda($fat_parametros[0]['ENCOMENDA']);
+                $this->setFaturaPedido(isset($fat_parametros[0]['FATURAPEDIDO']) ? $fat_parametros[0]['FATURAPEDIDO'] : 'N');
+                $this->setCasasDecimais(isset($fat_parametros[0]['CASASDECIMAIS']) ? $fat_parametros[0]['CASASDECIMAIS'] : '4');
+                $this->setControleVendedor(isset($fat_parametros[0]['CONTROLEVENDEDOR']) ? $fat_parametros[0]['CONTROLEVENDEDOR'] : '0');
                 $this->desenhaCadastroParametros();
+                }
               break;
             case 'inclui':
-              //if ($this->verificaDireitoUsuario('CatParametros', 'I')){
+                if ($this->verificaDireitoUsuario('PedParametros', 'I')) {
                     if ($this->existeParametros()){
                         $this->m_submenu = "cadastrar";
-                        $msgPedido = "Centro de custo já possui parâmetro cadastrado!";
-                        echo "<style>.swal-modal{width: 600px !important;}.swal-title{font-size: 21px;}</style> ";
-                        echo "<script>swal({text: `$msgPedido`, title: 'Atenção!', icon: 'error', dangerMode: true});</script>";
+                        $this->smarty->assign('swalIcon', 'warning');
+                        $this->smarty->assign('swalTitle', 'Atenção');
+                        $this->smarty->assign('swalText', 'Centro de custo já possui parâmetro cadastrado!');
+                        $this->smarty->assign('swalAutoClose', false);
                         $this->desenhaCadastroParametros();
                       }
                     else {
                         $result = $this->incluiParametros();
-                        if($result){
-                            $msgPedido = "Parâmetro cadastrado!";
-                            echo "<style>.swal-modal{width: 600px !important;}.swal-title{font-size: 21px;}</style> ";
-                            echo "<script>swal({text: `$msgPedido`, title: 'Sucesso!', icon: 'success',button: 'Ok',});</script>";
+                        if ($result === true) {
+                            $this->smarty->assign('swalIcon', 'success');
+                            $this->smarty->assign('swalTitle', 'Sucesso');
+                            $this->smarty->assign('swalText', 'Parâmetro cadastrado!');
+                            $this->smarty->assign('swalAutoClose', true);
                             $this->mostraParametros();
-                        }else{
-                            $msgPedido = "Erro ao incluir parâmetro, entre em contato com o suporte!";
-                            echo "<style>.swal-modal{width: 600px !important;}.swal-title{font-size: 21px;}</style> ";
-                            echo "<script>swal({text: `$msgPedido`, title: 'Sucesso!', dangerMode: true, icon: 'success',button: 'Ok',});</script>";
-                          $this->mostraParametros();
+                        } else {
+                            $this->smarty->assign('swalIcon', 'warning');
+                            $this->smarty->assign('swalTitle', 'Atenção');
+                            $this->smarty->assign('swalText', is_string($result) ? $result : 'Erro ao incluir parâmetro, entre em contato com o suporte!');
+                            $this->smarty->assign('swalAutoClose', false);
+                            $this->m_submenu = 'cadastrar';
+                            $this->desenhaCadastroParametros();
                         }
                     }
-            //}		
+                }
               break;
             case 'altera':
-              //if ($this->verificaDireitoUsuario('CatParametros', 'A')){
+                if ($this->verificaDireitoUsuario('PedParametros', 'A')) {
                     $result = $this->alteraParametros();
-                    if($result){
-                        $msgPedido = "Parâmetro alterado!";
-                        echo "<style>.swal-modal{width: 600px !important;}.swal-title{font-size: 21px;}</style> ";
-                        echo "<script>swal({text: `$msgPedido`, title: 'Sucesso!', icon: 'success',button: 'Ok',});</script>";
+                    if ($result === true) {
+                        $this->smarty->assign('swalIcon', 'success');
+                        $this->smarty->assign('swalTitle', 'Sucesso');
+                        $this->smarty->assign('swalText', 'Parâmetro alterado!');
+                        $this->smarty->assign('swalAutoClose', true);
                         $this->mostraParametros();
-                    }else{
-                        $msgPedido = "Parâmetro não alterado, entre em contato com o suporte!";
-                        echo "<style>.swal-modal{width: 600px !important;}.swal-title{font-size: 21px;}</style> ";
-                        echo "<script>swal({text: `$msgPedido`, title: 'Atenção!', dangerMode: true, icon: 'error',button: 'Ok',});</script>";
-                        $this->mostraParametros(); 
+                    } else {
+                        $this->smarty->assign('swalIcon', 'warning');
+                        $this->smarty->assign('swalTitle', 'Atenção');
+                        $this->smarty->assign('swalText', is_string($result) ? $result : 'Parâmetro não alterado, entre em contato com o suporte!');
+                        $this->smarty->assign('swalAutoClose', false);
+                        $this->m_submenu = 'alterar';
+                        $this->desenhaCadastroParametros();
                     }
-              //}
+                }
               break;
             case 'exclui':
-              //if ($this->verificaDireitoUsuario('CatParametros', 'E')){
+                if ($this->verificaDireitoUsuario('PedParametros', 'E')) {
                     $result = $this->excluiParametros();
-                    if($result){
-                        $msgPedido = "Parâmetro excluido!";
-                        echo "<style>.swal-modal{width: 600px !important;}.swal-title{font-size: 21px;}</style> ";
-                        echo "<script>swal({text: `$msgPedido`, title: 'Sucesso!', icon: 'success',button: 'Ok',});</script>";
-                        $this->mostraParametros();
-                    }else{
-                        $msgPedido = "Parâmetro não excluido, entre em contato com o suporte!";
-                        echo "<style>.swal-modal{width: 600px !important;}.swal-title{font-size: 21px;}</style> ";
-                        echo "<script>swal({text: `$msgPedido`, title: 'Atenção!', dangerMode: true, icon: 'error',button: 'Ok',});</script>";
-                        $this->mostraParametros();
+                    if ($result === true) {
+                        $this->smarty->assign('swalIcon', 'success');
+                        $this->smarty->assign('swalTitle', 'Sucesso');
+                        $this->smarty->assign('swalText', 'Parâmetro excluído!');
+                        $this->smarty->assign('swalAutoClose', true);
+                    } else {
+                        $this->smarty->assign('swalIcon', 'warning');
+                        $this->smarty->assign('swalTitle', 'Atenção');
+                        $this->smarty->assign('swalText', is_string($result) ? $result : 'Parâmetro não excluído, entre em contato com o suporte!');
+                        $this->smarty->assign('swalAutoClose', false);
                     }
-            //}
+                    $this->mostraParametros();
+                }
+              break;
+            case 'consulta':
+                if ($this->verificaDireitoUsuario('PedParametros', 'C')) {
+                    $this->mostraParametros();
+                }
               break;
             default:
-              //if ($this->verificaDireitoUsuario('CatParametros', 'C')){
-                $this->mostraParametros('');
-              //}
+                if ($this->verificaDireitoUsuario('PedParametros', 'C')) {
+                    $this->mostraParametros('');
+                }
+              break;
         }
     } // fim controle
 
@@ -194,44 +224,19 @@ Class p_parametros extends c_parametros {
         $this->smarty->assign('tipoDesconto', $this->getTipoDesconto());
 
         // COMBOBOX FILIAL
-        $consulta = new c_banco();
-        $sql = "SELECT CENTROCUSTO, NOMEFANTASIA FROM AMB_EMPRESA ";
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
-        $result = $consulta->resultado;
-        for ($i = 0; $i < count($result); $i++) {
-            $filial_ids[$i] = $result[$i]['CENTROCUSTO'];
-            $filial_names[$i] = $result[$i]['NOMEFANTASIA'];
-        }
-        $this->smarty->assign('filial_ids', $filial_ids);
-        $this->smarty->assign('filial_names', $filial_names);
+        $empresas = $this->selecionaEmpresasCombo();
+        $this->smarty->assign('filial_ids', $empresas['id']);
+        $this->smarty->assign('filial_names', $empresas['text']);
 
-        // BOOLEAN ##############################
-        $sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='AMB_MENU') and (campo='BOOLEAN')";
-        $consulta = new c_banco();
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
-        $result = $consulta->resultado;
-        for ($i=0; $i < count($result); $i++){
-            $boolean_ids[$i] = $result[$i]['ID'];
-            $boolean_names[$i] = ucwords(strtolower($result[$i]['DESCRICAO']));
-        }
-        $this->smarty->assign('boolean_ids', $boolean_ids);
-        $this->smarty->assign('boolean_names', $boolean_names);
+        // BOOLEAN
+        $booleanos = $this->selecionaBooleanosCombo();
+        $this->smarty->assign('boolean_ids', $booleanos['id']);
+        $this->smarty->assign('boolean_names', $booleanos['text']);
         
         // COMBOBOX STATUS PEDIDO
-        $consulta = new c_banco();
-        $sql = "SELECT TIPO, PADRAO FROM AMB_DDM ";
-        $sql.= "WHERE CAMPO = 'SITUACAOPEDIDO'";
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
-        $result = $consulta->resultado;
-        for ($i = 0; $i < count($result); $i++) {
-            $pedido_ids[$i] = $result[$i]['TIPO'];
-            $pedido_names[$i] = $result[$i]['PADRAO'];
-        }
-        $this->smarty->assign('pedido_ids', $pedido_ids);
-        $this->smarty->assign('pedido_names', $pedido_names);
+        $pedidos = $this->selecionaSituacaoPedidoCombo();
+        $this->smarty->assign('pedido_ids', $pedidos['id']);
+        $this->smarty->assign('pedido_names', $pedidos['text']);
 
 
         if($this->getDescontoMaximo() == ''){
@@ -264,29 +269,50 @@ Class p_parametros extends c_parametros {
             $this->smarty->assign('sitAberto', $this->getSitAberto());   
         }
 
-        if($this->getLancPedBaixado() == ''){
-            $this->smarty->assign('lancPedBaixado', '');   
-        }else{
-            $this->smarty->assign('lancPedBaixado', $this->getLancPedBaixado()); 
+        if ($this->getLancPedBaixado() == '') {
+            $this->smarty->assign('lancPedBaixado', 'N');
+        } else {
+            $this->smarty->assign('lancPedBaixado', $this->getLancPedBaixado());
         }
 
-        if($this->getAprovacao() == ''){
-            $this->smarty->assign('aprovacao', '');   
-        }else{
-            $this->smarty->assign('aprovacao', $this->getAprovacao()); 
+        if ($this->getAprovacao() == '') {
+            $this->smarty->assign('aprovacao', '');
+        } else {
+            $aprovacaoTpl = $this->getAprovacao();
+            if ($aprovacaoTpl === 'O') {
+                $aprovacaoTpl = 'S';
+            }
+            $this->smarty->assign('aprovacao', $aprovacaoTpl);
         }
 
-        if($this->getEncomenda() == ''){
-            $this->smarty->assign('encomenda', '');   
-        }else{
-            $this->smarty->assign('encomenda', $this->getEncomenda()); 
+        if ($this->getEncomenda() == '') {
+            $this->smarty->assign('encomenda', 'N');
+        } else {
+            $this->smarty->assign('encomenda', $this->getEncomenda());
         }
 
-        if($this->getFluxoPedido() == ''){
-          $this->smarty->assign('fluxoPedido', '');   
-        }else{
-          $this->smarty->assign('fluxoPedido', $this->getFluxoPedido());   
+        if ($this->getFluxoPedido() == '') {
+            $this->smarty->assign('fluxoPedido', 'S');
+        } else {
+            $this->smarty->assign('fluxoPedido', $this->getFluxoPedido());
         }
+
+        if ($this->getFaturaPedido() == '') {
+            $this->smarty->assign('faturaPedido', 'N');
+        } else {
+            $this->smarty->assign('faturaPedido', $this->getFaturaPedido());
+        }
+
+        $descontoMaximoNum = 0.0;
+        if ($this->getDescontoMaximo() !== '' && $this->getDescontoMaximo() !== null) {
+            $descontoMaximoNum = (float) $this->getDescontoMaximo();
+        }
+        $aprovacaoControle = strtoupper((string) $this->getAprovacao());
+        $controleDescontoTpl = ($descontoMaximoNum > 0 || in_array($aprovacaoControle, ['S', 'O'], true)) ? 'S' : 'N';
+        $this->smarty->assign('controleDesconto', $controleDescontoTpl);
+
+        $this->smarty->assign('casasDecimais', $this->getCasasDecimaisParam() !== '' && $this->getCasasDecimaisParam() !== null ? $this->getCasasDecimaisParam() : '4');
+        $this->smarty->assign('controleVendedor', $this->getControleVendedorParam() !== '' && $this->getControleVendedorParam() !== null ? $this->getControleVendedorParam() : '0');
         
         $this->smarty->display('parametro_cadastro.tpl');
         
@@ -298,12 +324,16 @@ Class p_parametros extends c_parametros {
     */
     function mostraParametros(){
 
-        $lanc = $this->selectParametrosGeral();
+        $lanc = $this->selectParametrosGeral($this->filtro_empresa);
 
         $this->smarty->assign('pathImagem', $this->img);
         $this->smarty->assign('letra', $this->m_letra);
         $this->smarty->assign('subMenu', $this->m_submenu);
         $this->smarty->assign('lanc', $lanc);
+        $this->smarty->assign('filtro_empresa', $this->filtro_empresa);
+        $this->smarty->assign('mod', 'ped');
+        $this->smarty->assign('form', 'parametro');
+        $this->smarty->assign('SCRIPT_NAME', $_SERVER['SCRIPT_NAME']);
 
         $this->smarty->display('parametro_mostra.tpl');
     } //fim mostraParametros

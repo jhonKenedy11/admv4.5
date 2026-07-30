@@ -90,7 +90,6 @@ Class p_ordem_compra extends c_ordemCompra {
         $this->smarty->compile_dir = ADMraizCliente . "/smarty/templates_c/";
         $this->smarty->config_dir = ADMraizCliente . "/smarty/configs/";
         $this->smarty->cache_dir = ADMraizCliente . "/smarty/cache/";
-
         // inicializa variaveis de controle
         $this->m_submenu = $parmPost['submenu'];
         $this->m_pesq = $parmPost['pesq'];
@@ -126,6 +125,7 @@ Class p_ordem_compra extends c_ordemCompra {
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
 
         
         // dados para exportacao e relatorios
@@ -217,12 +217,21 @@ Class p_ordem_compra extends c_ordemCompra {
             case 'cadastraNf':
                 if ($this->verificaDireitoUsuario('PedGeraNf', 'S')) {
                 try {
-                    $dv = $this->modulo_11(substr($this->m_nfreferenciada,0,
-                                ( strlen($num) - 1) ));
-                    $dvChaveDigitada = substr($this->m_nfreferenciada, (strlen($this->m_nfreferenciada) - 1), 1);
-                    if ($dv != $dvChaveDigitada ){
-                        throw new Exception("Digito verificador da chave de acesso inválido!");
-                    } 
+                    // Chave opcional (ex.: série SER / serviço). Só valida DV se informada.
+                    $chaveAcesso = preg_replace('/\D/', '', (string) $this->m_nfreferenciada);
+                    if ($chaveAcesso !== '') {
+                        if (strlen($chaveAcesso) !== 44) {
+                            throw new Exception("Chave de acesso deve conter 44 dígitos!");
+                        }
+                        $dv = $this->modulo_11(substr($chaveAcesso, 0, strlen($chaveAcesso) - 1));
+                        $dvChaveDigitada = substr($chaveAcesso, -1, 1);
+                        if ((string) $dv !== (string) $dvChaveDigitada) {
+                            throw new Exception("Digito verificador da chave de acesso inválido!");
+                        }
+                        $this->m_nfreferenciada = $chaveAcesso;
+                    } else {
+                        $this->m_nfreferenciada = '';
+                    }
 
 
                     //informações que veio da tela 
@@ -649,6 +658,7 @@ Class p_ordem_compra extends c_ordemCompra {
         $this->smarty->assign('id', $this->getId());
         $this->smarty->assign('numNf', $this->getNumeroNf());
         $this->smarty->assign('serie', $this->getSerie());
+        $this->smarty->assign('nfeReferenciada', $this->m_nfreferenciada);
         $this->smarty->assign('cliente', $this->getCliente());
         $this->smarty->assign('data', $this->getEmissao('F'));
         $this->smarty->assign('total', $this->getTotal('F'));

@@ -44,6 +44,9 @@ async function generateReport() {
         case "relatorio_contas":
             form.action = "index.php?mod=crm&form=rel_contas&opcao=imprimir&submenu=relatorio_contas&tipoRelatorio=" + report;
             break;
+        case "relatorio_obras":
+            form.action = "index.php?mod=crm&form=rel_contas&opcao=imprimir&submenu=relatorio_obras&tipoRelatorio=" + report;
+            break;
     }
     // Adicionar os parâmetros como inputs ocultos
     for (const key in params) {
@@ -80,17 +83,15 @@ function mountParameters()
 
         Array.from(form.elements).forEach(element => {
             if (element.name) {
+                const currentReport = (document.getElementById("report") && document.getElementById("report").value) ? document.getElementById("report").value : null;
+                if (element.name === 'data_consulta' && currentReport === 'relatorio_obras') {
+                    return; // pula envio da data
+                }
                 if (element.tagName === 'SELECT') {
-
                     const selectedOptions = Array.from(element.selectedOptions).map(option => option.value);
-
                     params[element.name] = selectedOptions;
-
-                   
                 } else if (element.value) {
-
                     params[element.name] = element.value;
-
                 }
             }
         });
@@ -113,6 +114,13 @@ function controlInputs(report) {
             if(document.getElementById("report")){
                 document.getElementById("report").value = report;
             }
+            controlInputsReportContas();
+            break;
+        case "relatorio_obras":
+            if(document.getElementById("report")){
+                document.getElementById("report").value = report;
+            }
+            // reutiliza os controles do relatório de contas (filtros por pessoa, CNPJ, nome)
             controlInputsReportContas();
             break;
     }

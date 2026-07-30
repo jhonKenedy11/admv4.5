@@ -1,4 +1,5 @@
 <script src="{$bootstrap}/Chart.js/dist/Chart.min.js"></script>
+<script src="{$pathJs}/../bib/js/vendor/xlsx.full.min.js"></script>
 <script type="text/javascript" src="{$pathJs}/fin/s_lancamento.js"> </script>
 
 <!-- page content -->
@@ -30,7 +31,7 @@
                         <div class="col-xs-12 invoice-header">
                             <i class="pull-left"><img  src="images/logo.png" aloign="right" width=180 height=45 border="0"></i>
                                   
-                            <h3 class="pull-left"><span class="glyphicon glyphicon-triangle-right" aria-hidden="true"></span>   Fluxo de Caixa</h3>
+                            <h3 class="pull-left"><span class="glyphicon glyphicon-triangle-right" aria-hidden="true"></span>   DRE Financeiro</h3>
                             <h2 class="pull-right">Per&iacute;odo - In&iacute;cio: {$dataInicio} - Fim: {$dataFim}
                             </h2>
                         </div>
@@ -77,6 +78,10 @@
                                                 {assign var="custoVar" value=$custoVar+$lanc[i].TOTAL}
                                         {elseif $gen eq "4"}
                                                 {assign var="custoFixo" value=$custoFixo+$lanc[i].TOTAL}
+                                        {elseif $gen eq "5"}
+                                                {assign var="custoFixo" value=$custoFixo+$lanc[i].TOTAL}
+                                        {elseif $gen eq "6"}
+                                                {assign var="receitaFin" value=$receitaFin+$lanc[i].TOTAL}
                                         {/if}
 
                                 {/section}
@@ -121,6 +126,15 @@
                                                 </tr>
 
                                                 {/if}
+                                        {elseif $gen eq "5"}
+                                                {if $genOld neq $gen}
+                                                        {assign var="genOld" value=$gen}
+                                                        <tr bgcolor="{cycle values="#EBEBEB,#FFFFFF"}">
+                                                    <td class=ColunaTitulo> <b>4.1</b> </td>
+                                                        <td class=ColunaTitulo> <b>Custo Fixo Adicional (Grupo 5)</b> </td>
+                                                    <td class=ColunaTitulo> <b>{$custoFixo|number_format:2:",":"."}</b> </td>
+                                                </tr>
+                                                {/if}
 
                                         {/if}
 
@@ -136,7 +150,7 @@
                                 <tr>
                                         <td> <b>5</b> </td>
                                         <td> <b>Lucro Operacional </b></td>
-                                        <td><b>{($margem-$custoFixo)|number_format:2:",":"."}</b></td>
+                                        <td><b>{($margem-$custoFixo+$receitaFin)|number_format:2:",":"."}</b></td>
                                         </td>
                                 </tr>
 
@@ -152,6 +166,7 @@
                       <div class="row no-print">
                         <div class="col-xs-12">
                           <button class="btn btn-default" onclick="window.print();"><i class="fa fa-print"></i> Imprimir</button>
+                          <button class="btn btn-success" onclick="exportarTabelaParaExcel();"><i class="fa fa-file-excel-o"></i> Exportar Excel</button>
                         </div>
                       </div>
                     </section>
@@ -209,5 +224,38 @@
                     var ctx = document.getElementById("lineChart").getContext("2d");
                     var LineChart = new Chart(ctx).Line(data, options);
                 }  
+            </script>
+
+            <script type="text/javascript">
+                function exportarTabelaParaExcel() {
+                    // Pega a tabela que já está sendo exibida
+                    var table = document.querySelector('.table-striped');
+                    if (!table) {
+                        alert('Tabela não encontrada!');
+                        return;
+                    }
+
+                    if (typeof XLSX === 'undefined') {
+                        alert('Biblioteca de exportação (XLSX) não carregada!');
+                        return;
+                    }
+
+                    var wb = XLSX.utils.book_new();
+                    var ws = XLSX.utils.table_to_sheet(table);
+
+                    // Larguras (Genero / Descrição / Total)
+                    ws['!cols'] = [
+                        {ldelim}wch: 10{rdelim},
+                        {ldelim}wch: 60{rdelim},
+                        {ldelim}wch: 18{rdelim}
+                    ];
+
+                    XLSX.utils.book_append_sheet(wb, ws, "DRE Mensal");
+
+                    var dataIni = '{$dataInicio}';
+                    var dataFim = '{$dataFim}';
+                    var nomeArquivo = 'DRE_Financeiro_' + dataIni.replace(/\//g, '_') + '_a_' + dataFim.replace(/\//g, '_') + '.xlsx';
+                    XLSX.writeFile(wb, nomeArquivo);
+                }
             </script>
 

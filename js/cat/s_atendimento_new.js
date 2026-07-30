@@ -135,52 +135,95 @@ function submitAlterar(id, situacao, pessoa) {
 } // submitAlterar
 
 function submitCancelar(id) {
-    if (confirm('Deseja realmente Cancelar este Atendimento') == true) {
-        f = document.lancamento;
-        f.submenu.value = 'cancela';
-        f.id.value = id;
-        f.submit();
-    } // if 
+    Swal.fire({
+        title: 'Tem certeza?',
+        text: 'Deseja realmente cancelar este atendimento?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, cancelar!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.lancamento;
+            f.submenu.value = 'cancela';
+            f.id.value = id;
+            f.submit();
+        }
+    });
 } // submitExcluir
 
 function submitExcluir(id) {
-    if (confirm('Deseja realmente Excluir este pedido') == true) {
-        f = document.lancamento;
-        f.submenu.value = 'exclui';
-        f.id.value = id;
-        f.submit();
-    } // if 
+    Swal.fire({
+        title: 'Tem certeza?',
+        text: 'Deseja realmente excluir este pedido?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.lancamento;
+            f.submenu.value = 'exclui';
+            f.id.value = id;
+            f.submit();
+        }
+    });
 } // submitExcluir
 
 function submitExcluirPeca(idPeca) {
-    if (confirm('Deseja realmente Excluir este item') == true) {
-         
-        f = document.lancamento;
-        f.submenu.value = 'excluiPeca';
-        f.idPecas.value = '';
-        f.idPecas.value = idPeca;
-        f.submit();
-    } // if
+    Swal.fire({
+        title: 'Tem certeza?',
+        text: 'Deseja realmente excluir este item?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.lancamento;
+            f.submenu.value = 'excluiPeca';
+            f.idPecas.value = '';
+            f.idPecas.value = idPeca;
+            f.submit();
+        }
+    });
 } // submitExcluir
 
 function submitExcluirServico(idServico) {
-    if (confirm('Deseja realmente Excluir este item') == true) {
-         
-        f = document.lancamento;
-        f.submenu.value = 'excluiServico';
-        f.idServicos.value = '';
-        f.idServicos.value = idServico;
-        f.submit();
-    } // if
+    Swal.fire({
+        title: 'Tem certeza?',
+        text: 'Deseja realmente excluir este item?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.lancamento;
+            f.submenu.value = 'excluiServico';
+            f.idServicos.value = '';
+            f.idServicos.value = idServico;
+            f.submit();
+        }
+    });
 } // submitExcluir
 
 function submitEstornarOs(id) {
-    if (confirm('Deseja realmente estornar essa Ordem de serviço?') == true) {
-        f = document.lancamento;
-        f.submenu.value = 'estornaOs';
-        f.id.value = id;
-        f.submit();
-    } // if 
+    Swal.fire({
+        title: 'Tem certeza?',
+        text: 'Deseja realmente estornar essa ordem de serviço?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, estornar!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.lancamento;
+            f.submenu.value = 'estornaOs';
+            f.id.value = id;
+            f.submit();
+        }
+    });
 } // submitExcluir
 
 function abrir(pag, form = null) {
@@ -289,18 +332,21 @@ function concatCombo(combo) {
 function confirmacaoDesconto() {
     f = document.lancamento;
     if (f.valorDesconto.value != '0' || f.valorDesconto.value != '') {
-        if (confirm("AVISO. Esse desconto será dividido no desconto de todos os itens, " +
-            "eliminando qualquer desconto já aplicado direto no item. " +
-            "Deseja confirmar esse novo desconto geral?") == true) {
-            //f.form.value = 'atendimento';
-            //f.submenu.value = 'recalcularDesconto';
-            //f.submit();
-
-        } else {
-            return false;
-        }
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Esse desconto será dividido no desconto de todos os itens, eliminando qualquer desconto já aplicado direto no item. Deseja confirmar esse novo desconto geral?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, confirmar!',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                //f.form.value = 'atendimento';
+                //f.submenu.value = 'recalcularDesconto';
+                //f.submit();
+            }
+        });
     }
-
 }
 
 function editarModalPeca(e) {
@@ -452,6 +498,15 @@ function submitConfirmarPecas() {
         return false;
     }
 
+    // VALIDAÇÃO: Verifica se tem prazo de entrega
+    /*if (document.lancamento.prazoEntrega.value == '' || document.lancamento.prazoEntrega.value == '0') {
+         swal.fire({
+            title:"Atenção!",
+            text:"Preencha o campo 'Prazo de Entrega' para incluir o Produto.",
+            icon:"warning"});
+        return false;
+    }*/
+
     //implementation checks if item already exists
     let linha = null;
     let testItems = null;
@@ -469,26 +524,31 @@ function submitConfirmarPecas() {
 
     if (testItems !== null && document.lancamento.opcao_item.value !== 'alterar') {
         return new Promise((resolve, reject) => {
-             swal.fire({
+            swal.fire({
                 title: "Atenção!",
-                text: "Item (" + linha.childNodes[3].innerText + " - " + linha.childNodes[9].innerText + ") já cadastrado, deseja atualizar ou incluir novo?",
+                html: "Item (" + linha.childNodes[3].innerText + " - " + linha.childNodes[9].innerText + ") já cadastrado, deseja atualizar ou incluir novo?",
                 icon: "warning",
-                buttons: {
-                    btn_cancelar: {
-                        text: "Cancelar",
-                        value: '0',
-                    },
-                    btn_cadastrar_novo: {
-                        text: "Cadastrar novo",
-                        value: "1",
-                    },
-                    btn_atualizar_existente: {
-                        text: "Atualizar existente",
-                        value: "2",
-                    },
-                },
+                showCancelButton: true,
+                showDenyButton: true,
+                showConfirmButton: true,
+                confirmButtonText: "Cadastrar novo",
+                denyButtonText: "Atualizar existente",
+                cancelButtonText: "Cancelar",
+                confirmButtonColor: "#3085d6",
+                denyButtonColor: "#28a745",
+                cancelButtonColor: "#dc3545"
             })
-                .then((val) => {
+                .then((result) => {
+                    let val = null;
+                    if (result.isConfirmed) {
+                        val = "1"; //Cadastrar novo
+                    } else if (result.isDenied) {
+                        val = "2"; //Atualizar existente
+                    } else if (result.isDismissed) {
+                        val = "0"; //Cancelar
+                    } else {
+                        val = "0"; //Cancelar
+                    }
 
                     if (val === "1") { //Cadastrar novo
                         montaLetraPeca();
@@ -618,16 +678,19 @@ function editarPeca(e, idPecas) {
      
     var linha = $(e).closest("tr");
 
-    var codigo = linha.find("td:eq(1)").text().trim();
-    var codigoFabricante = linha.find("td:eq(2)").text().trim();
-    var codigoNota = linha.find("td:eq(3)").text().trim();
-    var descricao = linha.find("td:eq(4)").text().trim();
-    var unidade = linha.find("td:eq(5)").text().trim();
-    var quantidade = linha.find("td:eq(7)").text().trim();
-    var vlrUnitario = linha.find("td:eq(8)").text().trim();
-    var percDesconto = linha.find("td:eq(9)").text().trim();
-    var vlrDesconto = linha.find("td:eq(10)").text().trim();
-    var totalitem = linha.find("td:eq(11)").text().trim();
+    var codigo = linha.find("td.tab_cod_produto").text().trim();
+    var codigoFabricante = linha.find("td.tab_cod_fabricante").text().trim();
+    var codigoNota = linha.find("td.tab_cod_produto_nota").text().trim();
+    var descricao = linha.find("td.tab_descricao").text().trim();
+    var unidade = linha.find("td.tab_unidade").text().trim();
+    var quantidade = linha.find("td.tab_quantidade").text().trim();
+    var vlrUnitario = linha.find("td.tab_valor_unitario").text().trim();
+    var percDesconto = linha.find("td.tab_perc_desconto").text().trim();
+    var vlrDesconto = linha.find("td.tab_desconto").text().trim();
+    var totalitem = linha.find("td.tab_valor_total").text().trim();
+    var nfEntrada = linha.find("td.tab_nf_entrada").text().trim();
+    var fornecedor = linha.find("td.tab_fornecedor").text().trim();
+    var custoNF = linha.find("td.tab_custo_nf").text().trim();
 
     document.lancamento.idPecas.value = idPecas;
     document.lancamento.opcao_item.value = 'alterar';
@@ -641,45 +704,59 @@ function editarPeca(e, idPecas) {
     $("#percDescontoPecas").val(percDesconto);
     $("#vlrDescontoPecas").val(vlrDesconto);
     $("#totalPecas").val(totalitem);
+    $("#nfEntradaPecas").val(nfEntrada);
+    // Preenche fornecedor e custo quando existir na linha
+    $("#fornecedor").val(fornecedor);
+    $("#custoProduto").val(custoNF);
+
+    // Abre o painel "Mais Informações" se estiver fechado
+    var collapseInfo = $("#collapseInfoAdicionalPecas");
+    if (collapseInfo.length && !collapseInfo.hasClass("in") && !collapseInfo.hasClass("show")) {
+        collapseInfo.collapse("show");
+    }
 }
 
 function submitExcluiPeca(idPeca) {
-    if (confirm('Deseja realmente Excluir este Item ?') == true) {
-        document.lancamento.letra_peca.value = document.lancamento.id.value + "|" +
-            idPeca + "|" +
-            document.lancamento.situacao.value;
+    Swal.fire({
+        title: 'Tem certeza?',
+        text: 'Deseja realmente excluir este item?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.lancamento.letra_peca.value = document.lancamento.id.value + "|" +
+                idPeca + "|" +
+                document.lancamento.situacao.value;
 
-        var form = $("form[name=lancamento]");
+            var form = $("form[name=lancamento]");
 
-        $.ajax({
-            type: "POST",
-            url: form.action ? form.action : document.URL,
-            data: $(form).serialize(),
-            dataType: "text",
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader("Ajax-Request-Exclui-Peca", "true");
-            },
-            success: function (response) {
-                 
-                var result = $('<div />').append(response).find('#datatable-buttons-pecas').html();
-                $("#datatable-buttons-pecas").html(result);
+            $.ajax({
+                type: "POST",
+                url: form.action ? form.action : document.URL,
+                data: $(form).serialize(),
+                dataType: "text",
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Ajax-Request-Exclui-Peca", "true");
+                },
+                success: function (response) {
+                     
+                    var result = $('<div />').append(response).find('#datatable-buttons-pecas').html();
+                    $("#datatable-buttons-pecas").html(result);
 
-                var resultTotal = $('<div />').append(response).find('#divTotal').html();
-                $("#divTotal").html(resultTotal);
-
-
-
-                limpaCamposPeca();
-
-            }
-        });
-        return false;
-    } else {
-        return false
-    }
+                    var resultTotal = $('<div />').append(response).find('#divTotal').html();
+                    $("#divTotal").html(resultTotal);
 
 
 
+                    limpaCamposPeca();
+
+                }
+            });
+            return false;
+        }
+    });
 }
 
 function montaLetraPeca() {
@@ -697,7 +774,8 @@ function montaLetraPeca() {
         document.lancamento.situacao.value + "|" +
         document.lancamento.catTipoId.value + "|" +
         document.lancamento.idPecas.value + "|" +
-        document.lancamento.codFabricante.value;
+        document.lancamento.codFabricante.value + "|" +
+        document.lancamento.nfEntradaPecas.value;
 
 }
 
@@ -714,6 +792,7 @@ function limpaCamposPeca() {
     document.lancamento.totalPecas.value = ''
     document.lancamento.idPecas.value = ''
     document.lancamento.codFabricante.value = ''
+    document.lancamento.nfEntradaPecas.value = ''
     document.lancamento.opcao_item.value = '';
 }
 
@@ -796,7 +875,15 @@ function editarServico(e, idServicos) {
 }
 
 function submitExcluiServico(idServicos) {
-    if (confirm('Deseja realmente Excluir este Item ?') == true) {
+    Swal.fire({
+        title: 'Tem certeza?',
+        text: 'Deseja realmente excluir este item?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
         document.lancamento.letra_servico.value = document.lancamento.id.value + "|" +
             idServicos + "|" +
             document.lancamento.situacao.value;
@@ -823,10 +910,8 @@ function submitExcluiServico(idServicos) {
             }
         });
         return false;
-    } else {
-        return false
-    }
-
+        }
+    });
 }
 
 function montaLetraServico() {

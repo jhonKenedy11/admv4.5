@@ -1,5 +1,6 @@
 <script type="text/javascript" src="{$pathJs}/cat/s_atendimento_nf.js"> </script>
-    <!-- page content -->
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
+<!-- page content -->
     <div class="right_col" role="main">      
       <div class="">
 
@@ -36,14 +37,6 @@
                         <li><button type="button" class="btn btn-danger"  onClick="javascript:submitVoltar('');">
                                 <span class="glyphicon glyphicon-th-list" aria-hidden="true"></span><span> Listar OS</span></button>
                         </li>
-                      <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
-                      </li>
-                      <li class="dropdown">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"><i class="fa fa-wrench"></i></a>
-                      </li>
-                      <li><a class="close-link"><i class="fa fa-close"></i></a>
-                      </li>
-                    </ul>
                     <div class="clearfix"></div>
                 </div>
                 <div class="x_content small">
@@ -288,7 +281,7 @@
                                                 <td> {$lancPecas[i].VALORUNITARIO|number_format:2:",":"."} </td>
                                                 <td> {$lancPecas[i].DESCONTO|number_format:2:",":"."} </td>
                                                 <td> {$lancPecas[i].PERCDESCONTO|number_format:2:",":"."} </td>
-                                                <td> {$lancPecas[i].TOTALUTILIZADO|number_format:2:",":"."} </td>
+                                                <td> {$lancPecas[i].VALORTOTAL|number_format:2:",":"."} </td>
                                                 </tr>
                                             <p>
                                         {/section} 

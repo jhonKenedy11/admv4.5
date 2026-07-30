@@ -52,8 +52,10 @@
 
 
               <div class="title_left">
-                <h3>Período : {$dataIni|date_format:"%e %b, %Y"} - {$dataFim|date_format:"%e %b, %Y"}</h3>
+                <h3>Período :  {$dataIni} - {$dataFim}</h3>
               </div>
+
+              <h2>Dados Recebimento:</h2>
 
               <div class="form-group">
                 <div class="col-md-4 col-sm-12 col-xs-12">
@@ -87,6 +89,41 @@
 
               </div>
 
+              {if $mostraRecebimento eq 'S'}
+                <h2>Dados Pagamento:</h2>
+                <div class="form-group">
+                  <div class="col-md-4 col-sm-12 col-xs-12">
+                    <label for="generoPag">G&ecirc;nero</label>
+                    <div class="input-group">
+                      <select class="select2_multiple form-control" id="generoPag" name="generoPag">
+                        {html_options values=$generoPag_ids selected=$generoPag_id output=$generoPag_names}
+                      </select>
+                    </div>
+                  </div>
+                  <div class="col-md-3 col-sm-12 col-xs-12">
+                    <label for="centrocustoPag">Centro de Custo</label>
+                    <select class="form-control" name="centrocustoPag" id="centrocustoPag">
+                      {html_options values=$centrocusto_ids selected=$centrocustoPag_id output=$centrocusto_names}
+                    </select>
+                  </div>
+
+                  <div class="col-md-3 col-sm-6 col-xs-6  has-feedback">
+                    <label for="dataPag">Data Pagamento:</label>
+                    <input class="form-control has-feedback-left" type="text" id="dataPag" name="dataPag"
+                      required="required" value={$dataPag}>
+                    <span class="fa fa-calendar-o form-control-feedback left" aria-hidden="true"></span>
+                  </div>
+
+                  <div class="col-md-2 col-sm-6 col-xs-6">
+                    <label for="contaPag">Conta Banc&aacute;ria</label>
+                    <select class="form-control" name="contaPag" id="contaPag">
+                      {html_options values=$conta_ids selected=$contaPag_id output=$conta_names}
+                    </select>
+                  </div>
+
+                </div>
+              {/if}
+
 
             </form>
 
@@ -116,11 +153,11 @@
 
                 {section name=i loop=$lanc}
                   {assign var="total" value=$total+1}
-
-                  <td> {$lanc[i].NOMEREDUZIDO} - {$lanc[i].NOME} </td>
-                  <td align=right>{$lanc[i].PAGAMENTO|number_format:2:",":"."} </td>
-                  <td align=right>{$lanc[i].RECEBIMENTO|number_format:2:",":"."} </td>
-                  <td align=right>{$lanc[i].TOTAL|number_format:2:",":"."} </td>
+                  <tr>
+                    <td> {$lanc[i].NOMEREDUZIDO} - {$lanc[i].NOME} </td>
+                    <td align=right>{$lanc[i].RECEBIMENTO|number_format:2:",":"."} </td>
+                    <td align=right>{$lanc[i].PAGAMENTO|number_format:2:",":"."} </td>
+                    <td align=right>{$lanc[i].TOTAL|number_format:2:",":"."} </td>
                   </tr>
                   <p>
                   {/section}
@@ -142,6 +179,10 @@
   <!-- /Datatables -->
 
   <!-- /Datatables -->
+  <!-- select 2 bootstrap -->
+  <script src="{$bootstrap}/select2-master/dist/js/select2.full.min.js"></script>
+
+  <!-- select2 -->
   <script>
     $("#generoRec.select2_multiple").select2({
       placeholder: "Escolha o Genêro Recebimento",
@@ -158,11 +199,20 @@
         locale: {
           format: 'DD/MM/YYYY',
           daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
-          monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro',
-            'Outubro', 'Novembro', 'Dezembro'
-          ],
+          monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
         }
+      });
+    });
 
+    $(function() {
+      $('#dataPag').daterangepicker({
+        singleDatePicker: true,
+        calender_style: "picker_1",
+        locale: {
+          format: 'DD/MM/YYYY',
+          daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
+          monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+        }
       });
     });
 </script>

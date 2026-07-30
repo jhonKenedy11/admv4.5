@@ -193,6 +193,7 @@
                                             <li class="linhaMenu">
                                                 __________________________________
                                             </li>
+                                            {if $modelo neq '65'}
                                             <li>
                                                 <button type="button" {if $situacao_id neq 'A'} disabled
                                                         title="Nota baixada não habilita essa função"
@@ -211,6 +212,7 @@
                                                     <span class="btnWarn"> Gerar NF-e sem valor fiscal </span>
                                                 </button>
                                             </li>
+                                            {/if}
                                             <li>
                                                 <button type="button" {if $situacao_id neq 'P'} disabled
                                                         title="Função para nota em processamento" style="pointer-events: all;"
@@ -222,26 +224,34 @@
                                             {* <li>
                                     <button type="button" class="btn btn-warning btn-xs btnRelatorios"  onClick="javascript:addParcelasFinanceiro({$id});"><span> Parcelas Financeiro </span></button>
                                 </li> *}
+                                            {if $modelo neq '65'}
                                             <li>
                                                 <button type="button" class="btn btn-warning btn-xs btnRelatorios"
                                                     data-toggle="modal" data-target="#modalCarta"><span class="btnWarn">
                                                         Carta Correção NF-e</span></button>
                                             </li>
+                                            {/if}
                                             <li>
                                                 <button type="button" class="btn btn-warning btn-xs btnRelatorios"
                                                     data-toggle="modal" data-target="#modalEmail"><span class="btnWarn">
-                                                        Email XML/DANFE</span></button>
+                                                        {if $modelo eq '65'}Email XML/DANFCE{else}Email XML/DANFE{/if}</span></button>
                                             </li>
                                             <li>
                                                 <button type="button" class="btn btn-warning btn-xs btnRelatorios"
-                                                    onClick="javascript:geraDanfe({$id});"><span class="btnWarn"> Gera
-                                                        DANFE</span></button>
+                                                    {if $modelo eq '65'}
+                                                    onClick="javascript:printDanfe({$id});"
+                                                    {else}
+                                                    onClick="javascript:geraDanfe({$id});"
+                                                    {/if}><span class="btnWarn">
+                                                        {if $modelo eq '65'}Imprimir DANFCE{else}Gera DANFE{/if}</span></button>
                                             </li>
+                                            {if $modelo neq '65'}
                                             <li>
                                                 <button type="button" class="btn btn-warning btn-xs btnRelatorios"
                                                     onClick="javascript:imprimirCCe({$id});"><span class="btnWarn"> Imprimir
                                                         CC-e</span></button>
                                             </li>
+                                            {/if}
                                             <li>
                                                 <button type="button" class="btn btn-warning btn-xs btnRelatorios"
                                                     onClick="javascript:submitGerarXML({$id});"><span
@@ -253,11 +263,11 @@
                                             <li>
                                                 <button type="button" class="btn btn-danger btn-xs btnRelatorios"
                                                     data-toggle="modal" data-target="#modalCancela"><span> Cancela
-                                                        NF-e</span></button>
+                                                        {if $modelo eq '65'}NFC-e{else}NF-e{/if}</span></button>
                                             </li>
                                             <li>
                                                 <button type="button" class="btn btn-danger btn-xs btnRelatorios"
-                                                    onClick="javascript:submitExcluir('$id');"><span> Exclui
+                                                    onClick="javascript:submitExcluir('$id', '{$situacao_id}');"><span> Exclui
                                                         NF-e</span></button>
                                             </li>
                                         {/if}
@@ -287,7 +297,7 @@
                                         onKeyPress="if(this.value.length==11) return false;" placeholder="Numero NFe."
                                         id="numero" name="numero" {if $subMenu eq "cadastrar"} readonly 
                                         {else}
-                                        &nbsp;{/if} value={$numero}>
+                                        &nbsp;{/if} value={$numero} readonly>
                                 </div>
                                 <div class="col-md-2 col-sm-6 col-xs-6">
                                     <label for="tipo">Tipo Nota</label>
@@ -702,6 +712,17 @@
                                     <h4 class="modal-title">Carta Correção NFe - Texto</h4>
                                 </div>
                                 <div class="modal-body">
+                                    <!-- Seção de Eventos (oculta inicialmente) -->
+                                    <div id="divEventosNFe" style="display: none; margin-bottom: 15px;">
+                                        <div class="panel panel-info">
+                                            <div class="panel-heading">
+                                                <h4 class="panel-title">Eventos da NFe</h4>
+                                            </div>
+                                            <div class="panel-body">
+                                                <div id="conteudoEventos"></div>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <textarea class="form-control"
                                         placeholder="Digite o texto para a carta de carreção." rows="4" id="carta"
                                         name="carta">{$carta}</textarea>
@@ -732,6 +753,14 @@
             thousands: ".",
             allowZero: true,
             precision:{$casasDecimais}
+        });
+        
+        // Evento para buscar eventos quando o modal de Carta Correção é aberto
+        $('#modalCarta').on('shown.bs.modal', function () {
+            var idNfe = {$id};
+            if (idNfe) {
+                consultaEventosNFe(idNfe);
+            }
         });
     });
 </script>

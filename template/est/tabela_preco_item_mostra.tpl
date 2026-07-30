@@ -1,10 +1,12 @@
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <script type="text/javascript" src="{$pathJs}/est/s_tabela_preco_item.js"> </script>
         <!-- page content -->
         <div class="right_col" role="main">                
     <form class="full" NAME="lancamento" METHOD="POST" class="form-horizontal form-label-left" novalidate ACTION={$SCRIPT_NAME} >
         <input name=mod           type=hidden value="{$mod}">   
         <input name=form          type=hidden value="{$form}">
-        <input name=id            type=hidden value="{$id}"> 
+        <input name=id            type=hidden value="{$id}">
+        <input name=id_tabela_preco type=hidden value="{$id_tabela_preco}">
         <input name=codigo        type=hidden value="{$codigo}">   
         <input name=tabela_preco  type=hidden value="">
         <input name=letra         type=hidden value={$letra}>
@@ -12,18 +14,12 @@
 
         
         <div class="">
-            <div class="page-title">
-              <div class="title_left">
-                <h3>Tabela Preço</h3>
-              </div>
-            </div>
-
             <div class="row">
 
               <div class="col-md-12 col-sm-12 col-xs-12">
                 <div class="x_panel">
                   <div class="x_title">
-                    <h2>Consulta
+                    <h2> Consulta - Tabela Preço - Item
                         <strong>
                             {if $mensagem neq ''}
                                     <div class="alert alert-success" role="alert">Sucesso!&nbsp;{$mensagem}</div>
@@ -31,16 +27,12 @@
                         </strong>
                     </h2>
                     <ul class="nav navbar-right panel_toolbox">
-                        <!--
-                        <li><button type="button" class="btn btn-primary"  onClick="javascript:submitCadastro('classe');">
+                        <li><button type="button" class="btn btn-primary"  onClick="javascript:submitCadastro({$id_tabela_preco});">
                                 <span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span> Cadastro</span></button></li>
-                        -->
-                        <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
-                        <li class="dropdown">
-                        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"><i class="fa fa-wrench"></i></a>
-                        </li>
-                        <li><a class="close-link"><i class="fa fa-close"></i></a>
-                        </li>
+                        <li><button type="button" class="btn btn-success" onClick="javascript:Importar({$id_tabela_preco});">
+                                <span class="glyphicon glyphicon-upload" aria-hidden="true"></span><span> Importar Excel</span></button></li>
+                        <li><button type="button" class="btn btn-danger" onClick="javascript:voltarTabelaPreco();">
+                                <span class="glyphicon glyphicon-backward" aria-hidden="true"></span><span> Voltar</span></button></li>
                     </ul>
                     <div class="clearfix"></div>
                   </div>
@@ -51,6 +43,10 @@
                             <tr class="headings">
                                     <th>Tabela</th>
                                     <th>Código</th>
+                                    <th>Código Fabricante</th>
+                                    <th>Descrição</th>
+                                    <th>Grupo</th>
+                                    <th>Marca</th>
                                     <th>Preço Base</th>
                                     <th>Margem</th>
                                     <th>Preço de Venda</th>
@@ -64,11 +60,15 @@
                                     <tr>
                                         <td> {$lanc[i].ID} </td>
                                         <td> {$lanc[i].CODIGO} </td>
-                                        <td> {$lanc[i].PRECOBASE} </td>
-                                        <td> {$lanc[i].MARGEM} </td>
-                                        <td> {$lanc[i].PRECOFINAL} </td>
-                                        <td >
-                                            <button type="button" class="btn btn-primary btn-xs" onclick="javascript:submitAlterar('{$lanc[i].ID}','{$lanc[i].CODIGO}');"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></button>
+                                        <td> {$lanc[i].CODIGOFABRICANTE} </td>
+                                        <td> {$lanc[i].DESCRICAO} </td>
+                                        <td> {$lanc[i].GRUPO} </td>
+                                        <td> {$lanc[i].MARCA} </td>
+                                        <td> {$lanc[i].PRECOBASE|number_format:2:',':'.'} </td>
+                                        <td> {$lanc[i].MARGEM|number_format:2:',':'.'}% </td>
+                                        <td> {$lanc[i].PRECOFINAL|number_format:2:',':'.'} </td>
+                                        <td>
+                                            <button type="button" class="btn btn-primary btn-xs" onclick="javascript:submitAlterar('{$lanc[i].ID}','{$lanc[i].ID_TABELA_PRECO}','{$lanc[i].CODIGO}');"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></button>
                                             <button type="button" class="btn btn-danger btn-xs" onclick="javascript:submitExcluir('{$lanc[i].ID}','{$lanc[i].CODIGO}');"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></button>
                                         </td>
                                     </tr>

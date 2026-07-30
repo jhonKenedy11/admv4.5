@@ -4,6 +4,7 @@
     border-radius: 5px;
 }
 </style><script type="text/javascript" src="{$pathJs}/est/s_grupo.js"> </script>
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
         <!-- page content -->
         <div class="right_col" role="main">                
     <form class="full" NAME="lancamento" METHOD="POST" class="form-horizontal form-label-left" novalidate ACTION={$SCRIPT_NAME} >

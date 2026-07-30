@@ -108,7 +108,7 @@
 
                                 <table id="datatable-buttons" class="table table-striped table-bordered">
                                     <thead>
-                                        <tr style="background: #2A3F54; color: white;">
+                                        <tr class="headings">
                                             <th style="width: 20px;">Selecionar</th>
                                             <th>Descrição</th>
                                             <th>Valor Unitário</th>
@@ -149,7 +149,7 @@
 
                                 <table id="datatable-buttons2" class="table table-striped table-bordered">
                                     <thead>
-                                        <tr style="background: #2A3F54; color: white;">
+                                        <tr class="headings">
                                             <th>Ref.</th>
                                             <th>Descrição</th>
                                             <th>Qtde</th>

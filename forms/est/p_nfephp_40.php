@@ -16,18 +16,26 @@ $dir = (__DIR__);
 ini_set('display_errors', 'Off');
 require_once $dir . '/../../../sped/vendor/autoload.php';
 
-
 include_once($dir . "/../../bib/c_user.php");
 include_once($dir . "/../../bib/c_tools.php");
 include_once($dir . "/../../bib/c_mail.php");
 include_once($dir . "/../../bib/c_database_pdo.php");
 include_once($dir . "/../../class/crm/c_conta.php");
 include_once($dir . "/../../class/est/c_nota_fiscal.php");
+include_once($dir . "/../../class/est/c_manifesto_fiscal_sefaz.php");
 include_once($dir . "/../../class/est/c_nota_fiscal_produto.php");
 require_once($dir . "/../../class/fin/c_lancamento.php");
 require_once($dir . "/../../class/est/c_nat_operacao.php");
 require_once($dir . "/../../class/est/c_nat_tributos.php");
 require_once($dir . "/../../class/ped/c_pedido_ps.php");
+require_once($dir . "/../../class/pdv/c_cupom.php");
+require_once $dir . '/../../class/est/c_calculo_imposto_ibs_cbs.php';
+require_once $dir . '/../../class/est/c_sefaz_erro_mapper.php';
+
+// Wrapper para NFePHP\DA\NFe\Danfe, Danfce e Daevento
+require_once($dir . "/../../class/est/DanfeCustom.php");
+require_once($dir . "/../../class/est/DanfceCustom.php");
+require_once($dir . "/../../class/est/DaeventoCustom.php");
 
 
 class p_nfe_40 extends c_user
@@ -40,10 +48,10 @@ class p_nfe_40 extends c_user
     {
 
         //Assim obtém os dados passando pelo filtro contra INJECTION ( segurança PHP )
-        $parmPost = filter_input_array(INPUT_POST, FILTER_DEFAULT);
-        $parmGet = filter_input_array(INPUT_GET, FILTER_DEFAULT);
+        $parmPost = filter_input_array(INPUT_POST, FILTER_DEFAULT) ?? [];
+        $parmGet = filter_input_array(INPUT_GET, FILTER_DEFAULT) ?? [];
 
-        $this->m_submenu = $parmPost['submenu'];
+        $this->m_submenu = $parmPost['submenu'] ?? '';
         $this->arrayErro = array();
 
         // Cria uma instancia variaveis de sessao
@@ -52,10 +60,18 @@ class p_nfe_40 extends c_user
 
         //$this->nfePath = ADMnfe.$this->m_empresaid.$slash.ADMambDesc;
         $slash = '/';
-        define('BASE_DIR_NFE_CFG', ADMnfe . $slash . $this->m_empresaid . $slash . 'config');
-        define('BASE_DIR_NFE_AMB', ADMnfe . $slash . $this->m_empresaid . $slash . ADMambDesc);
-        define('BASE_HTTP_NFE_AMB', ADMhttpCliente . $slash . 'nfe' . $slash . $this->m_empresaid . $slash . ADMambDesc . $slash);
-        define('BASE_DIR_CERT', ADMnfe . $slash . $this->m_empresaid . $slash . 'certs' . $slash);
+        if (!defined('BASE_DIR_NFE_CFG')) {
+            define('BASE_DIR_NFE_CFG', ADMnfe . $slash . $this->m_empresaid . $slash . 'config');
+        }
+        if (!defined('BASE_DIR_NFE_AMB')) {
+            define('BASE_DIR_NFE_AMB', ADMnfe . $slash . $this->m_empresaid . $slash . ADMambDesc);
+        }
+        if (!defined('BASE_HTTP_NFE_AMB')) {
+            define('BASE_HTTP_NFE_AMB', ADMhttpCliente . $slash . 'nfe' . $slash . $this->m_empresaid . $slash . ADMambDesc . $slash);
+        }
+        if (!defined('BASE_DIR_CERT')) {
+            define('BASE_DIR_CERT', ADMnfe . $slash . $this->m_empresaid . $slash . 'certs' . $slash);
+        }
     }
 
     /**
@@ -90,6 +106,21 @@ class p_nfe_40 extends c_user
             return $aux[0] . "T" . $aux[1] . "-02:00"; // horario de verão 
         //return $aux[0]."T".$aux[1]."-03:00";
         endif;
+    }
+
+    /** Reenvio SEFAZ só em SoapException (ex.: connection reset by peer). */
+    private function sefazSoapComRetry(callable $acao, int $tentativas = 3, int $esperaSegundos = 2)
+    {
+        for ($t = 1; $t <= $tentativas; $t++) {
+            try {
+                return $acao();
+            } catch (\NFePHP\Common\Exception\SoapException $e) {
+                if ($t >= $tentativas) {
+                    throw $e;
+                }
+                sleep($esperaSegundos);
+            }
+        }
     }
 
     /**
@@ -164,7 +195,7 @@ class p_nfe_40 extends c_user
         $path = BASE_DIR_NFE_AMB;
         $slash = '/';
         define('BASE_DIR_CANCELADAS', $path . $slash . 'canceladas' . $slash . $anomes . $slash . $chave . $cancelExt);
-        define('TESTE_NFE', [DB_HOST_NAME => 'localhost']);
+        //define('TESTE_NFE', [DB_HOST_NAME => 'localhost']);
 
         // configura JSON com dados acesso - CONFIG NF-e 
         if ($this->m_empresaid == 1) {
@@ -269,7 +300,7 @@ class p_nfe_40 extends c_user
             mkdir($diretorioCarta, 0777, true);
         }
         define('BASE_DIR_CCE', $diretorioCarta . $fileCarta);
-        define('TESTE_NFE', [DB_HOST_NAME => 'localhost']);
+        //define('TESTE_NFE', [DB_HOST_NAME => 'localhost']);
 
         // configura JSON com dados acesso - CONFIG NF-e
         if ($this->m_empresaid == 1) {
@@ -340,6 +371,11 @@ class p_nfe_40 extends c_user
                     //SUCESSO PROTOCOLAR A SOLICITAÇÂO ANTES DE GUARDAR
                     $xml = NFePHP\NFe\Complements::toAuthorize($tools->lastRequest, $response);
                     file_put_contents(BASE_DIR_CCE, $xml);
+                    if (!isset($std->retEvento->infEvento)) {
+                        $std->retEvento->infEvento = new stdClass();
+                    }
+                    $std->retEvento->infEvento->XML = $xml;
+                    return $std;
                     //grave o XML protocolado 
                 }
             }
@@ -386,6 +422,7 @@ class p_nfe_40 extends c_user
             $path = BASE_DIR_NFE_AMB;
             $http = BASE_HTTP_NFE_AMB;
             $slash = '/';
+
             (stristr($path, $slash)) ? '' : $slash = '\\';
             define('BASE_DIR_ENVIADA_CARTA_CORRECAO', $path . $slash . 'cartacorrecao' . $slash . $anomes . $slash . $chave . $nfProc);
             define('BASE_DIR_PDF', $path . $slash . 'pdf' . $slash . $anomes . $slash . $chave . $nfExtPdf);
@@ -399,13 +436,63 @@ class p_nfe_40 extends c_user
             }
 
             $pathLogo = ADMimg . '/logo0' . $this->m_empresaid . '.jpg';
-            $docxml = NFePHP\DA\Legacy\FilesFolders::readFile(BASE_DIR_ENVIADA_CARTA_CORRECAO);
 
-            $dacce = new NFePHP\DA\NFe\Dacce($docxml, 'P', 'A4', $pathLogo, 'I', $aEnd);
-            $teste = $dacce->printDACCE(BASE_DIR_PDF, 'F');
-        } catch (Exception $e) {
-            return "carta Correção NF NÃO realizado <br>" . $e . message;
-            //throw new Exception($e->getMessage() );
+            if (!file_exists($pathLogo)) {
+                throw new Exception('Logo não encontrada');
+            }
+
+            // Verifica se o arquivo XML existe
+            if (!file_exists(BASE_DIR_ENVIADA_CARTA_CORRECAO)) {
+                throw new Exception("Arquivo XML da Carta de Correção não encontrado: " . BASE_DIR_ENVIADA_CARTA_CORRECAO);
+            }
+
+            $docxml = file_get_contents(BASE_DIR_ENVIADA_CARTA_CORRECAO);
+
+            // Verifica se o conteúdo foi carregado corretamente
+            if ($docxml === false || empty($docxml)) {
+                throw new Exception("Erro ao ler o arquivo XML da Carta de Correção ou arquivo vazio.");
+            }
+
+            // Remove BOM (Byte Order Mark) é uma sequência de bytes usada para indicar codificação UTF-8
+            $docxml = preg_replace('/^\xEF\xBB\xBF/', '', $docxml);
+
+           // Desabilita avisos de erros XML
+           //libxml_use_internal_errors(false);
+
+            $daevento = new DaeventoCustom($docxml, $aEnd);
+            //$daevento->debugMode(true);
+            $daevento->creditsIntegratorFooter('Tractor ERP - https://tractorerp.com.br/');
+            $daevento->printParameters('P','A4');
+            $daevento->logoParameters($pathLogo, 'C');  // ← Usa a versão customizada
+            $pdf = $daevento->render();
+
+            // Garante que o diretório existe
+            $directory = dirname(BASE_DIR_PDF);
+            if (!is_dir($directory)) {
+                mkdir($directory, 0777, true);
+            }
+            
+            // Salvar
+            file_put_contents(BASE_DIR_PDF, $pdf);
+        } catch (Throwable $e) {
+            error_log('visualizar_carta_correcao_NFE: ' . $e->getMessage());
+            if ($docxml === null || $docxml === '' || $docxml === false) {
+                throw $e;
+            }
+            try {
+                $da = new DaeventoCustom($docxml, is_array($aEnd) ? $aEnd : []);
+                $da->creditsIntegratorFooter('Tractor ERP - https://tractorerp.com.br/');
+                $da->printParameters('P', 'A4');
+                $pdf = $da->render();
+                $dirPdf = dirname(BASE_DIR_PDF);
+                if (!is_dir($dirPdf)) {
+                    mkdir($dirPdf, 0777, true);
+                }
+                file_put_contents(BASE_DIR_PDF, $pdf);
+                error_log('CC-e sem logo (fallback): ' . $e->getMessage());
+            } catch (Throwable $e2) {
+                throw new Exception('Erro ao gerar PDF da CC-e: ' . $e2->getMessage(), 0, $e2);
+            }
         }
     }
 
@@ -541,9 +628,23 @@ class p_nfe_40 extends c_user
 
             $pathLogo = ADMimg . '/logo0' . $this->m_empresaid . '.jpg';
             $docxml = NFePHP\DA\Legacy\FilesFolders::readFile(BASE_DIR_ENVIADA_APROVADAS);
-            $danfe = new NFePHP\DA\NFe\Danfe($docxml, 'P', 'A4', $pathLogo, 'I', '');
-            $id = $danfe->montaDANFE();
-            $salva = $danfe->printDocument(BASE_DIR_PDF, 'F'); //Salva o PDF na pasta
+            
+            // Usar DanfeCustom
+            $danfe = new DanfeCustom($docxml);
+            
+            // Configurar parâmetros
+            $danfe->printParameters('P', 'A4');
+            
+            // Configurar logo
+            if (!empty($pathLogo) && file_exists($pathLogo)) {
+                $danfe->setLogoPath($pathLogo);
+            }
+            
+            // Renderizar
+            $pdf = $danfe->render();
+            
+            // Salvar
+            file_put_contents(BASE_DIR_PDF, $pdf);
 
             return "Danfe gerada NFe número - ";
         } catch (Exception $e) {
@@ -624,411 +725,423 @@ class p_nfe_40 extends c_user
 
 
 
-    /**
-     * Funcao para CONSULTAR O STATUS DO SERVIÇO
-     * @param VARCHAR $chave nfe
-     */
-    public function consultaDistNfe($ultimaNsu)
+    /** @return \NFePHP\NFe\Tools */
+    private function buildDistDfeTools()
     {
+        $id = max(1, min(5, (int) $this->m_empresaid));
+        $confPar = explode('|', constant('ADMnfeConfig0' . $id));
+        $configJson = json_encode([
+            'atualizacao' => $confPar[0],
+            'tpAmb' => (int) $confPar[1], // DistDFe opera somente em produção
+            'razaosocial' => $confPar[2],
+            'siglaUF' => $confPar[3],
+            'cnpj' => $confPar[4],
+            'schemes' => $confPar[5],
+            'versao' => $confPar[6],
+            'tokenIBPT' => $confPar[7],
+        ]);
+        $pfx = file_get_contents(BASE_DIR_CERT . constant('ADMnfeCert0' . $id));
+        $tools = new NFePHP\NFe\Tools(
+            $configJson,
+            NFePHP\Common\Certificate::readPfx($pfx, constant('ADMnfeSenha0' . $id))
+        );
+        $tools->model('55');
+        $tools->setEnvironment(1);
+        return $tools;
+    }
 
-        /*
-            CREATE TABLE IF NOT EXISTS `EST_MANIFESTO` (
-            `ID` int(11) PRIMARY KEY AUTO_INCREMENT,
-            `DATAHORARESPOSTA` timestamp NULL DEFAULT NULL,
-            `ULTNSU` varchar(15) DEFAULT NULL,
-            `MAXNSU` varchar(15) DEFAULT NULL,
-            `VERAPLIC` varchar(20) DEFAULT NULL,
-            `VERSAO` varchar(4) DEFAULT NULL,
-            `CSTAT` varchar(3) DEFAULT NULL,
-            `XMOTIVO` varchar(255) DEFAULT NULL,
-            `INDCONT` char(1) DEFAULT NULL,
-            `USREMISSAO` smallint(6) DEFAULT NULL,
-            `PROXIMACONSULTA` timestamp NULL DEFAULT NULL
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-        */
+    /**
+     * Inicia estado da consulta DistDFe na sessão (consulta em lotes via AJAX).
+     */
+    public function consultaDistNfeIniciar($ultimaNsu)
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
 
-        // configura JSON com dados acesso - CONFIG NF-e
-        if ($this->m_empresaid == 1) {
-            $confPar = explode("|", ADMnfeConfig01);
-        } else
-        if ($this->m_empresaid == 2) {
-            $confPar = explode("|", ADMnfeConfig02);
-        } else
-        if ($this->m_empresaid == 3) {
-            $confPar = explode("|", ADMnfeConfig03);
+        // DistDFe exige o último ULTNSU já recebido (sem +1). Incrementar causa 589/656.
+        if ($ultimaNsu === null || $ultimaNsu === '' || !preg_match('/^\d+$/', (string) $ultimaNsu)) {
+            $novaNsu = '000000000000000';
+        } else {
+            $novaNsu = str_pad((string) $ultimaNsu, max(15, strlen((string) $ultimaNsu)), '0', STR_PAD_LEFT);
         }
-        if ($this->m_empresaid == 4) {
-            $confPar = explode("|", ADMnfeConfig04);
-        }
-        if ($this->m_empresaid == 5) {
-            $confPar = explode("|", ADMnfeConfig05);
-        }
-        $config = [
-            "atualizacao" => $confPar[0],
-            "tpAmb" => intval($confPar[1]), // Se deixar o tpAmb como 2 você emitirá a nota em ambiente de homologação(teste) e as notas fiscais aqui não tem valor fiscal
-            "razaosocial" => $confPar[2],
-            "siglaUF" => $confPar[3],
-            "cnpj" => $confPar[4],
-            "schemes" => $confPar[5], //PL_009_V4 - 4.0,PL_008i2 - 3.10
-            "versao" => $confPar[6],
-            "tokenIBPT" => $confPar[7]
+
+        $_SESSION['manifesto_dist_dfe'] = [
+            'ultNSU' => $novaNsu,
+            'maxNSU' => $novaNsu,
+            'iCount' => 0,
+            'failNf' => [],
+            'incrementa' => 0,
+            'verAplic' => '',
+            'cStat' => '',
+            'total' => null,
+            'loopLimit' => 12,
         ];
 
-        $configJson = json_encode($config);
+        return ['cStat' => 'ready', 'message' => '', 'ultNSU' => $novaNsu];
+    }
+
+    private function distNfeLimpaSessao()
+    {
+        unset($_SESSION['manifesto_dist_dfe']);
+    }
+
+    /** Monta array de resposta JSON para o front (progresso ou fim). */
+    private function distNfeJson(array $state, $cStat, $message = '', $concluido = false, $docsProcessados = 0)
+    {
+        return [
+            'cStat' => $cStat,
+            'message' => $message,
+            'atual' => $state['iCount'] ?? 0,
+            'total' => $state['total'] ?? ($state['iCount'] ?? 1),
+            'ultNSU' => $state['ultNSU'] ?? '',
+            'maxNSU' => $state['maxNSU'] ?? '',
+            'concluido' => $concluido,
+            'docsProcessados' => $docsProcessados,
+        ];
+    }
+
+    private function distNfeJsonFinal(array $state, $docsProcessados = 0)
+    {
+        $final = $this->consultaDistNfeFinalizar($state);
+        if ($final === 'true') {
+            return $this->distNfeJson($state, 'true', 'Notas baixadas com sucesso.', true, $docsProcessados);
+        }
+        if (is_array($final)) {
+            return $this->distNfeJson($state, $final['cStat'], $final['message'] ?? '', true, $docsProcessados);
+        }
+        return $this->distNfeJson($state, 'error', 'Erro ao finalizar consulta DistDFe.', true, $docsProcessados);
+    }
+
+    private static function distNfeMsgSefaz($cStat)
+    {
+        $msgs = [
+            '137' => 'Nenhum documento localizado, a SEFAZ está te informando para consultar novamente após uma hora a contar desse momento!',
+            '589' => 'Rejeicao: Numero do NSU informado superior ao maior NSU da base de dados do Ambiente Nacional!',
+            '656' => 'Consumo Indevido, a SEFAZ bloqueou o seu acesso por uma hora pois as regras de consultas não foram observadas!',
+        ];
+        return $msgs[$cStat] ?? 'Consulta SEFAZ retornou código ' . $cStat;
+    }
+
+    /**
+     * Finaliza consulta DistDFe (failNf / sucesso) e limpa sessão.
+     *
+     * @param array $state
+     * @return string|array
+     */
+    private function consultaDistNfeFinalizar(array $state)
+    {
+        $failNf = $state['failNf'] ?? [];
+        $ultNSU = $state['ultNSU'] ?? '';
+        $maxNSU = $state['maxNSU'] ?? '';
+        $verAplic = $state['verAplic'] ?? '';
+        $cStat = $state['cStat'] ?? '';
+
+        $this->distNfeLimpaSessao();
+
+        if (empty($failNf)) {
+            return 'true';
+        }
+
+        $jsonNotas = json_encode($failNf);
+        $sql = "INSERT INTO est_nota_fiscal_eventos (";
+        $sql .= "IDNF, TIPOEVENTO, CENTROCUSTO, MODELO, SERIE, NUMNFINI, NUMNFFIM, JUSTIFICATIVA, NPROT, VERAPLIC, CSTAT, USERINSERT, DATEINSERT) ";
+        $sql .= "VALUES (0000,'M' , ";
+        $sql .= $this->m_empresacentrocusto . ", '";
+        $sql .= "55 ', '";
+        $sql .= "000', ";
+        $sql .= $ultNSU . ", ";
+        $sql .= $maxNSU . ", '";
+        $sql .= $jsonNotas . "', '";
+        $sql .= "00000000000', '";
+        $sql .= $verAplic . "', '";
+        $sql .= $cStat . "', ";
+        $sql .= $this->m_userid . ",'" . date("Y-m-d H:i:s") . "' );";
+
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+
+        return [
+            'cStat' => 'atencao',
+            'message' => 'Notas localizadas, mas com divergências ao inserir no sistema, contate o suporte.'
+        ];
+    }
+
+    private function distNfeClienteId($cnpj, $xml, $tipo)
+    {
+        $doc = preg_replace('/\D/', '', (string) $cnpj);
+        if ($doc === '') {
+            return 99999;
+        }
+        $conta = c_conta::existeContaCnpjCpf($doc);
+        if (is_array($conta) && isset($conta[0]['CLIENTE'])) {
+            return (int) $conta[0]['CLIENTE'];
+        }
+        try {
+            $novo = $this->insertPersonManifest($xml, $tipo);
+            return is_int($novo) ? $novo : 99999;
+        } catch (\Throwable $e) {
+            return 99999;
+        }
+    }
+
+    private function distNfeGravaNota($nf, $chave, array &$failNf, int &$incrementa)
+    {
+        try {
+            $result = $nf->incluiNotaFiscalManisfesto();
+        } catch (\Throwable $e) {
+            $failNf[$incrementa++] = $chave;
+            return false;
+        }
+        if (!is_int($result)) {
+            $failNf[$incrementa++] = $chave;
+            return false;
+        }
+        return $result;
+    }
+
+    /** Processa um documento docZip retornado pela DistDFe. */
+    private function processDistDfeDocZip($doc, array &$failNf, int &$incrementa, array &$state)
+    {
+        $schema = (string) $doc->getAttribute('schema');
+        $xmlRaw = @gzdecode(base64_decode((string) $doc->nodeValue));
+        if ($xmlRaw === false || $xmlRaw === '') {
+            throw new \RuntimeException('Falha ao descompactar docZip DistDFe.');
+        }
+        $xml = new SimpleXMLElement($xmlRaw);
+        $tipo = substr($schema, 0, 6);
+
+        if ($tipo == 'resNFe') {
+            $chave = (string) $xml->chNFe;
+            $modelo = substr($chave, 20, 2);
+            $serie = intval(substr($chave, 22, 3));
+            $numeroNF = intval(substr($chave, 25, 9));
+            $cnpjCpf = preg_replace('/\D/', '', (string) ($xml->CNPJ ?: $xml->CPF));
+            $cliente = $this->distNfeClienteId($cnpjCpf, $xml, $tipo);
+            if (!c_nota_fiscal::existNotaNumClient($numeroNF, $serie, $cliente)) {
+                $objetoNotaFiscal = new c_nota_fiscal();
+                $objetoNotaFiscal->setModelo($modelo);
+                $objetoNotaFiscal->setSerie($serie);
+                $objetoNotaFiscal->setNumero($numeroNF);
+                $objetoNotaFiscal->setPessoa($cliente);
+                $objetoNotaFiscal->setCpfNota($cnpjCpf);
+                $objetoNotaFiscal->setEmissao((string) $xml->dhEmi);
+                $objetoNotaFiscal->setIdNatop(3);
+                $objetoNotaFiscal->setNatOperacao('');
+                $objetoNotaFiscal->setTipo(0);
+                $objetoNotaFiscal->setSituacao('NP');
+                $objetoNotaFiscal->setFormaPgto(2);
+                $objetoNotaFiscal->setCondPgto('');
+                $objetoNotaFiscal->setDataSaidaEntrada((string) $xml->dhEmi);
+                $objetoNotaFiscal->setFormaEmissao('');
+                $objetoNotaFiscal->setFinalidadeEmissao('');
+                $objetoNotaFiscal->setNfeReferenciada('');
+                $objetoNotaFiscal->setCentroCusto($this->m_empresacentrocusto);
+                $objetoNotaFiscal->setGenero('');
+                $objetoNotaFiscal->setModFrete('');
+                $objetoNotaFiscal->setTransportador(null);
+                $objetoNotaFiscal->setPlacaVeiculo('');
+                $objetoNotaFiscal->setCodAntt('');
+                $objetoNotaFiscal->setUf('');
+                $objetoNotaFiscal->setVolume('');
+                $objetoNotaFiscal->setVolEspecie('');
+                $objetoNotaFiscal->setVolMarca('');
+                $objetoNotaFiscal->setVolPesoLiq('');
+                $objetoNotaFiscal->setVolPesoBruto('');
+                $totalnf = number_format((float) $xml->vNF, 2, ',', '.');
+                $objetoNotaFiscal->setTotalnf($totalnf);
+                $objetoNotaFiscal->setOrigem('');
+                $objetoNotaFiscal->setDoc($numeroNF);
+                $objetoNotaFiscal->setObs((string) $xml->xNome);
+                $objetoNotaFiscal->setFrete('');
+                $objetoNotaFiscal->setDespAcessorias('');
+                $objetoNotaFiscal->setSeguro('');
+                $objetoNotaFiscal->setDhRecbto('');
+                $objetoNotaFiscal->setNProt((string) $xml->nProt);
+                $objetoNotaFiscal->setDigVal((string) $xml->digVal);
+                $objetoNotaFiscal->setVerAplic('');
+                $objetoNotaFiscal->setVendaPresencial('');
+                $objetoNotaFiscal->setContrato('');
+                $objetoNotaFiscal->setChNFe($chave);
+                // Não envia evento SEFAZ aqui: manifestações em massa no DistDFe causam timeout/656
+                // e a UI falhava mesmo com cStat 138 já gravado.
+                $this->distNfeGravaNota($objetoNotaFiscal, $chave, $failNf, $incrementa);
+            }
+        } elseif ($tipo == 'procNF') {
+            $emit = $xml->NFe->infNFe->emit;
+            $cnpj = preg_replace('/\D/', '', (string) ($emit->CNPJ ?: $emit->CPF));
+            $serie = intval($xml->NFe->infNFe->ide->serie);
+            $numero = $xml->NFe->infNFe->ide->nNF;
+            $cliente = $this->distNfeClienteId($cnpj, $xml, $tipo);
+            if (!c_nota_fiscal::existNotaNumClient($numero, $serie, $cliente)) {
+                $objetoNotaFiscal = new c_nota_fiscal();
+                $objetoNotaFiscal->setModelo($xml->NFe->infNFe->ide->mod);
+                $objetoNotaFiscal->setSerie(intval($xml->NFe->infNFe->ide->serie));
+                $objetoNotaFiscal->setNumero($numero);
+                $objetoNotaFiscal->setPessoa($cliente);
+                $objetoNotaFiscal->setCpfNota($cnpj);
+                $objetoNotaFiscal->setEmissao($xml->NFe->infNFe->ide->dhEmi);
+                $objetoNotaFiscal->setIdNatop(3);
+                $objetoNotaFiscal->setNatOperacao('');
+                $objetoNotaFiscal->setTipo(0);
+                $objetoNotaFiscal->setSituacao('NP');
+                $objetoNotaFiscal->setFormaPgto(2);
+                $objetoNotaFiscal->setCondPgto('');
+                $objetoNotaFiscal->setDataSaidaEntrada($xml->NFe->infNFe->ide->dhEmi);
+                $objetoNotaFiscal->setFormaEmissao('');
+                $objetoNotaFiscal->setFinalidadeEmissao('');
+                $objetoNotaFiscal->setNfeReferenciada('');
+                $objetoNotaFiscal->setCentroCusto($this->m_empresacentrocusto);
+                $objetoNotaFiscal->setGenero('');
+                $objetoNotaFiscal->setModFrete((string) ($xml->NFe->infNFe->transp->modFrete ?? ''));
+                $objetoNotaFiscal->setTransportador(null);
+                $objetoNotaFiscal->setPlacaVeiculo('');
+                $objetoNotaFiscal->setCodAntt('');
+                $objetoNotaFiscal->setUf('');
+                $objetoNotaFiscal->setVolume('');
+                $objetoNotaFiscal->setVolEspecie('');
+                $objetoNotaFiscal->setVolMarca('');
+                $objetoNotaFiscal->setVolPesoLiq('');
+                $objetoNotaFiscal->setVolPesoBruto('');
+                $totalnf = number_format((float) $xml->NFe->infNFe->total->ICMSTot->vNF, 2, ',', '.');
+                $objetoNotaFiscal->setTotalnf($totalnf);
+                $objetoNotaFiscal->setOrigem('');
+                $objetoNotaFiscal->setDoc($xml->NFe->infNFe->ide->nNF);
+                $objetoNotaFiscal->setObs((string) $emit->xNome);
+                $objetoNotaFiscal->setFrete((string) ($xml->NFe->infNFe->total->ICMSTot->vFrete ?? ''));
+                $objetoNotaFiscal->setDespAcessorias('');
+                $objetoNotaFiscal->setSeguro((string) ($xml->NFe->infNFe->total->ICMSTot->vSeg ?? ''));
+                $objetoNotaFiscal->setDhRecbto('');
+                $objetoNotaFiscal->setNProt((string) $xml->protNFe->infProt->nProt);
+                $objetoNotaFiscal->setDigVal((string) $xml->protNFe->infProt->digVal);
+                $objetoNotaFiscal->setVerAplic((string) $xml->protNFe->infProt->verAplic);
+                $objetoNotaFiscal->setVendaPresencial('');
+                $objetoNotaFiscal->setContrato('');
+                $objetoNotaFiscal->setChNFe((string) $xml->protNFe->infProt->chNFe);
+                $idNf = $this->distNfeGravaNota($objetoNotaFiscal, (string) $xml->protNFe->infProt->chNFe, $failNf, $incrementa);
+                if ($idNf) {
+                    try {
+                        c_nota_fiscal::gravarXmlNota($idNf, $xmlRaw);
+                    } catch (\Throwable $e) {
+                        // XML opcional: não derruba o lote
+                    }
+                }
+            }
+        }
+    }
+
+    /** Um lote da consulta DistDFe (chamado via AJAX). */
+    public function consultaDistNfeUmLote()
+    {
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            session_start();
+        }
+        @set_time_limit(300);
+        if (empty($_SESSION['manifesto_dist_dfe']) || !is_array($_SESSION['manifesto_dist_dfe'])) {
+            return $this->distNfeJson([], 'error', 'Sessão da consulta expirou. Clique novamente em Consulta notas fiscais na receita.', true);
+        }
+
+        $state = &$_SESSION['manifesto_dist_dfe'];
+        $loopLimit = (int) ($state['loopLimit'] ?? 12);
+        $state['iCount'] = (int) $state['iCount'] + 1;
+
+        if ($state['iCount'] >= $loopLimit || (int) $state['ultNSU'] > (int) $state['maxNSU']) {
+            return $this->distNfeJsonFinal($state);
+        }
 
         try {
-            //   leitura do certirficado digital
-            if ($this->m_empresaid == 1) {
-                $certificadoDigital = file_get_contents(BASE_DIR_CERT . ADMnfeCert01);
-                $tools = new NFePHP\NFe\Tools($configJson, NFePHP\Common\Certificate::readPfx($certificadoDigital, ADMnfeSenha01));
-                //hiperfarma
-                //$certificadoDigital = file_get_contents(BASE_DIR_CERT.ADMnfeCert);
-                //$tools = new NFePHP\NFe\Tools($configJson, NFePHP\Common\Certificate::readPfx($certificadoDigital, ADMnfeSenha));
-            } else
-            if ($this->m_empresaid == 2) {
-                $certificadoDigital = file_get_contents(BASE_DIR_CERT . ADMnfeCert02);
-                $tools = new NFePHP\NFe\Tools($configJson, NFePHP\Common\Certificate::readPfx($certificadoDigital, ADMnfeSenha02));
-            } else
-            if ($this->m_empresaid == 3) {
-                $certificadoDigital = file_get_contents(BASE_DIR_CERT . ADMnfeCert03);
-                $tools = new NFePHP\NFe\Tools($configJson, NFePHP\Common\Certificate::readPfx($certificadoDigital, ADMnfeSenha03));
+            $tools = $this->buildDistDfeTools();
+            $resp = $tools->sefazDistDFe($state['ultNSU']);
+        } catch (\Throwable $e) {
+            $this->distNfeLimpaSessao();
+            return $this->distNfeJson($state, 'error', $e->getMessage(), true);
+        }
+
+        $dom = new \DOMDocument();
+        $dom->loadXML($resp);
+        $node = $dom->getElementsByTagName('retDistDFeInt')->item(0);
+        if (!$node) {
+            $this->distNfeLimpaSessao();
+            return $this->distNfeJson($state, 'error', 'Resposta inválida da SEFAZ (DistDFe).', true);
+        }
+
+        $verAplic = $node->getElementsByTagName('verAplic')->item(0)->nodeValue;
+        $cStat = $node->getElementsByTagName('cStat')->item(0)->nodeValue;
+        $xMotivo = $node->getElementsByTagName('xMotivo')->item(0)->nodeValue;
+        $dhResp = $node->getElementsByTagName('dhResp')->item(0)->nodeValue;
+        $ultNSU = $node->getElementsByTagName('ultNSU')->item(0)->nodeValue;
+        $maxNSU = $node->getElementsByTagName('maxNSU')->item(0)->nodeValue;
+        $lote = $node->getElementsByTagName('loteDistDFeInt')->item(0);
+
+        $state['ultNSU'] = $ultNSU;
+        $state['maxNSU'] = $maxNSU;
+        $state['verAplic'] = $verAplic;
+        $state['cStat'] = $cStat;
+
+        // Em 589 a AN rejeita NSU acima do máximo: grava MAXNSU para o próximo ciclo.
+        $ultNsuGravar = $ultNSU;
+        $maxNsuGravar = $maxNSU;
+        if ($cStat === '589' && (int) $maxNSU > 0) {
+            $ultNsuGravar = $maxNSU;
+            $maxNsuGravar = $maxNSU;
+            $state['ultNSU'] = $maxNSU;
+        }
+        $this->recordHeader($verAplic, $cStat, $xMotivo, $dhResp, $ultNsuGravar, $maxNsuGravar);
+
+        if ($state['total'] === null) {
+            $state['total'] = ((int) $ultNSU >= (int) $maxNSU) ? 1 : $loopLimit;
+        }
+
+        if (in_array($cStat, ['137', '656', '589'], true)) {
+            $this->distNfeLimpaSessao();
+            $msg = self::distNfeMsgSefaz($cStat);
+            if ($cStat === '656' && $xMotivo !== '') {
+                $msg = $xMotivo;
+            } elseif ($cStat === '589' && $xMotivo !== '') {
+                $msg = $xMotivo . ((int) $maxNSU > 0 ? ' Próxima consulta usará NSU ' . $maxNSU . '.' : '');
             }
-            if ($this->m_empresaid == 4) {
-                $certificadoDigital = file_get_contents(BASE_DIR_CERT . ADMnfeCert04);
-                $tools = new NFePHP\NFe\Tools($configJson, NFePHP\Common\Certificate::readPfx($certificadoDigital, ADMnfeSenha04));
-            }
-            if ($this->m_empresaid == 5) {
-                $certificadoDigital = file_get_contents(BASE_DIR_CERT . ADMnfeCert05);
-                $tools = new NFePHP\NFe\Tools($configJson, NFePHP\Common\Certificate::readPfx($certificadoDigital, ADMnfeSenha05));
-            }
+            return $this->distNfeJson($state, $cStat, $msg, true);
+        }
 
-
-            //só funciona para o modelo 55
-            $tools->model('55');
-            //este serviço somente opera em ambiente de produção
-            $tools->setEnvironment(1);
-
-            //este numero deverá vir do banco de dados nas proximas buscas para reduzir 
-            //a quantidade de documentos, e para não baixar várias vezes as mesmas coisas.
-
-            if ($ultimaNsu == null or $ultimaNsu == '') {
-                $nova_nsu =  '000000000000000';
-            } else {
-                $nova_nsu = str_pad(strval(intval($ultimaNsu) + 1), strlen($ultimaNsu), "0", STR_PAD_LEFT);
-            }
-
-            $ultNSU = $nova_nsu;
-            //$ultNSU = '000000000000000';
-
-            $maxNSU = $ultNSU;
-            $loopLimit = 12; //mantenha o numero de consultas abaixo de 20, cada consulta retorna até 50 documentos por vez
-            $iCount = 0;
-
-            //variaveis para inserir quando da erro na insercao no banco e grva em eventos
-            $failNf = array();
-            $incrementa = 0;
-
-            //executa a busca de DFe em loop
-            while ($ultNSU <= $maxNSU) {
-                $iCount++;
-                if ($iCount >= $loopLimit) {
-                    //o limite de loops foi atingido pare de consultar
-                    break;
-                }
-                try {
-                    //executa a busca pelos documentos
-                    $resp = $tools->sefazDistDFe($ultNSU);
-                } catch (\Exception $e) {
-                    echo $e->getMessage();
-                    //pare de consultar e resolva o erro (pode ser que a SEFAZ esteja fora do ar)
-                    break;
-                }
-
-                //extrair e salvar os retornos
-                $dom = new \DOMDocument();
-                $dom->loadXML($resp);
-                $node = $dom->getElementsByTagName('retDistDFeInt')->item(0);
-                $tpAmb = $node->getElementsByTagName('tpAmb')->item(0)->nodeValue;
-                $verAplic = $node->getElementsByTagName('verAplic')->item(0)->nodeValue;
-                $cStat = $node->getElementsByTagName('cStat')->item(0)->nodeValue;
-                $xMotivo = $node->getElementsByTagName('xMotivo')->item(0)->nodeValue;
-                $dhResp = $node->getElementsByTagName('dhResp')->item(0)->nodeValue;
-                $ultNSU = $node->getElementsByTagName('ultNSU')->item(0)->nodeValue;
-                $maxNSU = $node->getElementsByTagName('maxNSU')->item(0)->nodeValue;
-                $lote = $node->getElementsByTagName('loteDistDFeInt')->item(0);
-
-                //inclui
-                $resultIncluiHeader = $this->recordHeader($verAplic, $cStat, $xMotivo, $dhResp, $ultNSU, $maxNSU);
-
-                if (in_array($cStat, ['137', '656', '589'])) {
-                    // 137 - Nenhum documento localizado, a SEFAZ está te informando para consultar novamente após uma hora a contar desse momento
-                    // 656 - Consumo Indevido, a SEFAZ bloqueou o seu acesso por uma hora pois as regras de consultas não foram observadas
-                    // Nestes dois casos, pare as consultas imediatamente e retome apenas daqui a uma hora, pelo menos!!
-
-                    switch ($cStat) {
-                        case '137':
-                            $message = "Nenhum documento localizado, a SEFAZ está te informando para consultar novamente após uma hora a contar desse momento!";
-                            break;
-                        case '589':
-                            $message = "Rejeicao: Numero do NSU informado superior ao maior NSU da base de dados do Ambiente Nacional!";
-                            break;
-                        case '656':
-                            $message = "Consumo Indevido, a SEFAZ bloqueou o seu acesso por uma hora pois as regras de consultas não foram observadas!";
-                            break;
-                    }
-
-                    $return = array(
-                        "cStat" => $cStat,
-                        "message" => $message
-                    );
-
-                    return $return;
-                }
-
-                if (empty($lote)) {
-                    //lote vazio
-                    continue;
-                }
-
-                //essas tags irão conter os documentos zipados
+        $docsProcessados = 0;
+        try {
+            if (!empty($lote)) {
                 $docs = $lote->getElementsByTagName('docZip');
-
-                //salva zip
-                //$savedZip = $this->savedZip($docs, $dhResp);
-
+                try {
+                    $this->savedZip($docs, $dhResp);
+                } catch (\Throwable $e) {
+                    // Backup local do ZIP é opcional; não pode derrubar a consulta.
+                }
+                $failNf = &$state['failNf'];
+                $incrementa = &$state['incrementa'];
                 foreach ($docs as $doc) {
-                    $numnsu = $doc->getAttribute('NSU');
-                    $schema = $doc->getAttribute('schema');
-                    //descompacta o documento e recupera o XML original
-                    $xml_string = gzdecode(base64_decode($doc->nodeValue));
-                    //identifica o tipo de documento
-                    $tipo = substr($schema, 0, 6);
-                    //processar o conteudo do NSU, da forma que melhor lhe interessar
-
-                    $xml = new SimpleXMLElement($xml_string);
-
-                    if ($tipo == 'procEv') { // PROCESSO FUTURO
-                        /*
-                        Em resumo, o arquivo "procEventoNFe_v1.00.xsd" é utilizado para validar e formatar os eventos relacionados à NFe 4.0, 
-                        como parte do processo de emissão, cancelamento e controle das notas fiscais eletrônicas.
-
-
-                        XML EXEMPLO
-                        "<procEventoNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00"><evento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">
-                        <infEvento Id="ID2102104123051978559700015555001000003500186266649301"><cOrgao>91</cOrgao><tpAmb>1</tpAmb><CNPJ>80308166000109</CNPJ>
-                        <chNFe>41230519785597000155550010000035001862666493</chNFe><dhEvento>2023-05-18T20:08:59-03:00</dhEvento><tpEvento>210210</tpEvento>
-                        <nSeqEvento>1</nSeqEvento><verEvento>1.00</verEvento><detEvento versao="1.00"><descEvento>Ciencia da Operacao</descEvento></detEvento></infEvento>
-                        <Signature xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" />
-                        <SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1" /><Reference URI="#ID2102104123051978559700015555001000003500186266649301">
-                        <Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" />
-                        <Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" /></Transforms>"
-                        */
-                    } else if ($tipo == 'resEve') { // PROCESSO FUTURO
-                        /*
-                        O Status Evento de Registro de Passagem Automático MDF-e com CT-e significa que foi emitido pela Sefaz (Fisco), 
-                        um Evento de passagem de um MDF-e que consta CT-e em suas informações. Esse Evento é gerado quando o transporte/mercadoria 
-                        passa por uma barreira fiscal.
-                        */
-                    } else if ($tipo == 'resNFe') { // PROCESSO NORMAL
-
-                        $modelo = substr($xml->chNFe, 20, 2);
-                        $serie = intval(substr($xml->chNFe, 22, 3));
-                        $numeroNF = intval(substr($xml->chNFe, 25, 9));
-
-                        //busca e seta cliente
-                        $selectConta = c_conta::existeContaCnpjCpf($xml->CNPJ);
-
-                        //verifica se já existe nota, se existir saiu do if
-                        $existNfe = c_nota_fiscal::existNotaNumClient($numeroNF, $serie, $selectConta[0]['CLIENTE']);
-
-                        if (!$existNfe) {
-
-                            if ($selectConta == null and $selectConta == '') {
-                                $insertConta = $this->insertPersonManifest($xml, $tipo);
-
-                                if (is_int($insertConta)) {
-                                    $selectConta[0]['CLIENTE'] = $insertConta;
-                                } else {
-                                    $selectConta[0]['CLIENTE'] = 99999; //cliente padrao
-                                }
-                            }
-
-                            $objetoNotaFiscal = new c_nota_fiscal();
-                            $objetoNotaFiscal->setModelo($modelo);
-                            $objetoNotaFiscal->setSerie($serie);
-                            $objetoNotaFiscal->setNumero($numeroNF);
-                            $objetoNotaFiscal->setPessoa($selectConta[0]['CLIENTE']);
-                            $objetoNotaFiscal->setCpfNota($xml->CNPJ);
-                            $objetoNotaFiscal->setEmissao($xml->dhEmi);
-                            $objetoNotaFiscal->setIdNatop(3); // 3 - COMPRAS DIVERSAS
-                            $objetoNotaFiscal->setNatOperacao('');
-                            $objetoNotaFiscal->setTipo(0); // 0 - ENTRADA | 1 - SAÍDA
-                            $objetoNotaFiscal->setSituacao('NP'); // NP - NAO PROCESSADA
-                            $objetoNotaFiscal->setFormaPgto(2); // 2 - OUTROS 
-                            $objetoNotaFiscal->setCondPgto('');
-                            $objetoNotaFiscal->setDataSaidaEntrada($xml->dhEmi);
-                            $objetoNotaFiscal->setFormaEmissao('');
-                            $objetoNotaFiscal->setFinalidadeEmissao('');
-                            $objetoNotaFiscal->setNfeReferenciada('');
-                            $objetoNotaFiscal->setCentroCusto($this->m_empresacentrocusto);
-                            $objetoNotaFiscal->setGenero('');
-                            $objetoNotaFiscal->setModFrete('');
-                            $objetoNotaFiscal->setTransportador(null);
-                            $objetoNotaFiscal->setPlacaVeiculo('');
-                            $objetoNotaFiscal->setCodAntt('');
-                            $objetoNotaFiscal->setUf('');
-                            $objetoNotaFiscal->setVolume('');
-                            $objetoNotaFiscal->setVolEspecie('');
-                            $objetoNotaFiscal->setVolMarca('');
-                            $objetoNotaFiscal->setVolPesoLiq('');
-                            $objetoNotaFiscal->setVolPesoBruto('');
-
-                            $totalnf  = number_format((float) $xml->vNF, 2, ',', '.');
-                            $objetoNotaFiscal->setTotalnf($totalnf);
-
-                            $objetoNotaFiscal->setOrigem('');
-                            $objetoNotaFiscal->setDoc($numeroNF);
-                            $objetoNotaFiscal->setObs($xml->xNome);
-                            $objetoNotaFiscal->setFrete('');
-                            $objetoNotaFiscal->setDespAcessorias('');
-                            $objetoNotaFiscal->setSeguro('');
-                            $objetoNotaFiscal->setDhRecbto('');
-                            $objetoNotaFiscal->setNProt($xml->nProt);
-                            $objetoNotaFiscal->setDigVal($xml->digVal);
-                            $objetoNotaFiscal->setVerAplic('');
-                            $objetoNotaFiscal->setVendaPresencial('');
-                            $objetoNotaFiscal->setContrato('');
-                            $objetoNotaFiscal->setChNFe($xml->chNFe);
-
-                            $resultInsert = $objetoNotaFiscal->incluiNotaFiscalManisfesto();
-
-                            if (!is_int($resultInsert)) {
-                                $failNf[$incrementa] = $xml->chNFe;
-                                $incrementa++;
-                            };
-                        } //END !$existNfe
-
-
-                    } else if ($tipo == 'procNF') {
-                        //busca e seta cliente
-                        $selectConta = c_conta::existeContaCnpjCpf($xml->NFe->infNFe->emit->CNPJ);
-
-                        //verifica se já existe nota, se existir saiu do if
-                        $existNfe = c_nota_fiscal::existNotaNumClient($$xml->NFe->infNFe->ide->nNF, intval($xml->NFe->infNFe->ide->serie), $selectConta[0]['CLIENTE']);
-
-                        if (!$existNfe) {
-
-                            if ($selectConta == null and $selectConta == '') {
-                                $insertConta = $this->insertPersonManifest($xml, $tipo);
-
-                                if (is_int($insertConta)) {
-                                    $selectConta[0]['CLIENTE'] = $insertConta;
-                                } else {
-                                    $selectConta[0]['CLIENTE'] = 99999;
-                                }
-                            }
-
-                            $objetoNotaFiscal = new c_nota_fiscal();
-                            $objetoNotaFiscal->setModelo($xml->NFe->infNFe->ide->mod);
-                            $objetoNotaFiscal->setSerie(intval($xml->NFe->infNFe->ide->serie));
-                            $objetoNotaFiscal->setNumero($xml->NFe->infNFe->ide->nNF);
-                            $objetoNotaFiscal->setPessoa($selectConta[0]['CLIENTE']);
-                            $objetoNotaFiscal->setCpfNota($xml->NFe->infNFe->emit->CNPJ);
-                            $objetoNotaFiscal->setEmissao($xml->NFe->infNFe->ide->dhEmi);
-                            $objetoNotaFiscal->setIdNatop(3); // 3 - COMPRAS DIVERSAS
-                            $objetoNotaFiscal->setNatOperacao(''); // FALTA DEFINIR O PADRAO
-                            $objetoNotaFiscal->setTipo(0); // 0 - ENTRADA | 1 - SAÍDA
-                            $objetoNotaFiscal->setSituacao('NP'); // NP - NAO PROCESSADA
-                            $objetoNotaFiscal->setFormaPgto(2); // 2 - OUTROS 
-                            $objetoNotaFiscal->setCondPgto('');
-                            $objetoNotaFiscal->setDataSaidaEntrada($xml->NFe->infNFe->ide->dhEmi);
-                            $objetoNotaFiscal->setFormaEmissao('');
-                            $objetoNotaFiscal->setFinalidadeEmissao('');
-                            $objetoNotaFiscal->setNfeReferenciada('');
-                            $objetoNotaFiscal->setCentroCusto($this->m_empresacentrocusto);
-                            $objetoNotaFiscal->setGenero('');
-                            $objetoNotaFiscal->setModFrete($xml->NFe->infNFe->transp->modFrete);
-                            $objetoNotaFiscal->setTransportador(null);
-                            $objetoNotaFiscal->setPlacaVeiculo('');
-                            $objetoNotaFiscal->setCodAntt('');
-                            $objetoNotaFiscal->setUf('');
-                            $objetoNotaFiscal->setVolume('');
-                            $objetoNotaFiscal->setVolEspecie('');
-                            $objetoNotaFiscal->setVolMarca('');
-                            $objetoNotaFiscal->setVolPesoLiq('');
-                            $objetoNotaFiscal->setVolPesoBruto('');
-
-                            $totalnf  = number_format((float) $xml->NFe->infNFe->total->ICMSTot->vNF, 2, ',', '.');
-                            $objetoNotaFiscal->setTotalnf($totalnf);
-
-                            $objetoNotaFiscal->setOrigem('');
-                            $objetoNotaFiscal->setDoc($xml->NFe->infNFe->ide->nNF);
-                            $objetoNotaFiscal->setObs($xml->NFe->infNFe->emit->xNome);
-                            $objetoNotaFiscal->setFrete($xml->NFe->infNFe->total->ICMSTot->vFrete);
-                            $objetoNotaFiscal->setDespAcessorias('');
-                            $objetoNotaFiscal->setSeguro($xml->NFe->infNFe->total->ICMSTot->vSeg);
-                            $objetoNotaFiscal->setDhRecbto('');
-                            $objetoNotaFiscal->setNProt($xml->protNFe->infProt->nProt);
-                            $objetoNotaFiscal->setDigVal($xml->protNFe->infProt->digVal);
-                            $objetoNotaFiscal->setVerAplic($xml->protNFe->infProt->verAplic);
-                            $objetoNotaFiscal->setVendaPresencial('');
-                            $objetoNotaFiscal->setContrato('');
-                            $objetoNotaFiscal->setChNFe($xml->protNFe->infProt->chNFe);
-
-                            $resultInsert = $objetoNotaFiscal->incluiNotaFiscalManisfesto();
-
-                            if (!is_int($resultInsert)) {
-                                $failNf[$incrementa] = $xml->chNFe;
-                                $incrementa++;
-                            };
-                        } //END !$existNfe
-
+                    try {
+                        $this->processDistDfeDocZip($doc, $failNf, $incrementa, $state);
+                        $docsProcessados++;
+                    } catch (\Throwable $e) {
+                        $nsuAttr = $doc->getAttribute('NSU');
+                        $failNf[$incrementa++] = $nsuAttr !== '' ? $nsuAttr : ('docZip#' . $docsProcessados);
                     }
                 }
-                if ($ultNSU == $maxNSU) {
-                    //quando o numero máximo de NSU foi atingido não existem mais dados a buscar
-                    //nesse caso a proxima busca deve ser no minimo após mais uma hora
-                    break;
-                }
-
-                sleep(2);
             }
-            //salve o ultNSU pesquisado em sua base pois a proxima consulta deverá iniciar a partir desse numero + 1
 
-            if (empty($failNf)) {
-                return 'true';
-            } else {
-                $jsonNotas = json_encode($failNf);
-
-                $sql = "INSERT INTO est_nota_fiscal_eventos (";
-                $sql .= "IDNF, TIPOEVENTO, CENTROCUSTO, MODELO, SERIE, NUMNFINI, NUMNFFIM, JUSTIFICATIVA, NPROT, VERAPLIC, CSTAT, USERINSERT, DATEINSERT) ";
-
-                $sql .= "VALUES (0000,'M' , ";
-                $sql .= $this->m_empresacentrocusto . ", '";
-                $sql .= "55 ', '";
-                $sql .= "000', ";
-                $sql .= $ultNSU . ", ";
-                $sql .= $maxNSU . ", '";
-                $sql .= $jsonNotas . "', '";
-                $sql .= "00000000000', '";
-                $sql .= $verAplic . "', '";
-                $sql .= $cStat . "', ";
-                $sql .= $this->m_userid . ",'" . date("Y-m-d H:i:s") . "' );";
-
-                // echo strtoupper($sql)."<BR>";
-                $banco = new c_banco;
-                $banco->exec_sql($sql);
-                $banco->close_connection();
-
-                return array(
-                    'cStat'    => 'atencao',
-                    'message'  => 'Notas localizadas, mas com divergências ao inserir no sistema, contate o suporte.'
-                );
+            if ($ultNSU === $maxNSU) {
+                return $this->distNfeJsonFinal($state, $docsProcessados);
             }
-        } catch (\Exception $e) {
-            return array(
-                'cStat'    => 'error',
-                'message'  => $e->getMessage()
+
+            return $this->distNfeJson($state, 'progress', 'Sincronizando com a Receita Federal...', false, $docsProcessados);
+        } catch (\Throwable $e) {
+            // cStat 138 já pode ter sido gravado: devolve JSON para a UI não mostrar erro genérico.
+            if ($ultNSU === $maxNSU || $docsProcessados > 0) {
+                return $this->distNfeJsonFinal($state, $docsProcessados);
+            }
+            return $this->distNfeJson(
+                $state,
+                'atencao',
+                'Consulta SEFAZ registrada, mas houve falha ao processar documentos: ' . $e->getMessage(),
+                true,
+                $docsProcessados
             );
         }
     }
@@ -1037,7 +1150,7 @@ class p_nfe_40 extends c_user
     /**
      * Funcao para enviar email e pdf da DANFE PDF a partir dos xml assinada e protocolo
      * @param VARCHAR $chave nfe
-     
+     */
     public function enviaEmailDANFE($modelo, $email = null, $cc = null, $chave, $dhEmi, $cNF, $serie, $xNome, $assunto = null, $bodyEmail = null, $idNf = null, $idPessoa = null)
     {
         try {
@@ -1052,7 +1165,7 @@ class p_nfe_40 extends c_user
             $anomes = $ano . $mes;
             $nfExt = '-nfe.xml';
             $nfProt = '-protNFe.xml';
-            $nfExtPdf = '-danfe.pdf';
+            $nfExtPdf = ((string) $modelo === '65') ? '-danfce.pdf' : '-danfe.pdf';
 
             // monta dir files
             $path = BASE_DIR_NFE_AMB;
@@ -1081,7 +1194,9 @@ class p_nfe_40 extends c_user
 
                 $mail = new admMail;
                 if ($assunto == '') {
-                    $assuntoEmail =  "Nfe - envio XML/DANFE";
+                    $assuntoEmail = ((string) $modelo === '65')
+                        ? 'NFC-e - envio XML/DANFCE'
+                        : 'Nfe - envio XML/DANFE';
                 } else {
                     $assuntoEmail = strtolower($assunto);
                 }
@@ -1110,10 +1225,10 @@ class p_nfe_40 extends c_user
 
 
                 // Gera PDF do boleto se existir
-                $pathBoleto = null;
-                if ($idNf && $idPessoa) {
-                    $pathBoleto = $this->geraPdfBoletoParaEmail($idNf, $idPessoa, 'NFE');
-                }
+                //$pathBoleto = null;
+                // if ($idNf && $idPessoa) {
+                //     $pathBoleto = $this->geraPdfBoletoParaEmail($idNf, $idPessoa, 'NFE');
+                // }
 
                 // $result = $mail->SendMail("mail.admservice.com.br", "nfemaxi@admservice.com.br", "email Nfe", "renemaxi578", 
                 $result = $mail->SendMail2(
@@ -1129,7 +1244,9 @@ class p_nfe_40 extends c_user
                     "",
                     $pathXml,
                     $pathPdf,
-                    $pathBoleto // Terceiro anexo - PDF do boleto
+                    '',
+                    $this->m_configport,
+                    $this->m_configemailparam
                 );
 
                 if (strstr($result, 'não')):
@@ -1155,7 +1272,7 @@ class p_nfe_40 extends c_user
         } catch (Exception $e) {
             return 'Erro -> ' . $e->getMessage();
         }
-    } */
+    }
 
 
     /**
@@ -1314,18 +1431,40 @@ class p_nfe_40 extends c_user
                         // DANFE GRAVA
                         try {
                             $pathLogo = ADMimg . '/logo0' . $this->m_empresaid . '.jpg';
-                            $logo = 'data://text/plain;base64,' . base64_encode(file_get_contents($pathLogo));
 
                             if (!file_exists(BASE_DIR_NFE_AMB . $slash . 'pdf' . $slash . $anomes . $slash)) {
                                 mkdir(BASE_DIR_NFE_AMB . $slash . 'pdf' . $slash . $anomes . $slash, 0777, true);
                             }
 
-                            $danfe = new NFePHP\DA\NFe\Danfe($xmlAssinado, 'P', 'A4', $pathLogo, 'I', '');
-                            $danfe->montaDANFE();
-                            $danfe->printDocument(BASE_DIR_PDF, 'F'); //Salva o PDF na pasta
+                            // Usar DanfeCustom
+                            $danfe = new DanfeCustom($xmlAssinado);
+                            
+                            // Configurar parâmetros
+                            $danfe->printParameters('P', 'A4');
+                            
+                            // Configurar logo
+                            if (!empty($pathLogo) && file_exists($pathLogo)) {
+                                $danfe->setLogoPath($pathLogo);
+                            }
+                            
+                            // Renderizar
+                            $pdf = $danfe->render();
+                            
+                            // Salvar
+                            file_put_contents(BASE_DIR_PDF, $pdf);
 
                         } catch (InvalidArgumentException $e) {
-                            trataErro('PDF', str_replace("\n", "<br/>", $e->getMessage()), '');
+                            // Fallback sem logo
+                            try {
+                                $danfeSemLogo = new DanfeCustom($xmlAssinado);
+                                $danfeSemLogo->printParameters('P', 'A4');
+                                $pdfSemLogo = $danfeSemLogo->render();
+                                file_put_contents(BASE_DIR_PDF, $pdfSemLogo);
+                                error_log("DANFE gerada SEM LOGO");
+                            } catch (Exception $e2) {
+                                trataErro('PDF', str_replace("\n", "<br/>", $e->getMessage()), '');
+                                error_log("ERRO CRÍTICO DANFE: " . $e2->getMessage());
+                            }
                         }
                     }
 
@@ -1680,9 +1819,14 @@ class p_nfe_40 extends c_user
      */
     public function gera_XML($idNf, $filial, $tipoNf, $conn = null, $gerarXML = null)
     {
+
+        ############### IBS/CBS ############### GRUPOS FUTUROS #######################
+        //############################## TAG <gCompraGov> opcional Grupo de Compras Governamentais #######################
+        //############################## TAG <gPagAntecipado> opcional Grupo de notas de antecipação de pagamento #########
+        //############################## TAG <det/imposto/IS> opcional ####################################################
         $dir = (__DIR__);
 
-        $nfe = new NFePHP\NFe\Make();
+        $nfe = new NFePHP\NFe\Make('PL_010');
 
 
         // variavies totais
@@ -1705,6 +1849,10 @@ class p_nfe_40 extends c_user
         $vOutroTotal = 0;
         $vNFTotal = 0;
         $vTotTribTotal = 0;
+        
+        $vIBSUFTotal = 0;
+        $vIBSMunTotal = 0;
+        $vCBSTotal = 0;
 
         // CONSULTA DE DADOS DA NOTA FISCAL
         $nfOBJ = new c_nota_fiscal();
@@ -1736,10 +1884,17 @@ class p_nfe_40 extends c_user
 
         // DADOS FINANCEIRO
         $lancamento = new c_lancamento();
-        $financeiro = $lancamento->select_lancamento_doc('PED', $nfArray[0]['DOC'], $conn);
+        $origemFinNf = (string) ($nfArray[0]['ORIGEM'] ?? 'PED');
+        $docPedidoFin = $nfArray[0]['DOC'] ?? '';
+        $origemFinBusca = in_array($origemFinNf, ['CPM', 'CPR'], true) ? $origemFinNf : 'PED';
+        $financeiro = $lancamento->select_lancamento_doc($origemFinBusca, $docPedidoFin, $conn);
+        if ((!is_array($financeiro) || count($financeiro) === 0) && $origemFinBusca !== 'PED') {
+            $financeiro = $lancamento->select_lancamento_doc('PED', $docPedidoFin, $conn);
+        }
 
         // DADOS NAT OPERACAO TRIBUTOS
         $ObjNatOperTrib = new c_nat_tributos();
+        $id_nat_operacao = $nfArray[0]['IDNATOP'];
         $ObjNatOperTrib->setIdNatop($nfArray[0]['IDNATOP']);
         $natOperTrib = $ObjNatOperTrib->selectTributos();
 
@@ -1748,7 +1903,10 @@ class p_nfe_40 extends c_user
             usort($financeiro, array("p_nfe_40", "compararValores"));
         }
 
-        $financeiroAgrupado = $lancamento->select_lancamento_doc_tipodocto('PED', $nfArray[0]['DOC'], $conn);
+        $financeiroAgrupado = $lancamento->select_lancamento_doc_tipodocto($origemFinBusca, $docPedidoFin, $conn);
+        if ((!is_array($financeiroAgrupado) || count($financeiroAgrupado) === 0) && $origemFinBusca !== 'PED') {
+            $financeiroAgrupado = $lancamento->select_lancamento_doc_tipodocto('PED', $docPedidoFin, $conn);
+        }
 
         // incluir codigo e desc pais na tabela cidade.
         // codigo do municipio emitente
@@ -1759,16 +1917,6 @@ class p_nfe_40 extends c_user
         // incluir na amb_empresa
         $crt = $filialArray[0]['REGIMETRIBUTARIO'];  // ok código regime tributário 1=Simples Nacional; 2=Simples Nacional, excesso sublimite de receita bruta; 3=Regime Normal. (v2.0).
 
-        // indPres = OK pag 177 = verificar calculo de tipo venda   fin_fat_pedido
-        // Indicador de presença do comprador no estabelecimento comercial no momento da operação
-        // 0=Não se aplica (por exemplo, Nota Fiscal complementar ou de ajuste);
-        // 1=Operação presencial;
-        // 2=Operação não presencial, pela Internet;
-        // 3=Operação não presencial, Teleatendimento;
-        // 4=NFC-e em operação com entrega a domicílio;
-        // 9=Operação não presencial, outros.
-        // 
-        // 
         // pag 177 = indFinal = indicacao de venda consumidor final
         // se pessoa fisica ou IE não for preenchida, sistema considera venda consumidor final
         // PAG 181 = indIEDest = Indicador da IE do Destinatário
@@ -1815,7 +1963,12 @@ class p_nfe_40 extends c_user
         $mod = $nfArray[0]['MODELO']; //modelo da NFe 55 ou 65 essa última NFCe
         $serie = $nfArray[0]['SERIE']; //serie da NFe
         $nNF = $nfArray[0]['NUMERO']; // numero da NFe
-        $dhEmi = $this->MostraData($nfArray[0]['EMISSAO']); //date("Y-m-d\TH:i:sP");//Formato: “AAAA-MM-DDThh:mm:ssTZD” (UTC - Universal Coordinated Time).
+        // NFC-e (65): SEFAZ rejeita 704 se dhEmi estiver >5 min atrasada; MostraData usa -02:00 fixo (obsoleto)
+        if ((int) $nfArray[0]['MODELO'] === 65) {
+            $dhEmi = date('Y-m-d\TH:i:sP');
+        } else {
+            $dhEmi = $this->MostraData($nfArray[0]['EMISSAO']);
+        }
         $tpNF = $nfArray[0]['TIPO']; // 0=Entrada; 1=Saída;
         
         //new validation referent the sale within the state
@@ -1828,8 +1981,9 @@ class p_nfe_40 extends c_user
                 $idDest = '2'; //1=Operação interna; 2=Operação interestadual; 3=Operação com exterior.
             }
         }
+
         $cMunFG = $cMunEmit;
-        // $cMunFG = '';
+
         if ($nfArray[0]['MODELO'] == 55):
             $tpImp = '1';
             if (!empty($gerarXML)) {
@@ -1855,19 +2009,53 @@ class p_nfe_40 extends c_user
         //9=Contingência off-line da NFC-e (as demais opções de contingência são válidas também para a NFC-e);
         //Nota: Para a NFC-e somente estão disponíveis e são válidas as opções de contingência 5 e 9.
         $tpAmb = ADMnfeAmbiente; //1=Produção; 2=Homologação
-        $finNFe = $nfArray[0]['FINALIDADEEMISSAO']; //1=NF-e normal; 2=NF-e complementar; 3=NF-e de ajuste; 4=Devolução/Retorno.
+
+
+        ############### IBS/CBS ############### - ATUALIZAR BANCO
+        /* finNFe - Finalidade da emissão da NF-e
+         *  1 - NFe normal
+         *  2 - NFe complementar
+         *  3 - NFe de ajuste
+         *  4 - Devolução/Retorno
+         *  5 - Nota de crédito
+         *  6 - Nota de débito
+        */
+        $finNFe = $nfArray[0]['FINALIDADEEMISSAO'];
+
+        ############### IBS/CBS ############### - ATUALIZAR BANCO
+
+        /* tpNFDebito //opcional apenas PL_010 em diante
+         * 01=Transferência de créditos para Cooperativas;
+         * 02=Anulação de Crédito por Saídas Imunes/Isentas;
+         * 03=Débitos de notas fiscais não processadas na apuração;
+         * 04=Multa e juros;
+         * 05=Transferência de crédito na sucessão;
+         * 06=Pagamento antecipado;
+         * 07=Perda em estoque;
+         * 08=Desenquadramento do SN;
+         * 
+         * tpNFCredito' //opcional apenas PL_010 em diante
+         * 01=Multa e juros;
+         * 02=Apropriação de crédito presumido de IBS sobre o saldo devedor na ZFM (art. 450, § 1º, LC 214/25);
+         * 03=Retorno por recusa total na entrega ou por não localização do destinatário na tentativa de entrega;
+         * 04=Redução de valores;
+        */
+        $tpNFDebito = '';
+        $tpNFCredito = '';
 
         //$indFinal = $indFinal; //0=Normal; 1=Consumidor final;
 
-        // IndIntermed = 0 - sem intermediador 1 - com intermediador ( cnpj e id do usuário de quem vendeu ( ex: mercado livre ))
-        $indIntermed = 0;
 
-        //0=Não se aplica (por exemplo, Nota Fiscal complementar ou de ajuste);
-        //1=Operação presencial;
-        //2=Operação não presencial, pela Internet;
-        //3=Operação não presencial, Teleatendimento;
-        //4=NFC-e em operação com entrega a domicílio;
-        //9=Operação não presencial, outros.
+        ############### IBS/CBS ############### - ATUALIZAR BANCO
+        /* indPres - Indicador de presença do comprador no estabelecimento comercial no momento da operação
+         * 0=Não se aplica (por exemplo, Nota Fiscal complementar ou de ajuste);
+         * 1=Operação presencial;
+         * 2=Operação não presencial, pela Internet;
+         * 3=Operação não presencial, Teleatendimento;
+         * 4=NFC-e em operação com entrega a domicílio;
+         * 5=Operação presencial, fora do estabelecimento; (incluído NT 2016/002)
+         * 9=Operação não presencial, outros.
+        */
 
         //NEW VALIDATION FOR SALE WITHIN THE STATE
         if ($nfArray[0]['VENDAPRESENCIAL'] == 'S') {
@@ -1875,6 +2063,21 @@ class p_nfe_40 extends c_user
         } else {
             $indPres = '0';
         }
+
+
+        ############### IBS/CBS ############### 
+        /* cMunFGIBS 
+         * Informar o município de ocorrência do fato gerador do IBS / CBS.
+         * Campo preenchido somente quando “indPres = 5 (Operação
+         * presencial, fora do estabelecimento)”, e não tiver endereço do
+         * destinatário (Grupo: E05) ou local de entrega (Grupo: G01).
+        */
+        $cMunFGIBS = '';
+        if( $indPres == '5'){
+            $cMunFGIBS = $cMunEmit;
+        }
+
+        
         $procEmi = '0'; //0=Emissão de NF-e com aplicativo do contribuinte;
         //1=Emissão de NF-e avulsa pelo Fisco;
         //2=Emissão de NF-e avulsa, pelo contribuinte com seu certificado digital, através do site do Fisco;
@@ -1917,6 +2120,8 @@ class p_nfe_40 extends c_user
         $std->tpNF = $tpNF;
         $std->idDest = $idDest;
         $std->cMunFG = $cMunFG;
+        $std->cMunFGIBS = $cMunFGIBS;
+        $std->cMun = $cMunEmit;
         $std->tpImp = $tpImp;
         $std->tpEmis = $tpEmis;
         $std->cDV = $cDV;
@@ -1924,7 +2129,12 @@ class p_nfe_40 extends c_user
         $std->finNFe = $finNFe;
         $std->indFinal = $indFinal;
         $std->indPres = $indPres;
-        $std->indIntermed = $indIntermed;
+        if($indPres == '5'  && $indPres == 0){
+            // IndIntermed = 0 - sem intermediador 1 - com intermediador ( cnpj e id do usuário de quem vendeu ( ex: mercado livre ))
+            $indIntermed = 0;
+            $std->indIntermed = $indIntermed;
+        }
+        
         $std->procEmi = $procEmi;
         $std->verProc = $verProc;
         $elem = $nfe->tagide($std);
@@ -2047,11 +2257,9 @@ class p_nfe_40 extends c_user
                 $ISUF = $pessoaDestArray[0]['SUFRUMA'];
             endif;
             $IM = $pessoaDestArray[0]['IM'];
-            if (strlen($pessoaDestArray[0]['EMAILNFE']) > 0):
-                $email = $pessoaDestArray[0]['EMAILNFE'];
-            else:
+            if (strlen($pessoaDestArray[0]['EMAIL']) > 0){
                 $email = $pessoaDestArray[0]['EMAIL'];
-            endif;
+            }
             //nfe40            $resp = $nfe->tagdest($CNPJ, $CPF, $idEstrangeiro, $xNome, $indIEDest, $IE, $ISUF, $IM, $email);
             $std = new \stdClass();
             $std->xNome = $xNome;
@@ -2100,13 +2308,13 @@ class p_nfe_40 extends c_user
         else:
             //destinatário
             if ($nfArray[0]['CPFNOTA'] != ''):
-                if (strlen($nfArray[0]['CPFNOTA']) > 11):
-                    //$CNPJ = '22886247000190';
-                    $CNPJ = $nfArray[0]['CPFNOTA'];
+                $docNota = preg_replace('/\D/', '', (string) $nfArray[0]['CPFNOTA']);
+                if (strlen($docNota) > 11):
+                    $CNPJ = $docNota;
                     $CPF = '';
                 else:
                     $CNPJ = '';
-                    $CPF = $this->removeChar($nfArray[0]['CPFNOTA']);
+                    $CPF = $docNota;
                 endif;
 
                 $idEstrangeiro = '';
@@ -2143,7 +2351,7 @@ class p_nfe_40 extends c_user
         //$resp = $nfe->tagretirada($CNPJ, $CPF, $xLgr, $nro, $xCpl, $xBairro, $cMun, $xMun, $UF);
 
         // endereço de entrega
-        if ($enderecoEntregaArray[0]['ENDERECO'] != ''){
+        if ($enderecoEntregaArray[0]['ENDERECO'] != '' && is_array($enderecoEntregaArray)){
             if( $pessoaDestArray[0]['PESSOA'] == "J"){
                 $CPF = '';
                 $CNPJ = $pessoaDestArray[0]['CNPJCPF'];
@@ -2155,7 +2363,7 @@ class p_nfe_40 extends c_user
             $nro = $enderecoEntregaArray[0]['NUMERO'];
             $xCpl = $enderecoEntregaArray[0]['COMPLEMENTO'];
             $xBairro = $enderecoEntregaArray[0]['BAIRRO'];
-            $cMun = $cMunDest;
+            $cMun = $enderecoEntregaArray[0]['CODMUNICIPIO'];
             $xMun = $this->removeAcentos($enderecoEntregaArray[0]['CIDADE']);
             $UF = $enderecoEntregaArray[0]['UF'];
             $CEP = $enderecoEntregaArray[0]['CEP'];
@@ -2248,6 +2456,9 @@ class p_nfe_40 extends c_user
             $indTot = '1';
             $xPed = $produtoArray[$i]['ORDEM'];
             $nItemPed = '';
+            if (!empty($produtoArray[$i]['NITEMPED'])){
+                $nItemPed = $produtoArray[$i]['NITEMPED'];
+            }
             $nFCI = '';
             //nfe40 $resp = $nfe->tagprod($nItem, $cProd, $cEAN, $xProd, $NCM, $EXTIPI, $CFOP, $uCom, $qCom, $vUnCom, $vProd, $cEANTrib, $uTrib, $qTrib, $vUnTrib, $vFrete, $vSeg, $vDesc, $vOutro, $indTot, $xPed, $nItemPed, $nFCI);
 
@@ -2280,9 +2491,17 @@ class p_nfe_40 extends c_user
             $std->vOutro = $vOutro;
             $std->indTot = $indTot;
             $std->xPed = $xPed;
-            $std->nItemPed = $nItemPed;
+            if (!empty($nItemPed)){
+                $std->nItemPed = $nItemPed;
+            }
             $std->nFCI = $nFCI;
 
+            // CEST deve ser incluído dentro do stdClass do tagprod(), não como elemento separado
+            if (!$produtoArray[$i]['CEST'] == ''){
+                $std->CEST = $produtoArray[$i]['CEST'];
+                $std->indEscala = 'S'; //incluido no layout 4.00
+                //$std->CNPJFab = '12345678901234'; //incluido no layout 4.00
+            }
 
             $consultaAnp = new c_banco();
             $consultaAnp->setTab('EST_PRODUTO');
@@ -2317,15 +2536,8 @@ class p_nfe_40 extends c_user
 
             $elem = $nfe->tagprod($std);
 
-            if (!$produtoArray[$i]['CEST'] == ''):
-                $std = new stdClass();
-                $std->item = $nItem; //item da NFe
-                $std->CEST = $produtoArray[$i]['CEST'];
-                $std->indEscala = 'S'; //incluido no layout 4.00
-                //$std->CNPJFab = '12345678901234'; //incluido no layout 4.00
-                $elem = $nfe->tagCEST($std);
-            endif;
 
+           
             ### function tagRastro($std):DOMElement
             //Node com os dados de rastreabilidade do item da NFe
             //*Método Incluso para atender layout 4.00*
@@ -2513,6 +2725,16 @@ class p_nfe_40 extends c_user
                                 //3=Lista Neutra (valor);
                                 //4=Margem Valor Agregado (%);
                                 //5=Pauta (valor); (v2.0)
+                                if ($produtoArray[$i]['PERCDIFERIDO'] > 0) {
+                                    $pDif = $produtoArray[$i]['PERCDIFERIDO'];
+                                    $vICMSOp = number_format(($vBC * ($pICMS / 100)), 2, '.', '');
+                                    $vICMSDif = number_format(($vICMSOp * ($pDif / 100)), 2, '.', '');
+                                    $vICMS = number_format(($vICMSOp - $vICMSDif), 2, '.', '');
+                                    $produtoArray[$i]['VALORICMSOPERACAO'] = $vICMSOp;
+                                    $produtoArray[$i]['VALORICMSDIFERIDO'] = $vICMSDif;
+                                    $produtoArray[$i]['VALORICMS'] = $vICMS;
+                                }
+                                $vICMS = $produtoArray[$i]['VALORICMS'];
 
                                 if (($produtoArray[$i]['VALORICMSST'] > 0) and ($produtoArray[$i]['MODBCST'] != '')) {
                                     $modBCST = $produtoArray[$i]['MODBCST'];
@@ -2769,8 +2991,8 @@ class p_nfe_40 extends c_user
                             //1=Pauta (Valor);
                             //2=Preço Tabelado Máx. (valor);
                             //3=Valor da operação
+                            $pRedBC = null; // ICMS51 não possui tag pRedBC
                             $modBC = $produtoArray[$i]['MODBC'];
-                            $pRedBC = $produtoArray[$i]['PERCREDUCAOBC'];
                             $vBC = $produtoArray[$i]['BCICMS'];
                             $pICMS = $produtoArray[$i]['ALIQICMS'];
                             $vICMSOp = $produtoArray[$i]['VALORICMSOPERACAO']; //Valor como se não tivesse o diferimento
@@ -2973,13 +3195,13 @@ class p_nfe_40 extends c_user
                             $orig = $produtoArray[$i]['ORIGEM'];
                             $cst = '51';
                             $modBC = '3';
-                            $pRedBC = $produtoArray[$i]['PERCREDUCAOBC'];
+                            $pRedBC = '0.00'; // ICMS51 não possui tag pRedBC
                             $vBC = $produtoArray[$i]['BCICMS'];
-                            $pICMS = $produtoArray[$i]['ALIQICMS']; // Alíquota do Estado
+                            $pICMS    = $produtoArray[$i]['ALIQICMS'];
                             $vICMSOp = $produtoArray[$i]['VALORICMSOPERACAO'];
-                            $pDif = $produtoArray[$i]['PERCDIFERIDO'];
+                            $pDif    = $produtoArray[$i]['PERCDIFERIDO'];
                             $vICMSDif = $produtoArray[$i]['VALORICMSDIFERIDO'];
-                            $vICMS = $produtoArray[$i]['VALORICMS']; // = $vBC * ( $pICMS / 100 )
+                            $vICMS = $produtoArray[$i]['VALORICMS']; // = vICMSOp - vICMSDif
                             break;
                         case '60': // Tributação ICMS cobrado anteriormente por substituição tributária
                             $orig = $produtoArray[$i]['ORIGEM'];
@@ -3014,9 +3236,16 @@ class p_nfe_40 extends c_user
                             $vBC = $produtoArray[$i]['BCICMS'];
                             $pICMS = $produtoArray[$i]['ALIQICMS']; // Alíquota do Estado
                             $vICMS = $produtoArray[$i]['VALORICMS']; // = $vBC * ( $pICMS / 100 )
-                            $modBCST = '5'; // Calculo Por Pauta (valor)
-                            $pMVAST = $produtoArray[$i]['PERCMVAST'];
-                            $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
+                            if ($finNFe === "4") {
+                                // Devolucao/Retorno: nao informar modalidade/reducao/MVA da ST
+                                $modBCST = '5';
+                                $pMVAST = '';
+                                $pRedBCST = '';
+                            } else {
+                                $modBCST = '4'; // Calculo Por Pauta (valor)
+                                $pMVAST = $produtoArray[$i]['PERCMVAST'];
+                                $pRedBCST = $produtoArray[$i]['PERCREDUCAOBCST'];
+                            }
                             $vBCST = $produtoArray[$i]['VALORBCST'];
                             $pICMSST = $produtoArray[$i]['ALIQICMSST'];
                             $vICMSST = $produtoArray[$i]['VALORICMSST']; // = (Valor da Pauta * Alíquota ICMS ST) - Valor ICMS Próprio
@@ -3064,7 +3293,8 @@ class p_nfe_40 extends c_user
             endswitch;
 
             //if ($crt == '1') {
-            if ($crt == '1' || $crt == '2' || $crt == '3') { //validacao de imposto clientes lucro real, presumido e simples nacional
+            // IPI apenas NF-e (55); NFC-e (65) rejeita grupo IPI (rejeição 742)
+            if (($crt == '1' || $crt == '2' || $crt == '3') && (int) $nfArray[0]['MODELO'] === 55) { //validacao de imposto clientes lucro real, presumido e simples nacional
                 $clEnq = '';    // Classe de enquadramento do IPI para Cigarros e Bebidas
                 $CNPJProd = ''; // CNPJ do produtor da mercadoria, quando diferente do emitente. Somente para os casos de exportação direta ou indireta.
                 $cSelo = '';
@@ -3201,6 +3431,8 @@ class p_nfe_40 extends c_user
                     $vBC = $produtoArray[$i]['BCPIS'];
                     $pPIS = $produtoArray[$i]['ALIQPIS'];
                     $vPIS = $produtoArray[$i]['VALORPIS'];
+                    $qBCProd = null;
+                    $vAliqProd = null;
                     break;
                 default:
                     $cst = $produtoArray[$i]['CSTPIS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
@@ -3264,6 +3496,8 @@ class p_nfe_40 extends c_user
                     $vBC = $produtoArray[$i]['BCCOFINS'];
                     $pCOFINS = $produtoArray[$i]['ALIQCOFINS'];
                     $vCOFINS = $produtoArray[$i]['VALORCOFINS'];
+                    $qBCProd = null;
+                    $vAliqProd = null;
                     break;
                 default:
                     $cst = $produtoArray[$i]['CSTCOFINS']; //Operação Tributável (base de cálculo = quantidade vendida x alíquota por unidade de produto)
@@ -3286,6 +3520,46 @@ class p_nfe_40 extends c_user
             $std->vAliqProd = $vAliqProd;
             $elem = $nfe->tagCOFINS($std);
 
+            // DIFAL — valores calculados em c_pedido_venda_nf e gravados no item da NF.
+            // A partilha (ICMSUFDest) só pode ser emitida quando: há base de cálculo, a
+            // alíquota interestadual está dentro da enumeração exigida pela SEFAZ (4/7/12)
+            // e o diferencial é positivo (alíquota interna do destino > interestadual).
+            // Caso contrário o schema rejeita o XML — seja por pICMSInter fora da
+            // enumeração (ex.: 0.00), seja por vICMSUFDest negativo (tipo TDec_1302).
+            $bcDifal        = (float) ($produtoArray[$i]['BCICMSUFDEST'] ?? 0);
+            $pICMSUFDest    = (float) ($produtoArray[$i]['ALIQICMSUFDEST'] ?? 0);
+            $pICMSInter     = (float) ($produtoArray[$i]['ALIQICMSINTER'] ?? 0);
+            $pICMSInterPart = (float) (($produtoArray[$i]['ALIQICMSINTERPART'] ?? 0) ?: 100);
+            $pFCPUFDest     = (float) ($produtoArray[$i]['ALIQFCPUFDEST'] ?? 0);
+
+            $interValida = in_array(number_format($pICMSInter, 2, '.', ''), ['4.00', '7.00', '12.00'], true);
+
+            if ($bcDifal > 0 && $interValida && $pICMSUFDest > $pICMSInter) {
+                // Recalcula o valor para garantir consistência com a validação da SEFAZ e
+                // evitar valores negativos. A biblioteca sped-nfe fixa pICMSInterPart em 100
+                // (todo o diferencial vai para a UF de destino), logo vICMSUFRemet = 0.
+                $vICMSUFDest = round($bcDifal * (($pICMSUFDest - $pICMSInter) / 100), 2);
+
+                $stdDifal = new stdClass();
+                $stdDifal->item           = $nItem;
+                $stdDifal->vBCUFDest      = number_format($bcDifal, 2, '.', '');
+                $stdDifal->pICMSUFDest    = number_format($pICMSUFDest, 2, '.', '');
+                $stdDifal->pICMSInter     = number_format($pICMSInter, 2, '.', '');
+                $stdDifal->pICMSInterPart = number_format($pICMSInterPart, 2, '.', '');
+                $stdDifal->vICMSUFDest    = number_format($vICMSUFDest, 2, '.', '');
+                $stdDifal->vICMSUFRemet   = '0.00';
+
+                if ($pFCPUFDest > 0.01) {
+                    $bcFcp      = (float) ($produtoArray[$i]['BCFCPUFDEST'] ?? $bcDifal);
+                    $vFCPUFDest = round($bcFcp * ($pFCPUFDest / 100), 2);
+                    $stdDifal->vBCFCPUFDest = number_format($bcFcp, 2, '.', '');
+                    $stdDifal->pFCPUFDest   = number_format($pFCPUFDest, 2, '.', '');
+                    $stdDifal->vFCPUFDest   = number_format($vFCPUFDest, 2, '.', '');
+                }
+
+                $nfe->tagICMSUFDest($stdDifal);
+            }
+
             //Total Impostos
             // Converte as variáveis para números válidos antes da soma
             $vICMS = is_numeric($vICMS) ? (float)$vICMS : 0;
@@ -3307,9 +3581,6 @@ class p_nfe_40 extends c_user
             $vBCTotal += $produtoArray[$i]['BCICMS'];
             $vICMSTotal += $produtoArray[$i]['VALORICMS'];
             $vICMSDesonTotal = 0;
-            $vFCPUFDestTotal = 0;
-            $vICMSUFDestTotal = 0;
-            $vICMSUFRemetTotal = 0;
             $vBCSTTotal += $produtoArray[$i]['VALORBCST'];
             $vSTTotal += $produtoArray[$i]['VALORICMSST'];
             $vProdTotal += $produtoArray[$i]['TOTAL'];
@@ -3322,6 +3593,442 @@ class p_nfe_40 extends c_user
             //$vOutroTotal=0;
             $vNFTotal = $nfArray[0]['TOTALNF'];
             $vTotTribTotal = 0;
+
+            // Ate 2027  a regra se applica apenas ao CRT = 3 
+            if($crt == '3') {
+
+                #### Validacao de Tributos IBS/CBS ####
+                if($produtoArray[$i]["CCLASSTRIB"] == '' or $produtoArray[$i]["CCLASSTRIB"] == null or $produtoArray[$i]["NCM"] == '' or $produtoArray[$i]["NCM"] == null) {
+                        throw new Exception("Classe de Classificação Tributária do IBS/CBS e/ou NCM não informada para o produto " . $produtoArray[$i]["DESCRICAO"] . " - " . $produtoArray[$i]["CODFABRICANTE"]);
+
+                }
+
+                ############### IBS/CBS ############### 
+                $calculo_ibs_cbs = new c_calculo_imposto_ibs_cbs();
+
+
+                $dados = array(
+                    'id_natureza_operacao' => $id_nat_operacao,
+                    'id_c_class_trib' => $produtoArray[$i]['CCLASSTRIB'],
+                    'valor_produto' => $produtoArray[$i]['TOTAL'],
+                    'valor_servico' => 0,
+                    'valor_frete' => $produtoArray[$i]['FRETE'],
+                    'valor_seguro' => $produtoArray[$i]['VALORSEGURO'],
+                    'valor_outro' => $produtoArray[$i]['DESPACESSORIAS'],
+                    'valor_ii' => 0,
+                    'valor_desc' => $produtoArray[$i]['DESCONTO'],
+                    'valor_pis' => $produtoArray[$i]['VALORPIS'],
+                    'valor_cofins' => $produtoArray[$i]['VALORCOFINS'],
+                    'valor_icms' => $produtoArray[$i]['VALORICMS'],
+                    'valor_icms_uf_dest' => $produtoArray[$i]['VALORICMSUFDEST'],
+                    'valor_fcp' => $produtoArray[$i]['VALORFCP'],
+                    'valor_fcp_uf_dest' => $produtoArray[$i]['VALORFCPUFDEST'],
+                    'valor_icms_mono' => $produtoArray[$i]['VALORICMSMONO'],
+                    'valor_issqn' => $produtoArray[$i]['VALORISSQN'],
+                    'uf_dest' => $nfArray[0]['UF'],
+                    'mun_dest' => $pessoaDestArray[0]['CODMUNICIPIO'],
+                    'pessoa' => $pessoaDestArray[0]['PESSOA'],
+                    'ncm' => $produtoArray[$i]['NCM'],
+                );
+
+                $resultado = $calculo_ibs_cbs->calculaImpostoIbsCbs($dados);
+
+                if($resultado['error']) {
+                    throw new Exception("Erro ao calcular imposto IBS/CBS: " . $resultado['error'] . " - " . $produtoArray[$i]['DESCRICAO'] . " - " . $produtoArray[$i]['CODPRODUTO']);
+                }
+
+                // flags para tafs obrigatórias
+                $flags_class_trib = $resultado['flags_class_trib'];
+                $flags_cst        = $resultado['flags_cst'];
+
+                $cst                    = $resultado["c_class_trib"]["CST"];
+                $c_class_trib           = $resultado["c_class_trib"]["CCLASSTRIB"];
+                $valor_bc               = $resultado['valor_bc'];
+                $valor_ibs_municipal    = $resultado['valor_ibs_municipal'];
+                $valor_ibs_estadual     = $resultado['valor_ibs_estadual'];
+                $valor_cbs              = $resultado['valor_cbs'];
+                $aliquota_ibs_municipal = $resultado['aliquota_ibs_municipal'];
+                $aliquota_ibs_estadual  = $resultado['aliquota_ibs_estadual'];
+                $aliquota_cbs           = $resultado['aliquota_cbs'];
+                
+
+
+                //############################## TAG <det/imposto/IBCCBS> opcional ################################################
+                $ibs = new stdClass();
+
+                // ================= DADOS GERAIS =================
+                $ibs->item       = $nItem;                                 // OBRIGATÓRIO referencia ao item da NFe
+                $ibs->CST        = $cst;                                   // OBRIGATÓRIO CST IBS/CBS 3 dígitos
+                $ibs->cClassTrib = $c_class_trib;                          // OBRIGATÓRIO Código de Classificação Tributária do IBS e CBS 6
+                $ibs->vBC        = $valor_bc ?? 0.00;                      // OBRIGATÓRIO Base de cálculo do IBS e CBS 13v2
+                
+                // ================= DADOS IBS ESTADUAL =================
+                $ibs->gIBSUF_pIBSUF     = $aliquota_ibs_estadual ?? 0.00;  // opcional Alíquota do IBS competência UF 3v2-4
+                                                                           // OBRIGATÓRIO se vBC for informado
+                // removido gIBSUF_vTribOp                                 // opcional Valor bruto do tributo na operação 13v2
+
+                /**
+                 * SWITCH CASE para definição de tags por CASE de Tributação IBS/CBS
+                 * ================================================================
+                 * CASE 1: Tributação Padrão (Sem Redução ou Diferimento) - 000001, 000002, 000003, 000004, 010001, 010002, 220001-220003, 221001, 222001, 830001
+                 * CASE 2: Tributação com Redução de Alíquota - 011001-011005, 200001-200052
+                 * CASE 3: Diferimento Total - 510001
+                 * CASE 4: Diferimento com Redução de Alíquota - 515001
+                 * CASE 5: Monofásica Padrão - 620001
+                 * CASE 6: Monofásica com Retenção - 620002, 620004, 620005
+                 * CASE 7: Monofásica Retida Anteriormente - 620003, 620006
+                 * CASE 8: Transferência de Crédito - 800001, 800002
+                 * CASE 9: Ajuste ZFM (Crédito Presumido) - 810001
+                 * CASE 10: Ajuste de Competência - 811001, 811002, 811003
+                 * CASE 11: Sem Tags Específicas (Isenção, Imunidade, Suspensão) - 400001, 410xxx, 550xxx, 820xxx
+                 */
+                
+                // Determina o CASE de tributação baseado no cClassTrib
+                $case_tributacao = $calculo_ibs_cbs->determinaCaseTributacao($c_class_trib);
+                
+                switch($case_tributacao) {
+                    
+                    // CASE 1: Tributação Padrão (Sem Redução ou Diferimento)
+                    // Tags: vBC, gIBSUF (pIBSUF, vIBSUF), gIBSMun, gCBS - SEM gRed e SEM gDif
+                    case 1:
+                        $ibs->gIBSUF_pDif      = null;             // NÃO permite diferimento
+                        $ibs->gIBSUF_vDif      = null;             
+                        $ibs->gIBSUF_pRedAliq  = null;             // NÃO permite redução de alíquota
+                        break;
+                        
+                    // CASE 2: Tributação com Redução de Alíquota
+                    // Tags: vBC, gIBSUF + gRed (pRedAliq, pAliqEfet), gIBSMun + gRed, gCBS + gRed
+                    case 2:
+                        $ibs->gIBSUF_pDif      = null;             // NÃO permite diferimento
+                        $ibs->gIBSUF_vDif      = null;             
+                        // gRed é permitido - preencher redução de alíquota
+                        $ibs->gIBSUF_pRedAliq  = $resultado['p_red_aliq_uf'] ?? 0.00;
+                        break;
+                        
+                    // CASE 3: Diferimento Total
+                    // Tags: vBC, gIBSUF + gDif (pDif, vDif), gIBSMun + gDif, gCBS + gDif
+                    case 3:
+                        // gDif é permitido - preencher diferimento
+                        $ibs->gIBSUF_pDif      = $resultado['p_dif_uf'] ?? 100.00;
+                        $ibs->gIBSUF_vDif      = $resultado['v_dif_uf'] ?? $valor_ibs_estadual;
+                        $ibs->gIBSUF_pRedAliq  = null;             // NÃO permite redução de alíquota
+                        break;
+                        
+                    // CASE 4: Diferimento com Redução de Alíquota
+                    // Tags: vBC, gIBSUF + gDif + gRed, gIBSMun + gDif + gRed, gCBS + gDif + gRed
+                    case 4:
+                        // gDif E gRed são permitidos
+                        $ibs->gIBSUF_pDif      = $resultado['p_dif_uf'] ?? 0.00;
+                        $ibs->gIBSUF_vDif      = $resultado['v_dif_uf'] ?? 0.00;
+                        $ibs->gIBSUF_pRedAliq  = $resultado['p_red_aliq_uf'] ?? 0.00;
+                        break;
+                        
+                    // CASE 5, 6, 7: Monofásica (tratados separadamente via gIBSCBSMono)
+                    // CASE 8, 9, 10: Transferência, ZFM, Ajuste (tratados separadamente)
+                    // CASE 11: Sem tags específicas
+                    case 5:
+                    case 6:
+                    case 7:
+                    case 8:
+                    case 9:
+                    case 10:
+                    case 11:
+                        $ibs->gIBSUF_pDif      = null;
+                        $ibs->gIBSUF_vDif      = null;
+                        $ibs->gIBSUF_pRedAliq  = null;
+                        break;
+                        
+                    // Default: Tributação Padrão
+                    default:
+                        $ibs->gIBSUF_pDif      = null;
+                        $ibs->gIBSUF_vDif      = null;
+                        $ibs->gIBSUF_pRedAliq  = null;
+                        break;
+                }
+
+                $ibs->gIBSUF_vDevTrib  = $gIBSUF_vDevTrib ?? 0.00;         // opcional Valor do tributo devolvido 13v2
+                $ibs->gIBSUF_pAliqEfet = $gIBSUF_pAliqEfet ?? 0.00;        // opcional Alíquota efetiva do IBS UF 3v2-4
+                $valor_ibs_estadual_formatado = number_format($valor_ibs_estadual ?? 0.00, 2, '.', '');
+                $ibs->gIBSUF_vIBSUF    = $valor_ibs_estadual_formatado;      // OBRIGATÓRIO Valor do IBS competência UF 13v2
+                $vIBSUFTotal += is_numeric($valor_ibs_estadual) ? (float)$valor_ibs_estadual : 0;
+
+
+
+
+
+                
+                // ================= DADOS IBS MUNICIPAL =================
+                // Switch case para IBS Municipal usando o mesmo $case_tributacao definido acima
+                switch($case_tributacao) {
+                    
+                    // CASE 1: Tributação Padrão (Sem Redução ou Diferimento)
+                    case 1:
+                        $ibs->gIBSMun_pRedAliq  = null;             // NÃO permite redução de alíquota
+                        $ibs->gIBSMun_pDif      = null;             // NÃO permite diferimento
+                        $ibs->gIBSMun_vDif      = null;
+                        break;
+                        
+                    // CASE 2: Tributação com Redução de Alíquota
+                    case 2:
+                        $ibs->gIBSMun_pRedAliq  = $resultado['p_red_aliq_mun'] ?? 0.00;  // gRed permitido
+                        $ibs->gIBSMun_pDif      = null;             // NÃO permite diferimento
+                        $ibs->gIBSMun_vDif      = null;
+                        break;
+                        
+                    // CASE 3: Diferimento Total
+                    case 3:
+                        $ibs->gIBSMun_pRedAliq  = null;             // NÃO permite redução de alíquota
+                        $ibs->gIBSMun_pDif      = $resultado['p_dif_mun'] ?? 100.00;    // gDif permitido
+                        $ibs->gIBSMun_vDif      = $resultado['v_dif_mun'] ?? $valor_ibs_municipal;
+                        break;
+                        
+                    // CASE 4: Diferimento com Redução de Alíquota
+                    case 4:
+                        $ibs->gIBSMun_pRedAliq  = $resultado['p_red_aliq_mun'] ?? 0.00; // gRed E gDif permitidos
+                        $ibs->gIBSMun_pDif      = $resultado['p_dif_mun'] ?? 0.00;
+                        $ibs->gIBSMun_vDif      = $resultado['v_dif_mun'] ?? 0.00;
+                        break;
+                        
+                    // CASE 5, 6, 7: Monofásica | CASE 8, 9, 10: Transferência, ZFM, Ajuste | CASE 11: Sem tags
+                    case 5:
+                    case 6:
+                    case 7:
+                    case 8:
+                    case 9:
+                    case 10:
+                    case 11:
+                        $ibs->gIBSMun_pRedAliq  = null;
+                        $ibs->gIBSMun_pDif      = null;
+                        $ibs->gIBSMun_vDif      = null;
+                        break;
+                        
+                    default:
+                        $ibs->gIBSMun_pRedAliq  = null;
+                        $ibs->gIBSMun_pDif      = null;
+                        $ibs->gIBSMun_vDif      = null;
+                        break;
+                }
+
+                $ibs->gIBSMun_pIBSMun   = $aliquota_ibs_municipal ?? 0.00; // opcional Alíquota IBS Município 3v2-4
+                                                                           // OBRIGATÓRIO se vBC for informado
+                // removido gIBSMun_vTribOp                                // opcional Valor bruto do tributo na operação 13v2
+                $ibs->gIBSMun_vDevTrib  = $gIBSMun_vDevTrib ?? 0.00;       // opcional Valor do tributo devolvido 13v2
+
+                $ibs->gIBSMun_pAliqEfet = $gIBSMun_pAliqEfet ?? 0.00;      // opcional Alíquota efetiva IBS Município 3v2
+                $valor_ibs_municipal_formatado = number_format($valor_ibs_municipal ?? 0.00, 2, '.', '');
+                $ibs->gIBSMun_vIBSMun   = $valor_ibs_municipal_formatado;   
+                $vIBSMunTotal += is_numeric($valor_ibs_municipal) ? (float)$valor_ibs_municipal : 0;
+
+
+
+
+
+                
+                // ================= DADOS CBS (IMPOSTO FEDERAL) =================
+                // Switch case para CBS usando o mesmo $case_tributacao definido acima
+                switch($case_tributacao) {
+                    
+                    // CASE 1: Tributação Padrão (Sem Redução ou Diferimento)
+                    case 1:
+                        $ibs->gCBS_pDif     = null;             // NÃO permite diferimento
+                        $ibs->gCBS_vDif     = null;
+                        $ibs->gCBS_pRedAliq = null;             // NÃO permite redução de alíquota
+                        break;
+                        
+                    // CASE 2: Tributação com Redução de Alíquota
+                    case 2:
+                        $ibs->gCBS_pDif     = null;             // NÃO permite diferimento
+                        $ibs->gCBS_vDif     = null;
+                        $ibs->gCBS_pRedAliq = $resultado['p_red_aliq_cbs'] ?? 0.00;  // gRed permitido
+                        break;
+                        
+                    // CASE 3: Diferimento Total
+                    case 3:
+                        $ibs->gCBS_pDif     = $resultado['p_dif_cbs'] ?? 100.00;    // gDif permitido
+                        $ibs->gCBS_vDif     = $resultado['v_dif_cbs'] ?? $valor_cbs;
+                        $ibs->gCBS_pRedAliq = null;             // NÃO permite redução de alíquota
+                        break;
+                        
+                    // CASE 4: Diferimento com Redução de Alíquota
+                    case 4:
+                        $ibs->gCBS_pDif     = $resultado['p_dif_cbs'] ?? 0.00;      // gRed E gDif permitidos
+                        $ibs->gCBS_vDif     = $resultado['v_dif_cbs'] ?? 0.00;
+                        $ibs->gCBS_pRedAliq = $resultado['p_red_aliq_cbs'] ?? 0.00;
+                        break;
+                        
+                    // CASE 5, 6, 7: Monofásica | CASE 8, 9, 10: Transferência, ZFM, Ajuste | CASE 11: Sem tags
+                    case 5:
+                    case 6:
+                    case 7:
+                    case 8:
+                    case 9:
+                    case 10:
+                    case 11:
+                        $ibs->gCBS_pDif     = null;
+                        $ibs->gCBS_vDif     = null;
+                        $ibs->gCBS_pRedAliq = null;
+                        break;
+                        
+                    default:
+                        $ibs->gCBS_pDif     = null;
+                        $ibs->gCBS_vDif     = null;
+                        $ibs->gCBS_pRedAliq = null;
+                        break;
+                }
+
+                $ibs->gCBS_pCBS = $aliquota_cbs ?? 0.00;                   // opcional Alíquota da CBS 3v2-4
+                                                                           // OBRIGATÓRIO se vBC for informado
+                
+                // removido gCBS_vCBSOp                                    // opcional Valor bruto da CBS na operação
+                $ibs->gCBS_vDevTrib  = $gCBS_vDevTrib ?? 0.00;             // opcional Valor do tributo devolvido 13v2
+                $ibs->gCBS_pAliqEfet = $gCBS_pAliqEfet ?? 0.00;            // opcional Alíquota efetiva CBS 3v2
+                // Formata o valor para 2 casas decimais antes de atribuir ao item
+                $valor_cbs_formatado = number_format($valor_cbs ?? 0.00, 2, '.', '');
+                $ibs->gCBS_vCBS      = $valor_cbs_formatado;                 // opcional Valor da CBS 13v2
+                
+                // Acumula o valor NÃO formatado para o total
+                $vCBSTotal += is_numeric($valor_cbs) ? (float)$valor_cbs : 0;
+                
+                $nfe->tagIBSCBS($ibs);
+                ########################## FIM TAG <det/imposto/IBSCBS> opcional ################################################
+
+
+
+
+                //############################## TAG <det/imposto/IBSCBS/gIBSCBS/gTribRegular> opcional ###########################
+                // $reg = new stdClass();
+
+                // // ================= DADOS GERAIS =================
+                // $reg->item          = $nItem ?? 0;                          // OBRIGATÓRIO referencia ao item da NFe
+                // $reg->CSTReg        = $CSTReg ?? '';                        // OBRIGATÓRIO Código de Situação Tributária do IBS e CBS 3 dígitos
+                // $reg->cClassTribReg = $cClassTribReg ?? '';                 // OBRIGATÓRIO Código de Classificação Tributária do IBS e CBS 6
+                
+                // // ================= IBS UF =================
+                // $reg->pAliqEfetRegIBSUF = $pAliqEfetRegIBSUF ?? 0.00;       // OBRIGATÓRIO Valor da alíquota do IBS da UF 3v2-4
+                // $reg->vTribRegIBSUF     = $vTribRegIBSUF ?? 0.00;           // OBRIGATÓRIO Valor do Tributo do IBS da UF 13v2
+                
+                // // ================= IBS MUNICÍPIO =================
+                // $reg->pAliqEfetRegIBSMun = $pAliqEfetRegIBSMun ?? 0.00;     // OBRIGATÓRIO Valor da alíquota do IBS do Município 3v2-4
+                // $reg->vTribRegIBSMun     = $vTribRegIBSMun ?? 0.00;         // OBRIGATÓRIO Valor do Tributo do IBS do Município 13v2
+                
+                // // ================= CBS =================
+                // $reg->pAliqEfetRegCBS = $pAliqEfetRegCBS ?? 0.00;           // OBRIGATÓRIO Valor da alíquota da CBS 3v2-4
+                // $reg->vTribRegCBS     = $vTribRegCBS ?? 0.00;               // OBRIGATÓRIO Valor do Tributo da CBS 13v2
+                
+                // $nfe->tagIBSCBSTribRegular($reg);
+                ########################## FIM TAG <det/imposto/IBSCBS/gIBSCBS/gTribRegular> opcional ###########################
+
+
+                //############################## TAG <det/imposto/IBSCBS/gIBSCBS/gIBSCredPres> opcional ###########################
+                /*
+                1 - Aquisição de Produtor Rural não contribuinte.
+                2 - Tomador de serviço de transporte de TAC PF não contrib.
+                3 - Aquisição de pessoa física com destino a reciclagem.
+                4 - Aquisição de bens móveis de PF não contrib. para revenda (veículos / brechó).
+                5 - Regime opcional para cooperativa
+                */
+
+                // $cred = new stdClass();
+                
+                // $cred->item      = $nItem ?? 0;                              // OBRIGATÓRIO referencia ao item da NFe
+                // $cred->cCredPres = $cCredPres ?? '';                         // OBRIGATÓRIO Código de Classificação do Crédito Presumido 2 caracteres
+                // $cred->pCredPres = $pCredPres ?? 0.00;                       // OBRIGATÓRIO Percentual do Crédito Presumido 3v2-4
+                // $cred->vCredPres = $vCredPres ?? 0.00;                       // OBRIGATÓRIO Valor do Crédito Presumido 13v2
+                // $cred->vCredPresCondSus = $vCredPresCondSus ?? 0.00;         // OBRIGATÓRIO Valor do Crédito Presumido em condição suspensiva 13v2
+
+                // $nfe->tagIBSCredPres($cred);
+                ########################## FIM TAG <det/imposto/IBSCBS/gIBSCBS/gCredPresIBSZFM> opcional ###########################
+
+
+
+                //############################## TAG <det/imposto/IBSCBS/gIBSCBS/gCBSCredPres> opcional ###########################
+                // $cred = new stdClass();
+
+                // $cred->item      = $nItem ?? 0;                              // OBRIGATÓRIO referencia ao item da NFe
+                // $cred->cCredPres = $cCredPres ?? '';                         // OBRIGATÓRIO Código de Classificação do Crédito Presumido 2 caracteres
+                // $cred->pCredPres = $pCredPres ?? 0.00;                       // OBRIGATÓRIO Percentual do Crédito Presumido 3v2-4
+                // $cred->vCredPres = $vCredPres ?? 0.00;                       // OBRIGATÓRIO Valor do Crédito Presumido 13v2
+                // $cred->vCredPresCondSus = $vCredPresCondSus ?? 0.00;         // OBRIGATÓRIO Valor do Crédito Presumido em condição suspensiva 13v2
+                
+                // $nfe->tagCBSCredPres($cred);
+                ########################## FIM TAG <det/imposto/IBSCBS/gIBSCBS/gCBSCredPres> opcional ###########################
+
+
+                //############################## TAG <det/imposto/IBSCBS/gIBSCBSMono> opcional ####################################
+                //Grupo de Informações do IBS e CBS em operações com imposto monofásico
+                // $mono = new stdClass();
+
+                // $mono->item     = $nItem ?? 0;                               // OBRIGATÓRIO referencia ao item da NFe
+                // $mono->qBCMono  = $qBCMono ?? 0.00;                          // OBRIGATÓRIO
+                // $mono->adRemIBS = $adRemIBS ?? 0.00;                         // OBRIGATÓRIO
+                // $mono->adRemCBS = $adRemCBS ?? 0.00;                         // OBRIGATÓRIO
+                // $mono->vIBSMono = $vIBSMono ?? 0.00;                         // OBRIGATÓRIO
+                // $mono->vCBSMono = $vCBSMono ?? 0.00;                         // OBRIGATÓRIO
+                
+                // $mono->qBCMonoReten  = $qBCMonoReten ?? 0.00;                // opcional
+                // $mono->adRemIBSReten = $adRemIBSReten ?? 0.00;               // opcional
+                // $mono->vIBSMonoReten = $vIBSMonoReten ?? 0.00;               // opcional
+                // $mono->adRemCBSReten = $adRemCBSReten ?? 0.00;               // opcional
+                // $mono->vCBSMonoReten = $vCBSMonoReten ?? 0.00;               // opcional
+                
+                // $mono->qBCMonoRet  = $qBCMonoRet ?? 0.00;                    // opcional
+                // $mono->adRemIBSRet = $adRemIBSRet ?? 0.00;                   // opcional
+                // $mono->vIBSMonoRet = $vIBSMonoRet ?? 0.00;                   // opcional
+                // $mono->adRemCBSRet = $adRemCBSRet ?? 0.00;                   // opcional
+                // $mono->vCBSMonoRet = $vCBSMonoRet ?? 0.00;                   // opcional
+                
+                // $mono->pDifIBS     = $pDifIBS ?? 0.00;                       // opcional Percentual do diferimento do imposto monofásico 3v2-4
+                // $mono->vIBSMonoDif = $vIBSMonoDif ?? 0.00;                   // opcional Valor do IBS monofásico diferido 13v2
+                // $mono->pDifCBS     = $pDifCBS ?? 0.00;                       // opcional Percentual do diferimento do imposto monofásico 3v2-4
+                // $mono->vCBSMonoDif = $vCBSMonoDif ?? 0.00;                   // opcional Valor do CBS monofásico diferido 13v2
+                
+                // $mono->vTotIBSMonoItem = $vTotIBSMonoItem ?? 0.00;           // opcional Total de IBS Monofásico 13v2
+                // $mono->vTotCBSMonoItem = $vTotCBSMonoItem ?? 0.00;           // opcional Total da CBS Monofásica 13v2
+                
+                // $nfe->tagIBSCBSMono($mono);
+                ########################## FIM TAG <det/imposto/IBSCBS/gIBSCBS/gIBSCBSMono> opcional ####################################
+
+
+                //############################## TAG <det/imposto/gTransfCred> opcional ##########################################
+                //Transferências de Crédito
+                // $transf = new stdClass();
+
+                // $transf->item = $nItem ?? 0;                                // OBRIGATÓRIO
+                // $transf->vIBS = $vIBS ?? 0.00;                              // OBRIGATÓRIO Valor do IBS a ser transferido 13v2
+                // $transf->vCBS = $vCBS ?? 0.00;                              // OBRIGATÓRIO Valor do CBS a ser transferido 13v2
+                
+                // $nfe->taggTranfCred($transf);
+                ########################## FIM TAG <det/imposto/gTransfCred> opcional ##########################################
+
+
+                //############################## TAG <det/imposto/gCredPresIBSZFM> opcional ##########################################
+                //Informações do crédito presumido de IBS para fornecimentos a partir da ZFM
+                // $zfm = new stdClass();
+
+                // $zfm->item             = $nItem ?? 0;                      // OBRIGATÓRIO
+                // $zfm->tpCredPresIBSZFM = $tpCredPresIBSZFM ?? 0;           // OBRIGATÓRIO Tipo de classificação de acordo com o art. 450, § 1º, da LC 214/25 para o
+                // $zfm->vCredPresIBSZFM  = $vCredPresIBSZFM ?? 0.00;         // opcional Valor do crédito presumido calculado sobre o saldo devedor apurado 13v2
+                
+                // $nfe->taggCredPresIBSZFM($zfm);
+                ########################## FIM TAG <det/imposto/gCredPresIBSZFM> opcional ##########################################
+
+
+                //############################## TAG <det/imposto/impostoDevol> opcional ##########################################
+                //Informação do Imposto devolvido
+                //O motivo da devolução deverá ser informado pela empresa no campo de Informações Adicionais do Produto (tag:infAdProd).
+                // $idev = new stdClass();
+
+                // $idev->item      = $nItem ?? 0;                            // OBRIGATÓRIO referencia ao item da NFe
+                // $idev->pDevol    = $pDevol ?? 0.00;                        // OBRIGATRÓRIO Percentual da mercadoria devolvida 2 devimais max = 100.00
+                // $idev->vIPIDevol = $vIPIDevol ?? 0.00;                     // OBRIGATRÓRIO Valor do IPI devolvido 2 decimais
+                
+                // $nfe->tagimpostoDevol($idev);
+                ########################## FIM TAG <det/imposto/impostoDevol> opcional ##########################################
+            }
+
+
+
+
         } //for produtos        
 
 
@@ -3353,7 +4060,7 @@ class p_nfe_40 extends c_user
             $vFrete = '';
         }
         $vSeg = '0.00';
-        $vDesc = $vDescTotal;
+        $vDesc = number_format((float) $vDescTotal, 2, '.', '');
         $vII = '0.00';
         $vIPI = number_format($vIPITotal, 2, '.', '');
         // testar se é nf de devolução 
@@ -3367,6 +4074,17 @@ class p_nfe_40 extends c_user
 
         $vNF = number_format($vProd - $vDesc - $vICMSDeson + $vST + $vFrete + $vSeg + $vOutro + $vII + $vIPI, 2, '.', '');
         $vTotTrib = number_format($vICMS + $vST + $vII + $vIPI + $vPIS + $vCOFINS + $vIOF + $vISS, 2, '.', '');
+        
+        // Formata os totais de IBS/CBS (apenas se CRT = 3)
+        $vIBSUF = '';
+        $vIBSMun = '';
+        $vCBS = '';
+        if($crt == '3') {
+            $vIBSUF = number_format($vIBSUFTotal, 2, '.', '');
+            $vIBSMun = number_format($vIBSMunTotal, 2, '.', '');
+            $vCBS = number_format($vCBSTotal, 2, '.', '');
+        }
+        
         //nfe40        $resp = $nfe->tagICMSTot($vBC, $vICMS, $vICMSDeson, $vBCST, $vST, $vProd, $vFrete, $vSeg, $vDesc, $vII, $vIPI, $vPIS, $vCOFINS, $vOutro, $vNF, $vTotTrib);
         $std = new stdClass();
         $std->vBC = $vBC;
@@ -3389,8 +4107,37 @@ class p_nfe_40 extends c_user
         $std->vOutro = $vOutro;
         $std->vNF = $vNF;
         $std->vTotTrib = $vTotTrib;
+        
+        // Totais IBS/CBS (NFe 4.0) - apenas se CRT = 3
+        if($crt == '3') {
+            $std->vIBSUF = $vIBSUF;
+            $std->vIBSMun = $vIBSMun;
+            $std->vCBS = $vCBS;
+        }
 
         $elem = $nfe->tagICMSTot($std);
+        
+        //verifica se a natureza de operação tem IR Retido na fonte para emissao de orgao publico
+        $getEstNatOp = $ObjNatOperTrib->getEstNatOp($nfArray[0]['IDNATOP']);
+        $pIR = floatval($getEstNatOp['IR_PERCENTUAL'] ?? 0);
+
+        if($getEstNatOp['IR'] == 'S' && $pIR > 0) {
+
+            $vBCIR = $vNF;
+            $vIR = $vBCIR * $pIR / 100;
+            
+            $std = new \stdClass();
+            $std->vRetPIS    = null;
+            $std->vRetCOFINS = null;
+            $std->vRetCSLL   = null;
+            $std->vBCIRRF    = number_format($vBCIR, 2, '.', '');
+            $std->vIRRF      = number_format($vIR, 2, '.', '');
+            $std->vRetPrev   = null;
+            
+            $nfe->tagretTrib($std);
+
+            $mensagem_complementar = "RFB No 1234/2012 - VALOR BASE DO IRRF R$ " . number_format($vBCIR, 2, '.', '') . " - PERCENTUAL " . $pIR . "% - VALOR DO IRRF R$ " . number_format($vIR, 2, '.', '') . ";";
+        }
 
         //FRETE
         //0=Por conta do emitente; 1=Por conta do destinatário/remetente; 2=Por conta de terceiros; 9=Sem Frete;
@@ -3610,92 +4357,49 @@ class p_nfe_40 extends c_user
         //if(count($financeiro) > 0) {
         if ($detFinanceiro) {
 
+            // Fatura/duplicata apenas NF-e (55); NFC-e (65) rejeita cobrança (rejeição 760)
+            if ((int) $nfArray[0]['MODELO'] === 55) {
 
+                $std = new stdClass();
+                $std->nFat = $nNF;
+                $std->vOrig = $vNF;
+                $std->vDesc = null;
+                $std->vLiq = $vNF;
+                $elem = $nfe->tagfat($std);
 
-            /*### function tagfat($std):DOMElement
-        Node com os dados da fatura
+                /*
+                    Nota Técnica 2025.001 v.1.00 - Publicada em 25/03/2025
 
-        | Parametro | Tipo | Descrição |
-        | :--- | :---: | :--- |
-        | $std | stcClass | contêm os dados dos campos, nomeados conforme manual |
+                    *02.6 Dados de Cobrança: Novas Regras de Validação
 
-        $std = new stdClass();
-        $std->nFat = '1233';
-        $std->vOrig = 1254.22;
-        $std->vDesc = null;
-        $std->vLiq = 1254.22;
-        */
+                    Melhorado o controle sobre os dados de Cobrança (Grupo de Parcelas, id:”Y07”, tag:”dup”), não
+                    permitindo seu preenchimento em casos de pagamento à vista (indPag=0) e limitando a Data de
+                    Vencimento a um máximo de 10 anos a partir da data atual.
+                */
 
-            $std = new stdClass();
-            $std->nFat = $nNF;
-            $std->vOrig = $vNF;
-            $std->vDesc = null;
-            $std->vLiq = $vNF;
-            $elem = $nfe->tagfat($std);
-
-            /*### function tagdup($std):DOMElement
-        Node de informações das duplicatas
-
-        | Parametro | Tipo | Descrição |
-        | :--- | :---: | :--- |
-        | $std | stcClass | contêm os dados dos campos, nomeados conforme manual |
-        
-        $std = new stdClass();
-        $std->nDup = '1233-1';
-        $std->dVenc = '2017-08-22';
-        $std->vDup = 1254.22;
-
-        $elem = $nfe->tagdup($std);
-
-        */
-
-            // $vNF = 0;
-            // for ($i = 0; $i<count($financeiro); $i++){
-            //     $std = new stdClass();
-            //     $std->nDup = str_pad($financeiro[$i]['PARCELA'], 3, "0", STR_PAD_LEFT);
-            //     //$std->nDup = '00'.$financeiro[$i]['PARCELA']; //Código da Duplicata
-            //     $std->dVenc = $financeiro[$i]['VENCIMENTO']; //Vencimento
-            //     $std->vDup = $financeiro[$i]['VALOR']; // Valor
-            //     $vNF += $financeiro[$i]['VALOR'];
-            //     $elem = $nfe->tagdup($std);        
-            // }
-
-
-
-            
-            /*
-                Nota Técnica 2025.001 v.1.00 - Publicada em 25/03/2025
-
-                *02.6 Dados de Cobrança: Novas Regras de Validação
-
-                Melhorado o controle sobre os dados de Cobrança (Grupo de Parcelas, id:”Y07”, tag:”dup”), não
-                permitindo seu preenchimento em casos de pagamento à vista (indPag=0) e limitando a Data de
-                Vencimento a um máximo de 10 anos a partir da data atual.
-            */
-
-            if($indPag !== "0"){ // PAGAMENTO A VISTA NAO GERA nDup
-                if ($finNFe != 2) { // nfe comnplementar
-                    if ($finNFe == 4) { // devolução
-                        $std = new stdClass();
-                        $std->nDup = '001';
-                        //$std->nDup = '00'.$financeiro[$i]['PARCELA']; //Código da Duplicata
-                        $std->dVenc = substr($dhEmi, 0, 10); //Vencimento
-                        $std->vDup = $vNF; // Valor
-                        $elem = $nfe->tagdup($std);
-                    } else {
-                        $vNF = 0;
-                        for ($i = 0; $i < count($financeiro); $i++) {
+                if ($indPag !== "0") { // PAGAMENTO A VISTA NAO GERA nDup
+                    if ($finNFe != 2) { // nfe comnplementar
+                        if ($finNFe == 4) { // devolução
                             $std = new stdClass();
-                            $std->nDup = str_pad($financeiro[$i]['PARCELA'], 3, "0", STR_PAD_LEFT);
-                            //$std->nDup = '00'.$financeiro[$i]['PARCELA']; //Código da Duplicata
-                            $std->dVenc = $financeiro[$i]['VENCIMENTO']; //Vencimento
-                            $std->vDup = $financeiro[$i]['VALOR']; // Valor
-                            $vNF += $financeiro[$i]['VALOR'];
+                            $std->nDup = '001';
+                            $std->dVenc = substr($dhEmi, 0, 10); //Vencimento
+                            $std->vDup = $vNF; // Valor
                             $elem = $nfe->tagdup($std);
+                        } else {
+                            $vNF = 0;
+                            for ($i = 0; $i < count($financeiro); $i++) {
+                                $std = new stdClass();
+                                $std->nDup = str_pad($financeiro[$i]['PARCELA'], 3, "0", STR_PAD_LEFT);
+                                $std->dVenc = $financeiro[$i]['VENCIMENTO']; //Vencimento
+                                $std->vDup = $financeiro[$i]['VALOR']; // Valor
+                                $vNF += $financeiro[$i]['VALOR'];
+                                $elem = $nfe->tagdup($std);
+                            }
                         }
                     }
                 }
             }
+
             /*### function tagpag($std):DOMElement
         Node referente as formas de pagamento **OBRIGATÓRIO para NFCe a partir do layout 3.10**
         e também **obrigatório para NFe (modelo 55)** a partir do layout 4.00
@@ -3705,8 +4409,37 @@ class p_nfe_40 extends c_user
         | $std | stcClass | contêm os dados dos campos, nomeados conforme manual |
         */
 
+            $trocoNfce = ['vPag' => 0.0, 'vTroco' => 0.0, 'recebido' => 0.0];
+            if ($mod == '65') {
+                $docCupom = (int) ($nfArray[0]['DOC'] ?? 0);
+                if ($docCupom > 0) {
+                    $trocoNfce = (new c_cupom())->getTrocoPedidoPorNumero($docCupom);
+                }
+            }
+
+            // Troco NFC-e: vTroco = valor recebido − vNF (nota); vPag = valor entregue (dinheiro)
+            $vNfNum = (float) $vNF;
+            $vRecebido = (float) ($trocoNfce['recebido'] ?? 0);
+            $vTrocoNfce = 0.0;
+            $vPagComTroco = $vNfNum;
+            $pagamentoDinheiro = false;
+            if (is_array($financeiroAgrupado)) {
+                foreach ($financeiroAgrupado as $finRow) {
+                    if (($finRow['TIPODOCTO'] ?? '') === 'D') {
+                        $pagamentoDinheiro = true;
+                        break;
+                    }
+                }
+            }
+            if ($mod == '65' && $pagamentoDinheiro && $vRecebido > $vNfNum + 0.009) {
+                $vTrocoNfce = round($vRecebido - $vNfNum, 2);
+                $vPagComTroco = round($vRecebido, 2);
+            }
+
             $std = new stdClass();
-            $std->vTroco = null; //incluso no layout 4.00, obrigatório informar para NFCe (65)
+            $std->vTroco = ($mod == '65' && $vTrocoNfce > 0.009)
+                ? number_format($vTrocoNfce, 2, '.', '')
+                : null;
 
             $elem = $nfe->tagpag($std);
 
@@ -3727,7 +4460,10 @@ class p_nfe_40 extends c_user
                     $std = new stdClass();
                     if ($financeiroAgrupado[$i]['TIPODOCTO'] == 'D') {
                         $std->tPag = '01'; //dinheiro
-                        $std->vPag = $financeiroAgrupado[$i]['VALOR']; //Obs: deve ser informado o valor pago pelo cliente
+                        $std->vPag = $financeiroAgrupado[$i]['VALOR'];
+                        if ($mod == '65' && $vTrocoNfce > 0.009) {
+                            $std->vPag = number_format($vPagComTroco, 2, '.', '');
+                        }
                         $std->indPag = '0'; //0= Pagamento à Vista 1= Pagamento à Prazo          
                     } else
                 if ($financeiroAgrupado[$i]['TIPODOCTO'] == 'E') {
@@ -3804,7 +4540,7 @@ class p_nfe_40 extends c_user
         //Informações Adicionais
         //$infAdFisco = "SAIDA COM SUSPENSAO DO IPI CONFORME ART 29 DA LEI 10.637";
         $infAdFisco = "";
-        $infCpl = $nfArray[0]['OBS'] . ' ';
+        $infCpl = $mensagem_complementar . ' ' . $nfArray[0]['OBS'] . ' ';
         $infCpl .= $textoIBPT;
         $std = new stdClass();
 
@@ -3886,19 +4622,21 @@ class p_nfe_40 extends c_user
             }
         }
 
-        // validacoes
-        if (($cMunDest == "") or ($cMunDest == "0") or ($cMunDest == null)) {
-            trataErro('CÓDIGO MUNICIPIO DESTINATÁRIO NÃO CADASTRADO', "", "");
-        }
+        // validacoes (NF-e 55 exige cadastro completo do destinatário; NFC-e 65 usa CPF na nota ou consumidor não identificado)
+        if ((int) $nfArray[0]['MODELO'] === 55) {
+            if (($cMunDest == "") or ($cMunDest == "0") or ($cMunDest == null)) {
+                trataErro('CÓDIGO MUNICIPIO DESTINATÁRIO NÃO CADASTRADO', "", "");
+            }
 
-        if (($pessoaDestArray[0]['CNPJCPF'] == "") or ($pessoaDestArray[0]['CNPJCPF'] == "0") or ($pessoaDestArray[0]['CNPJCPF'] == null)) {
-            trataErro('CNPJ DESTINATÁRIO NÃO CADASTRADO', "", "");
-        }
+            if (($pessoaDestArray[0]['CNPJCPF'] == "") or ($pessoaDestArray[0]['CNPJCPF'] == "0") or ($pessoaDestArray[0]['CNPJCPF'] == null)) {
+                trataErro('CNPJ DESTINATÁRIO NÃO CADASTRADO', "", "");
+            }
 
-        if (($pessoaDestArray[0]['CEP'] == "") or ($pessoaDestArray[0]['CEP'] == "0") or
-            ($pessoaDestArray[0]['CEP'] == null) or ($pessoaDestArray[0]['CEP'] == "80000000")
-        ) {
-            trataErro('CEP DESTINATÁRIO NÃO CADASTRADO', "", "");
+            if (($pessoaDestArray[0]['CEP'] == "") or ($pessoaDestArray[0]['CEP'] == "0") or
+                ($pessoaDestArray[0]['CEP'] == null) or ($pessoaDestArray[0]['CEP'] == "80000000")
+            ) {
+                trataErro('CEP DESTINATÁRIO NÃO CADASTRADO', "", "");
+            }
         }
 
         try {
@@ -3947,13 +4685,17 @@ class p_nfe_40 extends c_user
                 "versao" => $confPar[6],
                 "tokenIBPT" => $confPar[7]
             ];
+            if ((int) $mod === 65) {
+                $config['CSC'] = ADMnfeCSC01;
+                $config['CSCid'] = ADMnfeCSCid01;
+            }
 
             $configJson = json_encode($config);
 
             // leitura do certirficado digital 
             if ($this->m_empresaid == 1) {
                 $certificadoDigital = file_get_contents(BASE_DIR_CERT . ADMnfeCert01);
-            } else
+            } else 
         if ($this->m_empresaid == 2) {
                 $certificadoDigital = file_get_contents(BASE_DIR_CERT . ADMnfeCert02);
             } else
@@ -3969,6 +4711,9 @@ class p_nfe_40 extends c_user
             $erro = 'grava NF line: 2217 - ' . $path . $slash . 'nf' . $slash . $anomes . $slash . $chave . $nfProt . '<br>';
             $erro .= ' ERRO: ' . file_put_contents($path . $slash . 'nf' . $slash . $anomes . $slash . $chave . $nfProt, $xml) . '<br>';
             $xml = $nfe->getXML();
+
+            //$teste = file_put_contents('/var/www/html/nfe_debug.xml', $xml);
+            //exit;
 
             //    file_put_contents($path.$slash.'nf'.$slash.$anomes.$slash.$gerarXML.$slash.$chave.$nfProt,$xml);
            // exit;
@@ -3987,6 +4732,7 @@ class p_nfe_40 extends c_user
             if ($this->m_empresaid == 3) {
                     $tools = new NFePHP\NFe\Tools($configJson, NFePHP\Common\Certificate::readPfx($certificadoDigital, ADMnfeSenha03));
                 }
+                $tools->model((int) $mod);
                 $xmlAssinado = $tools->signNFe($xml); // O conteúdo do XML assinado fica armazenado na variável $xmlAssinado        
             } catch (\Exception $e) {
                 trataErro('ASSINA - ', str_replace("\n", "<br/>", $e->getMessage()), $erroNf);
@@ -4055,23 +4801,39 @@ class p_nfe_40 extends c_user
                         file_put_contents(BASE_DIR_ASSINADA, $xmlAssinado);
 
                         $aResposta = array();
+                        $protocolo = null;
 
                         $idLote = str_pad($nfArray[0]['NUMERO'], 15, '0', STR_PAD_LEFT); // Identificador do lote
-                        $resp = $tools->sefazEnviaLote([$xmlAssinado], $idLote, 1);
+                        if ($tpAmb == 2) {
+                            $resp = $this->sefazSoapComRetry(function () use ($tools, $xmlAssinado, $idLote) {
+                                return $tools->sefazEnviaLote([$xmlAssinado], $idLote, 1);
+                            });
+                        } else {
+                            $resp = $tools->sefazEnviaLote([$xmlAssinado], $idLote, 1);
+                        }
 
                         $st = new NFePHP\NFe\Common\Standardize();
                         $std = $st->toStd($resp);
+
+
+                        
                         if ($std->cStat !== '103' && $std->cStat !== '104') {
                             //erro registrar e voltar
+                            $motivo = c_sefaz_erro_mapper::fromMotivo($std->cStat, $std->xMotivo);
                             $return = [
                                 "situacao" => "rejeitada",
                                 "codSituacao" => "R",
-                                "motivo" => $std->xMotivo,
+                                "motivo" => $motivo,
                                 "cstat" => $std->cStat,
                                 "cStatus" => $std->cStat,
                                 "chave" => $chave,
                                 "recibo" => ''
                             ];
+
+                            $transforma_string = json_encode($std);
+                            error_log("<br><br>Erro ao enviar NF: " . $transforma_string . "<br><br>");
+
+
                             return $return;
                             //$aResposta['cStatus'] = $std->cStat;
                             //trataErro($std->cStat, $std->xMotivo, '');
@@ -4103,9 +4865,9 @@ class p_nfe_40 extends c_user
                         $return = [
                             "situacao" => "rejeitada",
                             "codSituacao" => "R",
-                            "motivo" => $std->xMotivo . " - " . str_replace("\n", "<br/>", $e->getMessage()),
-                            "cstat" => $std->cStat,
-                            "cStatus" => $std->cStat,
+                            "motivo" => str_replace("\n", "<br/>", $e->getMessage()),
+                            "cstat" => '',
+                            "cStatus" => '',
                             "chave" => $chave,
                             "recibo" => ''
                         ];
@@ -4227,7 +4989,7 @@ class p_nfe_40 extends c_user
                             return $return;
                         }
 
-                        if ($std->cStat == '104') { //lote processado (tudo ok)
+                            if ($std->cStat == '104') { //lote processado (tudo ok)
                             if ($std->protNFe->infProt->cStat == '100') { //Autorizado o uso da NF-e
                                 //                    $return = ["situacao"=>"autorizada",
                                 //                                "numeroProtocolo"=>$std->protNFe->infProt->nProt,
@@ -4237,48 +4999,52 @@ class p_nfe_40 extends c_user
 
                                 $aResposta['cStatus'] = $std->protNFe->infProt->cStat;
                             } elseif (in_array($std->protNFe->infProt->cStat, ["110", "301", "302"])) { //DENEGADAS
+                                $motivo = c_sefaz_erro_mapper::fromMotivo($std->protNFe->infProt->cStat, $std->protNFe->infProt->xMotivo);
                                 $return = [
-                                    "situacao" => "denegada",
-                                    "codSituacao" => "D",
+                                "situacao" => "denegada",
+                                "codSituacao" => "D",
                                     "numeroProtocolo" => $std->protNFe->infProt->nProt,
-                                    "motivo" => $std->protNFe->infProt->xMotivo,
+                                "motivo" => $motivo,
                                     "cstat" => $std->protNFe->infProt->cStat,
                                     "cStatus" => $std->protNFe->infProt->cStat,
                                     "xmlProtocolo" => $xmlResp,
-                                    "chave" => $chave,
+                                "chave" => $chave,
                                     "recibo" => $recibo
-                                ];
+                            ];
                                 return $return;
                             } elseif (in_array($std->protNFe->infProt->cStat, ["539"])) { //DUPLICADO
+                                $motivo = c_sefaz_erro_mapper::fromMotivo($std->protNFe->infProt->cStat, $std->protNFe->infProt->xMotivo);
                                 $return = [
-                                    "situacao" => "Duplicidade",
-                                    "codSituacao" => "U",
+                                "situacao" => "Duplicidade",
+                                "codSituacao" => "U",
                                     "numeroProtocolo" => $std->protNFe->infProt->nProt,
-                                    "motivo" => $std->protNFe->infProt->xMotivo,
+                                "motivo" => $motivo,
                                     "cstat" => $std->protNFe->infProt->cStat,
                                     "cStatus" => $std->protNFe->infProt->cStat,
                                     "xmlProtocolo" => $xmlResp,
-                                    "chave" => $chave,
+                                "chave" => $chave,
                                     "recibo" => $recibo
-                                ];
+                            ];
                                 return $return;
                             } else { //não autorizada (rejeição)
+                                $motivo = c_sefaz_erro_mapper::fromMotivo($std->protNFe->infProt->cStat, $std->protNFe->infProt->xMotivo);
                                 $return = [
-                                    "situacao" => "rejeitada",
-                                    "codSituacao" => "R",
-                                    "motivo" => $std->protNFe->infProt->xMotivo,
-                                    "cstat" => $std->protNFe->infProt->cStat,
-                                    "cStatus" => $std->protNFe->infProt->cStat,
-                                    "chave" => $chave,
-                                    "recibo" => $recibo
-                                ];
-                                return $return;
-                            }
-                        } else { //outros erros possíveis
-                            $return = [
                                 "situacao" => "rejeitada",
                                 "codSituacao" => "R",
-                                "motivo" => $std->xMotivo,
+                                "motivo" => $motivo,
+                                    "cstat" => $std->protNFe->infProt->cStat,
+                                    "cStatus" => $std->protNFe->infProt->cStat,
+                                "chave" => $chave,
+                                    "recibo" => $recibo
+                            ];
+                                return $return;
+                        }
+                        } else { //outros erros possíveis
+                            $motivo = c_sefaz_erro_mapper::fromMotivo($std->cStat, $std->xMotivo);
+                        $return = [
+                            "situacao" => "rejeitada",
+                            "codSituacao" => "R",
+                                "motivo" => $motivo,
                                 "cstat" => $std->cStat,
                                 "cStatus" => $std->cStat,
                                 "chave" => $chave,
@@ -4289,9 +5055,9 @@ class p_nfe_40 extends c_user
                     } catch (\Exception $e) {
                         $return = [
                             "situacao" => "lote enviado",
-                            "motivo" => $std->xMotivo . " - " . str_replace("\n", "<br/>", $e->getMessage()),
-                            "numeroProtocolo" => $std->protNFe->infProt->nProt,
-                            "xmlProtocolo" => $xmlResp,
+                            "motivo" => str_replace("\n", "<br/>", $e->getMessage()),
+                            "numeroProtocolo" => '',
+                            "xmlProtocolo" => '',
                             "cstat" => 103,
                             "cStatus" => 103,
                             "chave" => $chave,
@@ -4397,33 +5163,97 @@ class p_nfe_40 extends c_user
                 //echo $docProt;
                 // DANFE GRAVA PDF E IMPRIME
                 try {
+
                     $erro = 'PDF line: 2334 - ' . $pdfDanfe . '<br>';
+
                     $pathLogo = ADMimg . '/logo0' . $this->m_empresaid . '.jpg';
-                    $logo = 'data://text/plain;base64,' . base64_encode(file_get_contents($pathLogo));
+
                     if (!file_exists($path . $slash . 'pdf' . $slash . $anomes . $slash)) {
                         mkdir($path . $slash . 'pdf' . $slash . $anomes . $slash, 0777, true);
                     }
                     $pdfDanfe = BASE_DIR_PDF;
                     //$pdfDanfe = $path.$slash.'pdf'.$slash.$anomes.$slash.$chave.$nfExtPdf;
 
-                    if ($nfArray[0]['MODELO'] == 55):
-                        $danfe = new NFePHP\DA\NFe\Danfe($xmlProtocolado, 'P', 'A4', $pathLogo, 'I', '');
-                        $erro = 'PDF DANFE line: 2343 - ' . $pdfDanfe . '<br>';
-                        $id = $danfe->montaDANFE();
-                        $erro .= 'ERRO: ' . $danfe->printDocument($pdfDanfe, 'F'); //Salva o PDF na pasta
-                    else:
-                        $danfce = new NFePHP\DA\NFe\Danfce($xmlAssinada, $pathLogo, 2);
+                    if ($nfArray[0]['MODELO'] == 55){
 
-                        $ecoNFCe = false; //false = Não (NFC-e Completa); true = Sim (NFC-e Simplificada)
-                        $id = $danfce->montaDANFCE($ecoNFCe);
+                        // $danfe = new NFePHP\DA\NFe\Danfe($xmlProtocolado, 'P', 'A4', $pathLogo, 'I', '');
+                        // $erro = 'PDF DANFE line: 2343 - ' . $pdfDanfe . '<br>';
+                        // $id = $danfe->montaDANFE();
+                        // $erro .= 'ERRO: ' . $danfe->printDocument($pdfDanfe, 'F'); //Salva o PDF na pasta
+
+                        // ===============================
+                        // GERAÇÃO DA DANFE (VERSÃO NOVA)
+                        // ===============================
+
+                        // Usar DanfeCustom
+                        $danfe = new DanfeCustom($xmlProtocolado);
+                        
+                        // Configurar parâmetros
+                        $danfe->printParameters('P', 'A4');
+                        
+                        // Configurar logo
+                        if (!empty($pathLogo) && file_exists($pathLogo)) {
+                            $danfe->setLogoPath($pathLogo);
+                        }
+                        
+                        // Renderizar
+                        $pdf = $danfe->render();
+
+                        // Garante que o diretório existe
+                        $directory = dirname($pdfDanfe);
+                        if (!is_dir($directory)) {
+                            mkdir($directory, 0777, true);
+                        }
+                        
+                        // Salvar
+                        file_put_contents($pdfDanfe, $pdf);
+
+
+                    } else {
+                        $xmlDanfce = !empty($xmlProtocolado) ? $xmlProtocolado : ($xmlAssinado ?? '');
+                        if (empty($xmlDanfce)) {
+                            throw new Exception('XML da NFC-e indisponível para impressão do DANFCE.');
+                        }
+
+                        $danfce = new DanfceCustom($xmlDanfce);
+                        if (!empty($pathLogo) && file_exists($pathLogo)) {
+                            $danfce->setLogoPath($pathLogo);
+                        }
+                        $pdfNfce = $danfce->render();
+
+                        $directory = dirname($pdfDanfe);
+                        if (!is_dir($directory)) {
+                            mkdir($directory, 0777, true);
+                        }
+                        file_put_contents($pdfDanfe, $pdfNfce);
 
                         $erro = 'PDF line: 2352 - ' . $pdfDanfe . '<br>';
-                        $erro .= 'ERRO: ' . $danfce->printDocument('pdf', $pdfDanfe, 'F'); //Salva na pasta pdf
-                    endif;
+                    }
 
                     $aResposta['cDanfe'] = BASE_HTTP_PDF;
-                } catch (InvalidArgumentException $e) {
-                    trataErro('PDF', str_replace("\n", "<br/>", $e->getMessage()), $erroNf);
+                } catch (\Exception $e) {
+                    error_log('ERRO PDF NF-e/NFC-e (1ª tentativa): ' . $e->getMessage());
+
+                    try {
+                        if ($nfArray[0]['MODELO'] == 55) {
+                            $danfeSemLogo = new DanfeCustom($xmlProtocolado);
+                            $danfeSemLogo->printParameters('P', 'A4');
+                            $pdfSemLogo = $danfeSemLogo->render();
+                        } else {
+                            $xmlDanfce = !empty($xmlProtocolado) ? $xmlProtocolado : ($xmlAssinado ?? '');
+                            if (empty($xmlDanfce)) {
+                                throw new Exception('XML da NFC-e indisponível para impressão do DANFCE.');
+                            }
+                            $danfceSemLogo = new DanfceCustom($xmlDanfce);
+                            $pdfSemLogo = $danfceSemLogo->render();
+                        }
+                        file_put_contents($pdfDanfe, $pdfSemLogo);
+                        $aResposta['cDanfe'] = BASE_HTTP_PDF;
+                        error_log('PDF gerado sem logo após falha no logo.');
+                    } catch (\Exception $e2) {
+                        error_log('ERRO CRÍTICO PDF NF-e/NFC-e: ' . $e2->getMessage());
+                        trataErro('PDF', str_replace("\n", '<br/>', $e2->getMessage()), $erroNf);
+                    }
                 }
 
                 // altera dados danfe na est_nota_fiscal
@@ -4432,10 +5262,10 @@ class p_nfe_40 extends c_user
                     $nfOBJ->setPathDanfe($aResposta['cDanfe']);
                     $nfOBJ->setSituacao('B');
                     $nfOBJ->setChNFe($std->protNFe->infProt->chNFe);
-                    $nfOBJ->setDhRecbto($std->dhRecbto);
+                    $nfOBJ->setDhRecbto($std->protNFe->infProt->dhRecbto);
                     $nfOBJ->setNProt($std->protNFe->infProt->nProt);
                     $nfOBJ->setDigVal($std->protNFe->infProt->digVal);
-                    $nfOBJ->setVerAplic($std->verAplic);
+                    $nfOBJ->setVerAplic($std->protNFe->infProt->verAplic);
                     // $nfOBJ->setNumRecibo($recibo);
                     $nfOBJ->alteraNfPath($conn);
 
@@ -4511,17 +5341,21 @@ class p_nfe_40 extends c_user
         $objConta = new c_conta();
 
         if ($tipo == 'resNFe') {
-            $objConta->setNome($xml->xNome);
-            $objConta->setCnpjCpf($xml->CNPJ);
-            $objConta->setNomeReduzido($xml->xNome);
+            $doc = preg_replace('/\D/', '', (string) ($xml->CNPJ ?: $xml->CPF));
+            $objConta->setNome((string) $xml->xNome);
+            $objConta->setCnpjCpf($doc);
+            $objConta->setNomeReduzido((string) $xml->xNome);
+            $objConta->setPessoa(strlen($doc) > 11 ? 'J' : 'F');
         } else {
-            $objConta->setNome($xml->NFe->infNFe->emit->xNome);
-            $objConta->setCnpjCpf($xml->NFe->infNFe->emit->CNPJ);
-            $objConta->setNomeReduzido($xml->NFe->infNFe->emit->xFant);
-            $objConta->setIeRg($xml->NFe->infNFe->emit->IE);
+            $emit = $xml->NFe->infNFe->emit;
+            $doc = preg_replace('/\D/', '', (string) ($emit->CNPJ ?: $emit->CPF));
+            $objConta->setNome((string) $emit->xNome);
+            $objConta->setCnpjCpf($doc);
+            $objConta->setNomeReduzido((string) ($emit->xFant ?: $emit->xNome));
+            $objConta->setIeRg((string) ($emit->IE ?? ''));
+            $objConta->setPessoa(strlen($doc) > 11 ? 'J' : 'F');
         }
 
-        $objConta->setPessoa('J');
         $objConta->setRepresentante(0);
         $objConta->setRegimeEspecialSTMTAliq(0.00);
         $objConta->setRegimeEspecialSTAliq(0.00);
@@ -4535,45 +5369,43 @@ class p_nfe_40 extends c_user
 
     function savedZip($docs, $name)
     {
-        // Cria um objeto ZipArchive para teste
-        // $nomeDoArquivoZIP = 'arquivo_teste.zip';
-        // $zip = new ZipArchive();
-
-        // // Cria o arquivo ZIP
-        // if ($zip->open($nomeDoArquivoZIP, ZipArchive::CREATE) === TRUE) {
-        //     // Adiciona um arquivo de texto de exemplo ao ZIP
-        //     $textoDeExemplo = "Este é um arquivo de exemplo para teste.";
-        //     $zip->addFromString('exemplo.txt', $textoDeExemplo);
-
-        //     // Fecha o arquivo ZIP
-        //     $zip->close();
-
-        //     // Obtém os dados do arquivo ZIP no formato de string
-        //     $zipContents = file_get_contents($nomeDoArquivoZIP);
-        // }else{
-        //     echo 'erro';
-        // }
-
-        //$docs = $zipContents;
-
-        // monta dir files
         $slash = '/';
+        if (!defined('BASE_DIR_NFE_AMB')) {
+            return false;
+        }
         $caminho = BASE_DIR_NFE_AMB . $slash . 'sefazZip' . $slash;
 
         if (!file_exists($caminho)) {
-            mkdir($caminho, 0777, true);
+            if (!@mkdir($caminho, 0777, true) && !is_dir($caminho)) {
+                return false;
+            }
         }
 
-        $string_name = preg_replace('/[^0-9T]/', '', $name);
+        $string_name = preg_replace('/[^0-9T]/', '', (string) $name);
+        if ($string_name === '') {
+            $string_name = date('YmdHis');
+        }
         $caminhoCompleto = $caminho . $string_name . '.zip';
 
-        // salva o conteúdo no arquivo ZIP
-        if (file_put_contents($caminhoCompleto, $docs) !== false) {
-            return true;
-        } else {
-            $error = error_get_last();
+        // $docs pode ser DOMNodeList: serializa cada docZip em um arquivo auxiliar.
+        if ($docs instanceof \DOMNodeList) {
+            $ok = true;
+            foreach ($docs as $i => $doc) {
+                $nsu = preg_replace('/\D/', '', (string) $doc->getAttribute('NSU'));
+                $payload = (string) $doc->nodeValue;
+                $file = $caminho . $string_name . '_' . ($nsu !== '' ? $nsu : $i) . '.doczip';
+                if (@file_put_contents($file, $payload) === false) {
+                    $ok = false;
+                }
+            }
+            return $ok;
+        }
+
+        if (!is_string($docs) && !is_scalar($docs)) {
             return false;
         }
+
+        return @file_put_contents($caminhoCompleto, (string) $docs) !== false;
     }
 
     // Função para consultar um CNPJ via API
@@ -4604,4 +5436,8 @@ class p_nfe_40 extends c_user
     }
 
 } //class
-$xml = new p_nfe_40();
+
+// Instancia só quando o form é acessado diretamente (não ao require de outros módulos)
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === realpath(__FILE__)) {
+    $xml = new p_nfe_40();
+}

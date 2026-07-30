@@ -81,7 +81,7 @@
             <div class="x_panel">
                 <table id="datatable-buttons1" class="table table-bordered jambo_table">
                     <thead>
-                        <tr style="background: #2A3F54; color: white;">
+                        <tr class="headings">
                             <th>C&oacute;digo</th>
                             <th>C&oacute;digo Fabricante</th>
                             <th>C&oacute;d. Nota</th>

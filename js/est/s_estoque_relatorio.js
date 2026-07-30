@@ -22,6 +22,10 @@ function controlInputs(report)
         case "estoque_geral":
             controlInputsEstoqueGeral();
             break;
+        case "bloco_h":
+            // Bloco H utiliza período + filtros básicos de estoque
+            controlInputsBlocoH();
+            break;
         case "compras":
             controlInputsCompras();
             break;
@@ -151,6 +155,24 @@ function controlInputsEstoqueGeral()
     $('#tipoCurvaABC').prop('disabled', true);
 }
 
+
+function controlInputsBlocoH()
+{
+    // Bloco H: apenas filtro por período (data)
+    // Habilitar: Período
+    $('#data_consulta').prop('disabled', false);
+
+    // Desabilitar todos os demais filtros
+    $('#idGrupo').prop('disabled', true);
+    $('#idLocalizacao').prop('disabled', true);
+    $('#idProduto').prop('disabled', true);
+    $('#ordenacaoEstoque').prop('disabled', true);
+    $('#clienteFornecedor').prop('disabled', true);
+    $('#tipoMovimento').prop('disabled', true);
+    $('#centroCusto').prop('disabled', true);
+    $('#situacaoNF').prop('disabled', true);
+    $('#tipoCurvaABC').prop('disabled', true);
+}
 
 function controlInputsComprasSugestoes()
 {
@@ -418,7 +440,7 @@ async function generateReport()
     // mount parameters
     params = await mountParameters();
 
-    // Verifica se os parâmetros são nulos ou vazios antes de prosseguir
+    // Relatórios sem parâmetros obrigatórios (filtros opcionais)
     if (isEmpty(params)) {
 
         Swal.fire({
@@ -666,3 +688,33 @@ function formatarNumero(numero, casasDecimais) {
 function abrir(pag) {
     window.open(pag, 'consulta', 'toolbar=no,location=no,menubar=no,width=950,height=900,scrollbars=yes');
 } 
+
+function converteColunaNumeroBR(ws, colIndex, primeiraLinhaDados) {
+    debugger;
+    if (!ws || !ws['!ref']) return;
+
+    var range = XLSX.utils.decode_range(ws['!ref']);
+    var rInicio = (typeof primeiraLinhaDados === 'number')
+        ? primeiraLinhaDados
+        : range.s.r + 1;
+
+    for (var r = rInicio; r <= range.e.r; r++) {
+        var cell = ws[XLSX.utils.encode_cell({ r: r, c: colIndex })];
+        if (!cell || cell.v == null) continue;
+
+        var txt = (cell.v + '').trim();
+        if (!txt) continue;
+
+        txt = txt
+            .replace(/^R\$\s*/i, '')
+            .replace(/\./g, '')
+            .replace(',', '.');
+
+        var num = parseFloat(txt);
+        if (!isNaN(num)) {
+            cell.t = 'n';
+            cell.v = num;
+            cell.z = '#,##0.00';
+        }
+    }
+}

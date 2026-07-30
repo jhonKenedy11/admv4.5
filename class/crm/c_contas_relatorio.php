@@ -312,6 +312,37 @@ class c_contas_relatorio extends c_user
         return $banco->resultado;
     }
 
+    /**
+     * Seleciona relatório de obras cadastradas com possíveis filtros aplicados
+     * Retorna array com: NOME (cliente), CNPJCPF, PROJETO (nome completo da obra),
+     * RESPONSAVEL (nome do responsável técnico) e CEP (preferência: responsável -> cliente)
+     */
+    public function selectRelatorioObras()
+    {
+        $sql = "SELECT C.CLIENTE AS CLIENTE_ID, C.NOME, C.CNPJCPF, U.NOMEREDUZIDO AS RESPONSAVEL, ";
+        $sql .= "C.CEP AS CEP, GROUP_CONCAT(O.PROJETO ORDER BY O.PROJETO SEPARATOR '; ') AS PROJETOS ";
+        $sql .= "FROM FIN_CLIENTE_OBRA O ";
+        $sql .= "LEFT JOIN FIN_CLIENTE C ON (C.CLIENTE = O.CLIENTE) ";
+        $sql .= "LEFT JOIN AMB_USUARIO U ON (U.USUARIO = C.REPRESENTANTE) ";
+
+        $sql .= "WHERE O.STATUS = 'A' ";
+
+        $wherePessoa = $this->wherePessoa();
+        if (trim($wherePessoa) != '') {
+            $wherePessoa = preg_replace('/^\s*WHERE/i', 'AND', $wherePessoa);
+            $sql .= " " . $wherePessoa . " ";
+        }
+
+        // Agrupa pelas colunas não agregadas usadas na seleção
+        $sql .= " GROUP BY C.CLIENTE, C.NOME, C.CNPJCPF, U.NOMEREDUZIDO, C.CEP ";
+        $sql .= " ORDER BY C.NOME ASC";
+
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        return $banco->resultado ?? [];
+    }
+
     // função responsavel pelas combos
     public function comboAniversario()
     {

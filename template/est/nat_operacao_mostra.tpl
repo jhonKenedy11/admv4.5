@@ -54,7 +54,7 @@
                   <tr class="headings">
                     <th>Natureza Opera&ccedil;&atilde;o</th>
                     <th>Tipo</th>
-                    <th class=" no-link last" style="width: 170px;">Manuten&ccedil;&atilde;o</th>
+                    <th class=" no-link last" style="width: 240px;">Manuten&ccedil;&atilde;o</th>
                   </tr>
                 </thead>
 
@@ -75,6 +75,9 @@
                         <button type="button" class="btn btn-warning btn-xs"
                           onclick="javascript:submitTributos('nat_tributos','{$lanc[i].ID}');"><span
                             class="glyphicon glyphicon-plus-sign" aria-hidden="true"></span> Tributos</button>
+                        <button type="button" class="btn btn-info btn-xs"
+                          onclick="javascript:submitTribIbsCbs('nat_trib_ibs_cbs','{$lanc[i].ID}');"><span
+                            class="glyphicon glyphicon-plus-sign" aria-hidden="true"></span> IBS/CBS</button>
                       </td>
                     </tr>
                   {/section}

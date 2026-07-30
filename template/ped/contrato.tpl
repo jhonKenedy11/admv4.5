@@ -50,6 +50,32 @@
         margin-top: 5px;
     }
 
+    .contrato-page .x_content {
+        overflow-x: auto;
+    }
+
+    .contrato-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .contrato-toolbar h2 {
+        margin: 0;
+    }
+
+    .contrato-toolbar .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .contrato-filtros .form-group {
+        margin-bottom: 12px;
+    }
+
     .modal-dialog {
         max-width: 90%;
         width: auto !important;
@@ -111,10 +137,6 @@
     }
 </style>
 
-<script type="text/javascript" src="{$pathJs}/ped/s_contrato.js"></script>
-<!-- Carregamento do jquery antes do maskMoney CAMPO SEMPRE DEVE SER TEXT -->
-{include file="template/database.inc"}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-maskmoney/3.0.2/jquery.maskMoney.min.js"></script>
 <div class="right_col" role="main">
 
     <div class="">
@@ -213,7 +235,6 @@
                             <tbody>
                                 {section name=i loop=$lanc}
                                     {if $lanc[i].SITUACAO eq 6}
-                                        {assign var="total" value=$total+1}
                                         <tr>
 
                                             <td> {$lanc[i].NOME} </td>
@@ -242,11 +263,6 @@
                                         </tr>
                                     {/if}
                                 {/section}
-                                {if empty($lanc)}
-                                    <tr>
-                                        <td colspan="8">Nenhum resultado encontrado.</td>
-                                    </tr>
-                                {/if}
                             </tbody>
                         </table>
 
@@ -268,7 +284,7 @@
             </div>
             <div class="modal-body" style="padding: 12px;">
                 <div class="form-group" style="margin-bottom: 8px;">
-                    <input type="text" name="dataConsulta" id="dataConsulta" 
+                    <input type="text" name="dataConsultaModal" id="dataConsultaModal" 
                            class="form-control input-sm" placeholder="Selecione o período" 
                            style="font-size: 11px; height: 28px;">
                 </div>
@@ -285,16 +301,15 @@
 
 {include file="modal_contrato.tpl"}
 
-
-<script src="js/moment/moment.min.js"></script>
+{include file="template/database.inc"}
+<script type="text/javascript" src="{$pathJs}/ped/s_contrato.js"></script>
+<script src="https://cdn.rawgit.com/plentz/jquery-maskmoney/master/dist/jquery.maskMoney.min.js"></script>
 <script src="{$bootstrap}/select2-master/dist/js/select2.full.min.js"></script>
 <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 
-
-
 <!-- daterangepicker -->
 <script type="text/javascript">
-    $('input[name="dataConsulta"]').daterangepicker({
+    $('#lancamento #dataConsulta').daterangepicker({
             startDate: moment("{$dataIni}", "DD/MM/YYYY"),
             endDate: moment("{$dataFim}", "DD/MM/YYYY"),
             ranges: {
@@ -329,22 +344,139 @@
             f.dataIni.value = start.format('DD/MM/YYYY');
             f.dataFim.value = end.format('DD/MM/YYYY');
         });
+
+    $('#dataConsultaModal').daterangepicker({
+            startDate: moment("{$dataIni}", "DD/MM/YYYY"),
+            endDate: moment("{$dataFim}", "DD/MM/YYYY"),
+            locale: {
+                format: 'DD/MM/YYYY',
+                applyLabel: 'Confirma',
+                cancelLabel: 'Limpa',
+                fromLabel: 'Início',
+                toLabel: 'Fim',
+                daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
+                monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto',
+                    'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                ],
+                firstDay: 1
+            }
+        });
+</script>
+
+<script type="text/javascript">
+    $(function() {
+        $('#modalAcompanhamentoOS input[name="data_inicio"]').daterangepicker({
+                singleDatePicker: true,
+                timePicker: true,
+                showDropdowns: true,
+                timePicker24Hour: true,
+                autoApply: true,
+                startDate: moment(),
+                locale: {
+                    format: 'DD/MM/YYYY HH:mm',
+                    daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
+                    monthNames: [
+                        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                    ]
+                }
+            })
+            .on('apply.daterangepicker', function(ev, picker) {
+                $(this).val(picker.startDate.format('DD/MM/YYYY HH:mm'));
+            })
+            .on('hide.daterangepicker', function(ev, picker) {
+                if (!$(this).val()) {
+                    $(this).val(picker.startDate.format('DD/MM/YYYY HH:mm'));
+                }
+            });
+
+        $('#modalAcompanhamentoOS input[name="prazo_entrega"]').daterangepicker({
+                singleDatePicker: true,
+                timePicker: true,
+                showDropdowns: true,
+                timePicker24Hour: true,
+                autoApply: true,
+                startDate: moment(),
+                locale: {
+                    format: 'DD/MM/YYYY HH:mm',
+                    daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
+                    monthNames: [
+                        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                    ]
+                }
+            })
+            .on('apply.daterangepicker', function(ev, picker) {
+                $(this).val(picker.startDate.format('DD/MM/YYYY HH:mm'));
+            })
+            .on('hide.daterangepicker', function(ev, picker) {
+                if (!$(this).val()) {
+                    $(this).val(picker.startDate.format('DD/MM/YYYY HH:mm'));
+                }
+            });
+
+        $("#usuario_equipe.select2-multiple").select2({
+            placeholder: "Selecione",
+            allowClear: true,
+            width: "100%"
+        });
+
+        $("#equipe.js-example-basic-single").select2({
+            placeholder: "Selecione",
+            allowClear: true,
+            width: "100%"
+        });
+
+        function atualizarEstadoUsuarioEquipe() {
+            var equipeSelecionada = $("#equipe.js-example-basic-single").val();
+            var usuarioEquipeSelect = $("#usuario_equipe.select2-multiple");
+
+            if (equipeSelecionada && equipeSelecionada !== '0' && equipeSelecionada !== '') {
+                usuarioEquipeSelect.prop("disabled", false);
+            } else {
+                usuarioEquipeSelect.prop("disabled", true);
+            }
+        }
+
+        atualizarEstadoUsuarioEquipe();
+
+        $("#equipe.js-example-basic-single").on('change', function() {
+            atualizarEstadoUsuarioEquipe();
+        });
+
+        $(document).on('keydown',
+            '#modalResultServicos input[type="checkbox"], #modalResultServicos input[id^="qtdAExecutar_"]',
+            function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if ($(this).is(':checkbox')) {
+                        $(this).prop('checked', !$(this).prop('checked')).trigger('change');
+                    }
+
+                    let $focusable = $(
+                        '#modalResultServicos input[type="checkbox"], #modalResultServicos input[id^="qtdAExecutar_"]'
+                    );
+                    let index = $focusable.index(this);
+                    let $next = $focusable.eq(index + 1);
+
+                    if ($next.length) {
+                        $next.focus();
+                    } else {
+                        $focusable.first().focus();
+                    }
+                }
+            });
+
+        $(document).on('focus', '#modalResultServicos input[readonly]', function() {
+            $(this).blur();
+        });
+
+        $('#modalAcompanhamentoOS').on('hidden.bs.modal', function() {
+            limpaModal();
+        });
+    });
 </script>
 
 <script>
-    // Acessando a propriedade do objeto pathCliente
-    const urlBase = "{$pathCliente}"; 
-</script>
-
-<script>
-  function limpaModal(){
-    if (document.getElementsByName("obs_servico")){
-        document.getElementsByName("obs_servico")[0].value = '';
-    }
-
-    // Limpa os campos Equipe e Usuários da Equipe
-    $('#modalAcompanhamentoOS [name="equipe"]').val('').trigger('change');
-    $('#modalAcompanhamentoOS [name="usuario_equipe"]').val('').trigger('change');
-    $('#modalAcompanhamentoOS [name="obs_servico"]').val('');
-}
+    const urlBase = "{$pathCliente}";
 </script>

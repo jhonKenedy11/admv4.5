@@ -6,29 +6,65 @@ function submitVoltar() {
     f.submit();
 } // fim submitVoltar
 
-function submitImprime(id, pag) {
-//    ALERT(pag);
-     
+function submitImprime(id, pag, situacao) {
+    window.open(pag, 'imprime', 'toolbar=no,location=no,menubar=no,width=1200,height=650,scrollbars=yes');
+
+    // Situação 6 (Pedido): submit para avançar fase após conferência. Situação 3: só reimprime.
+    if (parseInt(situacao, 10) !== 6) {
+        return;
+    }
+
     f = document.lancamento;
     f.mod.value = 'ped';
     f.form.value = 'pedido_venda_gerente_novo';
     f.submenu.value = 'imprime';
     f.id.value = id;
-
-    print = window.open(pag, 'imprime', 'toolbar=no,location=no, menubar=no,width=1200,height=650,scrollbars=yes');
-    //print.window.print();
     f.submit();
-
-    
 } // submitImprime
 
 
-function submitCadastro(id) {
+function submitEditarPedido(id) {
+    window.open(
+        'index.php?mod=ped&form=pedido_ps&submenu=alterar&id=' + encodeURIComponent(id),
+        '_blank'
+    );
+}
+
+function alertaGerenteEncomendaSemNf() {
+    Swal.fire({
+        icon: 'info',
+        title: 'Pedido em encomenda',
+        text: 'A emissão de NF está bloqueada até a entrada de estoque liberar o pedido. '
+            + 'Cadastre o financeiro na coluna Financeiro.',
+        confirmButtonText: 'OK'
+    });
+}
+
+function submitCadastro(id, situacao) {
+    if (parseInt(situacao, 10) === 13) {
+        alertaGerenteEncomendaSemNf();
+        return;
+    }
     f = document.lancamento;
     f.mod.value = 'ped';
     f.form.value = 'pedido_venda_gerente_novo';
     f.opcao.value = 'pedido_venda_gerente_novo';
     f.id.value = id;
+    f.submenu.value = 'notafiscal';
+    f.submit();
+} // fim submit
+
+function submitCadastroCupom(id, situacao) {
+    if (parseInt(situacao, 10) === 13) {
+        alertaGerenteEncomendaSemNf();
+        return;
+    }
+    f = document.lancamento;
+    f.mod.value = 'ped';
+    f.form.value = 'pedido_venda_gerente_novo';
+    f.opcao.value = 'pedido_venda_gerente_novo';
+    f.id.value = id;
+    f.tipoDocFiscal.value = '65';
     f.submenu.value = 'notafiscal';
     f.submit();
 } // fim submit
@@ -86,23 +122,74 @@ function submitTodosPedidosMes() {
     f.submit();
 } // fim submit
 
-function submitAgruparPedidos(){
+function submitUltimos60Dias() {
     f = document.lancamento;
-    f.pedidoAgrupado.value = '';
-    f.dadosPed.value = '';
-    var table = document.getElementById("datatable-buttons");
-    var r = table.rows.length;
+    f.mod.value = 'ped';
+    f.form.value = 'pedido_venda_gerente_novo';
+    f.submenu.value = 'ultimos60Dias';
+    f.submit();
+} // fim submit
 
-    var pedidos = "";
-    for (i = 1; i < r; i++) {
+function marcarTodosPedidosAgrupa(marcar) {
+    var checks = document.querySelectorAll('#datatable-buttons input.pedido-agrupa-check');
+    if (!checks.length) {
+        return;
+    }
 
-        var row = table.rows.item(i).getElementsByTagName("input");
-        
-        if (row.pedidoChecked.checked == true) {
-            pedidos = pedidos + "|" + row[0].id;
-            
+    var marcarTodos;
+    if (marcar === true || marcar === false) {
+        marcarTodos = marcar;
+    } else {
+        marcarTodos = true;
+        for (var i = 0; i < checks.length; i++) {
+            if (!checks[i].checked) {
+                marcarTodos = false;
+                break;
+            }
+        }
+        marcarTodos = !marcarTodos;
+    }
+
+    for (var j = 0; j < checks.length; j++) {
+        checks[j].checked = marcarTodos;
+    }
+
+    var master = document.getElementById('pedidoAgrupaMarcarTodos');
+    if (master) {
+        master.checked = marcarTodos;
+        master.indeterminate = false;
+    }
+}
+
+function toggleMarcarTodosPedidos(checked) {
+    marcarTodosPedidosAgrupa(checked);
+}
+
+function coletaPedidosAgrupamento() {
+    var pedidos = '';
+    var linhas = document.querySelectorAll('#datatable-buttons tbody tr');
+    for (var i = 0; i < linhas.length; i++) {
+        var cb = linhas[i].querySelector('input.pedido-agrupa-check');
+        if (cb && cb.checked && cb.value) {
+            pedidos += '|' + cb.value;
         }
     }
+    return pedidos;
+}
+
+function submitAgruparPedidos(){
+    f = document.lancamento;
+    var pedidos = f.pedidoAgrupado.value || coletaPedidosAgrupamento();
+    if (!pedidos) {
+        Swal.fire({
+            title: 'Atenção',
+            text: 'Nenhum pedido selecionado para agrupar.',
+            icon: 'warning',
+            confirmButtonText: 'OK'
+        });
+        return false;
+    }
+
     var frete = f.mFrete.value;
     var despAcessorias = f.mDespAcessorias.value;
 
@@ -126,64 +213,67 @@ function agrupaPedidoModal(){
     var r = table.rows.length;
     var pessoa = '';
     var condPg = '';
-    var pedidosSelecionados = 0; // Contador de pedidos selecionados
+    var pedidosSelecionados = 0;
+    var pedidos = '';
     totalFrete          = 0;
     totalDespAcessorias = 0;
     totalDesconto       = 0; 
     totalPedido         = 0;
 
-    var idPessoaSelecionada = ''; // Armazena o ID da pessoa
+    var idPessoaSelecionada = '';
     
     for (i = 1; i < r; i++) {
-        
-        var row = table.rows.item(i).getElementsByTagName("input");        
-        
-        if (row.pedidoChecked.checked == true) {
-            pedidosSelecionados++; // Incrementa contador
-            var cells = table.rows[i].getElementsByTagName("td");
+        var cb = table.rows[i].querySelector('input.pedido-agrupa-check');
+        if (!cb || !cb.checked) {
+            continue;
+        }
 
-            novaPessoa = cells[1].childNodes[0].data;    
-            dados   = cells[5].childNodes[0].data; 
-            arrDados = dados.split("|");
+        pedidosSelecionados++;
+        if (cb.value) {
+            pedidos += '|' + cb.value;
+        }
 
-            idPessoa   = arrDados[3].trim(); 
+        var cells = table.rows[i].getElementsByTagName("td");
 
-            if (pessoa === ''){
-                pessoa = novaPessoa;
-                idPessoaSelecionada = idPessoa; // Salva o ID da pessoa
-                f.pessoa.value = idPessoa;
-            }
-            if(condPg === ''){
-               condPg = arrDados[4].trim();
-            }
-            if(novaPessoa === pessoa){
-                
+        novaPessoa = cells[1].childNodes[0].data;    
+        dados   = cells[6].childNodes[0].data; 
+        arrDados = dados.split("|");
 
-                total          = cells[4].childNodes[0].data;
-                frete          = arrDados[0].trim();;
-                despAcessorias = arrDados[1].trim();;
-                desconto       = arrDados[2].trim();;
+        idPessoa   = arrDados[3].trim(); 
 
-                total          = parseFloat(total.replace(".","").replace(",","."));
-                frete          = parseFloat(frete.replace(".","").replace(",","."));
-                despAcessorias = parseFloat(despAcessorias.replace(".","").replace(",","."));
-                desconto       = parseFloat(desconto.replace(".","").replace(",","."));
+        if (pessoa === ''){
+            pessoa = novaPessoa;
+            idPessoaSelecionada = idPessoa;
+            f.pessoa.value = idPessoa;
+        }
+        if(condPg === ''){
+           condPg = arrDados[4].trim();
+        }
+        if(novaPessoa === pessoa){
+            total          = cells[5].childNodes[0].data;
+            frete          = arrDados[0].trim();;
+            despAcessorias = arrDados[1].trim();;
+            desconto       = arrDados[2].trim();;
 
-                totalPedido         += total;
-                totalFrete          += frete;
-                totalDespAcessorias += despAcessorias;
-                totalDesconto       += desconto;
+            total          = parseFloat(total.replace(".","").replace(",","."));
+            frete          = parseFloat(frete.replace(".","").replace(",","."));
+            despAcessorias = parseFloat(despAcessorias.replace(".","").replace(",","."));
+            desconto       = parseFloat(desconto.replace(".","").replace(",","."));
 
-            }else{
-                Swal.fire({
-                    title: 'Atenção',
-                    text: 'Selecione a mesma Pessoa para fazer o Agrupamento de Pedido.',
-                    icon: 'warning',
-                    showCancelButton: false,
-                    confirmButtonText: 'OK'
-                });
-                return false;
-            }
+            totalPedido         += total;
+            totalFrete          += frete;
+            totalDespAcessorias += despAcessorias;
+            totalDesconto       += desconto;
+
+        }else{
+            Swal.fire({
+                title: 'Atenção',
+                text: 'Selecione a mesma Pessoa para fazer o Agrupamento de Pedido.',
+                icon: 'warning',
+                showCancelButton: false,
+                confirmButtonText: 'OK'
+            });
+            return false;
         }
     }
     
@@ -217,6 +307,7 @@ function agrupaPedidoModal(){
     f.mDesconto.value       = currencyFormat(totalDesconto);
     f.mTotal.value          = currencyFormat(totalPedido);
     f.condPgto.value        = condPg;
+    f.pedidoAgrupado.value  = pedidos;
     $('#modalAgrupamentoPed').modal('show');
 }
 

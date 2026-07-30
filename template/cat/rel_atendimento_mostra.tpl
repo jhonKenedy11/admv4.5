@@ -20,12 +20,11 @@
     }
 
     .divRelatorios {
-        width: 250px;
+        width: 260px;
         max-width: 100%;
         min-height: 100px;
-        margin-bottom: 10px;
         display: inline-block;
-        margin-right: 8px;
+        margin-bottom: 15px;
     }
 
     .panelPrincipal {
@@ -45,24 +44,15 @@
         padding: 10px;
     }
 
-    .x_panel {
-        height: 540px;
-    }
 
     .panel-heading {
         text-align: center;
     }
 
-    .botoes-relatorios {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: flex-start;
-
-    }
 </style>
 
 <script type="text/javascript" src="{$pathJs}/cat/s_atendimento_relatorio.js"> </script>
-<script type="text/javascript" src="{$ADMhttpBib}/bib/sweetalert2/dist/sweetalert2.all.js"> </script>
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <div class="right_col" role="main">
 
     <div class="x_panel">
@@ -94,65 +84,83 @@
             <input name="report" id="report" type=hidden value={$report}>
 
             <div class="container">
-                <div class="botoes-relatorios">
-                    {* medicao *}
-                    {* <div class="divRelatorios">
-                        <div class="panel panel-info btn panelPrincipal" role="button" data-toggle="modal"
-                            data-target="#modalParametros" onclick="controlInputs('relatorio_medicao')"
-                            data-relatorio-nome="Relatório de medição">
-                            <div class="panel-heading">
-                                <h3 class="panel-title">Relatório de medição</h3>
-                            </div>
-                            <div class="panel-body panelText">
-                                Relatório de medição
-                            </div>
-                        </div>
-                    </div> *}
 
-                    {* servico *}
-                    <div class="divRelatorios">
+                <div class="row text-right">
+
+                    {* Serviço *}
+                    <div class="col-md-3 col-lg-2 divRelatorios">
                         <div class="panel panel-success btn panelPrincipal" role="button" data-toggle="modal"
-                            data-target="#modalParametros" onclick="controlInputs('relatorio_servico')"
-                            data-relatorio-nome="Relatório de servico">
+                            data-target="#modalParametros" onclick="javascript:controlInputs('relatorio_servico')"
+                            data-relatorio-nome="Relatório de Serviço">
                             <div class="panel-heading">
-                                <h3 class="panel-title">Relatório de Serviço</h3>
+                                <h3 class="panel-title"><i class="fa fa-cogs"></i> Relatório de Serviço</h3>
                             </div>
                             <div class="panel-body panelText">
-                                Relatório de Serviço
+                                Relatório detalhado de serviços executados
                             </div>
                         </div>
                     </div>
 
-                    {* usuario *}
-                    <div class="divRelatorios">
+                    {* Usuário *}
+                    <div class="col-md-3 col-lg-2 divRelatorios">
                         <div class="panel panel-warning btn panelPrincipal" role="button" data-toggle="modal"
-                            data-target="#modalParametros" onclick="controlInputs('relatorio_usuario')"
-                            data-relatorio-nome="Relatório de usuario">
+                            data-target="#modalParametros" onclick="javascript:controlInputs('relatorio_usuario')"
+                            data-relatorio-nome="Relatório por Usuário">
                             <div class="panel-heading">
-                                <h3 class="panel-title">Relatório de usuario</h3>
+                                <h3 class="panel-title"><i class="fa fa-user"></i> Relatório por Usuário</h3>
                             </div>
                             <div class="panel-body panelText">
-                                Relatório por usuario
+                                Relatório de atendimentos por usuário/equipe
                             </div>
                         </div>
                     </div>
 
-                    {* equipamento *}
-                    <div class="divRelatorios">
+                    {* Equipamento *}
+                    <div class="col-md-3 col-lg-2 divRelatorios">
                         <div class="panel panel-danger btn panelPrincipal" role="button" data-toggle="modal"
-                            data-target="#modalParametros" onclick="controlInputs('relatorio_equipamento')"
-                            data-relatorio-nome="Relatório equipamento">
+                            data-target="#modalParametros" onclick="javascript:controlInputs('relatorio_equipamento')"
+                            data-relatorio-nome="Relatório por Equipamento">
                             <div class="panel-heading">
-                                <h3 class="panel-title">Relatório equipamento</h3>
+                                <h3 class="panel-title"><i class="fa fa-wrench"></i> Relatório por Equipamento</h3>
                             </div>
                             <div class="panel-body panelText">
-                                Relatório equipamento
+                                Relatório de atendimentos por equipamento
                             </div>
                         </div>
                     </div>
 
+                 
+
+                    {* Período *}
+                    <div class="col-md-3 col-lg-2 divRelatorios">
+                        <div class="panel panel-success btn panelPrincipal" role="button" data-toggle="modal"
+                            data-target="#modalParametros" onclick="javascript:controlInputs('relatorio_periodo')"
+                            data-relatorio-nome="Relatório por Período">
+                            <div class="panel-heading">
+                                <h3 class="panel-title"><i class="fa fa-calendar"></i> Relatório por Período</h3>
+                            </div>
+                            <div class="panel-body panelText">
+                                Relatório consolidado por período
+                            </div>
+                        </div>
+                    </div>
+
+                    {* Medição *}
+                    <div class="col-md-3 col-lg-2 divRelatorios">
+                        <div class="panel panel-info btn panelPrincipal" role="button" data-toggle="modal"
+                            data-target="#modalParametros" onclick="javascript:controlInputs('relatorio_medicao')"
+                            data-relatorio-nome="Relatório de Medição">
+                            <div class="panel-heading">
+                                <h3 class="panel-title"><i class="fa fa-clipboard"></i> Relatório de Medição</h3>
+                            </div>
+                            <div class="panel-body panelText">
+                                Relatório de medição de serviços
+                            </div>
+                        </div>
+                    </div>
 
                 </div>
+
             </div>
         </form>
     </div>

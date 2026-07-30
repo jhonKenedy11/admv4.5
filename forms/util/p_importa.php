@@ -26,6 +26,7 @@ require_once($dir . "/../../class/est/c_nota_fiscal_produto.php");
 require_once($dir . "/../../class/fin/c_extrato.php");
 require_once($dir . "/../../class/fin/c_genero.php");
 require_once($dir . "/../../class/fin/c_lancamento.php");
+require_once($dir . "/../../class/ped/c_pedido_venda.php");
 
 
 //Class P_situacao
@@ -33,6 +34,7 @@ Class p_importa extends c_conta {
 
     private $m_submenu = NULL;
     private $m_letra = NULL;
+    private $m_param = NULL;
     public $smarty = NULL;
     public $m_name = NULL;
     public $m_tmp = NULL;
@@ -66,6 +68,7 @@ Class p_importa extends c_conta {
         // inicializa variaveis de controle
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
         $this->m_submenu = $parmPost['arqImporta'];
+        $this->m_param = isset($parmPost['param']) ? $parmPost['param'] : '';
 
         // caminhos absolutos para todos os diretorios biblioteca e sistema
         $this->smarty->assign('bootstrap', ADMbootstrap);
@@ -132,7 +135,56 @@ Class p_importa extends c_conta {
                     $this->mostraImporta('');
                     $this->excelUpdateIBPT();
                 }    
-                break;    
+                break;
+            case 'cstibscbs':
+                if ($this->verificaDireitoUsuario('UtilImporta', 'I')) {
+                    $this->mostraImporta('');
+                    $this->excelImportaCstIbsCbs();
+                }    
+                break;
+            case 'cclasstrib':
+                if ($this->verificaDireitoUsuario('UtilImporta', 'I')) {
+                    $this->mostraImporta('');
+                    $this->excelImportaCclasstrib();
+                }    
+                break;
+            case 'extratorepassemkt':
+                if ($this->verificaDireitoUsuario('UtilImporta', 'I')) {
+                    $this->mostraImporta('');
+                    $this->excelExtratoRepasseMkt();
+                }
+                break;
+            case 'financeiro':
+                if ($this->verificaDireitoUsuario('UtilImporta', 'I')) {
+                    $this->mostraImporta('');
+                    $this->excelBoletosConvenio();
+                }
+                break;
+            case 'ibpt':
+                if ($this->verificaDireitoUsuario('UtilImporta', 'I')) {
+                    $this->mostraImporta('');
+                    $this->excelUpdateIBPT();
+                }    
+                break;
+            case 'importaPedidoCampanha':
+                if ($this->verificaDireitoUsuario('UtilImporta', 'I')) {
+                    $result = $this->importaPedidoCampanha();
+
+                    if($result['status'] === false){
+                        $tabela = $this->geraTabelaEcho($result['pedidos'], false);
+                        $this->mostraImporta('');
+                        echo $tabela;
+                    }elseif($result['status'] === true){
+                        //funcao que gera a tabela com os pedidos para impressap
+                        $tabela = $this->geraTabelaEcho($result['pedidos'], true);
+                        
+                        $this->mostraImporta('Importação realizada!', 'success');
+                        echo $tabela;
+                    }else{
+                        $this->mostraImporta('', 'warning');
+                    }
+                }    
+                break;
             default:
                 if ($this->verificaDireitoUsuario('UtilImporta', 'C')) {
                     $this->mostraImporta('');
@@ -784,10 +836,12 @@ Formato ATUALIZADO da planilha (20 colunas):
             //LÊ O ARQUIVO ATÉ  CHEGAR AO FIM 
             $linha = fgets($ponteiro);
 
+            $banco = new c_banco;
 
             while (!feof ($ponteiro)) {
                 $linha = str_replace("\n", '', $linha);
-                $data = explode(";", $linha);
+                // Preserva valores como string para evitar conversão automática para notação científica
+                $data = array_map('trim', explode(";", $linha));
 
                 if ($contadorGeral ==0){
                     // DADOS CONTA
@@ -808,56 +862,73 @@ Formato ATUALIZADO da planilha (20 colunas):
                 $arrPessoa = $classConta->existeContaCnpj($cnpj, true);
                 if (is_array($arrPessoa)){
                     $classLanc->setPessoa($arrPessoa[0]['CLIENTE']);
+                    // $nn = substr($data[6], 3, 11); - 237 bradesco
+                    // itau
+                    // $nn = substr($data[6], 4, 8);
+                    $nn = $data[0];
+
+                    $classLanc->setCentroCusto($data[17]);
+    
+                    $classLanc->setPessoa($arrPessoa[0]['CLIENTE']);
+                    $classLanc->setDocto($data[0]);
+                    $classLanc->setNossoNumero($nn); // *******
+                    // DOCBANCARIO (LINHA DIGITAVEL) - campo 15
+                    // Remove vírgulas se houver, mas mantém como string para preservar todos os dígitos
+                    $docBancario = str_replace(',', '', $data[15]);
+                    $classLanc->setDocbancario($docBancario);
+                    $classLanc->setRemessaArq('BIG');
+                    $classLanc->setRemessaNum($numRemessa);
+                    $classLanc->setRemessaData($data[1]);
+                    $classLanc->setSerie('BIG');
+                    $classLanc->setParcela(1);
+                    $classLanc->setOrigem('BIG'); // ??/
+    
+                    $sql = "select id from fin_lancamento where docto = ".$classLanc->getDocto().
+                        " AND serie = '".$classLanc->getSerie().
+                        "' AND parcela = '1' and origem = '".$classLanc->getOrigem().
+                        "' AND pessoa = ".$classLanc->getPessoa();
+                    $arrLanc = $banco->exec_sql($sql);
+                    if (!is_array($arrLanc)) {
+                        $classLanc->setTipolancamento('R');
+                        $classLanc->setSitdocto('N'); // normal
+                        $classLanc->setUsrsitpgto($classLanc->m_userid); //usuario
+                        $classLanc->setModopgto('B'); // bancario
+                        $classLanc->setNumlcto(0); // ??/
+                        $classLanc->setGenero($data[16]); // array
+                        $classLanc->setCentroCusto($data[17]);	// centro custo atual
+                        $classLanc->setLancamento(date("d/m/Y"));
+                        $classLanc->setEmissao(date("d/m/Y"));
+                        $classLanc->setMulta(0);
+                        $classLanc->setJuros(0);
+                        $classLanc->setAdiantamento(0);
+                        $classLanc->setDesconto($data[13]);
+                        $classLanc->setMoeda(0);
+        
+                        $classLanc->setTipodocto('B'); // boleto
+                        $classLanc->setSitpgto('A'); // aberto
+                        $classLanc->setConta($data[18]); //
+            
+                        $classLanc->setVencimento($data[14]); //arry
+                        $classLanc->setMovimento($data[14]);
+                        $classLanc->setOriginal($data[9]);
+                        $classLanc->setTotal($data[9]); //array
+                        $classLanc->setObs(''); //array
+        
+        
+                        $id = $classLanc->incluiLancamento();
+                        // $classLanc->atualizaRemessa($id, $nn, $nr, $data, $arq){
+                        $classLanc->atualizaRemessa($id, $nn, $numRemessa, date("Y-m-d"), 'BIG');
+                        $msg = "<b><p style='color:blue;'>CADASTRO REALIZADO COM SUCESSO";
+                    }else{
+                        $msg = "<b><p style='color:red;'>REGISTRO DUPLICADO NO FINANCEIRO - NÃO CADASTRADO";
+                    }
+    
                 }else{
-                    $msg = "Pessoa não localizada, CNPJ: ".$cnpj;
+                    $msg = "<b><p style='color:red;'>Pessoa NÃO LOCALIZADA, CNPJ: ".$cnpj;
                 }
 
-                $nn = substr($data[6], 3, 11);
-
-                $classLanc->setCentroCusto($data[17]);
-
-                $classLanc->setPessoa($arrPessoa[0]['CLIENTE']);
-                $classLanc->setDocto($data[0]);
-                $classLanc->setNossoNumero($nn); // *******
-                $classLanc->setDocbancario($data[15]);
-                $classLanc->setRemessaArq('BIG');
-                $classLanc->setRemessaNum($numRemessa);
-                $classLanc->setRemessaData($data[1]);
-                $classLanc->setSerie('BIG');
-                $classLanc->setParcela(1);
-                $classLanc->setTipolancamento('R');
-                $classLanc->setSitdocto('N'); // normal
-                $classLanc->setUsrsitpgto($classLanc->m_userid); //usuario
-                $classLanc->setModopgto('B'); // bancario
-                $classLanc->setOrigem('BIG'); // ??/
-                $classLanc->setNumlcto(0); // ??/
-                $classLanc->setGenero($data[16]); // array
-                $classLanc->setCentroCusto($data[17]);	// centro custo atual
-                $classLanc->setLancamento(date("d/m/Y"));
-                $classLanc->setEmissao(date("d/m/Y"));
-                $classLanc->setMulta(0);
-                $classLanc->setJuros(0);
-                $classLanc->setAdiantamento(0);
-                $classLanc->setDesconto(0);
-                $classLanc->setMoeda(0);
-
-                $classLanc->setTipodocto('B'); // boleto
-                $classLanc->setSitpgto('A'); // aberto
-                $classLanc->setConta($data[18]); //
-    
-                $classLanc->setVencimento($data[14]); //arry
-                $classLanc->setMovimento($data[14]);
-                $classLanc->setOriginal($data[9], true);
-                $classLanc->setTotal($data[9], true); //array
-                $classLanc->setObs(''); //array
-
-
-                $id = $classLanc->incluiLancamento();
-                // $classLanc->atualizaRemessa($id, $nn, $nr, $data, $arq){
-                $classLanc->atualizaRemessa($id, $nn, $numRemessa, date("Y-m-d"), 'BIG');
-
-
-                echo "CODIGO:" . $data[0] . "  ---   Valor:" .  "NOSSO NUMERO:" . $nn . "  ---   Valor:" .  $data[9] . " --- Mensagem: ".$msg. "<br>";
+                echo "CODIGO:" . $data[0] . " --- " .  "NOSSO NUMERO:" . $nn . "  ---   Valor:" .  $data[9] .
+                 " --- Mensagem: ".$msg. "</p></b>";
              
                 //LÊ O ARQUIVO ATÉ  CHEGAR AO FIM 
                 $linha = fgets($ponteiro);
@@ -866,6 +937,7 @@ Formato ATUALIZADO da planilha (20 colunas):
 
             //FECHA O PONTEIRO DO ARQUIVO
             fclose ($ponteiro);
+            $banco->close_connection();                
             
         endif;
 
@@ -941,7 +1013,7 @@ Formato ATUALIZADO da planilha (20 colunas):
         //     } // if
         // } // for
 
-        echo "Total de Lançamentos: " . $contadorGeral;
+        echo "Total de Labçamentos: " . $contadorGeral;
     }
 
 //fim excelBoletosConvenio
@@ -966,7 +1038,7 @@ Formato ATUALIZADO da planilha (20 colunas):
         // Set output Encoding.
         set_time_limit(500);
         $data = new Spreadsheet_Excel_Reader();
-        $data->setOutputEncoding('CP1251');
+        $data->setOutputEncoding('UTF-8');
         $data->read($this->m_tmp);
 
         // cria class
@@ -1045,7 +1117,7 @@ Formato ATUALIZADO da planilha (20 colunas):
 
 
 // Set output Encoding.
-        $data->setOutputEncoding('CP1251');
+        $data->setOutputEncoding('UTF-8');
         $data->read($this->m_tmp);
 //error_reporting(E_ALL ^ E_NOTICE);
 
@@ -1128,7 +1200,7 @@ Formato ATUALIZADO da planilha (20 colunas):
 
 
 // Set output Encoding.
-        $data->setOutputEncoding('CP1252');
+        $data->setOutputEncoding('UTF-8');
         $data->read($this->m_tmp);
 //error_reporting(E_ALL ^ E_NOTICE);
 
@@ -1316,13 +1388,702 @@ Formato ATUALIZADO da planilha (20 colunas):
 
 //---------------------------------------------------------------
 //---------------------------------------------------------------
-    function mostraImporta($mensagem) {
+//--------------------excelImportaCstIbsCbs----------------------
+//---------------------------------------------------------------
+    /**
+     * Importa dados de CST IBS/CBS via Excel
+     * Formato da planilha:
+     * 1 - CST (varchar 3)
+     * 2 - DESCRICAO (text)
+     * 3 - IND_G_IBS_CBS (int)
+     * 4 - IND_G_IBS_CBS_MONO (int)
+     * 5 - IND_G_RED (int)
+     * 6 - IND_G_DIF (int)
+     * 7 - IND_G_TRANSF_CRED (int)
+     * 8 - IND_G_CRED_PRES_IBS_ZFM (int)
+     * 9 - IND_G_AJUSTE_COMPET (int)
+     * 10 - IND_REDUTOR_BC (int)
+     */
+    function excelImportaCstIbsCbs() {
+        $data = new Spreadsheet_Excel_Reader();
+        $data->setUTFEncoder('UTF-8');
+        $data->setOutputEncoding('UTF-8');
+        $data->read($this->m_tmp);
+       
+        $erroGeral = 0;
+        $contadorGeral = 0;
+        $contadorInsert = 0;
+        $contadorUpdate = 0;
+       
+        // Preview da planilha
+        $table = '';
+        for ($r = 1; $r <= min($data->sheets[0]['numRows'], 20); $r++) {
+            $linha = '';
+            for ($c = 1; $c <= 10; $c++) {
+                if ($r == 1) {
+                    $linha .= "<td style='padding:5px;border:1px solid #ccc;'><b>" . strtoupper(utf8_encode($data->sheets[0]['cells'][$r][$c])) . "</b></td>";
+                } else {
+                    $linha .= "<td style='padding:5px;border:1px solid #ccc;'>" . utf8_encode($data->sheets[0]['cells'][$r][$c]) . "</td>";
+                }
+            }
+            $table .= '<tr>' . $linha . '</tr>';
+        }
+        echo "<h4>Preview da Planilha (primeiras 20 linhas):</h4>";
+        echo "<table style='border-collapse:collapse;'>" . $table . "</table>";
+        echo "<hr>";
+        
+        $banco = new c_banco;
+        
+        for ($i = 2; $i <= $data->sheets[0]['numRows']; $i++) {
+            if ($data->sheets[0]['cells'][$i][1] != '') {
+                $contadorGeral++;
+                
+                $cst = trim($data->sheets[0]['cells'][$i][1]);
+                $descricao = $this->remove_acento(utf8_encode($data->sheets[0]['cells'][$i][2]));
+                $ind_g_ibs_cbs = (int)$data->sheets[0]['cells'][$i][3];
+                $ind_g_ibs_cbs_mono = (int)$data->sheets[0]['cells'][$i][4];
+                $ind_g_red = (int)$data->sheets[0]['cells'][$i][5];
+                $ind_g_dif = (int)$data->sheets[0]['cells'][$i][6];
+                $ind_g_transf_cred = (int)$data->sheets[0]['cells'][$i][7];
+                $ind_g_cred_pres_ibs_zfm = (int)$data->sheets[0]['cells'][$i][8];
+                $ind_g_ajuste_compet = (int)$data->sheets[0]['cells'][$i][9];
+                $ind_redutor_bc = (int)$data->sheets[0]['cells'][$i][10];
+                
+                // Verifica se CST já existe
+                $sql = "SELECT ID FROM EST_CST_IBS_CBS WHERE CST = '" . $cst . "'";
+                $existe = $banco->exec_sql($sql);
+                
+                try {
+                    if ($existe > 0) {
+                        // UPDATE
+                        $sql = "UPDATE EST_CST_IBS_CBS SET ";
+                        $sql .= "DESCRICAO = '" . addslashes($descricao) . "', ";
+                        $sql .= "IND_G_IBS_CBS = " . $ind_g_ibs_cbs . ", ";
+                        $sql .= "IND_G_IBS_CBS_MONO = " . $ind_g_ibs_cbs_mono . ", ";
+                        $sql .= "IND_G_RED = " . $ind_g_red . ", ";
+                        $sql .= "IND_G_DIF = " . $ind_g_dif . ", ";
+                        $sql .= "IND_G_TRANSF_CRED = " . $ind_g_transf_cred . ", ";
+                        $sql .= "IND_G_CRED_PRES_IBS_ZFM = " . $ind_g_cred_pres_ibs_zfm . ", ";
+                        $sql .= "IND_G_AJUSTE_COMPET = " . $ind_g_ajuste_compet . ", ";
+                        $sql .= "IND_REDUTOR_BC = " . $ind_redutor_bc . ", ";
+                        $sql .= "UPDATED_USER = " . $this->m_userid . " ";
+                        $sql .= "WHERE CST = '" . $cst . "'";
+                        $banco->exec_sql($sql);
+                        $contadorUpdate++;
+                    } else {
+                        // INSERT
+                        $sql = "INSERT INTO EST_CST_IBS_CBS (";
+                        $sql .= "CST, DESCRICAO, IND_G_IBS_CBS, IND_G_IBS_CBS_MONO, IND_G_RED, ";
+                        $sql .= "IND_G_DIF, IND_G_TRANSF_CRED, IND_G_CRED_PRES_IBS_ZFM, ";
+                        $sql .= "IND_G_AJUSTE_COMPET, IND_REDUTOR_BC, CREATED_USER) VALUES (";
+                        $sql .= "'" . $cst . "', ";
+                        $sql .= "'" . addslashes($descricao) . "', ";
+                        $sql .= $ind_g_ibs_cbs . ", ";
+                        $sql .= $ind_g_ibs_cbs_mono . ", ";
+                        $sql .= $ind_g_red . ", ";
+                        $sql .= $ind_g_dif . ", ";
+                        $sql .= $ind_g_transf_cred . ", ";
+                        $sql .= $ind_g_cred_pres_ibs_zfm . ", ";
+                        $sql .= $ind_g_ajuste_compet . ", ";
+                        $sql .= $ind_redutor_bc . ", ";
+                        $sql .= $this->m_userid . ")";
+                        $banco->exec_sql($sql);
+                        $contadorInsert++;
+                    }
+                } catch (Exception $e) {
+                    echo "<span style='color:red;'>ERRO Linha " . $i . " - CST: " . $cst . " - " . $e->getMessage() . "</span><br>";
+                }
+            }
+        }
+        
+        $banco->close_connection();
+        echo "<br><strong>Importação CST IBS/CBS concluída!</strong><br>";
+        echo "Total processado: " . $contadorGeral . "<br>";
+        echo "Inseridos: " . $contadorInsert . "<br>";
+        echo "Atualizados: " . $contadorUpdate . "<br>";
+    }
+
+//---------------------------------------------------------------
+//---------------------------------------------------------------
+//--------------------excelImportaCclasstrib---------------------
+//---------------------------------------------------------------
+    /**
+     * Importa dados de CClasstrib via Excel
+     * Formato da planilha:
+     * 1 - CCLASSTRIB (varchar 6)
+     * 2 - NOME (varchar 100)
+     * 3 - DESCRICAO (varchar 260)
+     * 4 - CST (varchar 3) - FK para EST_CST_IBS_CBS
+     * 5 - LC_REDACAO (text)
+     * 6 - LC_214_25 (varchar 20)
+     * 7 - TIPO_ALIQUOTA (varchar 20)
+     * 8 - PRED_IBS (int)
+     * 9 - PRED_CBS (int)
+     * 10 - IND_G_TRIB_REGULAR (int)
+     * 11 - IND_G_CRED_PRES_OPER (int)
+     * 12 - IND_G_MONO_PADRAO (int)
+     * 13 - IND_G_MONO_RETEN (int)
+     * 14 - IND_G_MONO_RET (int)
+     * 15 - IND_G_MONO_DIF (int)
+     * 16 - IND_G_ESTORNO_CRED (int)
+     * 17 - D_INI_VIG (date)
+     * 18 - D_FIM_VIG (date)
+     * 19 - DATA_ATUALIZACAO (date)
+     * 20 - IND_NFE_ABI (int)
+     * 21 - IND_NFE (int)
+     * 22 - IND_NF_CE (int)
+     * 23 - IND_CTE (int)
+     * 24 - IND_CTE_OS (int)
+     * 25 - IND_BPE (int)
+     * 26 - IND_BPE_TA (int)
+     * 27 - IND_BPE_TM (int)
+     * 28 - IND_NF_3E (int)
+     * 29 - IND_NFSE (int)
+     * 30 - IND_NFSE_VIA (int)
+     * 31 - IND_NF_COM (int)
+     * 32 - IND_NF_AG (int)
+     * 33 - IND_NF_GAS (int)
+     * 34 - IND_DERE (int)
+     */
+    function excelImportaCclasstrib() {
+        $data = new Spreadsheet_Excel_Reader();
+        $data->setUTFEncoder('UTF-8');
+        $data->setOutputEncoding('UTF-8');
+        $data->read($this->m_tmp);
+       
+        $contadorGeral = 0;
+        $contadorInsert = 0;
+        $contadorUpdate = 0;
+       
+        // Preview da planilha
+        $table = '';
+        for ($r = 1; $r <= min($data->sheets[0]['numRows'], 20); $r++) {
+            $linha = '';
+            for ($c = 1; $c <= 10; $c++) { // Mostra só as primeiras 10 colunas no preview
+                if ($r == 1) {
+                    $linha .= "<td style='padding:5px;border:1px solid #ccc;'><b>" . strtoupper(utf8_encode($data->sheets[0]['cells'][$r][$c])) . "</b></td>";
+                } else {
+                    $linha .= "<td style='padding:5px;border:1px solid #ccc;'>" . utf8_encode($data->sheets[0]['cells'][$r][$c]) . "</td>";
+                }
+            }
+            $table .= '<tr>' . $linha . '</tr>';
+        }
+        echo "<h4>Preview da Planilha (primeiras 20 linhas, 10 colunas):</h4>";
+        echo "<table style='border-collapse:collapse;'>" . $table . "</table>";
+        echo "<hr>";
+        
+        $banco = new c_banco;
+        
+        for ($i = 2; $i <= $data->sheets[0]['numRows']; $i++) {
+            if ($data->sheets[0]['cells'][$i][3] != '') { // Coluna 3 = CCLASSTRIB
+                $contadorGeral++;
+                
+                // Estrutura da planilha:
+                // 1 - CST-IBS/CBS
+                // 2 - Descrição CST-IBS/CBS (ignorado)
+                // 3 - cClassTrib
+                // 4 - Nome cClassTrib
+                // 5 - Descrição cClassTrib
+                // 6 - LC Redação
+                // 7 - LC 214/25
+                // 8 - Tipo de Alíquota
+                // 9-35 - Indicadores
+                
+                // Campos texto
+                $cst = trim($data->sheets[0]['cells'][$i][1]); // CST-IBS/CBS
+                // Coluna 2 ignorada (Descrição CST)
+                $cclasstrib = trim($data->sheets[0]['cells'][$i][3]);
+                $nome = $this->remove_acento(utf8_encode(substr($data->sheets[0]['cells'][$i][4], 0, 100)));
+                $descricao = $this->remove_acento(utf8_encode(substr($data->sheets[0]['cells'][$i][5], 0, 260)));
+                $lc_redacao = $this->remove_acento(utf8_encode($data->sheets[0]['cells'][$i][6]));
+                $lc_214_25 = $this->remove_acento(utf8_encode(trim(substr($data->sheets[0]['cells'][$i][7], 0, 20))));
+                $tipo_aliquota = $this->remove_acento(utf8_encode(trim(substr($data->sheets[0]['cells'][$i][8], 0, 20))));
+                
+                // Campos inteiros/decimais
+                $pred_ibs = (int)$data->sheets[0]['cells'][$i][9];
+                $pred_cbs = (int)$data->sheets[0]['cells'][$i][10];
+                $ind_g_trib_regular = (int)$data->sheets[0]['cells'][$i][11];
+                $ind_g_cred_pres_oper = (int)$data->sheets[0]['cells'][$i][12];
+                $ind_g_mono_padrao = (int)$data->sheets[0]['cells'][$i][13];
+                $ind_g_mono_reten = (int)$data->sheets[0]['cells'][$i][14];
+                $ind_g_mono_ret = (int)$data->sheets[0]['cells'][$i][15];
+                $ind_g_mono_dif = (int)$data->sheets[0]['cells'][$i][16];
+                $ind_g_estorno_cred = (int)$data->sheets[0]['cells'][$i][17];
+                
+                // Campos data - converte para formato AAAA-MM-DD
+                $d_ini_vig_raw = trim($data->sheets[0]['cells'][$i][18]);
+                $d_fim_vig_raw = trim($data->sheets[0]['cells'][$i][19]);
+                $data_atualizacao_raw = trim($data->sheets[0]['cells'][$i][20]);
+                
+                // Função para converter data DD/MM/AAAA para AAAA-MM-DD
+                $d_ini_vig = '';
+                $d_fim_vig = '';
+                $data_atualizacao = '';
+                
+                if ($d_ini_vig_raw != '' && preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $d_ini_vig_raw, $m)) {
+                    $d_ini_vig = $m[3] . '-' . $m[2] . '-' . $m[1];
+                }
+                if ($d_fim_vig_raw != '' && preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $d_fim_vig_raw, $m)) {
+                    $d_fim_vig = $m[3] . '-' . $m[2] . '-' . $m[1];
+                }
+                if ($data_atualizacao_raw != '' && preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $data_atualizacao_raw, $m)) {
+                    $data_atualizacao = $m[3] . '-' . $m[2] . '-' . $m[1];
+                }
+                
+                // Mais campos inteiros
+                $ind_nfe_abi = (int)$data->sheets[0]['cells'][$i][21];
+                $ind_nfe = (int)$data->sheets[0]['cells'][$i][22];
+                $ind_nf_ce = (int)$data->sheets[0]['cells'][$i][23];
+                $ind_cte = (int)$data->sheets[0]['cells'][$i][24];
+                $ind_cte_os = (int)$data->sheets[0]['cells'][$i][25];
+                $ind_bpe = (int)$data->sheets[0]['cells'][$i][26];
+                $ind_bpe_ta = (int)$data->sheets[0]['cells'][$i][27];
+                $ind_bpe_tm = (int)$data->sheets[0]['cells'][$i][28];
+                $ind_nf_3e = (int)$data->sheets[0]['cells'][$i][29];
+                $ind_nfse = (int)$data->sheets[0]['cells'][$i][30];
+                $ind_nfse_via = (int)$data->sheets[0]['cells'][$i][31];
+                $ind_nf_com = (int)$data->sheets[0]['cells'][$i][32];
+                $ind_nf_ag = (int)$data->sheets[0]['cells'][$i][33];
+                $ind_nf_gas = (int)$data->sheets[0]['cells'][$i][34];
+                $ind_dere = (int)$data->sheets[0]['cells'][$i][35];
+                
+                // Verifica se CCLASSTRIB já existe
+                $sql = "SELECT ID FROM EST_CCLASS_TRIB WHERE CCLASSTRIB = '" . $cclasstrib . "'";
+                $existe = $banco->exec_sql($sql);
+                
+                try {
+                    if ($existe > 0) {
+                        // UPDATE
+                        $sql = "UPDATE EST_CCLASS_TRIB SET ";
+                        $sql .= "NOME = '" . addslashes($nome) . "', ";
+                        $sql .= "DESCRICAO = '" . addslashes($descricao) . "', ";
+                        $sql .= "CST = " . ($cst != '' ? "'" . $cst . "'" : "NULL") . ", ";
+                        $sql .= "LC_REDACAO = '" . addslashes($lc_redacao) . "', ";
+                        $sql .= "LC_214_25 = '" . $lc_214_25 . "', ";
+                        $sql .= "TIPO_ALIQUOTA = '" . $tipo_aliquota . "', ";
+                        $sql .= "PRED_IBS = " . $pred_ibs . ", ";
+                        $sql .= "PRED_CBS = " . $pred_cbs . ", ";
+                        $sql .= "IND_G_TRIB_REGULAR = " . $ind_g_trib_regular . ", ";
+                        $sql .= "IND_G_CRED_PRES_OPER = " . $ind_g_cred_pres_oper . ", ";
+                        $sql .= "IND_G_MONO_PADRAO = " . $ind_g_mono_padrao . ", ";
+                        $sql .= "IND_G_MONO_RETEN = " . $ind_g_mono_reten . ", ";
+                        $sql .= "IND_G_MONO_RET = " . $ind_g_mono_ret . ", ";
+                        $sql .= "IND_G_MONO_DIF = " . $ind_g_mono_dif . ", ";
+                        $sql .= "IND_G_ESTORNO_CRED = " . $ind_g_estorno_cred . ", ";
+                        $sql .= "D_INI_VIG = " . ($d_ini_vig != '' ? "'" . $d_ini_vig . "'" : "NULL") . ", ";
+                        $sql .= "D_FIM_VIG = " . ($d_fim_vig != '' ? "'" . $d_fim_vig . "'" : "NULL") . ", ";
+                        $sql .= "DATA_ATUALIZACAO = " . ($data_atualizacao != '' ? "'" . $data_atualizacao . "'" : "NULL") . ", ";
+                        $sql .= "IND_NFE_ABI = " . $ind_nfe_abi . ", ";
+                        $sql .= "IND_NFE = " . $ind_nfe . ", ";
+                        $sql .= "IND_NF_CE = " . $ind_nf_ce . ", ";
+                        $sql .= "IND_CTE = " . $ind_cte . ", ";
+                        $sql .= "IND_CTE_OS = " . $ind_cte_os . ", ";
+                        $sql .= "IND_BPE = " . $ind_bpe . ", ";
+                        $sql .= "IND_BPE_TA = " . $ind_bpe_ta . ", ";
+                        $sql .= "IND_BPE_TM = " . $ind_bpe_tm . ", ";
+                        $sql .= "IND_NF_3E = " . $ind_nf_3e . ", ";
+                        $sql .= "IND_NFSE = " . $ind_nfse . ", ";
+                        $sql .= "IND_NFSE_VIA = " . $ind_nfse_via . ", ";
+                        $sql .= "IND_NF_COM = " . $ind_nf_com . ", ";
+                        $sql .= "IND_NF_AG = " . $ind_nf_ag . ", ";
+                        $sql .= "IND_NF_GAS = " . $ind_nf_gas . ", ";
+                        $sql .= "IND_DERE = " . $ind_dere . ", ";
+                        $sql .= "UPDATED_USER = " . $this->m_userid . " ";
+                        $sql .= "WHERE CCLASSTRIB = '" . $cclasstrib . "'";
+                        $banco->exec_sql($sql);
+                        $contadorUpdate++;
+                    } else {
+                        // INSERT
+                        $sql = "INSERT INTO EST_CCLASS_TRIB (";
+                        $sql .= "CCLASSTRIB, NOME, DESCRICAO, CST, LC_REDACAO, LC_214_25, TIPO_ALIQUOTA, ";
+                        $sql .= "PRED_IBS, PRED_CBS, IND_G_TRIB_REGULAR, IND_G_CRED_PRES_OPER, ";
+                        $sql .= "IND_G_MONO_PADRAO, IND_G_MONO_RETEN, IND_G_MONO_RET, IND_G_MONO_DIF, ";
+                        $sql .= "IND_G_ESTORNO_CRED, D_INI_VIG, D_FIM_VIG, DATA_ATUALIZACAO, ";
+                        $sql .= "IND_NFE_ABI, IND_NFE, IND_NF_CE, IND_CTE, IND_CTE_OS, ";
+                        $sql .= "IND_BPE, IND_BPE_TA, IND_BPE_TM, IND_NF_3E, IND_NFSE, ";
+                        $sql .= "IND_NFSE_VIA, IND_NF_COM, IND_NF_AG, IND_NF_GAS, IND_DERE, CREATED_USER) VALUES (";
+                        $sql .= "'" . $cclasstrib . "', ";
+                        $sql .= "'" . addslashes($nome) . "', ";
+                        $sql .= "'" . addslashes($descricao) . "', ";
+                        $sql .= ($cst != '' ? "'" . $cst . "'" : "NULL") . ", ";
+                        $sql .= "'" . addslashes($lc_redacao) . "', ";
+                        $sql .= "'" . $lc_214_25 . "', ";
+                        $sql .= "'" . $tipo_aliquota . "', ";
+                        $sql .= $pred_ibs . ", ";
+                        $sql .= $pred_cbs . ", ";
+                        $sql .= $ind_g_trib_regular . ", ";
+                        $sql .= $ind_g_cred_pres_oper . ", ";
+                        $sql .= $ind_g_mono_padrao . ", ";
+                        $sql .= $ind_g_mono_reten . ", ";
+                        $sql .= $ind_g_mono_ret . ", ";
+                        $sql .= $ind_g_mono_dif . ", ";
+                        $sql .= $ind_g_estorno_cred . ", ";
+                        $sql .= ($d_ini_vig != '' ? "'" . $d_ini_vig . "'" : "NULL") . ", ";
+                        $sql .= ($d_fim_vig != '' ? "'" . $d_fim_vig . "'" : "NULL") . ", ";
+                        $sql .= ($data_atualizacao != '' ? "'" . $data_atualizacao . "'" : "NULL") . ", ";
+                        $sql .= $ind_nfe_abi . ", ";
+                        $sql .= $ind_nfe . ", ";
+                        $sql .= $ind_nf_ce . ", ";
+                        $sql .= $ind_cte . ", ";
+                        $sql .= $ind_cte_os . ", ";
+                        $sql .= $ind_bpe . ", ";
+                        $sql .= $ind_bpe_ta . ", ";
+                        $sql .= $ind_bpe_tm . ", ";
+                        $sql .= $ind_nf_3e . ", ";
+                        $sql .= $ind_nfse . ", ";
+                        $sql .= $ind_nfse_via . ", ";
+                        $sql .= $ind_nf_com . ", ";
+                        $sql .= $ind_nf_ag . ", ";
+                        $sql .= $ind_nf_gas . ", ";
+                        $sql .= $ind_dere . ", ";
+                        $sql .= $this->m_userid . ")";
+                        $resultado = $banco->exec_sql($sql);
+                        $contadorInsert++;
+                    }
+
+                } catch (Exception $e) {
+                    echo "<span style='color:red;'>ERRO Linha " . $i . " - CCLASSTRIB: " . $cclasstrib . " - " . $e->getMessage() . "</span><br>";
+                }
+            }
+        }
+        
+        $banco->close_connection();
+        echo "<br><strong>Importação CClasstrib concluída!</strong><br>";
+        echo "Total processado: " . $contadorGeral . "<br>";
+        echo "Inseridos: " . $contadorInsert . "<br>";
+        echo "Atualizados: " . $contadorUpdate . "<br>";
+    }
+
+//---------------------------------------------------------------
+//---------------------------------------------------------------
+/** @author Jhon Kenedy <jhon.kened11@gmail.com>
+ *  @param ''
+ *  @return array containing results
+*/
+public function importaPedidoCampanha(){
+
+    $Extension = strtolower(pathinfo($this->m_name, PATHINFO_EXTENSION));
+    if($Extension !== 'xls'){ // se for diferente de xls
+
+        return array(
+            "status" => false,
+            "msg"    => 'Formato de planilha diferente de .xls'
+        );
+        #$data= new SpreadsheetReader($this->m_tmp, $this->m_name);
+
+    }else{
+
+        $data= new Spreadsheet_Excel_Reader();
+        $data->setUTFEncoder('UTF-8');
+        //$data->setUTFEncoder('iconv');
+        //$data->setOutputEncoding('CP1251');
+        $data->setOutputEncoding('UTF-8');
+        $data->read($this->m_tmp);
+
+        $existsProd = $this->existsProducts($data->sheets[0]);
+
+        if($existsProd['status'] == false){
+            return array(
+                "status"   => false,
+                "function" => 'importaPedidoCampanha',
+                "pedidos"  => $existsProd["codigos"]
+            );
+        }else{
+            //$resultInsert = $this->InsertPedidos($data->sheets[0]);
+            $resultInsert = $this->InsertPedido($data->sheets[0]);
+
+            if($resultInsert['status'] == true){
+                return array(
+                    "status"   => true,
+                    "function" => 'InsertPedido',
+                    "pedidos"  => $resultInsert['pedidos']
+                );
+            }else{
+                return array(
+                    "status"   => false,
+                    "function" => 'InsertPedido',
+                    "msg"      => $resultInsert['erro']
+                );
+            }
+        }
+    }
+}
+
+/** @author Jhon Kenedy <jhon.kened11@gmail.com>
+ *  @param varchar containing the spreadsheetrows '$sheets = $data->sheets[0]';
+ *  @return array containing codes not found oreturnMsgr nothing codes
+*/
+public function existsProducts($sheets){
+    $arrayCods = "";
+
+    for ($l = 8; $l <= $sheets["numRows"]; $l++) {
+        if (stripos($arrayCods ,trim($sheets["cells"][$l][9])) == false) {
+            if ($arrayCods !== "") {
+                $arrayCods .= ", "; // Adicione uma vírgula entre os valores se não for o primeiro
+            }
+            $arrayCods .= "'" . trim($sheets["cells"][$l][9]) . "'"; // Adicione o valor entre aspas simples
+            $arrayCompara[] = trim($sheets["cells"][$l][9]);
+        }
+    }
+
+    $banco = new c_banco();
+    //$sql = "SELECT codigobarras FROM est_produto WHERE codigobarras IN (".$arrayCods.") OR codfabricante IN (".$arrayCods.");";
+    $sql = "SELECT codigobarras FROM est_produto ";
+    $sql .= "WHERE codigobarras IN (".$arrayCods.") ";
+    $sql .= "UNION ";
+    $sql .= "SELECT codfabricante AS codigobarras ";
+    $sql .= "FROM est_produto ";   
+    $sql .= "WHERE codfabricante IN (".$arrayCods.")";
+    $banco->exec_sql($sql);
+    $banco->close_connection();
+    
+    if($banco->resultado == null){ // se não localizar nenhum codigo
+
+        return array(
+            'status'   => false,
+            'function' => 'existsProducts',
+            'codigos'  => 'Código(s) não localizado(s)'
+        );
+
+    }else{ // localizado codigo e fara o tratamento de quais codigos foram encontrados
+
+        foreach($banco->resultado as $codigo){
+            //recebe a posicao do array se existir
+            //$codigo['CODIGOBARRAS'] = 0; teste para codigos nao localizados
+            $positionValue = array_search($codigo['CODIGOBARRAS'], $arrayCompara);
+            
+            if ($positionValue !== false) {
+                // Se o código foi encontrado, eliminar o elemento
+                unset($arrayCompara[$positionValue]);
+            }
+            
+        }
+
+        if($arrayCompara == '' or $arrayCompara == null){ //significa que todos os codigos foram localizados
+            return array(
+                'status'   => true
+            );
+        }else{ //trata os codigos para impressao
+            return array(
+                'status'   => false,
+                'function' => 'existsProducts',
+                'codigos'  => $arrayCompara
+            );
+        }
+    }
+} // END existsProducts
+
+/** @author Jhon Kenedy <jhon.kened11@gmail.com>
+ *  @param varchar spreadsheetrows '$sheets = $data->sheets[0]';
+ *  @return array containing codes 
+ */
+public function InsertPedido($sheets){
+
+    $objPedido       = null;
+    $codBarrasAnt    = null;
+    $numeroOld       = null;
+    $resultados      = array();
+    $nrItem          = 0;
+    $vlrTotalPedido  = 0;
+    $objPedido = new c_pedidoVenda();
+
+    for ($l = 8; $l < $sheets["numRows"]; $l++) {
+
+        // Verifica se é um novo pedido
+        $numeroNovo = $sheets["cells"][$l][7];
+        if ($objPedido == null || $numeroOld != $numeroNovo) {
+
+            //quando for diferente do novo pedido vai atualizar o total do pedido anterior
+            if($numeroOld !== null or $l == $sheets["cells"][$l][7]){
+                $objPedido->atualizarTotalParam($returnID, $vlrTotalPedido);
+                $vlrTotalPedido = 0;
+                $nrItem         = 0;
+            }
+            
+            //set pedido
+            $idConta = c_conta::existeContaCnpj($sheets["cells"][$l][2], true);
+            $objPedido->setCliente($idConta[0]['CLIENTE']);
+            $objPedido->setPedido(null);
+            $objPedido->setSituacao(0);
+
+            //trata data e hora
+            //$dataXls = (float)$sheets["cells"][$l][8];
+            $dataXls = $sheets["cells"][$l][8];
+            $formato_data = "d/m/Y H:i";
+            $data_objeto = DateTime::createFromFormat($formato_data, $dataXls);
+            
+            if ($data_objeto && $data_objeto->format($formato_data) == $dataXls) {
+                $dataExplode = explode(' ', $dataXls);
+            } else {
+                $dataXls = (float)$sheets["cells"][$l][8];
+                $data_legivel = gmdate("Y-m-d H:i:s", ($dataXls - 25569) * 86400);
+                $dataExplode = explode(' ', $data_legivel);
+            }
+
+            $objPedido->setEmissao($dataExplode[0]);
+            $objPedido->setEntregador('');
+
+            $paramExplode = explode('|', $this->m_param);
+
+            $objPedido->setIdNatop($paramExplode[1]);
+            $objPedido->setCondPg($paramExplode[0]);
+            $objPedido->setEntradaCondPg('');
+            $objPedido->setDesconto('');
+            $objPedido->setTaxaEntrega('');
+            $objPedido->setTotal('0.00');
+            $objPedido->setTotalRecebido('');
+            $objPedido->setTotalProdutos('0.00');
+            $objPedido->setMoeda(0);
+            $objPedido->setContaDeposito(0);
+            $objPedido->setEspecie('');
+            $objPedido->setSerie('');
+            $objPedido->setHoraEmissao($dataExplode[1]);
+            $objPedido->setGenero('');
+            $objPedido->setCentroCusto($this->m_empresacentrocusto);
+            $objPedido->setOdEsferico('');
+            $objPedido->setOeEsferico('');
+            $objPedido->setOdCilindrico('');
+            $objPedido->setOeCilindrico('');
+            $objPedido->setOdEixo('');
+            $objPedido->setOeEixo('');
+            $objPedido->setOdAd('');
+            $objPedido->setOeAd('');
+            $objPedido->setMedico('');
+            $objPedido->setObs('PEDIDO IMP: ' . $numeroNovo);
+            //set para comparar com a proxima linha
+            $numeroOld = $numeroNovo;
+
+            $returnID = $objPedido->incluiPedido();
+            $resultados[] = $returnID;
+        }
+
+
+        // Insere o item do pedido
+        $objPedido->setId($returnID);
+        if($sheets["cells"][$l][9] !== $codBarrasAnt){
+            $nrItem++;
+        }
+        $objPedido->setNrItem($nrItem);
+
+        $banco = new c_banco();
+        //$sql = "SELECT codigo FROM est_produto WHERE codigobarras IN (".$sheets["cells"][$l][9]."); ";
+        $sql = "SELECT codigo FROM est_produto ";
+        $sql .= "WHERE codigobarras IN ('".$sheets["cells"][$l][9]."') ";
+        $sql .= "UNION ";
+        $sql .= "SELECT codigo ";
+        $sql .= "FROM est_produto ";   
+        $sql .= "WHERE codfabricante IN ('".$sheets["cells"][$l][9]."')";
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+
+        $objPedido->setItemEstoque($banco->resultado[0]['CODIGO']);
+        $objPedido->setItemFabricante($sheets["cells"][$l][9]);
+        $objPedido->setQtSolicitada($sheets["cells"][$l][12]);
+        $objPedido->setQtAtendida(0);
+        $vlr_unitario = number_format($sheets["cells"][$l][13], 2, ',', '.');
+        $vlr_total = number_format($sheets["cells"][$l][14], 2, ',', '.');
+        $objPedido->setUnitario($vlr_unitario);
+        $objPedido->setDesconto('');
+        $objPedido->setTotalItem($vlr_total);
+        $objPedido->setGrupoEstoque('');
+        $objPedido->setDescricaoItem($sheets["cells"][$l][10]);
+        $objPedido->setPrecoPromocao('');
+        $objPedido->setQtConferida('');
+        $objPedido->setVlrTabela('');
+        $objPedido->setVlIcmsSt('');
+        $result = $objPedido->IncluiPedidoItem();
+
+        $vlrTotalPedido += $sheets["cells"][$l][14];
+        $codBarrasAnt = $sheets["cells"][$l][9];
+    }
+
+    // Salva o último pedido
+    if ($objPedido != null) {
+        $objPedido->atualizarTotalParam($returnID, $vlrTotalPedido);
+        //verifica se o valor de $returnID não está presente no array $resultados antes de adicioná-lo. 
+        if (!in_array($returnID, $resultados)) {
+            $resultados[] = $returnID;
+        }
+    }
+
+    return array(
+        'status' => true,
+        'function' => 'InsertPedido',
+        'pedidos' => $resultados
+
+    );
+}
+
+/** @author Jhon Kenedy <jhon.kened11@gmail.com>
+ *  @param array contendo os pedidos
+ *  @return array containing codes
+ */
+public function geraTabelaEcho($numerosPedidos, $type){
+    if($type == true){
+        $class = 'titleTrue';
+        $title = 'Pedidos gerados';
+    }else{
+        $class = "titleFalse";
+        $title = 'Códigos não localizados';
+    }
+
+    $tabela = '<div class="container">
+               <h3 class="' .$class. '" style="text-align: center;">' .$title. '</h3>
+               <table class="table table-bordered title">
+               <tbody>';
+
+    // Loop para preencher a tabela com os números de pedidos
+    foreach ($numerosPedidos as $numeroPedido) {
+        $tabela .= "<tr><td class='pedidos' style='text-align: center;'>$numeroPedido</td></tr>";
+    }
+
+    $tabela .= '</tbody> </table> </div>';
+
+    return $tabela;
+}
+
+//---------------------------------------------------------------
+//---------------------------------------------------------------
+    function mostraImporta($mensagem, $tipoMsg=null) {
 
 
         $this->smarty->assign('pathImagem', $this->img);
         $this->smarty->assign('mensagem', $mensagem);
         $this->smarty->assign('letra', $this->m_letra);
         $this->smarty->assign('subMenu', $this->m_submenu);
+        $this->smarty->assign('tipoMsg', $tipoMsg);
+
+        // COMBOBOX NAT OPERAÇÃO
+        $consulta = new c_banco();
+        $sql = "select id, natoperacao as descricao from est_nat_op where tipo='S'";
+        $consulta->exec_sql($sql);
+        $consulta->close_connection();
+        $result = $consulta->resultado;
+        $natop_ids[0] = '';
+        $natop_names[0] = 'Selecione';
+        for ($i = 0; $i < count($result); $i++) {
+            $natop_ids[$i + 1] = $result[$i]['ID'];
+            $natop_names[$i + 1] = $result[$i]['ID'] . " - " . $result[$i]['DESCRICAO'];
+        }
+        $this->smarty->assign('natureza_ids', $natop_ids);
+        $this->smarty->assign('natureza_names', $natop_names);
+        //$this->smarty->assign('natop_id', $this->getIdNatop());
+
+        // COMBOBOX CONDICAO PAGAMENTO
+        $consulta = new c_banco();
+        $sql = "SELECT * FROM fat_cond_pgto;";
+        $consulta->exec_sql($sql);
+        $consulta->close_connection();
+        $result = $consulta->resultado;
+        $condPgto_ids[0] = 0;
+        $condPgto_names[0] = 'Selecione';
+        for ($i = 0; $i < count($result); $i++) {
+            $condPgto_ids[$i+1] = $result[$i]['ID'];
+            $condPgto_names[$i+1] = $result[$i]['DESCRICAO'];
+        }
+        $this->smarty->assign('condPag_ids', $condPgto_ids);
+        $this->smarty->assign('condPag_names', $condPgto_names);
+        //$this->smarty->assign('condPgto_id', $this->getCondPg());
 
 
         // arquivos importar
@@ -1335,20 +2096,27 @@ Formato ATUALIZADO da planilha (20 colunas):
         // $arqImporta_names[0] = "Entrada Produtos Estoque";
         // $arqImporta_ids[1] = "saidaprodutosquant";
         // $arqImporta_names[1] = "Saída Produtos Estoque";
-        // $arqImporta_ids[2] = "extratorepassemkt";
-        // $arqImporta_names[2] = "Repasse MKT";
+        $arqImporta_ids[2] = "extratorepassemkt";
+        $arqImporta_names[2] = "Repasse MKT";
         $arqImporta_ids[3] = "pessoa";
         $arqImporta_names[3] = "Importa Pessoa";
-        //$arqImporta_ids[4] = "financeiro";
-        //$arqImporta_names[4] = "Importa Boleto BIG";
-        //$arqImporta_ids[5] = "ibpt";
-        //$arqImporta_names[5] = "Atualiza IBPT";
-        //$arqImporta_ids[6] = "boletoFinanceiro";
-        //$arqImporta_names[6] = "Importar Boleto";
+        $arqImporta_ids[4] = "financeiro";
+        $arqImporta_names[4] = "Importa Boleto BIG";
+        $arqImporta_ids[5] = "ibpt";
+        $arqImporta_names[5] = "Atualiza IBPT";
+        $arqImporta_ids[6] = "importaPedidoCampanha";
+        $arqImporta_names[6] = "Pedidos Campanha";
+        $arqImporta_ids[7] = "cstibscbs";
+        $arqImporta_names[7] = "Importa CST IBS/CBS";
+        $arqImporta_ids[8] = "cclasstrib";
+        $arqImporta_names[8] = "Importa CClasstrib";
         
         $this->smarty->assign('arqImporta_ids', $arqImporta_ids);
         $this->smarty->assign('arqImporta_names', $arqImporta_names);
-
+        if($this->m_param !== ''){
+            $this->smarty->assign('arqImporta_id', $this->m_param);
+        }
+        
         $this->smarty->assign('arq_id', 0);
 
         $this->smarty->display('importa_mostra.tpl');

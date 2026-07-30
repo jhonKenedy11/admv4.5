@@ -15,6 +15,14 @@ function submitLetra() {
     f.submit();
 } // fim submitLetra
 
+document.addEventListener('keydown', function (event) {
+    var formLancamento = document.getElementById('lancamento');
+    if (event.key === 'Enter' && formLancamento && formLancamento.contains(event.target)) {
+        event.preventDefault();
+        submitLetra();
+    }
+});
+
 function submitMesAtual() {
     f = document.lancamento;
      f.mod.value = 'ped';
@@ -57,17 +65,47 @@ function submitTodosPedidosMes(submenu, opcao) {
 } // fim submit
 
 
+function parseQuantidadeBR(valor) {
+    if (valor === null || valor === undefined || valor === '') {
+        return 0;
+    }
+    if (typeof valor === 'number') {
+        return valor;
+    }
+    var str = String(valor).trim();
+    // Formato BR (ex: 4.368,00 ou 910,00)
+    if (str.indexOf(',') !== -1) {
+        return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+    }
+    // Formato API/banco (ex: 4368.00 ou 910.00)
+    return parseFloat(str) || 0;
+}
+
+function formatarQuantidadeBR(valor) {
+    return parseQuantidadeBR(valor).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
 function aplicarMascaraMoney() {
-    $('.money').maskMoney({
-        thousands: '.',
-        decimal: ',',
-        allowZero: true,
-        precision: 2,       // Define 2 casas decimais
-        affixesStay: false, // Não permite prefixos/sufixos
-        // Formata o valor inicial automaticamente
-        formatOnBlur: true,
-        allowNegative: false
-    }).maskMoney('mask'); // Esta linha força a formatação imediata
+    $('#modalResultServicos .money-editavel').each(function() {
+        var $el = $(this);
+        if ($el.data('maskMoney')) {
+            $el.maskMoney('destroy');
+        }
+        var valor = parseQuantidadeBR($el.attr('data-valor'));
+        $el.maskMoney({
+            thousands: '.',
+            decimal: ',',
+            allowZero: true,
+            precision: 2,
+            affixesStay: false,
+            allowNegative: false
+        });
+        $el.val(valor.toFixed(2).replace('.', ','));
+        $el.maskMoney('mask');
+    });
 }
 
 function abrir(pag)
@@ -235,24 +273,22 @@ function returnServicos(response) {
         if (response.length > 0) {
 
             for (let servico of response) {
-                // Formata os valores para terem 2 casas decimais
-                const qtd_contratada = parseFloat(servico.QUANTIDADE).toFixed(2);
-                let qtd_executada_os = parseFloat(servico.QUANTIDADE_EXECUTADA_OS).toFixed(2);
-                let qtd_saldo = parseFloat(servico.SALDO).toFixed(2);
+                const qtd_contratada = formatarQuantidadeBR(servico.QUANTIDADE);
+                const qtd_executada_os = formatarQuantidadeBR(servico.QUANTIDADE_EXECUTADA_OS);
+                let qtd_saldo = parseQuantidadeBR(servico.SALDO);
 
-                // Verifica se o percentual executado é 100% ou mais, e define a quantidade a executar como 0
                 if (parseFloat(servico.PERCENTUAL_EXECUTADO) >= 100) {
-                    qtd_saldo = '0.00'; 
+                    qtd_saldo = 0;
                 }
 
                 htmlTabela += `
                     <tr id="servico_${servico.ID}">
                         <td><input type="checkbox" style="transform: scale(1.2);" onchange="selecionarLinha(this, ${servico.ID})" tabindex="0"></td>
                         <td class="col-md-7"><input type="text" class="form-control tdModalListServicos" readonly value="${servico.DESCSERVICO}" tabindex="-1"></td>
-                        <td class="col-md-1"><input type="text" class="form-control tdModalListServicos money" id="qtd_contratada_${servico.ID}" readonly value="${qtd_contratada}" tabindex="-1"></td>
+                        <td class="col-md-1"><input type="text" class="form-control tdModalListServicos" id="qtd_contratada_${servico.ID}" readonly value="${qtd_contratada}" tabindex="-1"></td>
                         <td class="col-md-1"><input type="text" class="form-control tdModalListServicos" readonly value="${servico.PERCENTUAL_EXECUTADO} %" tabindex="-1"></td>
-                        <td class="col-md-1"><input type="text" class="form-control tdModalListServicos money" id="qtd_executada_${servico.ID}" readonly value="${qtd_executada_os}" tabindex="-1"></td>
-                        <td class="col-md-2"><input style="font-weight: bold;" type="text" class="form-control tdModalListServicos money" id="qtdAExecutar_${servico.ID}" onchange="validarQuantidade(this, ${servico.ID})" value="${qtd_saldo}" tabindex="0"></td>
+                        <td class="col-md-1"><input type="text" class="form-control tdModalListServicos" id="qtd_executada_${servico.ID}" readonly value="${qtd_executada_os}" tabindex="-1"></td>
+                        <td class="col-md-2"><input style="font-weight: bold;" type="text" class="form-control tdModalListServicos money-editavel" id="qtdAExecutar_${servico.ID}" data-valor="${qtd_saldo}" onchange="validarQuantidade(this, ${servico.ID})" tabindex="0"></td>
                     </tr>`;
             }
         }
@@ -279,16 +315,16 @@ function returnServicos(response) {
 
 function validarQuantidade(input, id_servico) {
     
-    const qtd_a_executar = parseFloat(input.value.replace('.', '').replace(',', '.')) || 0;
-    const qtd_executada_os = parseFloat($(`#qtd_executada_${id_servico}`).val().replace('.', '').replace(',', '.')) || 0;
-    const qtd_contratada = parseFloat($(`#qtd_contratada_${id_servico}`).val().replace('.', '').replace(',', '.')) || 0;
+    const qtd_a_executar = parseQuantidadeBR(input.value);
+    const qtd_executada_os = parseQuantidadeBR($(`#qtd_executada_${id_servico}`).val());
+    const qtd_contratada = parseQuantidadeBR($(`#qtd_contratada_${id_servico}`).val());
 
     const total = qtd_a_executar + qtd_executada_os;
 
     if (total > qtd_contratada) {  
-        // VOlta o valor para o valor original
         const saldo_disponivel = qtd_contratada - qtd_executada_os;
-        input.value = saldo_disponivel.toFixed(2).replace('.', ',');
+        $(input).val(saldo_disponivel.toFixed(2).replace('.', ','));
+        $(input).maskMoney('mask');
         
         Swal.fire({ 
             text: 'A soma da quantidade a executar com a quantidade já executada não pode ser maior que a quantidade contratada!',
@@ -501,7 +537,7 @@ function pesquisarContrato(id_pedido) {
     // Recupera o último período selecionado do localStorage
     const ultimoPeriodo = localStorage.getItem('periodo_acompanhamento_contrato');
     if (ultimoPeriodo) {
-        $('#modalSelecaoPeriodo [name="dataConsulta"]').val(ultimoPeriodo);
+        $('#dataConsultaModal').val(ultimoPeriodo);
     }
     
     // Abre modal de seleção de período
@@ -511,7 +547,7 @@ function pesquisarContrato(id_pedido) {
 function confirmarPeriodoContrato() {
     // Função para confirmar período selecionado e abrir detalhes do contrato
     
-    const periodoCompleto = $('#modalSelecaoPeriodo [name="dataConsulta"]').val();
+    const periodoCompleto = $('#dataConsultaModal').val();
     const idPedido = window.contratoSelecionado;
     
     // Validação do campo

@@ -149,7 +149,8 @@ class p_rel_pedidos_lanc_fatura extends c_pedido_venda_relatorios
         $this->smarty->assign('dataFim', $this->m_data_fim);
         $this->smarty->assign('centro_custo', $this->m_centro_custo); 
 
-        $lanc = $this->select_faturas_sintetico() ?? [];
+        $lanc = $this->select_faturas_sintetico();
+        $lanc = is_array($lanc) ? $lanc : [];
 
         $this->smarty->assign('pedido', $lanc);
         $this->smarty->assign('periodoIni', $this->m_par[1]);
@@ -173,7 +174,8 @@ class p_rel_pedidos_lanc_fatura extends c_pedido_venda_relatorios
         $this->smarty->assign('dataFim', $this->m_data_fim);
         $this->smarty->assign('centro_custo', $this->m_centro_custo); 
 
-        $lanc = $this->select_faturas_analitico() ?? [];
+        $lanc = $this->select_faturas_analitico();
+        $lanc = is_array($lanc) ? $lanc : [];
 
         $this->smarty->assign('pedido', $lanc);
         $this->smarty->assign('periodoIni', $this->m_par[1]);

@@ -220,7 +220,7 @@
             <div class="x_panel small">
                 <table id="datatable-buttons" class="table table-bordered jambo_table">
                     <thead>
-                        <tr style="background: #2A3F54; color: white;">
+                        <tr class="headings">
                             <th>Data</th>   
                             <th>Serie</th>
                             <th>Numero</th>

@@ -13,6 +13,7 @@ $dir = dirname(__FILE__);
 include_once($dir . "/../../bib/c_user.php");
 include_once($dir . "/../../bib/c_date.php");
 include_once($dir . "/../../bib/c_tools.php");
+include_once($dir . "/c_lancamento.php");
 
 class c_rel_financeiro extends c_user
 {
@@ -107,7 +108,7 @@ class c_rel_financeiro extends c_user
                 ORDER BY DESCRICAO";
         $banco->exec_sql($sql);
         $banco->close_connection();
-        $result = $banco->resultado;
+        $result = $banco->resultado ?? [];
         
         $centro_custo_ids[0] = '';
         $centro_custo_names[0] = 'Todos';
@@ -129,11 +130,10 @@ class c_rel_financeiro extends c_user
                 FROM AMB_DDM 
                 WHERE ALIAS = 'FIN_MENU' 
                 AND CAMPO = 'TipoDoctoPgto' 
-                AND (TIPO IN ('X', 'N', 'B', 'D', 'E', 'C', 'T', 'A', 'K', 'P'))
                 ORDER BY PADRAO";
         $banco->exec_sql($sql);
         $banco->close_connection();
-        $result = $banco->resultado;
+        $result = $banco->resultado ?? [];
         
         $tipo_documento_ids[0] = '';
         $tipo_documento_names[0] = 'Todos';
@@ -158,7 +158,7 @@ class c_rel_financeiro extends c_user
                 ORDER BY PADRAO";
         $banco->exec_sql($sql);
         $banco->close_connection();
-        $result = $banco->resultado;
+        $result = $banco->resultado ?? [];
         
         $situacao_documento_ids[0] = '';
         $situacao_documento_names[0] = 'Todas';
@@ -183,7 +183,7 @@ class c_rel_financeiro extends c_user
                 ORDER BY PADRAO";
         $banco->exec_sql($sql);
         $banco->close_connection();
-        $result = $banco->resultado;
+        $result = $banco->resultado ?? [];
         
         $situacao_lancamento_ids[0] = '';
         $situacao_lancamento_names[0] = 'Todas';
@@ -208,7 +208,7 @@ class c_rel_financeiro extends c_user
                 ORDER BY PADRAO";
         $banco->exec_sql($sql);
         $banco->close_connection();
-        $result = $banco->resultado;
+        $result = $banco->resultado ?? [];
         
         $tipo_lancamento_ids[0] = '';
         $tipo_lancamento_names[0] = 'Todos';
@@ -232,7 +232,7 @@ class c_rel_financeiro extends c_user
                 ORDER BY NOMEINTERNO";
         $banco->exec_sql($sql);
         $banco->close_connection();
-        $result = $banco->resultado;
+        $result = $banco->resultado ?? [];
         
         $conta_bancaria_ids[0] = '';
         $conta_bancaria_names[0] = 'Todas';
@@ -275,7 +275,7 @@ class c_rel_financeiro extends c_user
         $banco->exec_sql($sql);
         $banco->close_connection();
         
-        return $banco->resultado;
+        return $banco->resultado ?? [];
     }
     
     /**
@@ -297,7 +297,7 @@ class c_rel_financeiro extends c_user
         $banco->exec_sql($sql);
         $banco->close_connection();
         
-        return $banco->resultado;
+        return $banco->resultado ?? [];
     }
 
     /**
@@ -316,6 +316,8 @@ class c_rel_financeiro extends c_user
         A.TIPOLANCAMENTO,
         A.SITPGTO,
         A.TOTAL,
+        A.MULTA,
+        A.JUROS,
         A.VENCIMENTO,
         A.EMISSAO,
         A.PAGAMENTO,
@@ -332,7 +334,7 @@ class c_rel_financeiro extends c_user
         T.PADRAO AS TIPOLANCAMENTO_DESC,
         G.DESCRICAO AS DESCGENERO,
         R.DESCRICAO AS DESCCENTROCUSTO,                
-        (SELECT COUNT(F.DOCTO) FROM FIN_LANCAMENTO F WHERE F.DOCTO = A.DOCTO AND F.PESSOA = A.PESSOA) AS TOTALPARCELAS";
+        (SELECT COUNT(F.DOCTO) FROM FIN_LANCAMENTO F WHERE F.DOCTO = A.DOCTO AND F.PESSOA = A.PESSOA AND F.SITPGTO <> 'C') AS TOTALPARCELAS";
         
         // Campos extras quando for rateio
         if ($rateioCC){
@@ -373,7 +375,7 @@ class c_rel_financeiro extends c_user
         $banco = new c_banco();
         $banco->exec_sql($sql);
         $banco->close_connection();
-        $result = $banco->resultado;
+        $result = $banco->resultado ?? [];
         return $result;
     }
     
@@ -453,7 +455,7 @@ class c_rel_financeiro extends c_user
         $banco = new c_banco(); 
         $banco->exec_sql($sql);
         $banco->close_connection();
-        $result = $banco->resultado;
+        $result = $banco->resultado ?? [];
         return $result;
     }
 
@@ -496,7 +498,7 @@ class c_rel_financeiro extends c_user
         $banco = new c_banco();
         $banco->exec_sql($sql);
         $banco->close_connection();
-        $result = $banco->resultado;
+        $result = $banco->resultado ?? [];
         return $result;
     }
 
@@ -611,6 +613,67 @@ class c_rel_financeiro extends c_user
             }
         }
         return $sql;
+    }
+
+    /**
+     * DRE Anual no formato da consulta DRE (por gênero e mês).
+     * Usa select_lancamento_letra_admin($letra, 4) do c_lancamento.
+     * @return array
+     */
+    public function selectDREAnualConsulta()
+    {
+        $letra = $this->montarStringLetra();
+        $lancamento = new c_lancamento();
+        return $lancamento->select_lancamento_letra_admin($letra, 4);
+    }
+    
+    /**
+     * Monta a string $letra no formato esperado pelo select_lancamento_letra
+     * @return string
+     */
+    private function montarStringLetra()
+    {
+        $refMap = [1 => 'vencimento', 2 => 'emissao', 3 => 'pagamento', 4 => 'lancamento'];
+        
+        $letra = [
+            $this->getDataIni() ?: date('01/m/Y'),
+            $this->getDataFim() ?: date('t/m/Y'),
+            $this->getPessoa() ?: '',
+            $refMap[$this->getReferencia()] ?? 'nao'
+        ];
+        
+        // Adiciona arrays: sitLanc, filial, tipoLanc, sitDocto, conta
+        $this->addArrayToLetra($letra, $this->getSituacaoLancamento());
+        $this->addArrayToLetra($letra, $this->getIdCentroCusto());
+        $this->addArrayToLetra($letra, $this->getTipoLancamento());
+        $this->addArrayToLetra($letra, $this->getSituacaoDocumento());
+        $this->addArrayToLetra($letra, $this->getIdContaBanco());
+        
+        // Gênero (valor único)
+        $letra[] = $this->getIdGenero() ?: '0';
+        
+        // Tipo Documento
+        $this->addArrayToLetra($letra, $this->getTipoDocumento());
+        
+        return implode('|', $letra);
+    }
+    
+    /**
+     * Adiciona um valor ou array à string $letra no formato qtd|val1|val2|...
+     * @param array &$letra Array de referência
+     * @param mixed $valor Valor único ou array
+     */
+    private function addArrayToLetra(&$letra, $valor)
+    {
+        if (empty($valor)) {
+            $letra[] = '0';
+        } else {
+            $arr = is_array($valor) ? $valor : [$valor];
+            $letra[] = count($arr);
+            foreach ($arr as $v) {
+                $letra[] = $v;
+            }
+        }
     }
 
     

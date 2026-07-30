@@ -146,6 +146,7 @@ input[type="number"] {
 <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 
 
+
 {if $subMenu neq "cadastrar" || $clonar eq "true" }
 
     <body onload="tipoLancamento()">
@@ -299,7 +300,8 @@ input[type="number"] {
                                     <div class="col-md-3 col-sm-12 col-xs-12  has-feedback">
                                         <label for="datavenc">Data Vencimento:</label>
                                         <input class="form-control has-feedback-left" type="text" id="datavenc"
-                                            name="datavenc" required="required" value={$datavenc}>
+                                            name="datavenc" required="required" value={$datavenc}
+                                            onchange="javascript:dataMovimento();">
                                         <span class="fa fa-calendar-o form-control-feedback left" id="iconCal"
                                             aria-hidden="true"></span>
                                     </div>
@@ -450,6 +452,9 @@ input[type="number"] {
                                 <li role="presentation" class=""><a href="#tab_content5" role="tab"
                                         id="titulos-agrupados-tab" data-toggle="tab" aria-expanded="true">Anexos</a>
                                 </li>
+                                {if $id neq '' && $id neq '0'}
+                                <li role="presentation" style="margin-top: -9px;font-color:#5A738E;" class="">ID:{$id}</li>
+                                {/if}
                             </ul>
                             <div id="myTabContent" class="tab-content">
                                 <div role="tabpanel" class="tab-pane fade active in" id="tab_content1"
@@ -473,12 +478,20 @@ input[type="number"] {
                                                 <div class="col-md-1 col-sm-2 col-xs-2">
                                                     <label for="parcela">Parcela</label>
                                                     <input class="form-control" maxlength="3" type="text" id="parcela"
-                                                        name="parcela" placeholder="Parcela" value="{$parcela}">
+                                                        name="parcela" placeholder="Parcela"
+                                                        value="{if $parcela}{$parcela}{else}1{/if}">
                                                 </div>
                                                 <div class="col-md-1 col-sm-2 col-xs-2">
                                                     <label for="totalParcelas">N° Parcelas</label>
+                                                    {if $subMenu eq "cadastrar"}
+                                                    <input class="form-control" type="number" id="totalParcelas"
+                                                        name="totalParcelas" placeholder="Total"
+                                                        value="{if $totalParcelas}{$totalParcelas}{else}1{/if}" min="1" step="1">
+                                                    {else}
                                                     <input class="form-control" type="text" id="totalParcelas"
-                                                        name="totalParcelas" placeholder="Total" value="{$totalParcelas}" readonly="readonly">
+                                                        name="totalParcelas" placeholder="Total"
+                                                        value="{$totalParcelas}" readonly="readonly">
+                                                    {/if}
                                                 </div>
                                                 <div class="col-md-2 col-sm-12 col-xs-12">
                                                     <label for="situacaodocto">Situa&ccedil;&atilde;o Documento</label>
@@ -792,7 +805,7 @@ input[type="number"] {
                 decimal: ",",
                 thousands: ".",
                 allowNegative: true,
-                allowZero: true
+                allowZero: false
             });
         });
 

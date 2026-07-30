@@ -10,9 +10,10 @@
  * @date      20/08/2017
  */
 
-$dir = dirname(__FILE__);
-include_once($dir . "/../../bib/c_user.php");
-include_once($dir . "/../../class/crm/c_conta.php");
+$dirUtil = dirname(__FILE__);
+include_once($dirUtil . "/../../bib/c_user.php");
+include_once($dirUtil . "/../../class/crm/c_conta.php");
+include_once($dirUtil . "/c_usuario_autoriza.php");
 
 //Class C_USUARIO
 Class c_usuario extends c_user {
@@ -73,12 +74,21 @@ Class c_usuario extends c_user {
         return $this->cliente;
     }
 
-    public function setPessoaNome() {
+    public function setPessoaNome($nome = null) {
+        if ($nome !== null) {
+            $this->nomePessoa = $nome;
+            return;
+        }
+        $this->nomePessoa = '';
+        if ((int) $this->getCliente() <= 0) {
+            return;
+        }
         $cliente = new c_conta();
         $cliente->setId($this->getCliente());
         $reg_nome = $cliente->select_conta();
-        $this->nomePessoa = "'" . $reg_nome[0]['NOME'] . "'";
-        //$this->nomeReduzido = "'".$reg_nome[0]['NOMEREDUZIDO']."'";
+        if (is_array($reg_nome) && isset($reg_nome[0]['NOME'])) {
+            $this->nomePessoa = $reg_nome[0]['NOME'];
+        }
     }
 
     public function getPessoaNome() {
@@ -172,7 +182,18 @@ Class c_usuario extends c_user {
         $this->comissaoFatura = $comissaoFatura;
     }
 
-    public function getcomissaoFatura() {
+    public function getcomissaoFatura($format = null) {
+        if ($format == 'F') {
+            return number_format((float) $this->comissaoFatura, 2, ',', '.');
+        }
+        if ($format == 'B') {
+            if ($this->comissaoFatura != null && $this->comissaoFatura !== '') {
+                $num = str_replace('.', '', $this->comissaoFatura);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            }
+            return 0;
+        }
         return $this->comissaoFatura;
     }
 
@@ -180,7 +201,18 @@ Class c_usuario extends c_user {
         $this->comissaoReceb = $comissaoReceb;
     }
 
-    public function getcomissaoReceb() {
+    public function getcomissaoReceb($format = null) {
+        if ($format == 'F') {
+            return number_format((float) $this->comissaoReceb, 2, ',', '.');
+        }
+        if ($format == 'B') {
+            if ($this->comissaoReceb != null && $this->comissaoReceb !== '') {
+                $num = str_replace('.', '', $this->comissaoReceb);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            }
+            return 0;
+        }
         return $this->comissaoReceb;
     }
 
@@ -317,17 +349,18 @@ Class c_usuario extends c_user {
     }//fim select_usuario_matricula
 
     /**
-     * Consulta todos os registros da tabela
+     * Lista usuários para a tela de consulta (campos usados no template).
      * @name select_usuario_geral
-     * @return ARRAY com todos os campos do banco
      */
     public function select_usuario_geral() {
-        $sql = "SELECT DISTINCT u.*, c.nome as nomeusuario, s.padrao as descSituacao, t.padrao as descTipo ";
+        $sql = "SELECT u.usuario, u.nomereduzido, c.nome AS nomeusuario, ";
+        $sql .= "s.padrao AS descSituacao, t.padrao AS descTipo, g.nomereduzido AS nomeGrupo ";
         $sql .= "FROM amb_usuario u ";
-        $sql .= "left join amb_ddm s on ((s.tipo = u.situacao) and (s.alias='AMB_MENU') and (s.campo='SituacaoUsuario')) ";
-        $sql .= "left join amb_ddm t on ((t.tipo = u.tipo) and (t.alias='AMB_MENU') and (t.campo='TipoUsuario')) ";
-        $sql .= "left join fin_cliente c on (u.cliente = c.cliente) ";
-        $sql .= "ORDER BY u.situacao, u.tipo,c.nome";
+        $sql .= "LEFT JOIN amb_ddm s ON ((s.tipo = u.situacao) AND (s.alias='AMB_MENU') AND (s.campo='SituacaoUsuario')) ";
+        $sql .= "LEFT JOIN amb_ddm t ON ((t.tipo = u.tipo) AND (t.alias='AMB_MENU') AND (t.campo='TipoUsuario')) ";
+        $sql .= "LEFT JOIN fin_cliente c ON (u.cliente = c.cliente) ";
+        $sql .= "LEFT JOIN amb_usuario g ON (g.usuario = u.grupo AND g.tipo = 'Z') ";
+        $sql .= "ORDER BY u.situacao, u.tipo, c.nome";
         //  echo strtoupper($sql)."<br>";
         $banco = new c_banco;
         $banco->exec_sql($sql);
@@ -342,11 +375,13 @@ Class c_usuario extends c_user {
      * @return ARRAY com todos os campos do banco
      */
     public function select_usuario_letra($letra) {
-        $sql = "SELECT DISTINCT u.*, c.nome as nomeusuario, s.padrao as descSituacao, t.padrao as descTipo ";
+        $sql = "SELECT u.usuario, u.nomereduzido, c.nome AS nomeusuario, ";
+        $sql .= "s.padrao AS descSituacao, t.padrao AS descTipo, g.nomereduzido AS nomeGrupo ";
         $sql .= "FROM amb_usuario u ";
-        $sql .= "left join amb_ddm s on ((s.tipo = u.situacao) and (s.alias='AMB_MENU') and (s.campo='SituacaoUsuario')) ";
-        $sql .= "left join amb_ddm t on ((t.tipo = u.tipo) and (t.alias='AMB_MENU') and (t.campo='TipoUsuario')) ";
-        $sql .= "inner join fin_cliente c on (u.cliente = c.cliente) ";
+        $sql .= "LEFT JOIN amb_ddm s ON ((s.tipo = u.situacao) AND (s.alias='AMB_MENU') AND (s.campo='SituacaoUsuario')) ";
+        $sql .= "LEFT JOIN amb_ddm t ON ((t.tipo = u.tipo) AND (t.alias='AMB_MENU') AND (t.campo='TipoUsuario')) ";
+        $sql .= "INNER JOIN fin_cliente c ON (u.cliente = c.cliente) ";
+        $sql .= "LEFT JOIN amb_usuario g ON (g.usuario = u.grupo AND g.tipo = 'Z') ";
         $sql .= "WHERE c.nome LIKE '" . $letra . "%' ";
         $sql .= "ORDER BY u.situacao, u.tipo, c.nome";
         //  echo strtoupper($sql)."<br>";
@@ -361,6 +396,14 @@ Class c_usuario extends c_user {
      * @name incluiUsuario
      * @return string Retorna vazio se a operacao for bem sucedida
      */
+    private function quoteSql($value)
+    {
+        $banco = new c_banco();
+        $q = $banco->quote($value, $banco->id_connection);
+        $banco->close_connection();
+        return $q;
+    }
+
     public function incluiUsuario() {
         $sql = "INSERT INTO AMB_USUARIO (";
 
@@ -371,6 +414,7 @@ Class c_usuario extends c_user {
                     SENHA, 
                     SITUACAO, 
                     TIPO, 
+                    EMPRESA,
                     CONTA, 
                     SALARIO, 
                     ENCARGOS, 
@@ -382,12 +426,15 @@ Class c_usuario extends c_user {
                     SMTP,
                     EMAIL,
                     EMAILSENHA) ";
-        $sql .= "VALUES ('" . $this->getUsuario() . "', '";
-        $sql .= $this->getLogin() . "', '" . $this->getNomeReduzido() . "', '";
-        $sql .= $this->getcliente() . "', '" . $this->getsenha() . "', '" . $this->getsituacao() . "', '" . $this->gettipo() . "', '";
-        $sql .= $this->getconta() . "', '" . $this->getsalario('B') . "', '" . $this->getencargos() . "', '";
-        $sql .= $this->getgeneroPgto() . "', '" . $this->getccustoPgto() . "', '" . $this->getcomissaoFatura() . "' ,'";
-        $sql .= $this->getcomissaoReceb() . "', '" . $this->getGrupo(). "', '" . $this->getSmtp(). "', '" . $this->getEmail(). "', '" . $this->getEmailSenha() . "'); ";
+        $sql .= "VALUES ('" . (int) $this->getUsuario() . "', ";
+        $sql .= $this->quoteSql($this->getLogin()) . ", " . $this->quoteSql($this->getNomeReduzido()) . ", '";
+        $sql .= (int) $this->getcliente() . "', " . $this->quoteSql($this->getsenha()) . ", " . $this->quoteSql($this->getsituacao()) . ", ";
+        $sql .= $this->quoteSql($this->gettipo()) . ", ";
+        $sql .= $this->getEmpresa() !== '' && $this->getEmpresa() !== null ? (int) $this->getEmpresa() : "NULL";
+        $sql .= ", '" . (int) $this->getconta() . "', '" . $this->getsalario('B') . "', '" . (float) $this->getencargos() . "', ";
+        $sql .= $this->quoteSql($this->getgeneroPgto()) . ", '" . (int) $this->getccustoPgto() . "', '" . (float) $this->getcomissaoFatura('B') . "' ,'";
+        $sql .= (float) $this->getcomissaoReceb('B') . "', '" . (int) $this->getGrupo() . "', ";
+        $sql .= $this->quoteSql($this->getSmtp()) . ", " . $this->quoteSql($this->getEmail()) . ", " . $this->quoteSql($this->getEmailSenha()) . "); ";
         //  echo strtoupper($sql)."<br>";
         $banco = new c_banco;
         $res_acessorio = $banco->exec_sql_lower_case($sql);
@@ -444,27 +491,34 @@ Class c_usuario extends c_user {
      * @name alteraUsuario
      * @return string Retorna vazio se a operacao for bem sucedida
      */
-    public function alteraUsuario() {
+    public function alteraUsuario($atualizarSenha = true) {
         $sql = "UPDATE AMB_USUARIO ";
-        $sql .= "SET  CLIENTE = " . $this->getcliente() . ", ";
-        $sql .= "USUARIO =  " . $this->getUsuario() . ", ";
-        $sql .= "NOME =  '" . $this->getLogin() . "', ";
-        $sql .= "NOMEREDUZIDO =  '" . $this->getNomeReduzido() . "', ";
-        $sql .= "SENHA =  '" . $this->getsenha() . "', ";
-        $sql .= "SITUACAO = '" . $this->getsituacao() . "', ";
-        $sql .= "TIPO = '" . $this->gettipo() . "', ";
-        $sql .= "CONTA =  '" . $this->getconta() . "', ";
+        $sql .= "SET  CLIENTE = " . (int) $this->getcliente() . ", ";
+        $sql .= "USUARIO =  " . (int) $this->getUsuario() . ", ";
+        $sql .= "NOME =  " . $this->quoteSql($this->getLogin()) . ", ";
+        $sql .= "NOMEREDUZIDO =  " . $this->quoteSql($this->getNomeReduzido()) . ", ";
+        if ($atualizarSenha && $this->getsenha() !== '' && $this->getsenha() !== null) {
+            $sql .= "SENHA =  " . $this->quoteSql($this->getsenha()) . ", ";
+        }
+        $sql .= "SITUACAO = " . $this->quoteSql($this->getsituacao()) . ", ";
+        $sql .= "TIPO = " . $this->quoteSql($this->gettipo()) . ", ";
+        $sql .= "CONTA =  '" . (int) $this->getconta() . "', ";
         $sql .= "SALARIO = '" . $this->getsalario('B') . "', ";
-        $sql .= "ENCARGOS = '" . $this->getencargos() . "', ";
-        $sql .= "GENEROPGTO =  '" . $this->getgeneroPgto() . "', ";
-        $sql .= "CCUSTOPGTO = '" . $this->getccustoPgto() . "', ";
-        $sql .= "COMISSAOFATURA = '" . $this->getcomissaoFatura() . "', ";
-        $sql .= "COMISSAORECEB = '" . $this->getcomissaoReceb() . "', ";
-        $sql .= "GRUPO = '" . $this->getGrupo() . "', ";        
-        $sql .= "SMTP = '" . $this->getSmtp() . "', ";
-        $sql .= "EMAIL = '" . $this->getEmail() . "', ";
-        $sql .= "EMAILSENHA = '" . $this->getEmailSenha() . "' ";
-        $sql .= "WHERE USUARIO = '" . $this->getUsuario() . "';";
+        $sql .= "ENCARGOS = '" . (float) $this->getencargos() . "', ";
+        $sql .= "GENEROPGTO =  " . $this->quoteSql($this->getgeneroPgto()) . ", ";
+        $empresa = $this->getEmpresa();
+        $sql .= "EMPRESA = " . ($empresa !== '' && $empresa !== null ? (int) $empresa : "NULL") . ", ";
+        $sql .= "CCUSTOPGTO = '" . (int) $this->getccustoPgto() . "', ";
+        $sql .= "COMISSAOFATURA = '" . (float) $this->getcomissaoFatura('B') . "', ";
+        $sql .= "COMISSAORECEB = '" . (float) $this->getcomissaoReceb('B') . "', ";
+        $sql .= "GRUPO = '" . (int) $this->getGrupo() . "', ";
+        $sql .= "SMTP = " . $this->quoteSql($this->getSmtp()) . ", ";
+        $sql .= "EMAIL = " . $this->quoteSql($this->getEmail());
+        if ($this->getEmailSenha() !== '' && $this->getEmailSenha() !== null) {
+            $sql .= ", EMAILSENHA = " . $this->quoteSql($this->getEmailSenha());
+        }
+        $sql .= " ";
+        $sql .= "WHERE USUARIO = '" . (int) $this->getUsuario() . "';";
         //  echo strtoupper($sql)."<br>";
         $banco = new c_banco;
         $res_acessorio = $banco->exec_sql_lower_case($sql);
@@ -495,6 +549,275 @@ Class c_usuario extends c_user {
             return 'Os dados do usuario ' . $this->getNomeReduzido() . ' n&atilde;o foram excluidos!';
         }//if
     }// fim excluiUsuario
+
+    /** Matrícula reservada para administrador. */
+    const MATRICULA_ADMIN = 999;
+
+    /** Grupos (tipo Z) usam matrícula acima deste valor. */
+    const MATRICULA_GRUPO_MIN = 1001;
+
+    /**
+     * Matrícula 999 (admin). Demais abaixo de 1000 são operacionais; grupos ficam &gt;= 1001.
+     */
+    public function matriculaReservadaAdmin($matricula)
+    {
+        return ((int) $matricula === self::MATRICULA_ADMIN);
+    }
+
+    public function ehTipoGrupo($tipo = null)
+    {
+        $t = ($tipo !== null) ? $tipo : $this->gettipo();
+        return ($t === 'Z');
+    }
+
+    /**
+     * Próxima matrícula conforme o tipo (operacional ou grupo).
+     */
+    public function proximaMatriculaUsuario($tipo = null)
+    {
+        if ($this->ehTipoGrupo($tipo)) {
+            return $this->proximaMatriculaGrupo();
+        }
+        return $this->proximaMatriculaOperacional();
+    }
+
+    /**
+     * Última matrícula operacional + 1 (ignora 999 e usuários tipo grupo).
+     * @return int 0 se não couber abaixo de 1000
+     */
+    public function proximaMatriculaOperacional()
+    {
+        $banco = new c_banco();
+        $banco->exec_sql("SELECT MAX(usuario) AS ULTIMO FROM amb_usuario "
+            . "WHERE usuario <> " . self::MATRICULA_ADMIN . " "
+            . "AND (tipo IS NULL OR tipo <> 'Z') "
+            . "AND usuario < " . self::MATRICULA_GRUPO_MIN);
+        $banco->close_connection();
+
+        $ultimo = 0;
+        if (is_array($banco->resultado) && isset($banco->resultado[0]['ULTIMO'])) {
+            $ultimo = (int) $banco->resultado[0]['ULTIMO'];
+        }
+        $prox = $ultimo + 1;
+        if ($prox === self::MATRICULA_ADMIN) {
+            $prox++;
+        }
+        if ($prox >= self::MATRICULA_GRUPO_MIN) {
+            return 0;
+        }
+        return $prox;
+    }
+
+    /**
+     * Última matrícula de grupo (tipo Z, &gt;= 1001) + 1.
+     */
+    public function proximaMatriculaGrupo()
+    {
+        $banco = new c_banco();
+        $banco->exec_sql("SELECT MAX(usuario) AS ULTIMO FROM amb_usuario "
+            . "WHERE tipo = 'Z' AND usuario >= " . self::MATRICULA_GRUPO_MIN);
+        $banco->close_connection();
+
+        $ultimo = self::MATRICULA_GRUPO_MIN - 1;
+        if (is_array($banco->resultado) && isset($banco->resultado[0]['ULTIMO'])) {
+            $ultimo = (int) $banco->resultado[0]['ULTIMO'];
+        }
+        return $ultimo + 1;
+    }
+
+    /**
+     * Ajusta matrícula no cadastro se vazia ou fora da faixa do tipo.
+     */
+    public function aplicarProximaMatriculaCadastro()
+    {
+        $mat = (int) $this->getUsuario();
+        if ($this->ehTipoGrupo()) {
+            if ($mat < self::MATRICULA_GRUPO_MIN) {
+                $this->setUsuario($this->proximaMatriculaGrupo());
+            }
+            return;
+        }
+        if ($mat <= 0 || $this->matriculaReservadaAdmin($mat) || $mat >= self::MATRICULA_GRUPO_MIN) {
+            $prox = $this->proximaMatriculaOperacional();
+            if ($prox > 0) {
+                $this->setUsuario($prox);
+            }
+        }
+    }
+
+    /**
+     * Combos do cadastro de usuário (ids + labels).
+     */
+    public function comboEmpresaUsuario()
+    {
+        $ids = array('');
+        $names = array('selecione uma Empresa');
+        $banco = new c_banco();
+        $banco->exec_sql("SELECT empresa AS ID, nomefantasia AS DESCRICAO FROM amb_empresa");
+        $banco->close_connection();
+        if (is_array($banco->resultado)) {
+            foreach ($banco->resultado as $row) {
+                $ids[] = $row['ID'];
+                $names[] = $row['DESCRICAO'];
+            }
+        }
+        return array('ids' => $ids, 'names' => $names);
+    }
+
+    public function comboSituacaoUsuario()
+    {
+        return $this->comboAmbDdm('SituacaoUsuario');
+    }
+
+    public function comboTipoUsuario()
+    {
+        return $this->comboAmbDdm('TipoUsuario');
+    }
+
+    public function comboGrupoUsuario()
+    {
+        $ids = array(0);
+        $names = array('Sem Grupo');
+        $banco = new c_banco();
+        $banco->exec_sql("SELECT usuario AS ID, nomereduzido AS DESCRICAO FROM amb_usuario "
+            . "WHERE situacao='A' AND tipo='Z'");
+        $banco->close_connection();
+        if (is_array($banco->resultado)) {
+            foreach ($banco->resultado as $row) {
+                $ids[] = $row['ID'];
+                $names[] = $row['DESCRICAO'];
+            }
+        }
+        return array('ids' => $ids, 'names' => $names);
+    }
+
+    private function comboAmbDdm($campo)
+    {
+        $ids = array();
+        $names = array();
+        $banco = new c_banco();
+        $banco->exec_sql("SELECT tipo AS ID, padrao AS DESCRICAO FROM amb_ddm "
+            . "WHERE alias='AMB_MENU' AND campo='" . $campo . "'");
+        $banco->close_connection();
+        if (is_array($banco->resultado)) {
+            foreach ($banco->resultado as $i => $row) {
+                $ids[$i] = $row['ID'];
+                $names[$i] = $row['DESCRICAO'];
+            }
+        }
+        return array('ids' => $ids, 'names' => $names);
+    }
+
+    /**
+     * Grava direitos enviados pelo POST (JSON da aba Direitos).
+     */
+    public function salvarDireitosCadastro($jsonDireitos)
+    {
+        if (trim($jsonDireitos) === '') {
+            return '';
+        }
+        $pode = $this->verificaDireitoUsuario('AmbUsuario', 'I', 'N')
+            || $this->verificaDireitoUsuario('AmbUsuario', 'A', 'N');
+        if (!$pode) {
+            return ' Sem permiss&atilde;o para gravar direitos do usu&aacute;rio.';
+        }
+        $dados = json_decode($jsonDireitos, true);
+        if (!is_array($dados)) {
+            return ' N&atilde;o foi poss&iacute;vel gravar os direitos (dados inv&aacute;lidos).';
+        }
+        if ((int) $this->getUsuario() <= 0) {
+            return ' Matr&iacute;cula inv&aacute;lida para gravar direitos.';
+        }
+        $aut = new c_usuario_autoriza();
+        return $aut->syncAutorizacoesUsuario($this->getUsuario(), $dados);
+    }
+
+    /**
+     * Programas + checkboxes da aba Direitos.
+     */
+    public function programasUiCadastro()
+    {
+        $letras = array('I', 'A', 'E', 'C', 'S', 'R');
+        $grupoId = (int) $this->getGrupo();
+        $grupoNome = '';
+        $usuarioId = (int) $this->getUsuario();
+        $mapUsuario = array();
+        $mapGrupo = array();
+
+        if ($usuarioId > 0) {
+            $aut = new c_usuario_autoriza();
+            $rowsU = $aut->select_autorizacao_por_usuario($usuarioId);
+            if (is_array($rowsU)) {
+                foreach ($rowsU as $r) {
+                    $prog = strtoupper(trim($r['PROGRAMA']));
+                    if ($prog !== '') {
+                        $mapUsuario[$prog] = trim($r['DIREITOS']);
+                    }
+                }
+            }
+            if ($grupoId > 0) {
+                $rowsG = $aut->select_autorizacao_por_usuario($grupoId);
+                if (is_array($rowsG)) {
+                    foreach ($rowsG as $r) {
+                        $prog = strtoupper(trim($r['PROGRAMA']));
+                        if ($prog !== '') {
+                            $mapGrupo[$prog] = trim($r['DIREITOS']);
+                        }
+                    }
+                }
+                $b = new c_banco();
+                $b->exec_sql("SELECT nomereduzido AS NOMEREDUZIDO FROM amb_usuario WHERE usuario = " . $grupoId);
+                $b->close_connection();
+                if (is_array($b->resultado) && isset($b->resultado[0]['NOMEREDUZIDO'])) {
+                    $grupoNome = $b->resultado[0]['NOMEREDUZIDO'];
+                }
+            }
+        }
+
+        $banco = new c_banco();
+        $banco->exec_sql("SELECT nomeform AS NOMEFORM, descricao AS DESCRICAO, help AS HELP "
+            . "FROM amb_form ORDER BY descricao");
+        $banco->close_connection();
+
+        $programasUi = array();
+        if (is_array($banco->resultado)) {
+            foreach ($banco->resultado as $p) {
+                $nomeform = trim($p['NOMEFORM']);
+                if ($nomeform === '') {
+                    continue;
+                }
+                $descricao = trim($p['DESCRICAO']);
+                $helpRaw = trim($p['HELP']);
+                $helpForm = '';
+                if ($helpRaw !== '') {
+                    $helpForm = strip_tags($helpRaw);
+                    $helpForm = html_entity_decode($helpForm, ENT_QUOTES, 'UTF-8');
+                    $helpForm = trim(preg_replace('/\s+/', ' ', $helpForm));
+                }
+                $chave = strtoupper($nomeform);
+                $du = isset($mapUsuario[$chave]) ? $mapUsuario[$chave] : '';
+                $dg = isset($mapGrupo[$chave]) ? $mapGrupo[$chave] : '';
+                $chk = array();
+                foreach ($letras as $lt) {
+                    $chk[$lt] = ($du !== '' && strpos($du, $lt) !== false);
+                }
+                $programasUi[] = array(
+                    'nomeform' => $nomeform,
+                    'descricao' => $descricao,
+                    'help' => $helpForm,
+                    'direitos_usuario' => $du,
+                    'direitos_grupo' => $dg,
+                    'chk' => $chk,
+                );
+            }
+        }
+
+        return array(
+            'programasUi' => $programasUi,
+            'grupoId' => $grupoId,
+            'grupoNome' => $grupoNome,
+        );
+    }
 }
 
 //	END OF THE CLASS

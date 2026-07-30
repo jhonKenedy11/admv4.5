@@ -82,8 +82,8 @@ class p_contrato extends c_contrato
 
         // dados para exportacao e relatorios
         $this->smarty->assign('titulo', "Contratos");
-        $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6,7 ]");
-        $this->smarty->assign('disableSort', "[ 0, 6, 7 ]");
+        $this->smarty->assign('colVis', "[ 0,1,2,3 ]");
+        $this->smarty->assign('disableSort', "[ 3 ]");
         $this->smarty->assign('numLine', "25");
     }
 
@@ -282,8 +282,8 @@ class p_contrato extends c_contrato
             
             // Dados para exportação e relatórios
             $this->smarty->assign('titulo', "Detalhes do Contrato - " . $contrato['PEDIDO']);
-            $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6,7 ]");
-            $this->smarty->assign('disableSort', "[ 0, 6, 7 ]");
+            $this->smarty->assign('colVis', "[ 0,1,2,3 ]");
+            $this->smarty->assign('disableSort', "[ 3 ]");
             $this->smarty->assign('numLine', "25");
             
             // Exibe template de detalhes

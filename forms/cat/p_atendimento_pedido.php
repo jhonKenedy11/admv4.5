@@ -138,6 +138,44 @@ Class p_atendimento_pedido extends c_atendimento_pedido {
                         //inicia transacao
                         $transaction->inicioTransacao($transaction->id_connection);
         
+                        // Busca o desconto da OS
+                        $consulta = new c_banco;
+                        $consulta->setTab("CAT_ATENDIMENTO");
+                        $vlrDesconto = $consulta->getField("VALORDESCONTO", "ID=".$this->getId());
+                        $consulta->close_connection();
+
+                        if (is_string($vlrDesconto) && strpos($vlrDesconto, ',') !== false) {
+                            $vlrDesconto = c_tools::moedaBd($vlrDesconto);
+                        }
+                        $this->setValorDesconto($vlrDesconto);
+
+                        // Calcula TOTALPRODUTOS como soma de QTSOLICITADA * UNITARIO (sem desconto)
+                        // Percorre os itens para calcular o total sem desconto
+                        $totalProdutos = 0;
+                        $item = explode("|", $this->m_dadosPecas);
+                        for ($i=1; $i<count($item); $i++){
+                            $itemArr = explode("*", $item[$i]);
+                            $qtSolicitada = isset($itemArr[6]) ? $itemArr[6] : 0;
+                            $unitario = isset($itemArr[7]) ? $itemArr[7] : 0;
+                            
+                            // Converte para número se necessário
+                            // Se for string, verifica se tem vírgula (formato brasileiro) e converte
+                            if (!is_numeric($qtSolicitada)) {
+                                $qtSolicitada = c_tools::moedaBd($qtSolicitada);
+                            }
+                            if (!is_numeric($unitario)) {
+                                $unitario = c_tools::moedaBd($unitario);
+                            }
+                            
+                            // Garante que são números
+                            $qtSolicitada = floatval($qtSolicitada);
+                            $unitario = floatval($unitario);
+                            
+                            $totalProdutos += ($qtSolicitada * $unitario);
+                        }
+                        
+                        // Seta o valor de produtos sem desconto
+                        $this->setTotalPecasUtilizada($totalProdutos, false);
 
                         $this->setSituacao(5); // Situacao pedido 6 = PEDIDO
                         $this->getEspecie() == '' ? $this->setEspecie('D') : $this->getEspecie();
@@ -151,6 +189,12 @@ Class p_atendimento_pedido extends c_atendimento_pedido {
                         
                         $this->setId($idGerado);
                         $this->updateField('PEDIDO', $idGerado, 'FAT_PEDIDO', $transaction->id_connection);
+                        
+                        // Atualiza o TOTAL final: (TOTALPRODUTOS - DESCONTO) + FRETE + DESPACESSORIAS
+                        $frete = $this->getValorFrete('B');
+                        $despAcessorias = $this->getDespAcessorias('B');
+                        $totalFinal = ($totalProdutos - $vlrDesconto) + $frete + $despAcessorias;
+                        $this->updateField('TOTAL', $totalFinal, 'FAT_PEDIDO', $transaction->id_connection);
                     
                         $transaction->commit($transaction->id_connection);
                         $transaction->close_connection($transaction->id_connection);

@@ -4,8 +4,15 @@
 
 
 function submitExcluirImagem(id,table, path) {
-    debugger;
-    if (confirm('Deseja realmente Excluir esta Imagem?') == true) {
+    Swal.fire({
+        title: 'Tem certeza?',
+        text: 'Deseja realmente excluir esta imagem?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
         f = document.lancamento;
         f.mod.value = 'cat';
         f.form.value = 'atendimento_new';
@@ -15,7 +22,8 @@ function submitExcluirImagem(id,table, path) {
         f.table.value = table;
         f.path.value = path;
         f.submit();
-    }
+        }
+    });
 } // submitExcluirImagem
 
 

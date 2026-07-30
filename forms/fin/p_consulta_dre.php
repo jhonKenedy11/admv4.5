@@ -50,6 +50,7 @@ function __construct(){
         // inicializa variaveis de controle
         $this->m_submenu = isset($parmPost['submenu']) ? $parmPost['submenu'] : '';
         $this->m_letra = isset($parmGet['letra']) ? $parmGet['letra'] : '';
+        $this->m_par = explode("|", $this->m_letra);
 
         // caminhos absolutos para todos os diretorios biblioteca e sistema
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
@@ -70,7 +71,7 @@ function __construct(){
 //---------------------------------------------------------------
 //---------------------------------------------------------------
 function controle(){
- 
+     
 	if ($this->verificaDireitoUsuario('FinLancamento', 'C')){
 		$this->mostraLancamentos('');}
 	
@@ -86,12 +87,14 @@ include $this->js."/fin/s_lancamento.js";
 	// busca dados para motrar na consulta
     if ((isset($this->m_letra)) or ($this->m_letra != '')){
 
-    	$lanc = $this->select_lancamento_letra($this->m_letra, 1);
+        $lanc = $this->select_lancamento_letra($this->m_letra, 4);
     }
 	
     $this->smarty->assign('pathImagem', $this->img);
     $this->smarty->assign('mensagem', $mensagem);
     $this->smarty->assign('letra', $this->m_letra);
+    $this->smarty->assign('dataInicio', $this->m_par[0]);
+    $this->smarty->assign('dataFim', $this->m_par[1]);
     $this->smarty->assign('lanc', $lanc);
  
      // dados para o grafico

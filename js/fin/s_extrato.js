@@ -67,7 +67,7 @@ function submitExcluir(id) {
  // ------ SUBMIT LETRA
  // ----------------------------------------------------------------------
 function submitLetra() {
-    debugger;
+     
     var i;
     var l;
 
@@ -116,10 +116,20 @@ function submitResumo() {
     f.submit();
 }
 
+// ----------------------------------------------------------------------
+// ------ RELATÓRIO DETALHADO (abre em nova aba)
+// ----------------------------------------------------------------------
+function extratoRelatorioDetalhado() {
+    var f = document.lancamento;
+    var letra = f.letra.value;
+    var url = "index.php?mod=fin&form=extrato&opcao=blank&submenu=relatorio&letra=" + encodeURIComponent(letra);
+    window.open(url, '_blank');
+}
+
 // insert Cadastro
 function submitCadastroResumo() {
     f = document.lancamento;
-    if ((f.centrocusto.value == '') || (f.datavenc.value == '') || (f.genero.value == '') || (f.conta.value == ''))
+    if ((f.centrocusto.value == '') || (f.datavenc.value == '') || (f.generoRec.value == '') || (f.conta.value == ''))
         alert ('Existem campos com valores obrigatórios!!');
     else {
         if (confirm('Deseja realmente Realizar o fechamento deste período?') == true) {
@@ -140,7 +150,7 @@ function submitCadastroResumo() {
 
 function abrir(pag)
 {
-debugger;
+ 
     window.open(pag, 'consulta', 'toolbar=no,location=no,menubar=no,width=700,height=800,scrollbars=yes');
 }
         

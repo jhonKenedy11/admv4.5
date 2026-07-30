@@ -49,8 +49,15 @@ class p_rel_financeiro extends c_rel_financeiro
         
         // Parâmetros do relatório - datas já tratadas no JavaScript
         $this->setReferencia(isset($parmPost['referencia']) ? $parmPost['referencia'] : (isset($parmGet['referencia']) ? $parmGet['referencia'] : ''));
-        $this->setDataIni(isset($parmPost['dataIni']) ? $parmPost['dataIni'] : (isset($parmGet['dataIni']) ? $parmGet['dataIni'] : ''));
-        $this->setDataFim(isset($parmPost['dataFim']) ? $parmPost['dataFim'] : (isset($parmGet['dataFim']) ? $parmGet['dataFim'] : ''));
+        $ano = isset($parmPost['ano']) ? $parmPost['ano'] : (isset($parmGet['ano']) ? $parmGet['ano'] : '');
+        $tipoRel = isset($parmPost['tipoRelatorio']) ? $parmPost['tipoRelatorio'] : (isset($parmGet['tipoRelatorio']) ? $parmGet['tipoRelatorio'] : '');
+        if ($ano && $tipoRel === 'dre_anual') {
+            $this->setDataIni('01/01/' . $ano);
+            $this->setDataFim('31/12/' . $ano);
+        } else {
+            $this->setDataIni(isset($parmPost['dataIni']) ? $parmPost['dataIni'] : (isset($parmGet['dataIni']) ? $parmGet['dataIni'] : ''));
+            $this->setDataFim(isset($parmPost['dataFim']) ? $parmPost['dataFim'] : (isset($parmGet['dataFim']) ? $parmGet['dataFim'] : ''));
+        }
         
         // Parâmetros específicos do financeiro usando setters diretamente
         $this->setTipoLancamento(isset($parmPost['tipolanc']) ? $parmPost['tipolanc'] : (isset($parmGet['tipolanc']) ? $parmGet['tipolanc'] : ''));
@@ -112,6 +119,9 @@ class p_rel_financeiro extends c_rel_financeiro
 
         $this->smarty->assign('dataIni', date("01/m/Y"));
         $this->smarty->assign('dataFim', date("t/m/Y"));
+        $this->smarty->assign('anoAtual', date("Y"));
+        $anos = range((int)date('Y'), (int)date('Y') - 30);
+        $this->smarty->assign('anos', $anos);
 
         $this->comboRelatorioFinanceiro();
 
@@ -176,6 +186,16 @@ class p_rel_financeiro extends c_rel_financeiro
                 $resultado = $this->selectLancamentosDataEntrega();
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_financeiro_data_entrega.tpl');
+                break;
+            case 'dre_anual':
+                $lanc = $this->selectDREAnualConsulta();
+                $this->smarty->assign('lanc', $lanc);
+                $this->smarty->assign('dataInicio', $this->getDataIni());
+                $this->smarty->assign('dataFim', $this->getDataFim());
+                $this->smarty->assign('label', '[]');
+                $this->smarty->assign('pag', '[]');
+                $this->smarty->assign('rec', '[]');
+                $this->smarty->display('consulta_dre_anual.tpl');
                 break;
             default:
                 $resultado = $this->selectLancamentosData();

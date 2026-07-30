@@ -96,7 +96,7 @@ public function select_acessorio_geral(){
 public function incluiAcessorio(){
 
 	$sql  = "INSERT INTO cat_acessorio (DESCRICAO, CREATED_USER, CREATED_AT) ";
-	$sql .= "VALUES ('".$this->__get('DESCRICAO')."',".$this->m_userid.",'".date("Y-m-d H:i:s"). "';)"; 
+	$sql .= "VALUES ('".$this->__get('DESCRICAO')."',".$this->m_userid.",'".date("Y-m-d H:i:s")."');"; 
 					
     // echo $sql;
 	$banco = new c_banco;

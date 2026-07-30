@@ -240,11 +240,32 @@
                             <div class="clearfix"></div>
                         </div>
                         <div class="x_content">
+                            <style>
+                              #datatable-buttons td.pv-prod-img-cell { overflow: visible; vertical-align: middle; }
+                              .pv-prod-img-wrap { position: relative; display: inline-block; line-height: 0; }
+                              #datatable-buttons th.pv-prod-img-col,
+                              #datatable-buttons td.pv-prod-img-cell { width: 38px; max-width: 38px; padding: 2px 4px !important; }
+                              .pv-prod-img-wrap .pv-prod-thumb {
+                                width: 32px; height: 32px; object-fit: contain;
+                                display: block;
+                                transition: transform .15s ease, box-shadow .15s ease;
+                              }
+                              .pv-prod-img-wrap:hover .pv-prod-thumb {
+                                transform: scale(2.25);
+                                transform-origin: left center;
+                                box-shadow: 0 6px 24px rgba(0,0,0,.22);
+                                position: relative;
+                                z-index: 300;
+                              }
+                              .pv-prod-img-trigger { display: inline-block; text-decoration: none; cursor: zoom-in; border: 0; padding: 0; background: transparent; }
+                              .pv-prod-img-trigger:focus { outline: thin dotted; }
+                            </style>
 
                             <table id="datatable-buttons"
                                 class="table table-striped table-condensed table-responsive small">
                                 <thead>
                                     <tr>
+                                        <th class="pv-prod-img-col"></th>
                                         <th>Código</th>
                                         <th>Descri&ccedil;&atilde;o</th>
                                         <th>Estoque</th>
@@ -261,6 +282,17 @@
                                     {section name=i loop=$lancPesq}
                                         {assign var="total" value=$total+1}
                                         <tr>
+                                            <td class="pv-prod-img-cell">
+                                                {if $lancPesq[i].img_src}
+                                                <span class="pv-prod-img-wrap" title="Passe o mouse para ampliar; clique para abrir em tamanho maior">
+                                                    <button type="button" class="pv-prod-img-trigger"
+                                                        data-src="{$lancPesq[i].img_src|escape:'html'}"
+                                                        data-desc="{$lancPesq[i].DESCRICAO|escape:'html'}">
+                                                        <img class="pv-prod-thumb" src="{$lancPesq[i].img_src}" alt="{$lancPesq[i].DESCRICAO|escape:'html'}" onerror="this.style.display='none'">
+                                                    </button>
+                                                </span>
+                                                {/if}
+                                            </td>
                                             <td> {$lancPesq[i].CODFABRICANTE} </td>
                                             <td> {$lancPesq[i].DESCRICAO} </td>
                                             <td class="price-value"> {$lancPesq[i].QUANTIDADE|number_format:2:",":"."} </td>
@@ -392,4 +424,33 @@
 
 </div>
 
+<div class="modal fade" id="modalProdutoImagem" tabindex="-1" role="dialog" aria-labelledby="modalProdutoImagemTitulo">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Fechar"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="modalProdutoImagemTitulo"></h4>
+      </div>
+      <div class="modal-body text-center" style="padding:15px;">
+        <img id="modalProdutoImagemImg" src="" alt="" style="max-width:100%; max-height:75vh; width:auto; height:auto; object-fit:contain;">
+      </div>
+    </div>
+  </div>
+</div>
+
 {include file="template/form.inc"}
+<script type="text/javascript">
+(function () {
+  if (typeof jQuery === 'undefined') { return; }
+  jQuery(document).on('click', '.pv-prod-img-trigger', function (e) {
+    e.preventDefault();
+    var $t = jQuery(this);
+    var src = $t.data('src');
+    var desc = $t.data('desc') || '';
+    if (!src) { return; }
+    jQuery('#modalProdutoImagemImg').attr('src', src).attr('alt', desc);
+    jQuery('#modalProdutoImagemTitulo').text(desc);
+    jQuery('#modalProdutoImagem').modal('show');
+  });
+})();
+</script>

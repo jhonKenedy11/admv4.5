@@ -1,0 +1,163 @@
+{
+  "manifestVersion": 1,
+  "updatedAt": "2026-05-07",
+  "baseUrlPath": "manual",
+  "modulos": [
+    {
+      "id": "ped",
+      "titulo": "Pedidos",
+      "ordem": 10,
+      "manuais": [
+        {
+          "id": "pedido_pecas_servicos",
+          "titulo": "Pedido — peças e serviços",
+          "descricao": "Passo a passo para montar cotação e pedido: cliente, condição de pagamento, peças e serviços, situações (cotação → pedido), botões Confirmar e Pedido, e bloqueios da tela.",
+          "arquivo": "ped/pedidops.pdf",
+          "ordem": 10,
+          "idioma": "pt-BR"
+        },
+        {
+          "id": "gerencia_pedidos",
+          "titulo": "Gerência de pedidos",
+          "descricao": "Tela de gerência: pedidos confirmados (conferência, financeiro produtos/serviços) e lista para emitir NF; filtros por dia, mês ou todos e agrupamento de pedidos quando aplicável.",
+          "arquivo": "ped/gerenciapedido.pdf",
+          "ordem": 20,
+          "idioma": "pt-BR"
+        }
+      ]
+    },
+    {
+      "id": "est",
+      "titulo": "Estoque",
+      "ordem": 20,
+      "manuais": [
+        {
+          "id": "cadastro_produto",
+          "titulo": "Cadastro de produto",
+          "descricao": "Como cadastrar e manter produtos usados em vendas e movimentações: dados principais, tributação, estoque e campos usados no dia a dia.",
+          "arquivo": "est/cadastroproduto.pdf",
+          "ordem": 10,
+          "idioma": "pt-BR"
+        },
+        {
+          "id": "nf_entrada",
+          "titulo": "Entrada de nota fiscal",
+          "descricao": "Procedimento de entrada de NF no estoque (fluxo coberto pelo PDF do cliente).",
+          "arquivo": "est/nfentrada.pdf",
+          "ordem": 20,
+          "idioma": "pt-BR"
+        },
+        {
+          "id": "nf_devolucao",
+          "titulo": "NF de devolução",
+          "descricao": "Fluxo para registrar devolução com nota fiscal: origem da operação, vínculo com NF anterior e impacto no estoque.",
+          "arquivo": "est/nfdevolucao.pdf",
+          "ordem": 30,
+          "idioma": "pt-BR"
+        },
+        {
+          "id": "inventario",
+          "titulo": "Inventário",
+          "descricao": "Procedimento de inventário físico no sistema: conferência de saldos, ajustes e fechamento conforme o processo da empresa.",
+          "arquivo": "est/inventario.pdf",
+          "ordem": 40,
+          "idioma": "pt-BR"
+        },
+        {
+          "id": "envio_nota_boleto",
+          "titulo": "Envio de nota e boleto pela nota",
+          "descricao": "Como enviar ao cliente a documentação fiscal e o boleto a partir da nota emitida (e-mail ou fluxo configurado).",
+          "arquivo": "est/enviodenotaeboletopelanota.pdf",
+          "ordem": 50,
+          "idioma": "pt-BR"
+        }
+      ]
+    },
+    {
+      "id": "fin",
+      "titulo": "Financeiro",
+      "ordem": 30,
+      "manuais": [
+        {
+          "id": "lancamento_cadastro",
+          "titulo": "Cadastro de lançamento",
+          "descricao": "Inclusão e alteração de lançamentos financeiros (contas a pagar/receber), campos principais e confirmação.",
+          "arquivo": "fin/Lancamentocadastro.pdf",
+          "ordem": 10,
+          "idioma": "pt-BR"
+        },
+        {
+          "id": "lancamento_edicao",
+          "titulo": "Edição de lançamento",
+          "descricao": "Alteração de lançamento já existente: abas, dados da nota e regras da tela.",
+          "arquivo": "fin/editarlancamento.pdf",
+          "ordem": 20,
+          "idioma": "pt-BR"
+        },
+        {
+          "id": "acrescentar_parcela",
+          "titulo": "Acrescentar parcelas",
+          "descricao": "Inclusão de parcelas adicionais a partir de um lançamento em alteração (menu de ferramentas).",
+          "arquivo": "fin/acrescentarParcela.pdf",
+          "ordem": 30,
+          "idioma": "pt-BR"
+        },
+        {
+          "id": "lancamento_lote",
+          "titulo": "Lançamento em lote",
+          "descricao": "Geração de lançamentos em lote por atividade a partir de um lançamento base.",
+          "arquivo": "fin/lancamentolote.pdf",
+          "ordem": 40,
+          "idioma": "pt-BR"
+        },
+        {
+          "id": "baixa_lote",
+          "titulo": "Baixa em lote",
+          "descricao": "Baixa de vários títulos de uma vez na consulta de lançamentos.",
+          "arquivo": "fin/baixaemlote.pdf",
+          "ordem": 50,
+          "idioma": "pt-BR"
+        },
+        {
+          "id": "atualizar_juros",
+          "titulo": "Atualizar juros",
+          "descricao": "Atualização de juros em massa a partir da consulta de lançamentos.",
+          "arquivo": "fin/atualizarjuros.pdf",
+          "ordem": 60,
+          "idioma": "pt-BR"
+        },
+        {
+          "id": "agrupa_lancamentos",
+          "titulo": "Agrupar lançamentos",
+          "descricao": "Agrupamento de dois ou mais títulos em um único lançamento (mesma pessoa e tipo de documento).",
+          "arquivo": "fin/agrupalancamento.pdf",
+          "ordem": 70,
+          "idioma": "pt-BR"
+        },
+        {
+          "id": "slip_lote",
+          "titulo": "Slip em lote",
+          "descricao": "Impressão de slips para vários lançamentos selecionados na consulta.",
+          "arquivo": "fin/sliplote.pdf",
+          "ordem": 80,
+          "idioma": "pt-BR"
+        }
+      ]
+    },
+    {
+      "id": "crm",
+      "titulo": "Contas",
+      "ordem": 40,
+      "manuais": [
+        {
+          "id": "contas_cadastro",
+          "titulo": "Cadastro de contas",
+          "descricao": "Cadastro e alteração de pessoas/contas (clientes, fornecedores e perfis): dados gerais, contatos, endereços e pontos usados em pedido e fiscal.",
+          "arquivo": "crm/contascadastro.pdf",
+          "ordem": 10,
+          "idioma": "pt-BR"
+        }
+      ]
+    }
+  ]
+}

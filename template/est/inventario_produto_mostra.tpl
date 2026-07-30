@@ -137,7 +137,7 @@
                             {if $btnAddInventario == true}
                                 {if $gerarInventario neq 'disabled' && $gerarInventario neq 'false'}
                                     <li>
-                                        <button type="button" class="btn btn-primary" onClick="javascript:ajaxGerarInventario();">
+                                        <button type="button" class="btn btn-primary" onClick="ajaxGerarInventario();">
                                             <span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span> Gerar Inventário</span>
                                         </button>
                                     </li>

@@ -79,7 +79,7 @@
                     <table id="datatable-buttons" class="table table-bordered jambo_table">
 
                             <thead>
-                                <tr style="background: #2A3F54; color: white;">
+                                <tr class="headings">
                                     <th>Pedido</th>
                                     <th>Data</th>
                                     <th>Situacao</th>

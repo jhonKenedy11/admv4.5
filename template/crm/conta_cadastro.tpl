@@ -102,6 +102,61 @@
         margin: 1px;
         flex: 1;
     }
+
+    body.modal-open .daterangepicker {
+        z-index: 1200 !important;
+    }
+
+    .info-campo-trigger {
+        cursor: pointer;
+    }
+
+    .info-campo-dados {
+        display: none !important;
+    }
+
+    #modalInfoCampoSubtitulo {
+        font-size: 14px;
+        font-weight: 600;
+        color: #73879C;
+        margin: 0 0 12px;
+    }
+
+    #modalInfoCampoGif {
+        margin-bottom: 15px;
+        text-align: center;
+    }
+
+    #modalInfoCampoGif img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 5px;
+        border: 1px solid #e5e5e5;
+    }
+
+    #modalInfoCampoTexto {
+        font-size: 13px;
+        line-height: 1.6;
+        color: #555;
+    }
+
+    #ModalInfoCampo {
+        z-index: 10050 !important;
+    }
+
+    #ModalInfoCampo.in {
+        display: block !important;
+        opacity: 1 !important;
+    }
+
+    #ModalInfoCampo .modal-dialog {
+        z-index: 10051;
+        margin: 30px auto;
+    }
+
+    body.modal-open .modal-backdrop {
+        z-index: 10040 !important;
+    }
 </style>
 
 <script type="text/javascript" src="{$pathJs}/crm/s_conta.js"> </script>
@@ -198,7 +253,7 @@
                                     <label for="cnpjCpf">*CNPJ/CPF</label>
                                     <input class="form-control" maxlength="14" type="text" id="cnpjCpf" name="cnpjCpf"
                                         placeholder="Digite somente numeros." title="Digite CNPJ/CPF somente numeros."
-                                        onblur="showHint(this.value);" value={$cnpjCpf}>
+                                        onchange="showHint(this);" value={$cnpjCpf}>
                                 </div>
 
                                 <div class="col-md-3 col-sm-12 col-xs-12">
@@ -211,7 +266,7 @@
                                     <label for="im">Insc. Municipal</label>
                                     <input class="form-control" maxlength="10" type="text" id="im" name="im"
                                         placeholder="Digite somente numeros." title="Digite a IM somente numeros."
-                                        value={$im}>
+                                        oninput="showHint(this);" value={$im}>
                                 </div>
                             </div>
 
@@ -286,7 +341,7 @@
 
                                 <div class="col-md-6 col-sm-6 col-xs-6">
                                     <input type="text" class="form-control has-feedback-left" placeholder="Email"
-                                        id="email" name="email" value={$email}>
+                                        id="email" name="email" value={$email} maxlength="60">
                                     <span class="fa fa-at form-control-feedback left" aria-hidden="true"></span>
                                 </div>
 
@@ -342,7 +397,7 @@
 
                                                 <li role="presentation" class="">
                                                     <a href="#tab_content4" id="tributos-tab" role="tab"
-                                                        data-toggle="tab" aria-expanded="true">Tributos</a>
+                                                        data-toggle="tab" aria-expanded="true">Configurações / Tributos</a>
                                                 </li>
 
                                                 {if $id != ""}
@@ -411,8 +466,8 @@
                                                         <div class="col-md-3 col-sm-12 col-xs-12">
                                                             <label for="codMunicipio">C&oacute;digo do Municipio</label>
                                                             <input class="form-control" maxlength="7" type="text"
-                                                                id="codMunicipio" name="codMunicipio" readonly
-                                                                placeholder="Numero" value={$codMunicipio}>
+                                                                id="codMunicipio" name="codMunicipio"
+                                                                placeholder="Codigo IBGE" value={$codMunicipio}>
                                                         </div>
 
                                                         <div class="col-md-6 col-sm-6 col-xs-6">
@@ -473,6 +528,12 @@
                                             aria-labelledby="profile-tab">
                                             <div class="panel-body">
                                                 <div class="x_panel">
+                                                    <div style="text-align: right; margin-bottom: 10px;">
+                                                        <button type="button" class="btn btn-success btn-xs"
+                                                            onclick="abrirModalCredito()">
+                                                            <i class="fa fa-plus"></i> Novo Crédito
+                                                        </button>
+                                                    </div>
                                                     <table id="datatable-cc"
                                                         class="table table-bordered jambo_table col-md-8">
                                                         <thead>
@@ -483,45 +544,14 @@
                                                                 <th width="15%">Unitario</th>
                                                                 <th width="15%">Valor</th>
                                                                 <th width="19%">Valor Utilizado</th>
-                                                                <th width="19%">PED Utilizado</th>
-                                                                <th></th>
+                                                                <th width="15%">Saldo</th>
+                                                                <th width="19%">Pedido Utilizado</th>
+                                                                <th width="18%">Emissão</th>
+                                                                <th style="width: 140px; text-align: center;">Ações</th>
                                                             </tr>
                                                         </thead>
-                                                        <tbody>
-                                                            {assign var="total" value="0"}
-                                                            {assign var="utilizado" value="0"}
-                                                            {section name=i loop=$credito}
-                                                                {assign var="valorTotal" value=$valorTotal+$credito[i].VALOR}
-                                                                {assign var="valorUtilizado" value=$valorUtilizado+$credito[i].UTILIZADO}
-
-                                                                <tr>
-                                                                    <td name="pedido"> {$credito[i].PEDIDO} </td>
-                                                                    <td name="nritem"> {$credito[i].NRITEM} </td>
-                                                                    <td name="quantidade"> {$credito[i].QUANTIDADE} </td>
-                                                                    <td name="unitario"> {$credito[i].UNITARIO} </td>
-                                                                    <td name="valor"> {$credito[i].VALOR} </td>
-                                                                    <td name="credutilizado"> {$credito[i].UTILIZADO} </td>
-                                                                    <td name="pedutilizado"> {$credito[i].PEDIDOUTILIZADO}
-                                                                    </td>
-                                                                    <td>
-                                                                        <a
-                                                                            href="javascript:submitExcluirCredito('{$credito[i].ID}');"><i
-                                                                                class="fa fa-trash fa-lg red"
-                                                                                aria-hidden="true"></i></a>
-                                                                    </td>
-                                                                </tr>
-                                                                <p>
-                                                                {/section}
-                                                                <tr>
-                                                                    <td>Totais</td>
-                                                                    <td></td>
-                                                                    <td></td>
-                                                                    <td></td>
-                                                                    <td>R$ {$valorTotal|number_format:2:",":"."}</td>
-                                                                    <td>R$ {$valorUtilizado|number_format:2:",":"."}
-                                                                    </td>
-                                                                    <td></td>
-                                                                </tr>
+                                                        <tbody id="lista-creditos">
+                                                            {* O conteúdo deste tbody será preenchido via JavaScript *}
                                                         </tbody>
                                                     </table>
 
@@ -568,35 +598,58 @@
                                             <div class="panel-body">
                                                 <div class="x_panel">
                                                     <div class="form-group">
-                                                        <div class="col-md-2 col-sm-12 col-xs-12">
-                                                            <label for="suframa">Suframa</label>
-                                                            <input class="form-control input-sm" maxlength="10" type="text"
-                                                                id="suframa" name="suframa"
-                                                                placeholder="Digite somente numeros."
-                                                                title="C&oacute;digo Suframa." value={$suframa}>
-                                                        </div>
-                                                        <div class="col-md-2 col-sm-12 col-xs-12">
-                                                            <label for="limiteCredito">Limite Cr&eacute;dito</label>
-                                                            <input class="form-control input-sm" maxlength="10" type="text"
-                                                                id="limiteCredito" name="limiteCredito"
-                                                                placeholder="Digite somente numeros."
-                                                                title="Limite de cr&eacute;dito venda."
-                                                                value={$limiteCredito}>
-                                                        </div>
                                                         <div class="col-md-8 col-sm-8 col-xs-8">
                                                             <label for="emailNfe">Email Nfe</label>
                                                             <div class="form-group input-group input-group-sm">
+                                                                <span class="input-group-addon info-campo-trigger" title="Clique para mais informações">
+                                                                    <i class="fa fa-info-circle text-purple"></i>
+
+                                                                    <!-- Modal informativo sobre o email Nfe -->
+                                                                    <span class="info-campo-dados" hidden>
+                                                                        <span data-info="titulo-modal">Email NF-e</span>
+                                                                        <span data-info="subtitulo">Envio para múltiplos destinatários</span>
+                                                                        <span data-info="gif"></span>
+                                                                        <span data-info="texto">
+                                                                            <p>Para enviar nota fiscal e boleto para mais de um e-mail, separe os endereços com ponto e vírgula (;).</p>
+                                                                            <p><strong>Exemplo:</strong> cliente@email.com.br;financeiro@email.com.br</p>
+                                                                        </span>
+                                                                    </span>
+                                                                    <!-- Fim Modal informativo sobre o email Nfe -->
+
+                                                                </span>
                                                                 <input type="text" class="form-control input-sm"
                                                                     placeholder="Ex: email1@empresa.com.br;email2@empresa.com.br" id="emailNfe"
                                                                     name="emailNfe" value={$emailNfe}>
-                                                                <span class="input-group-addon">
-                                                                    <i class="fa fa-info-circle text-purple" data-toggle="tooltip" title="Para enviar nota fiscal e boleto para múltiplos destinatários, separe os emails com ponto e vírgula (;). Exemplo: cliente@email.com.br;financeiro@email.com.br"></i>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-md-4 col-sm-4 col-xs-4">
+                                                            <label for="geraBoletoAutomatico">Gera Boleto Automático</label>
+                                                            <div class="form-group input-group input-group-sm">
+                                                                <span class="input-group-addon info-campo-trigger" title="Clique para ver o resumo do processo">
+                                                                    <i class="fa fa-info-circle text-purple"></i>
+                                                                    
+                                                                    <!-- Modal informativo sobre o gera boleto automático -->
+                                                                    <span class="info-campo-dados" hidden>
+                                                                        <span data-info="titulo-modal">Gera Boleto Automático</span>
+                                                                        <span data-info="subtitulo">Resumo do processo</span>
+                                                                        <span data-info="gif"></span>
+                                                                        <span data-info="texto">
+                                                                            <p>Define se, após a emissão da nota fiscal, o sistema abre automaticamente a tela de boletos bancários para registro e impressão.</p>
+                                                                            <p>Com <strong>Sim</strong>, o fluxo de boletos é iniciado sem ação manual. Com <strong>Não</strong>, o usuário acessa a rotina de boletos quando necessário.</p>
+                                                                        </span>
+                                                                    </span>
+                                                                    <!-- Fim Modal informativo sobre o gera boleto automático -->
                                                                 </span>
+                                                                <select class="form-control input-sm" name="geraBoletoAutomatico"
+                                                                    id="geraBoletoAutomatico" title="Gera Boleto Automático.">
+                                                                    {html_options values=$boolean_ids selected=$geraBoletoAutomatico output=$boolean_names}
+                                                                </select>
                                                             </div>
                                                         </div>
                                                     </div>
+
                                                     <div class="form-group">
-                                                        <div class="col-md-2 col-sm-12 col-xs-12">
+                                                        <div class="col-md-3 col-sm-12 col-xs-12">
                                                             <label for="regimeEspecialST">Regime Esp. ST</label>
                                                             <select class="form-control input-sm" name="regimeEspecialST"
                                                                 id="regimeEspecialST" title="Regime especial ST.">
@@ -604,7 +657,7 @@
                                                             </select>
                                                         </div>
 
-                                                        <div class="col-md-2 col-sm-12 col-xs-12">
+                                                        <div class="col-md-3 col-sm-12 col-xs-12">
                                                             <label for="regimeEspecialSTMT">Regime especial ST
                                                                 MT</label>
                                                             <select class="form-control input-sm" name="regimeEspecialSTMT"
@@ -613,7 +666,7 @@
                                                             </select>
                                                         </div>
 
-                                                        <div class="col-md-2 col-sm-12 col-xs-12">
+                                                        <div class="col-md-3 col-sm-12 col-xs-12">
                                                             <label for="contribuinteICMS">Contribuinte de ICMS</label>
                                                             <select class="form-control input-sm" name="contribuinteICMS"
                                                                 id="contribuinteICMS" title="Contribuinte de ICMS.">
@@ -621,15 +674,17 @@
                                                             </select>
                                                         </div>
 
-                                                        <div class="col-md-2 col-sm-12 col-xs-12">
+                                                        <div class="col-md-3 col-sm-12 col-xs-12">
                                                             <label for="consumidorFinal">Consumidor Final</label>
                                                             <select class="form-control input-sm" name="consumidorFinal"
                                                                 id="consumidorFinal" title="Consumidor final.">
                                                                 {html_options values=$boolean_ids selected=$consumidorFinal output=$boolean_names}
                                                             </select>
                                                         </div>
+                                                    </div>
 
-                                                        <div class="col-md-2 col-sm-12 col-xs-12">
+                                                    <div class="form-group">
+                                                        <div class="col-md-3 col-sm-12 col-xs-12">
                                                             <label for="regimeEspecialSTMTAliq">Regime esp ST MT
                                                                 Aliq</label>
                                                             <input class="form-control input-sm" id="regimeEspecialSTMTAliq"
@@ -637,22 +692,40 @@
                                                                 value={$regimeEspecialSTMTAliq}>
                                                         </div>
 
-                                                        <div class="col-md-2 col-sm-12 col-xs-12">
+                                                        <div class="col-md-3 col-sm-12 col-xs-12">
                                                             <label for="regimeEspecialSTAliq">Regime esp ST Aliq</label>
                                                             <input class="form-control input-sm" id="regimeEspecialSTAliq"
                                                                 name="regimeEspecialSTAliq"
                                                                 value={$regimeEspecialSTAliq}>
                                                         </div>
 
+
+                                                        <div class="col-md-3 col-sm-12 col-xs-12">
+                                                            <label for="suframa">Suframa</label>
+                                                            <input class="form-control input-sm" maxlength="10" type="text"
+                                                                id="suframa" name="suframa"
+                                                                placeholder="Digite somente numeros."
+                                                                title="C&oacute;digo Suframa." value={$suframa}>
+                                                        </div>
+
+                                                        
+                                                        <div class="col-md-3 col-sm-12 col-xs-12">
+                                                            <label for="limiteCredito">Limite Cr&eacute;dito</label>
+                                                            <input class="form-control input-sm money" maxlength="22" type="text"
+                                                                id="limiteCredito" name="limiteCredito"
+                                                                placeholder="0,00"
+                                                                title="Limite de cr&eacute;dito venda."
+                                                                value={$limiteCredito}>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="form-group">
                                                         <div class="col-md-12 col-sm-12 col-xs-12">
                                                             <label for="regimeEspecialSTMsg">Regime Esp. ST MSg</label>
                                                             <textarea class="resizable_textarea form-control"
                                                                 id="regimeEspecialSTMsg" name="regimeEspecialSTMsg"
                                                                 rows="3">{$regimeEspecialSTMsg}</textarea>
                                                         </div>
-                                                    </div>
-                                                    <div class="form-group">
-
                                                     </div>
 
                                                 </div> <!-- FIM class="x_panel" -->
@@ -728,7 +801,7 @@
                                                             <div style="text-align: right; margin-bottom: 10px;">
                                                                 <button type="button" class="btn btn-success btn-xs"
                                                                     data-toggle="modal" data-target="#ModalAddress"
-                                                                    onclick="javascript:openModalAddress(null, {$id}, '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'A')">
+                                                                    onclick="javascript:openModalAddress(null, {$id}, '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'A', '')">
                                                                     <i class="fa fa-plus"></i> Novo Endereço
                                                                 </button>
                                                             </div>
@@ -772,7 +845,7 @@
                                                                                                         '{$deliveryAddress[k].NUMERO}', '{$deliveryAddress[k].COMPLEMENTO}', '{$deliveryAddress[k].BAIRRO}',
                                                                                                         '{$deliveryAddress[k].CIDADE}', '{$deliveryAddress[k].UF}', '{$deliveryAddress[k].CEP}', '{$deliveryAddress[k].FONEAREA}',
                                                                                                         '{$deliveryAddress[k].FONE}', '{$deliveryAddress[k].FONERAMAL}', '{$deliveryAddress[k].FONECONTATO}', 
-                                                                                                        '{$deliveryAddress[k].ENDENTREGAPADRAO}', '{$deliveryAddress[k].STATUS}')"
+                                                                                                        '{$deliveryAddress[k].ENDENTREGAPADRAO}', '{$deliveryAddress[k].STATUS}', '{$deliveryAddress[k].CODMUNICIPIO|default:""}')"
                                                                                     aria-hidden="true">
                                                                             </center></i>
                                                                         </a>
@@ -830,48 +903,73 @@
     </div>
 </div>
 
-<!-- Modal -->
-<div class="modal fade" id="ModalBonus" tabindex="-1" role="dialog" aria-labelledby="ModalBonus" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content modal-dialog-centered modal-bonus">
+<!-- MODAL CREDITO -->
+<div class="modal fade" id="ModalCredito" tabindex="-1" role="dialog" aria-labelledby="ModalCredito" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content modal-dialog-centered">
             <div class="modal-header">
-                <h5 class="modal-title" id="exampleModalLongTitle">Adiciona B&ocirc;nus</h5>
+                <h5 class="modal-title" id="modalCreditoTitle"></h5>
                 <button type="button" class="close btnFecha" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
 
             <div class="modal-body">
-                <div class="input-group col-md-10 col-sm-10 col-xs-10 inputBonus">
-                    <span class="input-group-addon">Pedido</span>
-                    <input id="pedidoId" type="text" class="form-control  col-md-6" readonly maxlength="10"
-                        name="pedidoId" value="{$pedidoId}">
-                </div>
-                <div class="input-group col-md-10 col-sm-10 col-xs-10 inputBonus">
-                    <span class="input-group-addon">N&#186; Item</span>
-                    <input id="nrItem" type="text" class="form-control  col-md-6" readonly maxlength="10" name="nrItem"
-                        value="{$nrItem}">
-                </div>
-            </div>
+                <form id="formCredito">
+                    <input type="hidden" id="id_credito_modal" name="id_credito" value="">
+                    <input type="hidden" id="cliente_credito_modal" name="cliente_id" value="{$id}">
 
-            <div class="modal-body">
-                <div class="input-group col-md-10 col-sm-10 col-xs-10 inputBonus2">
-                    <span class="input-group-addon">Valor</span>
-                    <input id="vlrBonus" type="text" class="form-control money" maxlength="10" name="vlrBonus"
-                        placeholder="Valor do bonus" value="{$vlrBonus}">
-                </div>
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6 col-xs-6 form-group">
+                            <label for="pedido_credito_modal">Pedido</label>
+                            <input id="pedido_credito_modal" type="text" class="form-control" maxlength="11" name="pedido">
+                        </div>
+                        <div class="col-md-3 col-sm-6 col-xs-6 form-group">
+                            <label for="nritem_credito_modal">Numero do Item</label>
+                            <input id="nritem_credito_modal" type="text" class="form-control" maxlength="6" name="nritem">
+                        </div>
+                        <div class="col-md-3 col-sm-6 col-xs-6 form-group">
+                            <label for="emissao_credito_modal">Emissão</label>
+                            <input id="emissao_credito_modal" type="text" class="form-control" name="emissao"
+                                placeholder="Ex:01/01/2020" autocomplete="off"
+                                data-inputmask="'mask':'99/99/9999'">
+                        </div>
+                        <div class="col-md-3 col-sm-6 col-xs-6 form-group">
+                            <label for="pedidoutilizado_credito_modal">Pedido Utilizado</label>
+                            <input id="pedidoutilizado_credito_modal" type="text" class="form-control" maxlength="20" name="pedidoutilizado">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-3 col-sm-6 col-xs-6 form-group">
+                            <label for="quantidade_credito_modal">Quantidade</label>
+                            <input id="quantidade_credito_modal" type="text" class="form-control money" name="quantidade" value="0,00">
+                        </div>
+                        <div class="col-md-3 col-sm-6 col-xs-6 form-group">
+                            <label for="unitario_credito_modal">Unitário</label>
+                            <input id="unitario_credito_modal" type="text" class="form-control money" name="unitario" value="0,00">
+                        </div>
+                        <div class="col-md-3 col-sm-6 col-xs-6 form-group">
+                            <label for="valor_credito_modal">Valor</label>
+                            <input id="valor_credito_modal" type="text" class="form-control money" name="valor" value="0,00">
+                        </div>
+                        <div class="col-md-3 col-sm-6 col-xs-6 form-group">
+                            <label for="utilizado_credito_modal">Utilizado</label>
+                            <input id="utilizado_credito_modal" type="text" class="form-control money" name="utilizado" value="0,00">
+                        </div>
+                    </div>
+                </form>
             </div>
 
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="btnCancelar" data-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary"
-                    onclick="javascript:submitCadastraCredito()">Salvar</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="limparModalCredito()">Limpar Formulário</button>
+                <button type="button" class="btn" id="btnSalvarAtualizarCredito" onclick="salvarCredito()"></button>
             </div>
-
         </div>
     </div>
 </div>
-<!--Fim myModal -->
+<!-- END MODAL CREDITO -->
 
 <!-- MODAL DELIVERY ADDRESS -->
 <div class="modal fade" id="ModalAddress" tabindex="-1" role="dialog" aria-labelledby="ModalAddress" aria-hidden="true">
@@ -959,18 +1057,24 @@
                         <input class="form-control" maxlength="20" type="text" id="bairro-address" name="bairro-address"
                             placeholder="Bairro" value={$bairro_address}>
                     </div>
-                    <div class="col-md-6 col-sm-6 col-xs-6">
+                    <div class="col-md-4 col-sm-6 col-xs-6">
                         <span class="fa fa-home" aria-hidden="true"></span>
                         <label for="cidade-address" class="col-form-label">Cidade</label>
                         <input class="form-control" maxlength="40" type="text" id="cidade-address" name="cidade-address"
                             placeholder="Cidade" value={$cidade_address}>
                     </div>
-                    <div class="col-md-3 col-sm-6 col-xs-6">
+                    <div class="col-md-2 col-sm-6 col-xs-6">
                         <span class="fa fa-home" aria-hidden="true"></span>
                         <label for="estado-address" class="col-form-label">Estado</label>
                         <SELECT class="form-control" name="estado-address" id="estado-address">
                             {html_options values=$estado_ids output=$estado_names selected=$estado_id}
                         </SELECT>
+                    </div>
+                    <div class="col-md-3 col-sm-6 col-xs-6">
+                        <span class="fa fa-home" aria-hidden="true"></span>
+                        <label for="codmunicipio-address" class="col-form-label">Cód. Município</label>
+                        <input class="form-control" type="text" id="codmunicipio-address" name="codmunicipio-address" 
+                            placeholder="Cód. Município" value="" maxlength="7">
                     </div>
                     <div class="" hidden>
                         <input type="text" id="id-address" name="id-address" value={$id_address}>
@@ -1110,8 +1214,34 @@
     {include file="template/form.inc"}
     </form>
 
+    <!-- MODAL INFORMATIVO CAMPO (fora do form — conteúdo dinâmico via JS) -->
+    <div class="modal" id="ModalInfoCampo" tabindex="-1" role="dialog" aria-labelledby="ModalInfoCampo" aria-hidden="true">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalInfoCampoTitulo"></h5>
+                    <button type="button" class="close btnFecha" data-dismiss="modal">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <h6 id="modalInfoCampoSubtitulo"></h6>
+                    <div id="modalInfoCampoGif"></div>
+                    <div id="modalInfoCampoTexto"></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         $(function() {
+            initModalInfoCampo();
+
             // Ativar tooltip do Bootstrap 3
             $('[data-toggle="tooltip"]').tooltip();
 
@@ -1127,6 +1257,19 @@
                     ],
                 }
 
+            });
+
+            $('#emissao_credito_modal').daterangepicker({
+                singleDatePicker: true,
+                calender_style: 'picker_1',
+                parentEl: '#ModalCredito',
+                locale: {
+                    format: 'DD/MM/YYYY',
+                    daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
+                    monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho',
+                        'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                    ],
+                }
             });
         });
     </script>
@@ -1147,5 +1290,6 @@
     <script>
         $(document).ready(function() {
             carregarListaObras();
+            carregarListaCreditos();
         });
 </script>

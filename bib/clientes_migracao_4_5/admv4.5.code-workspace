@@ -1,0 +1,53 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"path": "../../../bootstrap"
+		},
+		{
+			"path": "../../../concreta"
+		},
+		{
+			"path": "../../../maxifarma"
+		},
+		{
+			"path": "../../../hiperfarma"
+		},
+		{
+			"path": "../../../tratorvalsc"
+		},
+		{
+			"path": "../../../telhagres"
+		},
+		{
+			"path": "../../../tork"
+		},
+		{
+			"path": "../../../guarani"
+		},
+		{
+			"path": "../../../robotics"
+		},
+		{
+			"path": "../../../requemaq"
+		},
+		{
+			"path": "../../../betonex"
+		},
+		{
+			"path": "../../../la"
+		},
+		{
+			"path": "../../../modena"
+		},
+		{
+			"path": "../../../bianco"
+		},
+		{
+			"path": "../../../ivemar"
+		}
+	],
+	"settings": {}
+}

@@ -1,14 +1,12 @@
 function bloquearRecarregamento(event) {
     // Verifica se a tecla pressionada é F5 ou se a combinação Ctrl+R foi usada
     if ((event.key === 'F5' || (event.ctrlKey && event.key === 'r')) || (event.key === 'F5' || (event.ctrlKey && event.key === 'R'))) {
-      // Impede o comportamento padrão de recarregar a página
       event.preventDefault();
-      // Exibe uma mensagem de aviso (opcional)
-       swal.fire({
-        title:"Atenção!",
-        text:"Recarregamento da página desativado!",
-        icon:"warning"});
-
+      Swal.fire({
+        title: "Atenção!",
+        text: "Recarregamento da página desativado!",
+        icon: "warning"
+      });
     }
 }
 
@@ -64,27 +62,28 @@ window.onload = function() {
         }
     }
     
-    if(document.getElementById('xml_arq').value !== ''){
-    
+    var xmlToken = document.getElementById('xml_token').value.trim();
+    if (xmlToken !== '') {
         var chevron = document.getElementsByName("btnCollapse")[0];
         if (chevron) {
             chevron.click();
         }
     }
 
-     
     var botaoCadastrar = document.getElementById('bnt_cadastrar');
     var tableDisagreements = document.getElementById('tableDisagreements');
 
     if (tableDisagreements) {
-        if (botaoCadastrar.style.display === 'none' || botaoCadastrar.style.display === '') {
+        if (botaoCadastrar && (botaoCadastrar.style.display === 'none' || botaoCadastrar.style.display === '')) {
             botaoCadastrar.style.display = 'none';
         }
     } else {
-        if(document.getElementById('xml_arq').value !== '' && botaoCadastrar.style.display === ''){
-            botaoCadastrar.style.display = 'block';
-        }else{
-            botaoCadastrar.style.display = 'none';
+        if (botaoCadastrar) {
+            if (xmlToken !== '' && botaoCadastrar.style.display === '') {
+                botaoCadastrar.style.display = 'block';
+            } else {
+                botaoCadastrar.style.display = 'none';
+            }
         }
     }
     
@@ -299,33 +298,29 @@ function submitConfirmar() {
 function submitVoltar() {
     f = document.upload;
     f.opcao.value = '';
-    f.submenu.value = '';ad
+    f.submenu.value = '';
     f.submit();
 } // fim submitVoltar
 
 function submitVoltarFinanceiro() {
-     
-     swal.fire({
+    Swal.fire({
         title: "Atenção!",
         text: "Nota fiscal já processada, deseja cancelar o financeiro e voltar?",
         icon: "warning",
-        buttons: ["Cancelar","Sim"],
-    })
-    .then((yes) => {
-         
-        if (yes) {
-            
-            f = document.lancamento;
-            f.opcao.value = '';
-            f.submenu.value = '';
-            f.submit();
-
-        } else {
-            return false
+        showCancelButton: true,
+        confirmButtonText: "Sim",
+        cancelButtonText: "Cancelar"
+    }).then(function(result) {
+        if (result && result.isConfirmed) {
+            var f = document.lancamento;
+            if (f) {
+                f.opcao.value = '';
+                f.submenu.value = '';
+                f.submit();
+            }
         }
     });
-
-} // fim submitVoltar
+} // fim submitVoltarFinanceiro
 
 // mostra Cadastro
 function submitPesquisa() {
@@ -337,47 +332,82 @@ function submitPesquisa() {
 
 // mostra Nota Fiscal
 function submitVisualizar() {
-     
-    
-    f = document.upload;
-    //salva descricao do xml
-    const inputFile = document.getElementById('input-file');
+    var f = document.upload;
+    var inputFile = document.getElementById('input-file');
 
-    if(inputFile == ''){
-         swal.fire({
-            title:"Atenção!",
-            text:"Insira um arquivo xml para visualizar!",
-            icon:"warning"});
+    // XML já enviado (token na sessão): reexibe a tela sem exigir novo arquivo no input
+    if (document.getElementById('xml_token').value.trim() !== '') {
+        f.opcao.value = '';
+        f.submenu.value = 'mostra';
+        f.submit();
         return false;
     }
 
-    f.opcao.value = '';
-    f.submenu.value = 'mostra';
-    f.submit();
-}
+    if (!inputFile || !inputFile.files || inputFile.files.length === 0) {
+        Swal.fire({
+            title: "Atenção!",
+            text: "Insira um arquivo xml para visualizar!",
+            icon: "warning"
+        });
+        return false;
+    }
 
-
-/*function submitVisualizar() {
-    
-    var form = $("form[name=upload]");
+    var fd = new FormData();
+    fd.append('file', inputFile.files[0]);
+    fd.append('submenu', 'uploadXmlAjax');
+    fd.append('mod', 'est');
+    fd.append('form', 'nota_xml_importa');
+    fd.append('opcao', 'blank');
 
     $.ajax({
-        type: "POST",
-        url: form.action ? form.action : document.URL,
-        data: form,
-        beforeSend: function (xhr) {
-            xhr.setRequestHeader("Ajax-Request", "true");
+        type: 'POST',
+        url: f.action + (f.action.indexOf('?') >= 0 ? '&' : '?') + 'mod=est&form=nota_xml_importa&submenu=uploadXmlAjax&opcao=blank',
+        data: fd,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        beforeSend: function () {
+            Swal.fire({
+                title: 'Aguarde',
+                text: 'Enviando XML...',
+                allowOutsideClick: false,
+                didOpen: function () { Swal.showLoading(); }
+            });
         },
-        success: function (response) {
-             
-            console.log(response);
-            var result = $('<div />').append(response).find('#demo').html();
-            $("#demo").html(result);
-            
+        success: function (ret) {
+            Swal.close();
+            if (ret && ret.success && ret.token) {
+                document.getElementById('xml_token').value = ret.token;
+                document.getElementById('xml_file_name').value = inputFile.files[0].name;
+                var resumoEl = document.getElementById('xml-resumo');
+                if (resumoEl && ret.resumo) {
+                    resumoEl.style.display = 'block';
+                    resumoEl.innerHTML = '<strong>' + (ret.resumo.emitente || '') + '</strong> — NF '
+                        + (ret.resumo.numero || '') + '/' + (ret.resumo.serie || '')
+                        + ' (' + inputFile.files[0].name + ')';
+                }
+                f.opcao.value = '';
+                f.submenu.value = 'mostra';
+                f.submit();
+            } else {
+                Swal.fire({
+                    title: 'Atenção!',
+                    text: (ret && ret.message) ? ret.message : 'Falha ao carregar XML.',
+                    icon: 'warning'
+                });
+            }
+        },
+        error: function () {
+            Swal.close();
+            Swal.fire({
+                title: 'Erro',
+                text: 'Falha ao enviar o arquivo XML.',
+                icon: 'error'
+            });
         }
     });
     return false;
-} */
+}
 
 
 
@@ -386,10 +416,31 @@ function submitCadastrar() {
      
     f = document.upload;
 
+    if (f.submenu.value !== 'entradaManifesto' && document.getElementById('xml_token').value.trim() === '') {
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Xml não localizado. Faça o upload novamente.',
+            icon: 'warning'
+        });
+        return false;
+    }
+
     if(f.submenu.value === 'entradaManifesto'){
         f.param.value = 'entradaManifesto';
     }
-    
+
+    // A tabela de itens (OS por linha) é inserida via AJAX fora do form; copia os idOsItem_* para o form
+    var existing = f.querySelectorAll('input[name^="idOsItem_"]');
+    for (var e = 0; e < existing.length; e++) existing[e].remove();
+    var inputs = document.querySelectorAll('input[name^="idOsItem_"]');
+    for (var i = 0; i < inputs.length; i++) {
+        var hid = document.createElement('input');
+        hid.type = 'hidden';
+        hid.name = inputs[i].getAttribute('name');
+        hid.value = (inputs[i].value || '').trim();
+        f.appendChild(hid);
+    }
+
     f.opcao.value = '';
     f.submenu.value = 'cadastrar';
     f.submit();
@@ -409,6 +460,20 @@ function abrir(pag, xml) {
 }
 
 //function insertConta(url, windowoption, name, params)
+function agendarRevalidarAoFecharPopup(win) {
+    if (!win) {
+        return;
+    }
+    var timer = setInterval(function () {
+        if (win.closed) {
+            clearInterval(timer);
+            if (document.getElementById('xml_token').value.trim() !== '') {
+                submitValidar();
+            }
+        }
+    }, 400);
+}
+
 function submitInsertJson(params) {
      
     //add esse parametro para condicionar o novo form
@@ -433,17 +498,16 @@ function submitInsertJson(params) {
     }
 
     document.body.appendChild(form);
-    //note I am using a post.htm page since I did not want to make double request to the page 
-    //it might have some Page_Load call which might screw things up.
-    window.open("post.html", name, 'toolbar=no,location=no,menubar=no,width=1150,height=650,scrollbars=yes');
+    var win = window.open("post.html", name, 'toolbar=no,location=no,menubar=no,width=1150,height=650,scrollbars=yes');
 
     form.submit();
 
     document.body.removeChild(form);
+    agendarRevalidarAoFecharPopup(win);
 }
 
 function submitSearchJson(params) {
-     
+    
     var f = document.upload;
     var url = f.url.value;
     var name = 'Cadastro';
@@ -478,54 +542,367 @@ function submitSearchJson(params) {
     }
 
     document.body.appendChild(form);
-    //note I am using a post.htm page since I did not want to make double request to the page 
-    //it might have some Page_Load call which might screw things up.
-    window.open("post.html", name, 'toolbar=no,location=no,menubar=no,width=1150,height=650,scrollbars=yes');
+    var win = window.open("post.html", name, 'toolbar=no,location=no,menubar=no,width=1150,height=650,scrollbars=yes');
 
-    form.submit();
+    form.submit();  
 
     document.body.removeChild(form);
+    agendarRevalidarAoFecharPopup(win);
 }
 
-//OLD FUNCTION ALTER TAG - 10-julho-2023 - jhon k.
-// function mudaCodProdXml(nrItem) {
-//     f = document.upload;
+var bindEquivalentContext = null;
 
-//     var xml = f.xml_arq.value;
-
-//     prodName = "codProd"+nrItem
-//     prodDefault = document.getElementsByName(prodName)[0].defaultValue;   
-//     prodNew = document.getElementsByName(prodName)[0].value;  
-    
-//     prodOldTag = "<det nItem=\""+nrItem+"\"><prod><cProd>"+prodDefault+"</cProd>"
-//     prodNewTag = "<det nItem=\""+nrItem+"\"><prod><cProd>"+prodNew+"</cProd>"
-
-//     var xml_result = xml.replace(prodOldTag, prodNewTag);
-
-//     f.xml_arq.value = xml_result;
-
-// }
-
-//NEW FUNCTION ALTER XML
-function mudaCodProdXmlNew(code_new ,code_xml) {
-     
-
-    f = document.upload;
-    var xml = f.xml_arq.value;
-    
-    let newXml = manipularXML(xml, code_xml, code_new)
-
-    if(newXml){
-        f.xml_arq.value = newXml;
-    }else{
-         swal.fire({
-            title:"Atenção!",
-            text:"Atualização do código cancelado ou ocorreu um erro ao atualizar xml!",
-            icon:"warning"});
+function buscarEquivalentesModal() {
+    if (!bindEquivalentContext) {
+        Swal.fire({ title: "Atenção!", text: "Contexto de vinculação não localizado.", icon: "warning" });
+        return;
     }
-    console.log(newXml)
 
+    var termo = ($("#modalEquivTermo").val() || '').toString().trim();
+    if (!termo) {
+        termo = bindEquivalentContext.codigoXml || bindEquivalentContext.descricaoXml;
+        $("#modalEquivTermo").val(termo);
+    }
+
+    $.ajax({
+        type: "POST",
+        url: document.URL + "?mod=est&form=nota_xml_importa&submenu=buscarEquivalenteAjax&opcao=blank",
+        dataType: "json",
+        data: {
+            codigoXml: bindEquivalentContext.codigoXml,
+            descricaoXml: bindEquivalentContext.descricaoXml,
+            termo: termo
+        },
+        success: function (response) {
+            if (response && response.success) {
+                $("#modalEquivResultados").html(response.html || "");
+                atualizarLinhaSelecionadaEquiv();
+            } else {
+                $("#modalEquivResultados").html("<tr><td colspan='5' style='padding:8px; text-align:left;'>Nenhum produto encontrado.</td></tr>");
+            }
+        },
+        error: function () {
+            Swal.fire({ title: "Erro", text: "Falha ao buscar produtos equivalentes.", icon: "error" });
+        }
+    });
 }
+
+function atualizarLinhaSelecionadaEquiv() {
+    $("#modalEquivResultados tr.equiv-row").removeClass("equiv-row-selected");
+    var selecionado = $("#modalEquivResultados input[name='produto_equiv_sel']:checked");
+    if (selecionado.length) {
+        var linha = selecionado.closest("tr");
+        linha.addClass("equiv-row-selected");
+        var textoSelecionado = $.trim(linha.text()).replace(/\s+/g, " ");
+        $("#modalEquivSelecionadoInfo").val(textoSelecionado);
+    } else {
+        $("#modalEquivSelecionadoInfo").val("Nenhum item selecionado");
+    }
+}
+
+function setLinhaVinculoEquivalenteLoading(loading) {
+    if (!bindEquivalentContext || !bindEquivalentContext.sourceButton) {
+        return;
+    }
+
+    var botao = $(bindEquivalentContext.sourceButton);
+    var linha = botao.closest("tr");
+    var celula = botao.closest("td");
+
+    if (loading) {
+        bindEquivalentContext.sourceButtonValue = botao.val();
+        botao.prop("disabled", true).val("VINCULANDO...");
+        linha.css("opacity", "0.65");
+
+        if (!celula.find(".vinculo-equivalente-loading").length) {
+            celula.append("<span class='vinculo-equivalente-loading' style='margin-left:8px; color:#337ab7; font-weight:bold;'><span class='glyphicon glyphicon-refresh glyphicon-spin' aria-hidden='true'></span> Vinculando produto...</span>");
+        }
+    } else {
+        botao.prop("disabled", false).val(bindEquivalentContext.sourceButtonValue || "VINCULAR");
+        linha.css("opacity", "");
+        celula.find(".vinculo-equivalente-loading").remove();
+    }
+}
+
+function confirmarVinculoEquivalenteModal() {
+    if (!bindEquivalentContext) {
+        Swal.fire({ title: "Atenção!", text: "Contexto de vinculação não localizado.", icon: "warning" });
+        return;
+    }
+
+    var selected = document.querySelector("input[name='produto_equiv_sel']:checked");
+    if (!selected || !selected.value) {
+        Swal.fire({ title: "Atenção!", text: "Selecione um produto para vincular.", icon: "warning" });
+        return;
+    }
+
+    $.ajax({
+        type: "POST",
+        url: document.URL + "?mod=est&form=nota_xml_importa&submenu=vincularEquivalenteAjax&opcao=blank",
+        dataType: "json",
+        data: {
+            idProduto: selected.value,
+            pessoa: bindEquivalentContext.pessoa,
+            codigoXml: bindEquivalentContext.codigoXml
+        },
+        beforeSend: function () {
+            setLinhaVinculoEquivalenteLoading(true);
+        },
+        success: function (ret) {
+            if (ret && ret.success) {
+                $("#modalVincularEquivalente").modal("hide");
+                Swal.fire({
+                    title: "Sucesso",
+                    text: ret.message || "Equivalência vinculada com sucesso.",
+                    icon: "success"
+                }).then(function () {
+                    submitValidar();
+                });
+            } else {
+                Swal.fire({
+                    title: "Atenção!",
+                    text: (ret && ret.message) ? ret.message : "Não foi possível vincular equivalência.",
+                    icon: "warning"
+                });
+                setLinhaVinculoEquivalenteLoading(false);
+            }
+        },
+        error: function () {
+            setLinhaVinculoEquivalenteLoading(false);
+            Swal.fire({ title: "Erro", text: "Falha ao vincular equivalência.", icon: "error" });
+        }
+    });
+}
+
+function submitBindEquivalent(params) {
+    if (!params.conta.length) {
+        Swal.fire({ title: "Atenção!", text: "Dados do item não localizados.", icon: "warning" });
+        return;
+    }
+
+    var pessoa = 0;
+    var codigoXml = '';
+    var descricaoXml = '';
+    var sourceButton = document.activeElement;
+
+    if (!sourceButton || sourceButton.name !== 'button_vincular') {
+        sourceButton = null;
+    }
+
+    for (var i = 0; i < params.conta.length; i++) {
+        var campo = params.conta[i].campo;
+        var valor = params.conta[i].valor;
+
+        if (campo === 'pessoa') {
+            pessoa = valor || 0;
+        } else if (campo === 'codFabricante') {
+            codigoXml = valor || '';
+        } else if (campo === 'produtoNome') {
+            descricaoXml = valor || '';
+        }
+    }
+
+    codigoXml = codigoXml.toString().trim();
+    descricaoXml = descricaoXml.toString().trim();
+
+    if (!codigoXml && !descricaoXml) {
+        Swal.fire({ title: "Atenção!", text: "Código/descrição do item não encontrados.", icon: "warning" });
+        return;
+    }
+
+    bindEquivalentContext = {
+        pessoa: pessoa,
+        codigoXml: codigoXml,
+        descricaoXml: descricaoXml,
+        sourceButton: sourceButton || null
+    };
+
+    $("#modalOrigemCodigoXml").text(codigoXml || "-");
+    $("#modalOrigemDescricaoXml").text(descricaoXml || "-");
+    $("#modalEquivTermo").val(codigoXml || descricaoXml);
+    $("#modalEquivSelecionadoInfo").val("Nenhum item selecionado");
+    $("#modalEquivResultados").html("<tr><td colspan='5' style='padding:8px; text-align:left;'>Buscando produtos...</td></tr>");
+
+    $("#modalVincularEquivalente").modal("show");
+    buscarEquivalentesModal();
+}
+
+$(document).delegate("#btnBuscarEquivModal", "click", function () {
+    buscarEquivalentesModal();
+});
+
+$(document).delegate("#btnConfirmarEquivModal", "click", function () {
+    confirmarVinculoEquivalenteModal();
+});
+
+$(document).delegate("#modalEquivTermo", "keypress", function (e) {
+    if (e.which === 13) {
+        e.preventDefault();
+        buscarEquivalentesModal();
+    }
+});
+
+$(document).delegate("#modalVincularEquivalente", "hidden.bs.modal", function () {
+    bindEquivalentContext = null;
+    $("#modalEquivSelecionadoInfo").val("Nenhum item selecionado");
+    $("#modalEquivResultados").html("<tr><td colspan='5' style='padding:8px; text-align:left;'>Informe um filtro e clique em buscar.</td></tr>");
+});
+
+$(document).delegate("#modalEquivResultados input[name='produto_equiv_sel']", "change", function () {
+    atualizarLinhaSelecionadaEquiv();
+});
+
+$(document).delegate("#modalEquivResultados tr.equiv-row", "click", function (e) {
+    if ($(e.target).is("input[name='produto_equiv_sel']")) {
+        return;
+    }
+
+    var radio = $(this).find("input[name='produto_equiv_sel']");
+    if (radio.length) {
+        $("#modalEquivResultados input[name='produto_equiv_sel']").each(function () {
+            this.checked = false;
+        });
+        radio.each(function () {
+            this.checked = true;
+        });
+        atualizarLinhaSelecionadaEquiv();
+    }
+});
+
+// Atualização de código do produto no XML (1 request por item, em paralelo)
+var codProdXmlRequests = {};
+
+function setEstadoCodProd(input, estado) {
+    if (!input) {
+        return;
+    }
+
+    var $input = $(input);
+    var $row = $input.closest('tr');
+
+    $input.removeClass('cod-prod-atualizando cod-prod-sucesso cod-prod-erro').prop('disabled', false);
+    $row.removeClass('cod-prod-linha-atualizando');
+
+    if (estado === 'loading') {
+        $input.addClass('cod-prod-atualizando').prop('disabled', true);
+        $row.addClass('cod-prod-linha-atualizando');
+    } else if (estado === 'success') {
+        $input.addClass('cod-prod-sucesso').attr('data-cod-atual', $.trim($input.val()));
+        setTimeout(function () { $input.removeClass('cod-prod-sucesso'); }, 1200);
+    } else if (estado === 'error') {
+        $input.addClass('cod-prod-erro');
+    }
+}
+
+function verificarBotaoCadastrarXml() {
+    var btn = document.getElementById('bnt_cadastrar');
+    if (!btn) {
+        return;
+    }
+
+    var bloqueado = $('#existeNotaFiscal, #submitFornecedor').length
+        || $('#tableDisagreements tr.divergencia-produto, #tableDisagreements h4').length
+        || $('tr.linha-item-xml[data-produto-ok!="1"]').length;
+
+    btn.style.display = bloqueado ? 'none' : 'block';
+    if (!bloqueado) {
+        $('#tableDisagreements').remove();
+    }
+}
+
+function atualizarCodProdXml(input) {
+    var $input = $(input);
+    var codigoNovo = $.trim($input.val());
+    var codigoXml = $.trim($input.attr('data-cod-xml') || '');
+    var codSalvo = $.trim($input.attr('data-cod-atual') || '');
+
+    if (!codigoNovo || !codigoXml || codigoNovo === codSalvo) {
+        return;
+    }
+
+    var token = $.trim($('#xml_token').val() || '');
+    if (!token) {
+        Swal.fire({ title: 'Atenção!', text: 'Xml não localizado. Faça o upload novamente.', icon: 'warning' });
+        return;
+    }
+
+    if (codProdXmlRequests[codigoXml] && codProdXmlRequests[codigoXml].readyState !== 4) {
+        codProdXmlRequests[codigoXml].abort();
+    }
+
+    setEstadoCodProd(input, 'loading');
+
+    var f = document.upload;
+    codProdXmlRequests[codigoXml] = $.ajax({
+        type: 'POST',
+        url: f.action + (f.action.indexOf('?') >= 0 ? '&' : '?') + 'mod=est&form=nota_xml_importa&submenu=atualizarXmlAjax&opcao=blank',
+        dataType: 'json',
+        data: {
+            xml_token: token,
+            codigoXml: codigoXml,
+            codigoNovo: codigoNovo,
+            submenu: 'atualizarXmlAjax'
+        },
+        success: function (ret) {
+            if (!ret || !ret.success) {
+                setEstadoCodProd(input, 'error');
+                Swal.fire({
+                    title: 'Atenção!',
+                    text: (ret && ret.message) ? ret.message : 'Não foi possível atualizar o código no XML.',
+                    icon: 'warning'
+                });
+                return;
+            }
+
+            var $row = $input.closest('tr.linha-item-xml');
+            if (ret.corLinha) {
+                $row.css('background-color', ret.corLinha);
+            }
+            $row.attr('data-produto-ok', ret.produtoEncontrado ? '1' : '0');
+            $input.attr('data-cod-atual', codigoNovo);
+
+            if (ret.produtoEncontrado && ret.codigoXml) {
+                $("#tableDisagreements tr.divergencia-produto[data-cprod-xml='" + ret.codigoXml + "']").remove();
+            }
+
+            verificarBotaoCadastrarXml();
+            setEstadoCodProd(input, 'success');
+        },
+        error: function (_, status) {
+            if (status === 'abort') {
+                return;
+            }
+            setEstadoCodProd(input, 'error');
+            Swal.fire({ title: 'Erro', text: 'Falha ao atualizar o XML.', icon: 'error' });
+        },
+        complete: function () {
+            delete codProdXmlRequests[codigoXml];
+        }
+    });
+}
+
+function mudaCodProdXmlNew(code_new, code_xml, inputElement) {
+    if (inputElement) {
+        atualizarCodProdXml(inputElement);
+        return;
+    }
+    var $input = $('input.input-cod-prod-xml[data-cod-xml="' + code_xml + '"]').first();
+    if ($input.length) {
+        $input.val(code_new);
+        atualizarCodProdXml($input[0]);
+    }
+}
+
+$(document).delegate('.input-cod-prod-xml', 'blur', function () {
+    atualizarCodProdXml(this);
+});
+
+$(document).delegate('.input-cod-prod-xml', 'keydown', function (e) {
+    if (e.which === 13) {
+        e.preventDefault();
+        $(this).blur();
+    }
+});
 
 function manipularXML(xml, codigoProcurado, novoCodigo) {
      
@@ -589,42 +966,71 @@ function manipularXML(xml, codigoProcurado, novoCodigo) {
 }
 
 function submitValidar() {
-     debugger;
-    f = document.upload;
-    var xml = f.xml_arq.value;
+    var f = document.upload;
+    var token = document.getElementById('xml_token').value.trim();
+    var tabela = document.getElementById("tableDisagreements");
 
-    var tabela = document.getElementById("tableDisagreements"); //obtém a referência da tabela
-
-    if((tabela == '' )){
-        while (tabela.rows.length > 0) { //verifica se há linhas na tabela
-            tabela.deleteRow(0); //remove a primeira linha da tabela
-          }
+    if (tabela && tabela.rows && tabela.rows.length > 0) {
+        while (tabela.rows.length > 0) {
+            tabela.deleteRow(0);
+        }
     }
 
-    if(xml){
-        //ajax responsavel por enviar dados ao form
-        $.ajax({
-            type: "POST",
-            url: document.URL + "?mod=est&form=nota_xml_importa&submenu=conferirAjax&opcao=blank",
-            data: {xml_arq: xml, 'submenu':'conferirAjax'},
-            dataType: "json",
-            success: [atualizaTabelaNotaFiscal]
+    if (!token) {
+        Swal.fire({
+            title: "Atenção!",
+            text: "Xml não localizado!",
+            icon: "warning"
         });
-
-    }else{
-         swal.fire({
-            title:"Atenção!",
-            text:"Xml não localizado!",
-            icon:"warning"});
+        return false;
     }
+
+    $("#tableItemns").addClass('xml-import-validando');
+    if (!$("#xml-import-validando-msg").length) {
+        $("#tableItemns").prepend("<div id='xml-import-validando-msg' class='xml-import-validando-msg'><span class='glyphicon glyphicon-refresh glyphicon-spin'></span> Validando XML...</div>");
+    }
+
+    $.ajax({
+        type: "POST",
+        url: f.action + (f.action.indexOf('?') >= 0 ? '&' : '?') + 'mod=est&form=nota_xml_importa&submenu=conferirAjax&opcao=blank',
+        data: { xml_token: token, submenu: 'conferirAjax' },
+        dataType: "json",
+        success: function (response, textStatus, xhr) {
+            if (response && typeof response === 'object' && response.error) {
+                document.getElementById('xml_token').value = '';
+                Swal.fire({
+                    title: "Atenção!",
+                    text: response.error,
+                    icon: "warning"
+                });
+                return;
+            }
+            if (response && typeof response === 'object' && response.success === false) {
+                Swal.fire({
+                    title: "Atenção!",
+                    text: response.message || response.error || "Falha na validação.",
+                    icon: "warning"
+                });
+                return;
+            }
+            atualizaTabelaNotaFiscal(response, textStatus, xhr);
+        },
+        error: function () {
+            Swal.fire({
+                title: "Erro",
+                text: "Falha ao validar o XML.",
+                icon: "error"
+            });
+        },
+        complete: function () {
+            $("#tableItemns").removeClass('xml-import-validando');
+            $("#xml-import-validando-msg").remove();
+        }
+    });
 }
 
  
 function atualizaTabelaNotaFiscal(response, textStatus, xhr) {
-    console.log(response)
-     
-
-
     //logica para recuperar o header para verificar se existe nota fiscal e habilitar botao cadastrar
     var headersStr = xhr.getAllResponseHeaders();
     var headersArr = headersStr.trim().split('\r\n');
@@ -685,10 +1091,11 @@ function atualizaTabelaNotaFiscal(response, textStatus, xhr) {
             CriaThTabela(response);
         }
     }else{
-         swal.fire({
-            title:"Sucesso",
-            text:"Xml sem divergências!",
-            icon:"success"});
+        Swal.fire({
+            title: "Sucesso",
+            text: "Xml sem divergências!",
+            icon: "success"
+        });
     }
 }
 
@@ -735,14 +1142,41 @@ function CriaTabelaDisagreements() {
 
 
 function submitAddXml(){
-     
-    
-    //verifica se existe a var xml_arq esta vazia e enviar o evento de clique para esconder os inputs
-    if(document.getElementById('xml_arq').value !== ''){
-        document.getElementById('xml_arq').value = '';
-        var chevron = document.getElementsByName("btnCollapse")[0];
-        chevron.click();
-    }
+    var f = document.upload;
+
+    $.ajax({
+        type: 'POST',
+        url: f.action + (f.action.indexOf('?') >= 0 ? '&' : '?') + 'mod=est&form=nota_xml_importa&submenu=limparXmlAjax&opcao=blank',
+        dataType: 'json',
+        data: { submenu: 'limparXmlAjax' },
+        complete: function () {
+            var tokenEl = document.getElementById('xml_token');
+            if (tokenEl) {
+                tokenEl.value = '';
+            }
+            var nameEl = document.getElementById('xml_file_name');
+            if (nameEl) {
+                nameEl.value = '';
+            }
+            var resumoEl = document.getElementById('xml-resumo');
+            if (resumoEl) {
+                resumoEl.style.display = 'none';
+                resumoEl.innerHTML = '';
+            }
+            var inputFile = document.getElementById('input-file');
+            if (inputFile) {
+                inputFile.value = '';
+            }
+            var chevron = document.getElementsByName("btnCollapse")[0];
+            if (chevron) {
+                chevron.click();
+            }
+            submitAddXmlLimparTela();
+        }
+    });
+}
+
+function submitAddXmlLimparTela() {
 
     //limpa as tables da tela  tableItemns  legendas
     var formulario = document.querySelectorAll('table');

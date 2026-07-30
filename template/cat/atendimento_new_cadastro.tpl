@@ -296,7 +296,7 @@
                                     <label for="emissao">Abertura</label>
                                     <i class="glyphicon glyphicon-calendar fa fa-calendar"></i>
                                     <input class="form-control input-sm" placeholder="Data de Abertura."
-                                        id="dataAbertura" title="Data de Abertura" alt="Data de Abertura"
+                                        id="dataAbertura" data-inputmask="'mask': '99/99/9999'" title="Data de Abertura" alt="Data de Abertura"
                                         name="dataAbertura" value="{$dataAbertura}">
                                 </div>
 
@@ -304,15 +304,15 @@
                                     <label for="prazoEntrega">Prazo Entrega</label>
                                     <i class="glyphicon glyphicon-calendar fa fa-calendar"></i>
                                     <input class="form-control input-sm" placeholder="Prazo de Entrega."
-                                        id="prazoEntrega" title="Prazo de Entrega" alt="Prazo de Entrega"
-                                        name="prazoEntrega" value="{$prazoEntrega}">
+                                        id="prazoEntrega" data-inputmask="'mask': '99/99/9999'" title="Prazo de Entrega"
+                                        alt="Prazo de Entrega" name="prazoEntrega" value="{$prazoEntrega}">
                                 </div>
 
                                 <div class="col-md-2 col-sm-6 col-xs-6">
                                     <label for="emissao">Fechamento</label>
                                     <i class="glyphicon glyphicon-calendar fa fa-calendar"></i>
                                     <input class="form-control input-sm" placeholder="Data de Fechamento."
-                                        id="dataFechamentoEnd" title="Data de Fechamento" alt="Data de Fechamento"
+                                        id="dataFechamentoEnd" data-inputmask="'mask': '99/99/9999'" title="Data de Fechamento" alt="Data de Fechamento"
                                         name="dataFechamentoEnd" value="{$dataFechamentoEnd}">
                                 </div>
                             </div> <!-- FIM class="form-group" -->
@@ -505,6 +505,38 @@
                                                         <span>Limpar</span></button>
                                                 </div>
                                             </div>
+                                            <div class="col-md-12" style="margin-top: 0px;">
+                                                <div class="panel panel-default small line-formated">
+                                                    <div class="panel-heading" style="cursor:pointer; background: #f5f5f5;" data-toggle="collapse" data-target="#collapseInfoAdicionalPecas" aria-expanded="false" aria-controls="collapseInfoAdicionalPecas">
+                                                        <span class="glyphicon glyphicon-chevron-down"></span>
+                                                        <strong>   Mais Informa&ccedil;&otilde;es</strong>
+                                                    </div>
+                                                    <div id="collapseInfoAdicionalPecas" class="panel-collapse collapse" style="margin-top:0px;">
+                                                        <div class="panel-body" style="padding: 10px;">
+                                                            <div class="form-group line-formated">
+                                                                <div class="col-md-4 small col-sm-12 col-xs-12">
+                                                                    <label for="nfEntradaPecas">N&uacute;mero NF Entrada</label>
+                                                                    <input class="form-control input-sm" type="text" id="nfEntradaPecas"
+                                                                        name="nfEntradaPecas" placeholder="Numero nota"
+                                                                        value="{$nfEntradaPecas}">
+                                                                </div>
+                                                                <div class="col-md-4 small col-sm-12 col-xs-12">
+                                                                    <label for="fornecedor">Fornecedor</label>
+                                                                    <input class="form-control input-sm" readonly type="text" id="fornecedor"
+                                                                        name="fornecedor" placeholder="Fornecedor"
+                                                                        value="{$fornecedor}">
+                                                                </div>
+                                                                <div class="col-md-4 small col-sm-12 col-xs-12">
+                                                                    <label for="custoProduto">Custo Produto</label>
+                                                                    <input class="form-control input-sm" readonly type="text" id="custoProduto"
+                                                                        name="custoProduto" placeholder="Custo Produto"
+                                                                        value="{$custoProduto}">
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                             </p>
 
                                         </div>
@@ -515,6 +547,8 @@
                                                     <th>C&oacute;d. Interno</th>
                                                     <th>C&oacute;d. Fabricante</th>
                                                     <th>C&oacute;d. Nota</th>
+                                                    <th>Fornecedor</th>
+                                                    <th>Custo NF</th>
                                                     <th>Descri&ccedil;&atilde;o</th>
                                                     <th>Unidade</th>
                                                     <th>Loc.</th>
@@ -530,10 +564,13 @@
                                                 {section name=i loop=$lancPesq}
                                                     <tr>
                                                         <td hidden class="tab_id"> {{$lancPesq[i].ID}} </td>
+                                                        <td hidden class="tab_nf_entrada"> {$lancPesq[i].NFENTRADA|default:''} </td>
                                                         <td class="tab_cod_produto"> {$lancPesq[i].CODPRODUTO} </td>
                                                         <td class="tab_cod_fabricante"> {$lancPesq[i].CODFABRICANTE} </td>
                                                         <td class="tab_cod_produto_nota"> {$lancPesq[i].CODPRODUTONOTA}
                                                         </td>
+                                                        <td class="tab_fornecedor"> {$lancPesq[i].FORNECEDOR|default:''} </td>
+                                                        <td class="tab_custo_nf"> {$lancPesq[i].CUSTOPRODUTO|number_format:2:",":"."|default:''} </td>
                                                         <td class="tab_descricao"> {$lancPesq[i].DESCRICAO} </td>
                                                         <td class="tab_unidade"> {$lancPesq[i].UNIDADE} </td>
                                                         <td class="tab_localizacao"> {$lancPesq[i].LOCALIZACAO} </td>
@@ -835,41 +872,66 @@
             $('#prazoEntrega').daterangepicker({
                 singleDatePicker: true,
                 calender_style: "picker_1",
+                autoApply: false,
+                autoUpdateInput: false,
                 locale: {
                     format: 'DD/MM/YYYY',
                     daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
-                    monthNames: ['Janeiro', 'Fevereiro', 'Mar&ccedil;o', 'Abril', 'Maio', 'Junho',
-                        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                    monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho',
+                        'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
                     ],
                 }
 
+            });
+
+            // Preenche o campo apenas quando o usuário selecionar uma data
+            $('#prazoEntrega').on('apply.daterangepicker', function(ev, picker) {
+                $(this).val(picker.startDate.format('DD/MM/YYYY'));
+            });
+
+            // Limpa o campo quando o usuário cancelar
+            $('#prazoEntrega').on('cancel.daterangepicker', function(ev, picker) {
+                $(this).val('');
             });
 
             $('#dataAbertura').daterangepicker({
                 singleDatePicker: true,
                 calender_style: "picker_1",
+                autoApply: false,
+                autoUpdateInput: false,
                 locale: {
                     format: 'DD/MM/YYYY',
                     daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
-                    monthNames: ['Janeiro', 'Fevereiro', 'Mar&ccedil;o', 'Abril', 'Maio', 'Junho',
-                        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                    monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho',
+                        'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
                     ],
                 }
-
             });
-
+            $('#dataAbertura').on('apply.daterangepicker', function(ev, picker) {
+                $(this).val(picker.startDate.format('DD/MM/YYYY'));
+            });
+            $('#dataAbertura').on('cancel.daterangepicker', function(ev, picker) {
+                $(this).val('');
+            });
 
             $('#dataFechamentoEnd').daterangepicker({
                 singleDatePicker: true,
                 calender_style: "picker_1",
+                autoApply: false,
+                autoUpdateInput: false,
                 locale: {
                     format: 'DD/MM/YYYY',
                     daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
-                    monthNames: ['Janeiro', 'Fevereiro', 'Mar&ccedil;o', 'Abril', 'Maio', 'Junho',
-                        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                    monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho',
+                        'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
                     ],
                 }
-
+            });
+            $('#dataFechamentoEnd').on('apply.daterangepicker', function(ev, picker) {
+                $(this).val(picker.startDate.format('DD/MM/YYYY'));
+            });
+            $('#dataFechamentoEnd').on('cancel.daterangepicker', function(ev, picker) {
+                $(this).val('');
             });
         });
     </script>

@@ -18,11 +18,11 @@ function getConfigIPM(): array
         // A chave 'municipios' contém a configuração específica e obrigatória para cada código.
         'municipios' => [
             '4119152' => [ // Pinhais
-                'homologacao'        => 'https://pinhais-hml.ipm.com.br:8443/ws_nfse',
-                'producao'           => 'https://pinhais.ipm.com.br:8443/ws_nfse',
-                'version'            => '1.30',
-                'homologacao_soapns' => 'http://pinhais-hml.ipm.com.br',
-                'producao_soapns'    => 'http://pinhais.ipm.com.br',
+                'homologacao'        => 'https://ws-pinhais.atende.net/?pg=rest&service=WNERestServiceNFSe',
+                'producao'           => 'https://ws-pinhais.atende.net/?pg=rest&service=WNERestServiceNFSe',
+                'version'            => '2.50',
+                'homologacao_soapns' => 'https://ws-pinhais.atende.net/?pg=rest&service=WNERestServiceNFSe',
+                'producao_soapns'    => 'https://ws-pinhais.atende.net/?pg=rest&service=WNERestServiceNFSe',
             ],
             '4212502' => [ // Penha
                 'homologacao'        => 'https://penha-hml.ipm.com.br:9443/ws_nfse',

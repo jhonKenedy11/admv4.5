@@ -5,6 +5,7 @@
 }
 </style>
 <script type="text/javascript" src="{$pathJs}/cat/s_tipo.js"> </script>
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <!-- page content -->
 <div class="right_col" role="main">
   <div class="">

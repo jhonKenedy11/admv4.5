@@ -39,7 +39,9 @@ public $m_banco = "mysql";
 public $m_dircliente = ""; 
 public $m_configsmtp = ""; 
 public $m_configemail = ""; 
-public $m_configemailsenha = ""; 
+public $m_configemailsenha = "";
+public $m_configport = ""; 
+public $m_configemailparam = ""; 
 
 
 public $cat = false;
@@ -197,6 +199,8 @@ function to_array() {
 	$array[14] = $this->m_configsmtp;
 	$array[15] = $this->m_configemail;
 	$array[16] = $this->m_configemailsenha;
+	$array[17] = $this->m_configport;
+	$array[18] = $this->m_configemailparam;
 	//	print_r($array);
 	$json = json_encode($array);
 	return $json;
@@ -225,6 +229,8 @@ function from_array($json) {
 	$this->m_configsmtp = $array[14];
 	$this->m_configemail = $array[15];
 	$this->m_configemailsenha = $array[16];
+	$this->m_configport = isset($array[17]) ? $array[17] : '587';
+	$this->m_configemailparam = isset($array[18]) ? $array[18] : 'several';
 
         //	print_r($array);
 //	print_r($this->m_usernome);
@@ -254,6 +260,8 @@ function busca_dados(){
             $this->m_configsmtp = $banco->resultado[0]['SMTP'];
             $this->m_configemail = $banco->resultado[0]['EMAIL'];
             $this->m_configemailsenha = $banco->resultado[0]['EMAILSENHA'];
+            $this->m_configport = isset($banco->resultado[0]['PORT']) ? $banco->resultado[0]['PORT'] : '587';
+            $this->m_configemailparam = 'several';
 			//admv4.0
 			$this->m_empresacentrocusto = $banco->resultado[0]['CENTROCUSTO'];
 			$banco->close_connection();

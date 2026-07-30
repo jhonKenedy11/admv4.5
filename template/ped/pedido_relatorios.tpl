@@ -286,6 +286,18 @@
                         </div>
                     </div>
 
+                    <div class="col-md-3 col-lg-2 divRelatorios">
+                        <div class="panel panel-primary btn panelPrincipal" role="button" data-toggle="modal"
+                            data-target="#modalParametros" onclick="controlInputs('relatorioCompraEncomenda')" data-relatorio-nome="Compra por Encomenda">
+                            <div class="panel-heading">
+                                <h3 class="panel-title">Compra Encomenda</h3>
+                            </div>
+                            <div class="panel-body panelText">
+                                Itens em falta por pedido e cliente aguardando estoque
+                            </div>
+                        </div>
+                    </div>
+
                 </div> <!-- class="row -->
 
             </div> <!-- END container -->

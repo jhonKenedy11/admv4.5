@@ -1817,7 +1817,7 @@ Class c_pedido_aprovacao extends c_user {
         
         $sql = "SELECT p.*, D.PADRAO,  C.NOME,  V.NOMEREDUZIDO AS VENDEDOR  ";
         $sql .= "FROM fat_pedido p ";
-        $sql .= "INNER JOIN AMB_DDM D ON ((D.TIPO=P.SITUACAO) AND (ALIAS='FAT_MENU') AND (CAMPO='SITUACAOPEDIDO')) ";
+        $sql .= "LEFT JOIN AMB_DDM D ON ((D.TIPO=P.SITUACAO) AND (D.ALIAS='FAT_MENU') AND (D.CAMPO='SITUACAOPEDIDO')) ";
         $sql .= "LEFT JOIN FIN_CLIENTE C ON (C.CLIENTE=P.CLIENTE) ";        
         $sql .= "LEFT JOIN AMB_USUARIO V ON (V.USUARIO=P.USRFATURA) ";
         $sql .= "LEFT JOIN FIN_CENTRO_CUSTO CC ON (CC.CENTROCUSTO=P.CCUSTO) ";
@@ -1842,9 +1842,9 @@ Class c_pedido_aprovacao extends c_user {
 
          
         if($par[0]  == '' AND $par[1] == '' AND $par[2] == '' AND $par[3] == '' AND $par[4] == '' AND $par[5] == ''){
-            $sql .= 'WHERE (p.situacao = 10 ) AND (ISNULL(p.USRAPROVACAO)) ';
+            $sql .= (stripos($sql, 'where') === false ? ' WHERE ' : ' AND ') . '(p.situacao = 10 ) AND (p.USRAPROVACAO IS NULL OR p.USRAPROVACAO = 0) ';
         } else {
-            $sql .= 'AND (p.situacao = 10 ) AND (ISNULL(p.USRAPROVACAO)) ';
+            $sql .= (stripos($sql, 'where') === false ? ' WHERE ' : ' AND ') . '(p.situacao = 10 ) AND (p.USRAPROVACAO IS NULL OR p.USRAPROVACAO = 0) ';
         }    
         
         $sql .= "ORDER BY p.emissao Desc";

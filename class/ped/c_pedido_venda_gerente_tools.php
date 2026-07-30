@@ -13,6 +13,7 @@ $dir = dirname(__FILE__);
 include_once($dir . "/../../class/ped/c_pedido_venda.php");
 include_once($dir . "/../../class/est/c_produto.php");
 include_once($dir . "/../../class/est/c_produto_estoque.php");
+include_once($dir . "/../../class/fin/c_lancamento.php");
 include_once($dir . "/../../bib/c_date.php");
 include_once($dir . "/../../bib/c_tools.php");
 
@@ -46,6 +47,18 @@ public function cancelaPedidoAgrupado($pedidoAgrupado, $conn=null ){
                 $objPedido->setCliente($dadosPedido[0]['CLIENTE']);
             }
             
+            c_produto_estoque::liberaEstoquePedidoCancelamento(
+                $this->m_empresacentrocusto,
+                (int) $arrPedido[$i],
+                $conn
+            );
+
+            c_lancamento::cancelaLancamentosAbertosPedido(
+                (int) $arrPedido[$i],
+                $this->m_userid,
+                $conn
+            );
+
             $objPedido->setSituacao(8);
             $objPedido->alteraPedidoSituacao(null, $conn);
         }                      
@@ -82,7 +95,10 @@ public function incluiPedidoAgrupado($pedidoAgrupado, $arrayPed, $conn=null ){
 
     $obs = '';
     $ped = new c_banco;
-    for($i=1; $i < count($arrPedidoAgrupado); $i++){
+    for ($i = 0; $i < count($arrPedidoAgrupado); $i++) {
+        if ($arrPedidoAgrupado[$i] <= 0) {
+            continue;
+        }
         $ped->setTab("FAT_PEDIDO");
         $pedObs = $ped->getField("OBS", "ID=".$arrPedidoAgrupado[$i]);
         if ($obs == '') {
@@ -118,6 +134,10 @@ public function incluiPedidoAgrupado($pedidoAgrupado, $arrayPed, $conn=null ){
 public function incluiItensPedidoAgrupado($pedidoAgrupado, $idPedido, $conn=null ){
      //busca itens dos pedidos
      $arrItensPedidos = $this->agruparPedidos($pedidoAgrupado);
+
+     if (!is_array($arrItensPedidos) || count($arrItensPedidos) === 0) {
+         throw new Exception('Nenhum item encontrado nos pedidos selecionados para agrupamento.');
+     }
      
      // Define o ID do novo pedido agrupado antes de incluir os itens
      $this->setId($idPedido);
@@ -128,9 +148,17 @@ public function incluiItensPedidoAgrupado($pedidoAgrupado, $idPedido, $conn=null
      for ($i=0;$i<count($arrItensPedidos);$i++){
 
         $codProduto = $arrItensPedidos[$i]['ITEMESTOQUE'];
-        $quantDigitada = $arrItensPedidos[$i]['QTSOLICITADA'];          
-        
+        $quantDigitada = $arrItensPedidos[$i]['QTSOLICITADA'];
+        $quantTotal = $quantDigitada;
+
         $this->setItemEstoque($codProduto);
+
+        // Agrupa quantidade quando o mesmo produto existe em mais de um pedido
+        $arrItemPedido = $this->select_pedido_item_id_itemestoque($conn);
+        if (is_array($arrItemPedido)) {
+            $quantTotal = $quantDigitada + $arrItemPedido[0]['QTSOLICITADA'];
+            $this->pedido_venda_item(false, $arrItemPedido);
+        }
          
         $objProduto->setId($codProduto); // CODIGO PRODUTO
         //busca dados do produto                    
@@ -139,20 +167,24 @@ public function incluiItensPedidoAgrupado($pedidoAgrupado, $idPedido, $conn=null
          
         $this->setItemFabricante($arrItensPedidos[$i]['ITEMFABRICANTE']);
         $this->setDesconto($arrItensPedidos[$i]['DESCONTO'], 'F');
-        $this->setQtSolicitada($arrItensPedidos[$i]['QTSOLICITADA'], 'F');
+        $this->setQtSolicitada($quantTotal, 'F');
         $this->setUnitario($arrItensPedidos[$i]['UNITARIO'], 'F');
-        $this->setPrecoPromocao($arrItensPedidos[$i]['PRECOPROMOCAO'], 'F');
-        $this->setVlrTabela($arrItensPedidos[$i]['VLRTABELA'], 'F');
+        $this->setPrecoPromocao($arrItensPedidos[$i]['PRECOPROMOCAO']);
+        $this->setVlrTabela($arrItensPedidos[$i]['VLRTABELA']);
         $this->setTotalItem();
         $this->setGrupoEstoque($arrItensPedidos[$i]['GRUPOESTOQUE']);
-        $this->setDescricaoItem($arrItensPedidos[$i]['DESCRICAO']);       
-       
-        
-        $this->setNrItem($nrItem);
-        $this->IncluiPedidoItem($conn);
+        $this->setDescricaoItem($arrItensPedidos[$i]['DESCRICAO']);
+
+        if (is_array($arrItemPedido)) {
+            $this->alteraPedidoItem($conn);
+        } else {
+            $this->setNrItem($nrItem);
+            $this->IncluiPedidoItem($conn);
+            $nrItem += 1;
+        }
          
         // reserva produto
-        if ($arrProduto[0]['UNIFRACIONADA'] == "N"){
+        if (is_array($arrProduto) && isset($arrProduto[0]['UNIFRACIONADA']) && $arrProduto[0]['UNIFRACIONADA'] == "N"){
             //remove reserva
             $objProdutoQtde->produtoReservaExclui($this->m_empresacentrocusto, "PED", 
                          $arrItensPedidos[$i]['ID'], $arrItensPedidos[$i]['ITEMESTOQUE'], 
@@ -164,7 +196,6 @@ public function incluiItensPedidoAgrupado($pedidoAgrupado, $idPedido, $conn=null
         } else {
            $objProdutoQtde->produtoReserva=null;
         }
-        $nrItem += 1;
     }
     return '';
 }

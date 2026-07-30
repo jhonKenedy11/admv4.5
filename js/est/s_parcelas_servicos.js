@@ -191,11 +191,23 @@ function renderizarParcelas(parcelas) {
                     </select>
                 </td>
                 <td class="text-center">
-                    <input type="hidden" name="obs${parcela.parcela}" id="obs${parcela.parcela}" value="${parcela.obs || ''}">
-                    <button type="button" class="btn btn-sm btn-info input-sm" onclick="abrirModalObservacao(${parcela.parcela})" title="Adicionar/Editar Observação">
+                    <button type="button" class="btn btn-sm btn-info input-sm" onclick="toggleObservacao(${parcela.parcela})" title="Adicionar/Editar Observação">
                         <i class="fa fa-comment"></i>
                         ${parcela.obs ? '<span class="badge badge-light ml-1">1</span>' : ''}
                     </button>
+                </td>
+            </tr>
+            <tr id="row-obs-${parcela.parcela}" style="display: none;" class="bg-light">
+                <td colspan="7" style="padding: 15px;">
+                    <div class="form-group mb-0">
+                        <label for="obs${parcela.parcela}" style="font-weight: bold;">
+                            <i class="fa fa-comment"></i> Observação da Parcela ${parcela.parcela}
+                        </label>
+                        <textarea class="form-control" name="obs${parcela.parcela}" id="obs${parcela.parcela}" 
+                                  rows="3" maxlength="500" placeholder="Digite aqui a observação para esta parcela..."
+                                  style="resize: vertical;">${parcela.obs || ''}</textarea>
+                        <small class="form-text text-muted">Limite de 500 caracteres</small>
+                    </div>
                 </td>
             </tr>
         `;
@@ -237,6 +249,11 @@ function obterDadosParcelas() {
     const parcelas = [];
     
     $('#tbody-parcelas tr').each(function() {
+        // Pular linhas de observação (que têm id row-obs-*)
+        if ($(this).attr('id') && $(this).attr('id').startsWith('row-obs-')) {
+            return; // continue
+        }
+        
         const parcela = $(this).find('td:first').text().trim();
         
         if (parcela && parcela !== 'Parcela') {
@@ -247,7 +264,7 @@ function obterDadosParcelas() {
                 tipo_documento: $(this).find(`select[name="tipo${parcela}"]`).val(),
                 conta_recebimento: $(this).find(`select[name="conta${parcela}"]`).val(),
                 situacao: $(this).find(`select[name="situacao${parcela}"]`).val(),
-                obs: $(this).find(`input[name="obs${parcela}"]`).val()
+                obs: $(`textarea[name="obs${parcela}"]`).val() || ''
             };
             
             parcelas.push(dados);
@@ -266,6 +283,11 @@ function validarParcelas() {
     const mensagens = [];
     
     $('#tbody-parcelas tr').each(function() {
+        // Pular linhas de observação
+        if ($(this).attr('id') && $(this).attr('id').startsWith('row-obs-')) {
+            return; // continue
+        }
+        
         const parcela = $(this).find('td:first').text().trim();
         
         if (parcela && parcela !== 'Parcela') {
@@ -380,39 +402,36 @@ function recalcularParcelas() {
 }
 
 /**
- * Abre o modal de observação para uma parcela específica
+ * Mostra/esconde o campo de observação da parcela
  * @param {number} numeroParcela - Número da parcela
  */
-function abrirModalObservacao(numeroParcela) {
-    // Obter observação atual
-    const obsAtual = $('#obs' + numeroParcela).val() || '';
+function toggleObservacao(numeroParcela) {
+    const row = $('#row-obs-' + numeroParcela);
+    const botao = $('button[onclick="toggleObservacao(' + numeroParcela + ')"]');
+    const icone = botao.find('i');
     
-    // Preencher o modal
-    $('#modalObsParcelaTitulo').text('Observação - Parcela ' + numeroParcela);
-    $('#modalObsParcelaNumero').val(numeroParcela);
-    $('#modalObsParcelaTexto').val(obsAtual);
-    
-    // Abrir modal
-    $('#modalObservacaoParcela').modal('show');
-    
-    // Focar no textarea
-    setTimeout(function() {
-        $('#modalObsParcelaTexto').focus();
-    }, 500);
+    // Toggle: mostrar/esconder
+    row.slideToggle(300, function() {
+        // Mudar ícone do botão
+        if (row.is(':visible')) {
+            icone.removeClass('fa-comment').addClass('fa-comment-o');
+            // Focar no textarea quando abrir
+            $('#obs' + numeroParcela).focus();
+        } else {
+            icone.removeClass('fa-comment-o').addClass('fa-comment');
+            // Atualizar badge quando fechar
+            atualizarBadgeObservacao(numeroParcela);
+        }
+    });
 }
 
 /**
- * Salva a observação da parcela automaticamente quando o modal é fechado
+ * Atualiza o badge do botão de observação
+ * @param {number} numeroParcela - Número da parcela
  */
-function salvarObservacaoAoFechar() {
-    const numeroParcela = $('#modalObsParcelaNumero').val();
-    const observacao = $('#modalObsParcelaTexto').val();
-    
-    // Salvar no campo hidden
-    $('#obs' + numeroParcela).val(observacao);
-    
-    // Atualizar o botão para mostrar badge se houver observação
-    const botao = $('button[onclick="abrirModalObservacao(' + numeroParcela + ')"]');
+function atualizarBadgeObservacao(numeroParcela) {
+    const observacao = $('#obs' + numeroParcela).val();
+    const botao = $('button[onclick="toggleObservacao(' + numeroParcela + ')"]');
     
     // Remover badge existente
     botao.find('.badge').remove();
@@ -423,13 +442,6 @@ function salvarObservacaoAoFechar() {
     }
 }
 
-// Configurar evento para salvar automaticamente ao fechar o modal
-$(document).ready(function() {
-    $('#modalObservacaoParcela').on('hidden.bs.modal', function () {
-        salvarObservacaoAoFechar();
-    });
-});
-
 // Expor funções globalmente
 window.calcularParcelas = calcularParcelas;
 window.recalcularParcelas = recalcularParcelas;
@@ -437,4 +449,5 @@ window.extrairDiasParcelas = extrairDiasParcelas;
 window.obterDadosParcelas = obterDadosParcelas;
 window.validarParcelas = validarParcelas;
 window.limparParcelas = limparParcelas;
-window.abrirModalObservacao = abrirModalObservacao;
+window.toggleObservacao = toggleObservacao;
+window.atualizarBadgeObservacao = atualizarBadgeObservacao;

@@ -302,20 +302,108 @@ class p_nota_fiscal extends c_nota_fiscal
                 break;
             case 'exclui':
                 if ($this->verificaDireitoUsuario('EstNotaFiscal', 'E')) {
-                    if ($this->existeNotaFiscalBaixa($this->getId())) { // verificar si a nota esta baixada
-                        $this->mostraNotaFiscal('Nota fiscal foi recebida, n&atilde;o sendo possivel excluir.', 'alerta');
-                    } else {
-                        if ($this->existeNotaFiscalProduto($this->getId())) {
-                            $this->mostraNotaFiscal('Existem Produtos na NF, Exclua os produtos antes de deletar a NF.', 'alerta');
-                        } else {
-                            $this->setNotaFiscal();
-                            if ((c_lancamento::verificaDocBaixado($this->getPessoa(), $this->getNumero(), 'NFS'))) {
-                                $this->mostraNotaFiscal('Existem financeiros baixados para esta NF, Altere para aberto antes de deletar a NF.', 'alerta');
-                            } else {
-                                $this->excluiNotafiscal();
-                                $this->mostraNotaFiscal('Nota fiscal exclu&iacute;da.', 'sucesso');
+                    try {
+                        // Carrega dados da nota
+                        $this->setNotaFiscal();
+                        
+                        // VALIDAÇÃO 1: Verifica se a nota está baixada (autorizada)
+                        if ($this->existeNotaFiscalBaixa($this->getId())) {
+                            throw new Exception('Nota fiscal autorizada (situação B), não sendo possível excluir. Cancele a nota antes de excluir.');
+                        }
+                        
+                        // VALIDAÇÃO 2: Verifica se existem financeiros baixados
+                        if (c_lancamento::verificaDocBaixado($this->getPessoa(), $this->getNumero(), 'NFS')) {
+                            throw new Exception('Existem financeiros baixados para esta NF. Estorne os pagamentos antes de excluir a NF.');
+                        }
+                        $origemNfExclui = (string) $this->getOrigem();
+                        if (in_array($origemNfExclui, ['CPM', 'CPR'], true)) {
+                            $idPedidoCupom = (int) $this->getDoc();
+                            if ($idPedidoCupom > 0
+                                && c_lancamento::verificaDocBaixado($this->getPessoa(), $idPedidoCupom, 'PED')
+                            ) {
+                                throw new Exception(
+                                    'Existem financeiros baixados no pedido deste cupom. Estorne antes de excluir a NF.'
+                                );
                             }
                         }
+                        
+                        // Se passou nas validações, inicia exclusão em cascata
+                        $transaction = new c_banco();
+                        $transaction->inicioTransacao($transaction->id_connection);
+                        
+                        // PASSO 0: Reverter EST_PRODUTO_ESTOQUE (entrada: remove registros; saída: libera reserva)
+                        // NF de ENTRADA: excluir registros de estoque que têm esta NF como IDNFENTRADA
+                        if ($this->getTipo() == '0') {
+                            $sql = "DELETE FROM EST_PRODUTO_ESTOQUE WHERE IDNFENTRADA = " . $this->getId();
+                            $transaction->exec_sql($sql);
+                        }
+
+                        // PASSO 1: Excluir produtos da nota fiscal
+                        $sql = "DELETE FROM est_nota_fiscal_produto WHERE idnf = " . $this->getId();
+                        $transaction->exec_sql($sql);
+                        
+                        // PASSO 2: Excluir lançamentos financeiros não baixados vinculados à nota
+                        $sql = "DELETE FROM fin_lancamento WHERE pessoa = " . $this->getPessoa() . " ";
+                        $sql .= "AND docto = '" . $this->getNumero() . "' ";
+                        $sql .= "AND serie = 'NFS' ";
+                        $sql .= "AND sitpgto <> 'B'";
+                        $transaction->exec_sql($sql);
+
+                        // Cupom PDV (CPR/CPM): remove vínculos antigos PED/CPR/CPM no pedido
+                        if (in_array($origemNfExclui, ['CPM', 'CPR'], true)) {
+                            $idPedidoCupom = (int) $this->getDoc();
+                            if ($idPedidoCupom > 0) {
+                                $sql = "DELETE FROM fin_lancamento WHERE pessoa = " . $this->getPessoa() . " ";
+                                $sql .= "AND numlcto = " . $idPedidoCupom . " ";
+                                $sql .= "AND origem IN ('PED', 'CPM', 'CPR') ";
+                                $sql .= "AND sitpgto <> 'B'";
+                                $transaction->exec_sql($sql);
+                            }
+                        }
+                        
+                        // PASSO 3: Excluir a nota fiscal
+                        $sql = "DELETE FROM est_nota_fiscal WHERE id = " . $this->getId();
+                        $transaction->exec_sql($sql);
+
+                        // PASSO 4: reabrir pedido vinculado (DOC = FAT_PEDIDO.ID)
+                        $idPedidoCupom = (int) $this->getDoc();
+                        if ($idPedidoCupom > 0) {
+                            $sql = "UPDATE FAT_PEDIDO SET SITUACAO = 3 WHERE ID = " . $idPedidoCupom;
+                            $transaction->exec_sql($sql);
+                        }
+                        
+                        // Confirma transação
+                        $transaction->commit($transaction->id_connection);
+                        
+                        // Exibe mensagem de sucesso com SweetAlert
+                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Excluído com Sucesso!',
+                                text: 'Nota fiscal " . $this->getNumero() . " e seus registros relacionados foram excluídos.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        $this->mostraNotaFiscal('');
+                        
+                    } catch (Exception $e) {
+                        // Desfaz transação em caso de erro
+                        if (isset($transaction)) {
+                            $transaction->rollback($transaction->id_connection);
+                        }
+                        
+                        // Exibe mensagem de erro com SweetAlert
+                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro ao Excluir',
+                                text: '" . addslashes($e->getMessage()) . "',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        $this->mostraNotaFiscal('');
                     }
                 }
                 break;
@@ -333,6 +421,12 @@ class p_nota_fiscal extends c_nota_fiscal
                         $this->setNumero($numNf);
                         $this->alteraNfNumero();
                     endif;
+
+
+                    if (in_array($this->getSituacao(), array('A', 'R'))) {
+                        $this->setEmissao(date("d/m/Y H:i:s"));
+                        $this->alteraEmissaoOnly();
+                    }
 
                     // valida e autoriza nf
                     $exporta = new p_nfe_40();
@@ -441,36 +535,28 @@ class p_nota_fiscal extends c_nota_fiscal
                             $numeroPedido
                         );
                         
-                        // Verifica resultado e exibe mensagem
-                        if ($resultado !== false) {
-                            // Verifica se houve erro na mensagem de retorno
-                            if (strstr($resultado, 'NÃO') || strstr($resultado, 'Erro')) {
-                                // Erro no envio
-                                echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
-                                echo "<script>
-                                    Swal.fire({
-                                        icon: 'warning',
-                                        title: 'Atenção',
-                                        width: 510,
-                                        text: '" . addslashes($resultado) . "',
-                                        confirmButtonText: 'OK'
-                                    });
-                                </script>";
-                                $this->mostraNotaFiscal('');
-                            } else {
-                                // Sucesso no envio
-                                echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
-                                echo "<script>
-                                    Swal.fire({
-                                        icon: 'success',
-                                        title: 'Sucesso',
-                                        width: 510,
-                                        text: '" . addslashes($resultado) . "',
-                                        confirmButtonText: 'OK'
-                                    });
-                                </script>";
-                                $this->mostraNotaFiscal('');
+                        // Verifica resultado e exibe mensagem (sendDocumentsEmail retorna array)
+                        if (is_array($resultado) && array_key_exists('success', $resultado)) {
+                            $mensagem = $resultado['mensagem'] ?? '';
+                            if (!empty($resultado['erro']) && is_array($resultado['erro'])) {
+                                $detalhe = implode(' ', $resultado['erro']);
+                                if ($detalhe !== '' && stripos($mensagem, $detalhe) === false) {
+                                    $mensagem = trim($mensagem . ($mensagem !== '' ? ' - ' : '') . $detalhe);
+                                }
                             }
+                            $icon  = !empty($resultado['success']) ? 'success' : 'warning';
+                            $title = !empty($resultado['success']) ? 'Sucesso' : 'Atenção';
+                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script>
+                                Swal.fire({
+                                    icon: '" . $icon . "',
+                                    title: '" . $title . "',
+                                    width: 510,
+                                    text: '" . addslashes($mensagem) . "',
+                                    confirmButtonText: 'OK'
+                                });
+                            </script>";
+                            $this->mostraNotaFiscal('');
                         } else {
                             // Erro ao enviar email
                             echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
@@ -479,7 +565,7 @@ class p_nota_fiscal extends c_nota_fiscal
                                     icon: 'error',
                                     title: 'Erro',
                                     width: 510,
-                                    text: 'Erro ao enviar email. Verifique se o cliente possui email cadastrado.',
+                                    text: 'Erro ao enviar email. Verifique os dados do financeiro e se o cliente possui email cadastrado.',
                                     confirmButtonText: 'OK'
                                 });
                             </script>";
@@ -517,22 +603,27 @@ class p_nota_fiscal extends c_nota_fiscal
                 if ($this->verificaDireitoUsuario('EstNotaFiscal', 'S')) {
                     $this->setNotaFiscal();
                     if ($this->getSituacao() == 'B') {
-                        if (!(c_lancamento::verificaDocBaixado($this->getPessoa(), $this->getNumero(), 'NFS'))) {
+                        $serieFin = 'NFS';
+                        $docFin = $this->getNumero();
+                        if (!(c_lancamento::verificaDocBaixado($this->getPessoa(), $docFin, $serieFin))) {
                             $danfe = new p_nfe_40();
                             $msg = $danfe->cancela_NFE($this->getChNfe(), $this->getNProt(), $this->m_justificativa, $this->getModelo());
                             $cStat = $msg->retEvento->infEvento->cStat;
                             if (($msg->cStat == '128') and (($cStat == '101' || $cStat == '135' || $cStat == '155'))) {
                                 $this->alteraSituacao('C');
-                                c_lancamento::alteraSituacaoFinanceiro($this->getPessoa(), $this->getNumero(), 'NFS', 'C');
+                                c_lancamento::alteraSituacaoFinanceiro($this->getPessoa(), $docFin, $serieFin, 'C');
                                 $this->incluiNfEvento($msg, 'C', '1', $this->getNumero(), $this->getNumero(), $this->m_justificativa);
-                                // altera situação pedido
-                                $origem = $this->getOrigem();
-                                if ($this->getOrigem() == 'PED') {
+                                // altera situação pedido (NF pedido ou cupom PDV)
+                                $origemNf = $this->getOrigem();
+                                if ($origemNf === 'PED' || $origemNf === 'CPM' || $origemNf === 'CPR') {
                                     $objPedido = new c_pedidoVenda();
                                     $objPedido->setId($this->getDoc());
                                     $objPedido->setSituacao(3);
                                     $objPedido->setEmissao(date("d/m/Y"));
                                     $objPedido->alteraPedidoSituacao();
+                                    
+                                    // REABRE A Ordem de Serviço se o PEDIDO TIVER 
+                                    $this->atualizaSituacaoOS();
                                 }
 
                                 // estorna produto
@@ -545,7 +636,8 @@ class p_nota_fiscal extends c_nota_fiscal
 
                                 $this->estornaNf();
 
-                                $this->mostraNotaFiscal('Cancelamento Nfe: ' . $this->getNumero() . ' - Realizado com sucesso', 'sucesso');
+                                $labelDoc = ($this->getModelo() == '65' && ($this->getOrigem() === 'CPM' || $this->getOrigem() === 'CPR')) ? 'NFC-e' : 'NFe';
+                                $this->mostraNotaFiscal('Cancelamento ' . $labelDoc . ': ' . $this->getNumero() . ' - Realizado com sucesso', 'sucesso');
                             } else {
                                 $this->mostraNotaFiscal($msg->retEvento->infEvento->cStat . ' - ' . $msg->retEvento->infEvento->xMotivo . ' NFe:' . $this->getNumero(), 'erro');
                             }
@@ -586,6 +678,15 @@ class p_nota_fiscal extends c_nota_fiscal
                 $danfe = new p_nfe_40();
 
                 $danfe->visualizar_carta_correcao_NFE($chave, $NProt, 1, date('Ym'), $aEnd, $arq);
+                // Abre a carta de correção em nova janela
+                echo "<script>";
+                echo "function printCartaCorrecao(arquivo) {";
+                echo "    if (arquivo && arquivo !== '') {";
+                echo "        window.open(arquivo, 'CartaCorrecao', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes');";
+                echo "    }";
+                echo "}";
+                echo "printCartaCorrecao('" . $arq . "');";
+                echo "</script>";
                 $this->mostraNotaFiscal('Carta Correção Nfe: ' . $this->getNumero() . ' realizado com sucesso', 'sucesso', $arq);
                 break;
             case 'cartaCNFE':
@@ -596,7 +697,22 @@ class p_nota_fiscal extends c_nota_fiscal
                         $danfe = new p_nfe_40();
                         $msg = $danfe->carta_correcao_NFE($this->getChNfe(), $this->getNProt(), $this->m_cartaC, $this->getModelo(), $seqEvento);
                         //if (($msg['cStat'] == '128') and ($msg['evento'][0]['cStat'] == '135')):
-                        $this->incluiNfEvento($msg, 'T', $seqEvento, $this->getNumero(), $this->getNumero(), $this->m_cartaC);
+                        if(!empty($msg)){
+                            $carta = $this->incluiNfEvento($msg, 'T', $seqEvento, $this->getNumero(), $this->getNumero(), $this->m_cartaC);
+                        } else {
+                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro',
+                                width: 400,
+                                text: 'Erro ao realizar Carta Correção Nfe: ' . $this->getNumero() . ' não realizado',
+                                confirmButtonText: 'OK'
+                            });
+                            </script>";
+                            $this->mostraNotaFiscal('');
+                            break;
+                        }
                         // busca emitente
                         $emitente = new c_banco;
                         $emitente->setTab('AMB_EMPRESA');
@@ -617,9 +733,31 @@ class p_nota_fiscal extends c_nota_fiscal
                             'telefone' => '(' . $arrEmitente[0]['FONEAREA'] . ') ' . $arrEmitente[0]['FONENUM'],
                             'email' => $arrEmitente[0]['EMAIL']
                         );
-
-                        $danfe->visualizar_carta_correcao_NFE($this->getChNfe(), $this->getNProt(), $seqEvento, date('Ym'), $aEnd, $arq);
-                        $this->mostraNotaFiscal('Carta Correção Nfe: ' . $this->getNumero() . ' realizado com sucesso', 'sucesso', $arq);
+                        if(empty($carta)){
+                            $danfe->visualizar_carta_correcao_NFE($this->getChNfe(), $this->getNProt(), $seqEvento, date('Ym'), $aEnd, $arq);
+                            // Abre a carta de correção em nova janela
+                            echo "<script>";
+                            echo "function printCartaCorrecao(arquivo) {";
+                            echo "    if (arquivo && arquivo !== '') {";
+                            echo "        window.open(arquivo, 'CartaCorrecao', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes');";
+                            echo "    }";
+                            echo "}";
+                            echo "printCartaCorrecao('" . $arq . "');";
+                            echo "</script>";
+                            $this->mostraNotaFiscal('Carta Correção Nfe: ' . $this->getNumero() . ' realizado com sucesso', 'sucesso', $arq);
+                        } else {
+                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro',
+                                width: 400,
+                                text: 'Erro ao realizar Carta Correção Nfe: ' . $this->getNumero() . ' não realizado',
+                                confirmButtonText: 'OK'
+                            });
+                            </script>";
+                            $this->mostraNotaFiscal('');
+                        }
                     }
                 } else {
                     $this->mostraNotaFiscal('Nota Fiscal Eletrônica não autorizada, <br>impossibilitando o CANCELAMENTO da NFe: ' . $this->getNumero(), 'erro');
@@ -668,24 +806,13 @@ class p_nota_fiscal extends c_nota_fiscal
 
                             $c_pedidoVendaNf = new c_pedidoVendaNf();
 
-                            /*
-                        $result = $c_pedidoVendaNf->calculaImpostosNfe($objNfProduto, 
-                            $this->getIdNatop(), 
-                            $this->getUfPessoa(), 
-                            $this->getTipoPessoa(),
-                            $this->getCentroCusto(),
-                            $this->getPessoa()); 
-
-                            */
-
-                            $result = c_pedidoVendaNf::calculaImpostosNfe(
+                            $result = $c_pedidoVendaNf->calculaImpostosNfe(
                                 $objNfProduto,
                                 $this->getIdNatop(),
                                 $this->getUfPessoa(),
                                 $this->getTipoPessoa(),
                                 $this->m_empresacentrocusto
                             );
-
 
                             if (!$result):
                                 $msg = "Tributos não localizado " . $objNfProduto->getDescricao() . " Nat. Operação:" . $this->getIdNatop() .
@@ -880,6 +1007,97 @@ class p_nota_fiscal extends c_nota_fiscal
                         die;
                     }
                 break;
+            case 'consultaEventosNFe':
+                $this->setNotaFiscal();
+                $eventos = $this->selectNfEvento($this->getId());
+                if($eventos[0]['CSTAT'] != '135'){
+                    $response = [
+                        'status' => 'success',
+                        'code' => 200,
+                        'temCCe' => false
+                    ];
+                } else {
+                    $response = [
+                        'status' => 'success',
+                        'code' => 200,
+                        'temCCe' => true
+                    ];
+                }               
+                
+                $this->respondWithJson($response);
+                exit;
+            case 'visualizarCCe':
+                try {
+                    $this->setNotaFiscal();
+                    $eventos = $this->selectNfEvento($this->getId());
+
+                    // Busca a sequência do primeiro evento de Carta Correção (T)
+                    $sequencia = 1; // Valor padrão
+                    if (is_array($eventos) && count($eventos) > 0) {
+                        foreach ($eventos as $evento) {
+                            if (isset($evento['TIPOEVENTO']) && $evento['TIPOEVENTO'] == 'T') {
+                                if (isset($evento['SEQUENCIA']) && $evento['SEQUENCIA']) {
+                                    $sequencia = $evento['SEQUENCIA'];
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    $chave = $this->getChNfe();
+                    $NProt = $this->getNProt();
+
+                    // Busca dados do emitente
+                    $emitente = new c_banco;
+                    $emitente->setTab('AMB_EMPRESA');
+                    $arrEmitente = $emitente->getRecord('centrocusto= ' . $this->getCentroCusto());
+                    $emitente->close_connection();
+
+                    if (!is_array($arrEmitente) || !isset($arrEmitente[0])) {
+                        $this->respondWithJson([
+                            'status' => 'error',
+                            'message' => 'Dados do emitente não encontrados para gerar a CC-e.'
+                        ]);
+                        exit;
+                    }
+
+                    $arq = '';
+                    $aEnd = array(
+                        'razao' => $arrEmitente[0]['NOMEEMPRESA'],
+                        'logradouro' => $arrEmitente[0]['TIPOEND'] . ' ' . $arrEmitente[0]['ENDERECO'],
+                        'numero' => $arrEmitente[0]['NUMERO'],
+                        'complemento' => $arrEmitente[0]['COMPLEMENTO'],
+                        'bairro' => $arrEmitente[0]['BAIRRO'],
+                        'CEP' => $arrEmitente[0]['CEP'],
+                        'municipio' => $arrEmitente[0]['CIDADE'],
+                        'UF' => $arrEmitente[0]['UF'],
+                        'telefone' => '(' . $arrEmitente[0]['FONEAREA'] . ') ' . $arrEmitente[0]['FONENUM'],
+                        'email' => $arrEmitente[0]['EMAIL']
+                    );
+
+                    $danfe = new p_nfe_40();
+                    $danfe->visualizar_carta_correcao_NFE($chave, $NProt, $sequencia, date('Ym'), $aEnd, $arq);
+
+                    if ($arq === null || trim((string) $arq) === '') {
+                        $this->respondWithJson([
+                            'status' => 'error',
+                            'message' => 'Não foi possível determinar a URL do PDF da carta de correção.'
+                        ]);
+                        exit;
+                    }
+
+                    $this->respondWithJson([
+                        'status' => 'success',
+                        'url' => $arq
+                    ]);
+                    exit;
+                } catch (Throwable $ex) {
+                    $this->respondWithJson([
+                        'status' => 'error',
+                        'message' => $ex->getMessage()
+                    ]);
+                    exit;
+                }
             default:
                 if ($this->verificaDireitoUsuario('EstNotaFiscal', 'C')) {
                     $this->mostraNotaFiscal('');
@@ -1424,7 +1642,7 @@ class p_nota_fiscal extends c_nota_fiscal
 
         // ########## NATUREZA OPERACAO ##########
         $consulta = new c_banco();
-        $sql = "select id, natoperacao as descricao from est_nat_op where (tipo='S') order by id";
+        $sql = "select id, natoperacao as descricao from est_nat_op where 1=1 order by id";
         $consulta->exec_sql($sql);
         $consulta->close_connection();
         $result = $consulta->resultado;
@@ -1665,6 +1883,7 @@ class p_nota_fiscal extends c_nota_fiscal
                 $classNFProduto->setNcm($notaFiscal[0]['NCM']);
                 $classNFProduto->setCest($notaFiscal[0]['CEST']);
                 $classNFProduto->setCfop($notaFiscal[0]['CFOP']);
+
                 $classNFProduto->setAliqIcms($notaFiscal[0]['ALIQICMS'], true);
                 $classNFProduto->setPercReducaoBc($notaFiscal[0]['PERCREDUCAOBC'], true);
                 $classNFProduto->setModBc($notaFiscal[0]['MODBC']);
@@ -1695,6 +1914,7 @@ class p_nota_fiscal extends c_nota_fiscal
                 $classNFProduto->setDataGarantia($notaFiscal[0]['DATAGARANTIA']);
                 $classNFProduto->setDataConferencia($notaFiscal[0]['DATACONFERENCIA']);
                 $classNFProduto->setOrdem($notaFiscal[0]['ORDEM']);
+                $classNFProduto->setNItemPed($notaFiscal[0]['NITEMPED']);
                 $classNFProduto->setProjeto($notaFiscal[0]['PROJETO']);
                 $classNFProduto->setCstPis($notaFiscal[0]['CSTPIS']);
                 $classNFProduto->setBcPis($notaFiscal[0]['BCPIS'], true);
@@ -1867,18 +2087,18 @@ class p_nota_fiscal extends c_nota_fiscal
     public function pegarNfeReferenciada()
     {
         $nfs = explode("|", $this->devolucaoNotaFiscal);
-        $nfRef = "";
+        $nfRef = [];
         for ($i = 1; $i < count($nfs); $i++) {
             $notaFiscal = new c_banco;
             $notaFiscal->setTab("EST_NOTA_FISCAL");
             $nfReferenciada = $notaFiscal->getField("CHNFE", "ID= '" . $nfs[$i] . "'");
             $notaFiscal->close_connection();
             if ($nfReferenciada != '') {
-                $nfRef = $nfRef . "|" . $nfReferenciada;
+                $nfRef[] = $nfReferenciada;
             }
         }
 
-        return $nfRef;
+        return implode("|", $nfRef);
     }
 
 

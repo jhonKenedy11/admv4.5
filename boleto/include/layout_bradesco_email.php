@@ -39,7 +39,7 @@ hr { border-top: 2pt dashed; margin: 0;}
 <table>
     <tr>
         <td class="borda-left" style="width: 150px; vertical-align: bottom; padding: 3pt;">
-            <img src="images/blt/logobradesco.jpg" width="120" height="30">
+            <img src="<?= $_SERVER['DOCUMENT_ROOT'].'/admv4.5/boleto/imagens/logobradesco.jpg' ?>" width="120" height="30">
         </td>
         <td class="borda-left numero_agencia" style="padding: 3pt;">
             <?php echo $dadosboleto["codigo_banco_com_dv"]?>
@@ -232,7 +232,7 @@ hr { border-top: 2pt dashed; margin: 0;}
 <table>
     <tr>
         <td class="borda-left" style="width: 150px; vertical-align: bottom; padding: 3pt;">
-            <img src="images/blt/logobradesco.jpg" width="120" height="30">
+            <img src="<?= $_SERVER['DOCUMENT_ROOT'].'/admv4.5/boleto/imagens/logobradesco.jpg' ?>" width="120" height="30">
         </td>
         <td class="borda-left numero_agencia" style="padding: 3pt;">
             <?php echo $dadosboleto["codigo_banco_com_dv"]?>

@@ -24,12 +24,12 @@ function submitConfirmarSmart() {
             for (row = 1; row < rows.length; row++) {
                 var cells = rows[row].getElementsByTagName("td");
                 if(cells[0].childNodes[1].checked == true){
-                    var field1 = cells[1].childNodes[0].data; //CodProduto
-                    var field2 = cells[2].childNodes[0].data; // CodNota
-                    var field3 = cells[3].childNodes[0].data; // Descricao
-                    var field4 = cells[4].childNodes[0].data;
-                    var field5 = cells[5].childNodes[0].data;
-                    var field6 = cells[6].childNodes[0].data;
+                    var field1 = cells[1].childNodes[0].data.trim(); //CodProduto
+                    var field2 = cells[2].childNodes[0].data.trim(); // CodNota
+                    var field3 = cells[3].childNodes[0].data.trim(); // Descricao
+                    var field4 = cells[4].childNodes[0].data.trim();
+                    var field5 = cells[5].childNodes[0].data.trim();
+                    var field6 = cells[6].childNodes[0].data.trim();
                     var field7 = cells[7].childNodes[1].value;
                     var field8 = cells[8].childNodes[1].value;
                     var field9 = cells[9].childNodes[1].value;
@@ -104,12 +104,12 @@ function submitConfirmaOrdemCompra() {
             for (row = 1; row < rows.length; row++) {
                 var cells = rows[row].getElementsByTagName("td");
                 if(cells[0].childNodes[1].checked == true){
-                    var field1 = cells[1].childNodes[0].data; //CodProduto
-                    var field2 = cells[2].childNodes[0].data; // CodNota
-                    var field3 = cells[3].childNodes[0].data; // Descricao
-                    var field4 = cells[4].childNodes[0].data;
-                    var field5 = cells[5].childNodes[0].data;
-                    var field6 = cells[6].childNodes[0].data;
+                    var field1 = cells[1].childNodes[0].data.trim(); //CodProduto
+                    var field2 = cells[2].childNodes[0].data.trim(); // CodNota
+                    var field3 = cells[3].childNodes[0].data.trim(); // Descricao
+                    var field4 = cells[4].childNodes[0].data.trim();
+                    var field5 = cells[5].childNodes[0].data.trim();
+                    var field6 = cells[6].childNodes[0].data.trim();
                     var field7 = cells[7].childNodes[1].value;
                     var field8 = cells[8].childNodes[1].value;
                     var field9 = cells[9].childNodes[1].value;

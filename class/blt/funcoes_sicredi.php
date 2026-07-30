@@ -239,16 +239,36 @@ function direita($entra,$comp){
 	return substr($entra,strlen($entra)-$comp,$comp);
 }
 
-function fator_vencimento($data) {
-    $fator = 0;
-	$data = explode("/",$data);
-	$ano = $data[2];
-	$mes = $data[1];
-	$dia = $data[0];
-    $fator = abs((_dateToDays("1997","10","07")) - (_dateToDays($ano, $mes, $dia)));
-    if ($fator >= 10000) {
-       $fator = 1000 + ($fator - 10000);
+function fator_vencimento($data)
+{
+    $data = explode("/", $data);
+    $ano = $data[2];
+    $mes = $data[1];
+    $dia = $data[0];
+
+    // Calcula dias desde a data base (07/10/1997)
+    $dias_vencimento = _dateToDays($ano, $mes, $dia);
+    $dias_base = _dateToDays("1997", "10", "07");
+
+    // Subtração correta: vencimento - base
+    $diferenca_dias = $dias_vencimento - $dias_base;
+
+    // Considera o ciclo de reset do fator (9999 → 1000)
+    // Data limite para fator 9999: 21/02/2025
+    $dias_limite = _dateToDays("2025", "02", "21");
+    $diferenca_limite = $dias_limite - $dias_base; // Será 9999
+
+    if ($diferenca_dias > $diferenca_limite) {
+        // Após 21/02/2025, o fator reseta para 1000
+        $dias_reset = _dateToDays("2025", "02", "22");
+        $diferenca_reset = $dias_reset - $dias_base;
+        $ciclo_completo = $diferenca_limite - 1000 + 1; // 8999 + 1 = 9000
+
+        $fator = 1000 + (($diferenca_dias - $diferenca_reset) % $ciclo_completo);
+    } else {
+        $fator = $diferenca_dias;
     }
+
     return $fator;
 }
 
@@ -281,7 +301,7 @@ function modulo_10($num) {
             // pega cada numero isoladamente
             $numeros[$i] = substr($num,$i-1,1);
             // Efetua multiplicacao do numero pelo (falor 10)
-            $temp = $numeros[$i] * $fator; 
+            $temp = (int) $numeros[$i] * (int) $fator;
             $temp0=0;
             foreach (preg_split('//',$temp,-1,PREG_SPLIT_NO_EMPTY) as $k=>$v){ $temp0+=$v; }
             $parcial10[$i] = $temp0; //$numeros[$i] * $fator;
@@ -337,7 +357,7 @@ function modulo_11($num, $base=9, $r=0)  {
         // pega cada numero isoladamente
         $numeros[$i] = substr($num,$i-1,1);
         // Efetua multiplicacao do numero pelo falor
-        $parcial[$i] = $numeros[$i] * $fator;
+        $parcial[$i] = (int) $numeros[$i] * (int) $fator;
         // Soma dos digitos
         $soma += $parcial[$i];
         if ($fator == $base) {

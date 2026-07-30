@@ -9,9 +9,8 @@
  *Ultima Atualizacao: 14/09/2012
  ****************************************************************************/
 
-include_once("../../bib/c_user.php");
-include_once("../../class/pss/c_pessoa.php");
-include_once("../../class/pss/c_usuario.php");
+$dirAut = dirname(__FILE__);
+include_once($dirAut . "/../../bib/c_user.php");
 
 //Class C_USUARIO_AUTORIZA
 class c_usuario_autoriza extends c_user
@@ -38,10 +37,14 @@ class c_usuario_autoriza extends c_user
 
 	public function setNome()
 	{
-		$cliente = new c_usuario();
-		$cliente->setUsuario($this->getUsuario());
-		$reg_nome = $cliente->select_usuario_matricula();
-		$this->nome = $reg_nome[0]['NOMEREDUZIDO'];
+		$banco = new c_banco();
+		$banco->exec_sql("SELECT nomereduzido AS NOMEREDUZIDO FROM amb_usuario "
+			. "WHERE usuario = " . (int) $this->getUsuario());
+		$banco->close_connection();
+		$this->nome = '';
+		if (is_array($banco->resultado) && isset($banco->resultado[0]['NOMEREDUZIDO'])) {
+			$this->nome = $banco->resultado[0]['NOMEREDUZIDO'];
+		}
 	}
 
 	public function getNome()
@@ -116,6 +119,72 @@ class c_usuario_autoriza extends c_user
 		$banco->close_connection();
 		return $banco->resultado;
 	} //fim select_autorizacao_geral
+
+	/**
+	 * Lista autorizações de um usuário (programa => direitos).
+	 * @param int $usuario
+	 * @return array|false
+	 */
+	public function select_autorizacao_por_usuario($usuario = null)
+	{
+		$id = ($usuario !== null) ? (int) $usuario : (int) $this->getUsuario();
+		$sql  = "SELECT programa, direitos FROM amb_usuario_autoriza ";
+		$sql .= "WHERE usuario = " . $id . " ORDER BY programa";
+		$banco = new c_banco();
+		$banco->exec_sql($sql);
+		$banco->close_connection();
+		return $banco->resultado;
+	}
+
+	/**
+	 * Sincroniza direitos enviados pelo cadastro de usuário.
+	 * @param int $usuario
+	 * @param array $itens [['programa'=>'NomeForm','direitos'=>'IAEC'], ...]
+	 * @return string mensagem de erro ou vazio
+	 */
+	public function syncAutorizacoesUsuario($usuario, $itens)
+	{
+		if (!is_array($itens)) {
+			return '';
+		}
+		$this->setUsuario((int) $usuario);
+		$msg = '';
+		foreach ($itens as $item) {
+			if (!isset($item['programa'])) {
+				continue;
+			}
+			$programa = trim($item['programa']);
+			if ($programa === '') {
+				continue;
+			}
+			$direitos = isset($item['direitos']) ? preg_replace('/[^IAECSR]/', '', strtoupper($item['direitos'])) : '';
+			$letras = array_unique(str_split($direitos));
+			sort($letras);
+			$direitos = implode('', $letras);
+
+			$ret = $this->salvarProgramaAutorizacao($programa, $direitos);
+			if ($ret !== '') {
+				$msg = $ret;
+			}
+		}
+		return $msg;
+	}
+
+	/**
+	 * Inclui, altera ou exclui autorização de um programa.
+	 */
+	public function salvarProgramaAutorizacao($programa, $direitos)
+	{
+		$this->setPrograma($programa);
+		$this->setDireitos($direitos);
+		if ($direitos === '') {
+			return $this->existeAutorizacao() ? $this->excluiAutorizacao() : '';
+		}
+		if ($this->existeAutorizacao()) {
+			return $this->alteraAutorizacao();
+		}
+		return $this->incluiAutorizacao();
+	}
 
 
 

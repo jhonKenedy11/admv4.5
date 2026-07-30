@@ -1,3 +1,4 @@
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <script type="text/javascript" src="{$pathJs}/ped/s_pedido_venda_nf_ps.js"> </script>
     <!-- page content -->
     <div class="right_col" role="main">      
@@ -22,6 +23,9 @@
             <input name=fornecedor    type=hidden value=''>
             <input name=descCondPgto  type=hidden value="{$descCondPgto}">
             <input name=alteraCondPgto  type=hidden value="{$alteraCondPgto}">
+            <input name=saldoCredito    type=hidden value="{$saldoCredito}">
+            <input name=usarCredito     type=hidden value="{$usarCredito}">
+            <input name=credito         type=hidden value="{$credito}">
 
 
 

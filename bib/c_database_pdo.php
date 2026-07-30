@@ -122,4 +122,53 @@ class c_banco_pdo
 	{
 		$this->conn = $connection;
 	}
+
+	public function beginTransaction(): bool
+	{
+		return $this->conn->beginTransaction();
+	}
+
+	public function commit(): bool
+	{
+		return $this->conn->commit();
+	}
+
+	public function rollBack(): bool
+	{
+		return $this->conn->rollBack();
+	}
+
+	public function close()
+	{
+		$this->conn = null;
+	}
+
+	public function errorInfo()
+	{
+		return $this->stmt->errorInfo();
+	}
+
+	/**
+	 * @name dateToMysql
+	 * @description Converte data no formato dd/mm/yyyy para o formato MySQL (yyyy-mm-dd)
+	 *
+	 * @param  string  $date   Data no formato dd/mm/yyyy
+	 * @return string|null     Data no formato yyyy-mm-dd ou null se inválida
+	 */
+	public function dateToMysql(?string $date = null): ?string
+	{
+		if ($date === null || $date === '') {
+			return null;
+		}
+
+		$d = DateTime::createFromFormat('d/m/Y', $date);
+
+		if (!$d || $d->format('d/m/Y') !== $date) {
+			return null;
+		}
+
+		return $d->format('Y-m-d');
+	}
+
+
 }

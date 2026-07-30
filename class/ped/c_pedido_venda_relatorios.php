@@ -15,6 +15,7 @@ include_once($dir . "/../../bib/c_date.php");
 include_once($dir . "/../../bib/c_tools.php");
 include_once($dir . "/../../class/crm/c_conta.php");
 include_once($dir . "/../../class/est/c_produto.php");
+include_once($dir . "/../../class/est/c_produto_estoque.php");
 
 //Class c_pedido_venda_relatorios
 class c_pedido_venda_relatorios extends c_user
@@ -89,7 +90,7 @@ class c_pedido_venda_relatorios extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return is_array($banco->resultado) ? $banco->resultado : [];
     } //fim select_grupo_geral
 
     /**
@@ -108,7 +109,7 @@ class c_pedido_venda_relatorios extends c_user
         $banco = new c_banco();
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return is_array($banco->resultado) ? $banco->resultado : [];
     }
 
 
@@ -137,7 +138,7 @@ class c_pedido_venda_relatorios extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return is_array($banco->resultado) ? $banco->resultado : [];
     }
     /**
      * Função filtro para as consultas ao Banco de dados []
@@ -306,7 +307,7 @@ class c_pedido_venda_relatorios extends c_user
         $banco = new c_banco();
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return is_array($banco->resultado) ? $banco->resultado : [];
     }
 
     public function select_faturas_analitico()
@@ -341,7 +342,7 @@ class c_pedido_venda_relatorios extends c_user
         $banco = new c_banco();
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return is_array($banco->resultado) ? $banco->resultado : [];
     }
 
     public function relBonus()
@@ -401,9 +402,46 @@ class c_pedido_venda_relatorios extends c_user
     }
 
     /**
+     * Relatório de comissão (faturamento). Lê os itens já com COMISSAO/BASECOMISSAO
+     * gravados, considerando apenas pedidos nas situações 6, 3 e 9 (faturado / emitir NF /
+     * baixado). O valor da comissão é calculado na hora (BASECOMISSAO * COMISSAO / 100).
+     * Filtra por período (FAT_PEDIDO.EMISSAO) e, opcionalmente, por vendedor (USRFATURA).
+     * @name relComissaoFatura
+     * @return ARRAY linhas do relatório (por item)
+     */
+    public function relComissaoFatura()
+    {
+        $dataIni = c_date::convertDateTxt($this->m_data_ini);
+        $dataFim = c_date::convertDateTxt($this->m_data_fim);
+        $vendedores = array_filter(explode(",", $this->m_vendedor), 'strlen');
+
+        $sql  = "SELECT P.PEDIDO, P.SITUACAO, U.NOME AS NVENDEDOR, C.NOME AS NCLIENTE, ";
+        $sql .= "(CASE P.SITUACAO WHEN '3' THEN 'Emitir NF' WHEN '6' THEN 'Pedido' WHEN '9' THEN 'Pedido baixado' ELSE CONCAT('Situação ', P.SITUACAO) END) AS SITUACAODESC, ";
+        $sql .= "D.DESCRICAO AS DESCITEM, COALESCE(G.DESCRICAO, '') AS GRUPO, ";
+        $sql .= "(CASE WHEN COALESCE(G.COMISSAOVENDAS,0) > 0 THEN 'Grupo' ELSE 'Vendedor' END) AS ORIGEM, ";
+        $sql .= "I.BASECOMISSAO, I.COMISSAO, (I.BASECOMISSAO * I.COMISSAO / 100) AS VALORCOMISSAO, ";
+        $sql .= "(SELECT N.NUMERO FROM EST_NOTA_FISCAL N WHERE (N.DOC = P.ID) AND (N.TIPO = '1') AND (COALESCE(N.SITUACAO,'') <> 'C') ORDER BY N.ID DESC LIMIT 1) AS NUMERONF ";
+        $sql .= "FROM FAT_PEDIDO P ";
+        $sql .= "INNER JOIN FAT_PEDIDO_ITEM I ON (I.ID = P.ID) ";
+        $sql .= "LEFT JOIN AMB_USUARIO U ON (U.USUARIO = P.USRFATURA) ";
+        $sql .= "LEFT JOIN FIN_CLIENTE C ON (C.CLIENTE = P.CLIENTE) ";
+        $sql .= "LEFT JOIN EST_PRODUTO D ON (D.CODIGO = I.ITEMESTOQUE) ";
+        $sql .= "LEFT JOIN EST_GRUPO G ON (G.GRUPO = D.GRUPO) ";
+        $sql .= "WHERE (P.SITUACAO IN ('6','3','9')) AND (I.COMISSAO > 0) AND (COALESCE(I.MOTIVO,0) = 0) ";
+        $sql .= empty($dataIni) ? '' : " AND (P.EMISSAO >= '" . $dataIni . "') ";
+        $sql .= empty($dataFim) ? '' : " AND (P.EMISSAO <= '" . $dataFim . "') ";
+        $sql .= empty($vendedores) ? '' : " AND (P.USRFATURA IN ('" . implode("','", $vendedores) . "')) ";
+        $sql .= "ORDER BY U.NOME, P.EMISSAO, P.PEDIDO, I.NRITEM ";
+
+        $banco = new c_banco();
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        return is_array($banco->resultado) ? $banco->resultado : [];
+    }
+
+    /**
      * Consulta o Banco atraves do pedido id para obter os dados de pedido nao entregue
-     * @name select_pedidos_item_geral
-     * @param INT data Inicio e data Fim
+     * @name select_pedidos_nao_entregue
      * @return ARRAY todos os campos da table de FAT_PEDIDO
      * @version 20220725
      */
@@ -431,5 +469,79 @@ class c_pedido_venda_relatorios extends c_user
         $banco->exec_sql($sql);
         $banco->close_connection();
         return $banco->resultado;
+    }
+
+    /**
+     * Compra por encomenda: pedidos sit 13 com itens em falta, agrupados por pedido.
+     */
+    public function selectRelatorioCompraEncomenda($filial, $idGrupo = null, $idProduto = null): array
+    {
+        $sql  = "SELECT PED.ID AS PEDIDO, COALESCE(NULLIF(TRIM(C.NOMEREDUZIDO), ''), C.NOME) AS CLIENTE, ";
+        $sql .= "PI.ITEMESTOQUE AS CODIGO, PR.CODFABRICANTE, COALESCE(NULLIF(TRIM(PI.DESCRICAO), ''), PR.DESCRICAO) AS DESCRICAO, ";
+        $sql .= "G.DESCRICAO AS NOMEGRUPO, PI.QTSOLICITADA, PI.QTATENDIDA, ";
+        $sql .= "COALESCE(NULLIF(PED.CENTROCUSTOENTREGA, 0), PED.CCUSTO) AS CCE, PED.PRAZOENTREGA ";
+        $sql .= "FROM FAT_PEDIDO_ITEM PI ";
+        $sql .= "INNER JOIN FAT_PEDIDO PED ON PED.ID = PI.ID ";
+        $sql .= "INNER JOIN FIN_CLIENTE C ON PED.CLIENTE = C.CLIENTE ";
+        $sql .= "INNER JOIN EST_PRODUTO PR ON PR.CODIGO = PI.ITEMESTOQUE ";
+        $sql .= "LEFT JOIN (SELECT GRUPO, MAX(DESCRICAO) AS DESCRICAO FROM EST_GRUPO GROUP BY GRUPO) G ON G.GRUPO = PR.GRUPO ";
+        $sql .= "WHERE PED.SITUACAO = '13' AND (PI.MOTIVO IS NULL OR PI.MOTIVO <> 8) ";
+
+        if (!empty($filial)) {
+            $sql .= "AND PED.CCUSTO = " . (int) $filial . " ";
+        }
+        if (!empty($idProduto)) {
+            $sql .= "AND PR.CODIGO = '" . addslashes((string) $idProduto) . "' ";
+        }
+        if (!empty($idGrupo)) {
+            $sql .= "AND PR.GRUPO = '" . addslashes((string) $idGrupo) . "' ";
+        }
+
+        $sql .= "ORDER BY PED.ID, CLIENTE, PI.ITEMESTOQUE";
+
+        $banco = new c_banco();
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        $rows = is_array($banco->resultado) ? $banco->resultado : [];
+
+        $agrupado = [];
+
+        foreach ($rows as $item) {
+            $codigo = $item['CODIGO'];
+            $solicitado = (float) ($item['QTSOLICITADA'] ?? 0);
+            $qtdFalta = max(0, $solicitado - (float) ($item['QTATENDIDA'] ?? 0));
+            if ($qtdFalta <= 0) {
+                continue;
+            }
+
+            $pid = (int) $item['PEDIDO'];
+            if (!isset($agrupado[$pid])) {
+                $agrupado[$pid] = [
+                    'PEDIDO' => $pid,
+                    'CLIENTE' => $item['CLIENTE'] ?? '',
+                    'PRAZOENTREGA' => $item['PRAZOENTREGA'] ?? '',
+                    'TOTAL_FALTA' => 0,
+                    'ITENS' => [],
+                ];
+            }
+
+            $agrupado[$pid]['ITENS'][] = [
+                'NRITEM' => count($agrupado[$pid]['ITENS']) + 1,
+                'PEDIDO' => $pid,
+                'CLIENTE' => $agrupado[$pid]['CLIENTE'],
+                'CODIGO' => $codigo,
+                'CODFABRICANTE' => $item['CODFABRICANTE'] ?? '',
+                'DESCRICAO' => $item['DESCRICAO'] ?? '',
+                'NOMEGRUPO' => $item['NOMEGRUPO'] ?? '',
+                'QTSOLICITADA' => $solicitado,
+                'QTATENDIDA' => (float) ($item['QTATENDIDA'] ?? 0),
+                'QTD_FALTA' => $qtdFalta,
+                'COMPRA' => $qtdFalta,
+                'PRAZOENTREGA' => $item['PRAZOENTREGA'] ?? '',
+            ];
+            $agrupado[$pid]['TOTAL_FALTA'] += $qtdFalta;
+        }
+
+        return array_values($agrupado);
     }
 }    //	END OF THE CLASS

@@ -202,18 +202,20 @@
                   </div>
             </div>
             <div class="x_panel">
-                  {if count($resultado) > 0}
+                  {if !empty($resultado)}
                         <div class="table-responsive">
                               <table class="table table-striped" style="margin-bottom: 0;">
                                     <thead>
                                           <tr>
-                                                <th style="width: 25%; text-align: left;">Cliente</th>
-                                                <th style="width: 8%; text-align: center;">Número</th>
-                                                <th style="width: 6%; text-align: center;">Série</th>
-                                                <th style="width: 10%; text-align: center;">Emissão</th>
-                                                <th style="width: 8%; text-align: center;">CFOP</th>
-                                                <th style="width: 20%; text-align: left;">Cond. Pagamento</th>
-                                                <th style="width: 12%; text-align: center;">Valor Total</th>
+                                                <th style="width: 20%; text-align: left;">Cliente</th>
+                                                <th style="width: 7%; text-align: center;">Número</th>
+                                                <th style="width: 5%; text-align: center;">Série</th>
+                                                <th style="width: 8%; text-align: center;">Emissão</th>
+                                                <th style="width: 7%; text-align: center;">Nº Pedido</th>
+                                                <th style="width: 12%; text-align: center;">Vendedor</th>
+                                                <th style="width: 7%; text-align: center;">CFOP</th>
+                                                <th style="width: 15%; text-align: left;">Cond. Pagamento</th>
+                                                <th style="width: 10%; text-align: center;">Valor Total</th>
                                           </tr>
                                     </thead>
                                     <tbody>
@@ -224,6 +226,8 @@
                                                       <td style="text-align: center;">{$item.NUMERO|default:'-'}</td>
                                                       <td style="text-align: center;">{$item.SERIE|default:'-'}</td>
                                                       <td style="text-align: center;">{$item.EMISSAO|date_format:"%d/%m/%Y"}</td>
+                                                      <td style="text-align: center;">{$item.NUMERO_PEDIDO|default:'-'}</td>
+                                                      <td style="text-align: center;">{$item.NOME_VENDEDOR|default:'-'}</td>
                                                       <td style="text-align: center;">{$item.CFOP|default:'-'}</td>
                                                       <td>{$item.COND_PAGAMENTO|default:'-'}</td>
                                                       <td style="text-align: center;" class="valor-total">R$ {$item.VALOR_TOTAL|number_format:2:',':'.'}</td>
@@ -234,7 +238,7 @@
                                           
                                           {* Linha de total geral *}
                                           <tr style="font-weight: bold;">
-                                                <td colspan="6" style="text-align: right;"><strong>TOTAL GERAL:</strong></td>
+                                                <td colspan="8" style="text-align: right;"><strong>TOTAL GERAL:</strong></td>
                                                 <td style="text-align: center;" class="valor-total">R$ {$totalGeral|number_format:2:',':'.'}</td>
                                           </tr>
                                     </tbody>
@@ -260,44 +264,36 @@
       </div>
 </div>
 
+<script type="text/javascript" src="{$pathJs}/est/s_estoque_relatorio.js"></script>
+<script src="{$pathJs}/../bib/js/vendor/xlsx.full.min.js"></script>
 <script type="text/javascript">
       function exportarTabelaParaExcel() {
-            // Pega a tabela que já está sendo exibida
             var table = document.querySelector('.table-striped');
             if (!table) {
                   alert('Tabela não encontrada!');
                   return;
             }
-            
-            // Converte a tabela para CSV
-            var csv = '';
-            var rows = table.querySelectorAll('tr');
-            
-            for (var i = 0; i < rows.length; i++) {
-                  var row = rows[i];
-                  var cells = row.querySelectorAll('td, th');
-                  var rowData = [];
-                  
-                  for (var j = 0; j < cells.length; j++) {
-                        var cellText = cells[j].textContent.trim();
-                        // Escapa vírgulas e aspas
-                        if (cellText.indexOf(',') !== -1 || cellText.indexOf('"') !== -1) {
-                              cellText = '"' + cellText.replace(/"/g, '""') + '"';
-                        }
-                        rowData.push(cellText);
-                  }
-                  
-                  csv += rowData.join(',') + '\n';
-            }
-            
-            // Cria o blob e faz o download
-            var blob = new Blob([csv], {ldelim}type: 'text/csv;charset=utf-8;'{rdelim});
-            var link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'Relatorio_Notas_Fiscais_{$dataIni}_a_{$dataFim}.csv';
-            link.click();
-      }
 
+            if (typeof XLSX === 'undefined') {
+                  alert('Biblioteca de exportação (XLSX) não carregada!');
+                  return;
+            }
+
+            var wb = XLSX.utils.book_new();
+            var ws = XLSX.utils.table_to_sheet(table, { raw: true });
+
+            if (typeof converteColunaNumeroBR === 'function') {
+                  converteColunaNumeroBR(ws, 8);
+            }
+
+            XLSX.utils.book_append_sheet(wb, ws, "Notas Fiscais");
+
+            var dataIni = '{$dataIni}';
+            var dataFim = '{$dataFim}';
+            var nomeArquivo = 'Relatorio_Notas_Fiscais_' + dataIni.replace(/\//g, '_') + '_a_' + dataFim.replace(/\//g, '_') + '.xlsx';
+            XLSX.writeFile(wb, nomeArquivo);
+      }
+      
       function visualizarNota(idNota) {
             // Abrir modal ou nova janela para visualizar a nota fiscal
             window.open('{$pathCliente}/forms/est/p_nota_fiscal.php?opcao=visualizar&id=' + idNota, '_blank');

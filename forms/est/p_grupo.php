@@ -56,6 +56,7 @@ Class p_grupo extends c_grupo {
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
         $this->smarty->assign('admClass', ADMclass);
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
 
         $this->smarty->assign('titulo', "Grupo Produtos");
         $this->smarty->assign('colVis', "[ 0,1,2,3,4]"); 

@@ -116,7 +116,7 @@
                 <!--table id="datatable-responsive" class="table table-striped table-bordered dt-responsive nowrap table-condensed" cellspacing="0" width="100%"-->
                 <table id="datatable-buttons1" class="table table-bordered jambo_table">
                     <thead>
-                        <tr style="background: #2A3F54; color: white;">
+                        <tr class="headings">
                             <th>Código</th>
                             <th>Nome</th>
                             <th>Nome Reduzido</th>

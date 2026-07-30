@@ -100,21 +100,28 @@ Class p_os_imprime extends c_atendimento {
 
         $lanc = $this->select_atendimento($this->__get('id'));
         $lancItem = $this->select_atendimento_pecas($this->__get('id'));
+        if (!is_array($lancItem)) {
+            $lancItem = [];
+        }
 
         $objProdutoEstoque = new c_produto_estoque;
-        $teste = count($lancItem);
-        for($i=0; $i < count($lancItem); $i++){
+        for ($i = 0; $i < count($lancItem); $i++) {
             $quantidade = $objProdutoEstoque->produtoQtde($lancItem[$i]['CODPRODUTO'], $this->m_empresacentrocusto);
             if(is_array($quantidade)){
                 $lancItem[$i]['QUANTIDADE_EST'] = $quantidade[0]['QUANTIDADE'] ;
             }
         }
 
-        $lancServico = $this->select_atendimento_servicos($this->__get('id')); 
+        $lancServico = $this->select_atendimento_servicos($this->__get('id'));
+        if (!is_array($lancServico)) {
+            $lancServico = [];
+        }
         $empresa = $this->busca_dadosEmpresaCC($this->m_empresacentrocusto);
 
-        $lanc[0]['OBS'] = nl2br($lanc[0]['OBS']);
-        $lanc[0]['OBSSERVICO'] = nl2br($lanc[0]['OBSSERVICO']);
+        if (is_array($lanc) && isset($lanc[0])) {
+            $lanc[0]['OBS'] = nl2br($lanc[0]['OBS']);
+            $lanc[0]['OBSSERVICO'] = nl2br($lanc[0]['OBSSERVICO']);
+        }
         
         $this->smarty->assign('os', $lanc);
         $this->smarty->assign('empresa', $empresa);

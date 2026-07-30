@@ -50,6 +50,9 @@ Class p_pedido_venda_nf_ps extends c_pedidoVendaNf {
     public $volPesoBruto = NULL;
     public $obs = NULL;
     public $nfAberto = false;
+    public $usarCredito = NULL;
+    public $credito = NULL;
+    public $saldoCredito = NULL;
     
     public  $objNotaFiscal = NULL;
     public  $objProduto = NULL;
@@ -106,6 +109,7 @@ Class p_pedido_venda_nf_ps extends c_pedidoVendaNf {
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
         $this->smarty->assign('admClass', ADMclass);
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
 
         // metodo SET dos dados do FORM para o TABLE
         if (is_null($id)):
@@ -135,6 +139,10 @@ Class p_pedido_venda_nf_ps extends c_pedidoVendaNf {
         $this->alteraCondPgto = (isset($this->parmPost['alteraCondPgto']) ? $this->parmPost['alteraCondPgto'] : "");
        
         $this->numNf = (isset($this->parmPost['numNf']) ? $this->parmPost['numNf'] : "");
+
+        $this->usarCredito = (isset($this->parmPost['usarCredito']) ? $this->parmPost['usarCredito'] : 'N');
+        $this->credito = (isset($this->parmPost['credito']) ? $this->parmPost['credito'] : 0);
+        $this->saldoCredito = (isset($this->parmPost['saldoCredito']) ? $this->parmPost['saldoCredito'] : 0);
         
 
         // status para cadastro da nf em aberto mesmo com erro.
@@ -461,11 +469,18 @@ Class p_pedido_venda_nf_ps extends c_pedidoVendaNf {
                         $objNfProduto->setFrete($arrItemPedido[$i]['FRETE'],true);
 
 
+                        $difalContext = [
+                            'ie' => trim($arrPedido[0]['INSCESTRG'] ?? ''),
+                            'vendaPresencial' => 'N',
+                        ];
+
                         $result = $this->calculaImpostosNfe($objNfProduto, 
                                       $objNotaFiscal->getIdNatop(), 
                                       $objNotaFiscal->getUfPessoa(), 
                                       $objNotaFiscal->getTipoPessoa(), 
-                                      $this->m_empresacentrocusto); 
+                                      $this->m_empresacentrocusto,
+                                      null,
+                                      $difalContext); 
 
                         if (!$result):
                             $this->m_msg = "Tributos não localizado ".$objNfProduto->getDescricao()." Nat. Operação:".$objNotaFiscal->getIdNatop().
@@ -483,18 +498,13 @@ Class p_pedido_venda_nf_ps extends c_pedidoVendaNf {
                         $objNfProduto->setDataFabricacao($arrItemPedido[$i]['FABDATAFABRICACAO']);
 
                         $objNfProduto->setOrdem($arrItemPedido[$i]['NUMEROOC']);
+                        if (!empty($arrItemPedido[$i]['NITEMPED'])){
+                            $objNfProduto->setNItemPed($arrItemPedido[$i]['NITEMPED']);
+                        }else{
+                            $objNfProduto->setNItemPed($arrItemPedido[$i]['NRITEM']);
+                        }
                         $objNfProduto->setProjeto($arrItemPedido[$i]['PROJETO']);
                         $objNfProduto->setDataConferencia($arrItemPedido[$i]['DATACONFERENCIA']);
-                        
-                        $objNfProduto->setBcFcpUfDest('0');
-                        $objNfProduto->setAliqFcpUfDest('0');
-                        $objNfProduto->setValorFcpUfDest('0');
-                        $objNfProduto->setBcIcmsUfDest('0');
-                        $objNfProduto->setAliqIcmsUfDest('0');
-                        $objNfProduto->setAliqIcmsInter('0');
-                        $objNfProduto->setAliqIcmsInterPart('0');
-                        $objNfProduto->setValorIcmsUfDest('0');
-                        $objNfProduto->setValorIcmsUFRemet('0');
 
                         $objNfProduto->setCodigoNota($arrItemPedido[$i]['CODIGONOTA']);
                         $objNfProduto->setDespAcessorias($arrItemPedido[$i]['DESPACESSORIAS'], true);
@@ -550,12 +560,11 @@ Class p_pedido_venda_nf_ps extends c_pedidoVendaNf {
                         $arrParamFin['OBS'] = $objNotaFiscal->getObs();
 
                         if ($integraFin == 'S'):
-                            // não altera financeiro se já existir lançamento de pedido
                             $objFinanceiro->addParcelas($arrParamFin, $arrParcelas, $transaction->id_connection);
                         endif;
-                    }else{
-                        $integraFin = 'N';
-                    }             
+                    }
+                    // Lançamento do pedido já existente: não duplica parcelas; alteraParcelaPedidoNf
+                    // abaixo vincula SERIE=NFS e DOCTO=número da NF quando integraFin == 'S'.
                     
                     //; commit transação
                     //$transaction->commit($transaction->id_connection);
@@ -608,7 +617,8 @@ Class p_pedido_venda_nf_ps extends c_pedidoVendaNf {
                     $transaction->rollback($transaction->id_connection);    
                     throw new Exception($e->getMessage()."Nf Não foi gerado " );
 
-                } catch (Exception $e) {
+                }
+                catch (Exception $e) {
                     //echo 'Caught exception: ',  $e->getMessage(), "\n";
                     if ($this->nfAberto == true):
                         $transaction->commit($transaction->id_connection);
@@ -910,6 +920,9 @@ Class p_pedido_venda_nf_ps extends c_pedidoVendaNf {
         $finServico = $this->geraParcelas($this->getPedido(), $resp, $descCondPgto, $this->getTotal('B'));
 
         $this->smarty->assign('finServico', $finServico);
+        $this->smarty->assign('saldoCredito', $this->getSaldoCredito());
+        $this->smarty->assign('usarCredito', $this->usarCredito);
+        $this->smarty->assign('credito', $this->credito);
         if ($this->formNf == true)
             $this->smarty->assign('formNf', true);
         else

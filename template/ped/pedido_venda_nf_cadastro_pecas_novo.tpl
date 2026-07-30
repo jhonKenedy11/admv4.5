@@ -92,51 +92,69 @@ label{
         <div class="clearfix"></div>
         <form id="lancamento" data-parsley-validate  class="form-horizontal form-label-left" NAME="lancamento"  
               ACTION="{$SCRIPT_NAME}" METHOD="post">
-            <input name=mod           type=hidden value="{$mod}">   
-            <input name=form          type=hidden value="{$form}">   
-            <input name=opcao         type=hidden value="{$opcao}">   
-            <input name=submenu       type=hidden value={$subMenu}>
-            <input name=letra         type=hidden value={$letra}>
-            <input name=id            type=hidden value={$id}>
-            <input name=cliente       type=hidden value={$cliente}>
-            <input name=pessoa        type=hidden value={$pessoa}>
-            <input name=fornecedor    type=hidden value=''>
-            <input name=descCondPgto  type=hidden value="{$descCondPgto}">
-            <input name=alteraCondPgto  type=hidden value="{$alteraCondPgto}">
-            <input name=t_origem        type=hidden value="{$t_origem}">
-
-            
+            <input name=mod            type=hidden value="{$mod}">   
+            <input name=form           type=hidden value="{$form}">   
+            <input name=opcao          type=hidden value="{$opcao}">   
+            <input name=submenu        type=hidden value={$subMenu}>
+            <input name=letra          type=hidden value={$letra}>
+            <input name=id             type=hidden value={$id}>
+            <input name=cliente        type=hidden value={$cliente}>
+            <input name=pessoa         type=hidden value={$pessoa}>
+            <input name=fornecedor     type=hidden value=''>
+            <input name=descCondPgto   type=hidden value="{$descCondPgto}">
+            <input name=alteraCondPgto type=hidden value="{$alteraCondPgto}">
+            <input name=t_origem       type=hidden value="{$t_origem}">
+            <input name=saldoCredito   type=hidden value={$saldoCredito}>
+            <input name=usarCredito    type=hidden value={$usarCredito}>
+            <input name=credito        type=hidden value={$credito}>
+            <input name=data_history   type=hidden value={$data_history}>            
+            <input name=parcelasCadastrada type=hidden value="{if $parcelasCadastrada eq true}1{else}0{/if}">
+            <input name=pos_financeiro_ps type=hidden value="{$posFinanceiroPs|default:3}">
+            <input name=pedidoSituacao type=hidden value="{$pedidoSituacao|default:0}">
+            <input name=financeiroCondExtrato type=hidden value="{if $financeiroCondExtrato}1{else}0{/if}">
+            {if $ehCupomFiscal}
+            <input name="vendaPresencial" type="hidden" value="S">
+            <input name="tipoDocFiscal" type="hidden" value="65">
+            {/if}
             <div class="row">
               <div class="col-md-12 col-sm-12 col-xs-12">
                 <div class="x_panel">
                   <div class="x_title">
                     <h2>
                     {if $formNf eq true}
-                        Cadastro de Nota fiscal e Financeiro
+                        {if $ehCupomFiscal}Cadastro de Cupom fiscal (NFC-e) e Financeiro{else}Cadastro de Nota fiscal e Financeiro{/if}
                         </h2>
-                        <br />
+                        <br>
                         {if $mensagem neq ''}
+                         <br>
                             <h5>
-                                <div class="alert alert-warning" role="alert">{$mensagem}</div>
+                                <div class="alert alert-{if $tipoMsg eq 'error'}danger{else}warning{/if}" role="alert">{$mensagem}</div>
                                 <!--div class="checkbox">
                                     <input type="checkbox" class="flat" name="nfAberto" value="false"> Confirma cadastro NF em ABERTO? confime novamente.
                                 </div-->
                             </h5>
                         {/if}
                     {else}
-                        Cadastro de Parcelas no Financeiro
+                        {if $ehCupomFiscal}Cadastro de Financeiro — Cupom fiscal{else}Cadastro de Parcelas no Financeiro{/if}
                         </h2>
+                        <br>
                         {if $mensagem neq ''}
                             <h5>
-                                <div class="alert alert-warning" role="alert">{$mensagem}</div>
+                                <div class="alert alert-{if $tipoMsg eq 'error'}danger{else}warning{/if}" role="alert">{$mensagem}</div>
                             </h5>
                         {/if}
                     {/if}
 
                     <ul class="nav navbar-right panel_toolbox">
                         {if $formNf eq true}
-                            <li><button type="button" class="btn btn-primary" onClick="javascript:submitCadastraNf('{$id}');" >
-                            <span class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span><span> Confirmar Nf</span></button> 
+                            <li>
+                                <button type="button" class="btn btn-info" onClick="javascript:submitGeraEspelhoJson('{$id}');">
+                                    <span class="glyphicon glyphicon-print" aria-hidden="true"></span>
+                                    <span> Espelho</span>
+                                </button>
+                            </li>
+                            <li><button type="button" class="btn btn-primary" onClick="javascript:submitCadastraNf('{$id}', {if $ehCupomFiscal}true{else}false{/if});" >
+                            <span class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span><span> {if $ehCupomFiscal}Emitir cupom{else}Confirmar Nf{/if}</span></button> 
                             </li>
                         {else}
                             {if $parcelasCadastrada neq true}
@@ -152,6 +170,12 @@ label{
                     <div class="clearfix"></div>
                 </div>
                 <div class="x_content small">
+                    {if $pedidoEncomenda}
+                        <div class="alert alert-info" role="alert" style="margin-top: 0; margin-bottom: 15px;">
+                            <strong>Pedido em encomenda.</strong> Cadastre o financeiro normalmente.
+                            A emissão de NF ficará bloqueada até a entrada de estoque liberar o pedido.
+                        </div>
+                    {/if}
                     <div class="row">
                         <h5>
                         <div class="col-md-2 col-sm-2 col-xs-2">
@@ -167,13 +191,23 @@ label{
                             </div>
                         </div>
 
-                        <div class="col-md-8 col-sm-8 col-xs-8">
+                        <div class="{if $ehCupomFiscal}col-md-4 col-sm-4 col-xs-4{else}col-md-8 col-sm-8 col-xs-8{/if}">
                             <label for="clienteNome">Cliente</label>
                         <div class="panel-default">
                                 <input type="text" class="form-control" id="clienteNome" name="clienteNome" disabled value="{$clienteNome}">
                             </div>
                         </div>
-                        </h5>    
+                        {if $ehCupomFiscal}
+                        <div class="col-md-4 col-sm-4 col-xs-4">
+                            <label for="cpf">CPF na nota</label>
+                            <div class="panel-default">
+                                <input type="text" class="form-control input-sm" id="cpf" name="cpf"
+                                    value="{$cpfNota|escape:'html'}" placeholder="000.000.000-00"
+                                    maxlength="14" title="Informe o CPF do consumidor para constar na NFC-e">
+                            </div>
+                        </div>
+                        {/if}
+                        </h5>
                     </div>
                     <br>
                     <div class="row">
@@ -215,9 +249,8 @@ label{
                     </div>
 
                     <br>
-                    
                     <div class="row">
-                        {if $subMenu !== 'financeiroEntradaNf'}
+                        {if $subMenu !== 'financeiroEntradaNf' && !$ehCupomFiscal}
                             <div class="col-md-2 col-sm-2 col-xs-2">
                                 <label>Venda Presencial</label>
                                     <div id="radiosVenda" aria-label="Ao utilizar 'SIM' será desconsiderado a transportadora, o consumidor será final e não existirá frete.">
@@ -226,22 +259,33 @@ label{
                             </div>
                         {/if}
 
-                        <div {if $subMenu !== 'financeiroEntradaNf'} 
+                        <div {if $subMenu !== 'financeiroEntradaNf' && !$ehCupomFiscal} 
                                 class="col-md-8 col-sm-8 col-xs-8" 
+                             {elseif $ehCupomFiscal}
+                                class="col-md-10 col-sm-10 col-xs-10"
                              {else} 
                                 class="col-md-9 col-sm-9 col-xs-9"
                              {/if}
                         >
-                            <label for="idNatop">Natureza Opera&ccedil;&atilde;o</label>
+                            <label for="idNatop">Natureza Opera&ccedil;&atilde;o{if $ehCupomFiscal} <small class="text-muted">(par&acirc;metro NFC-e)</small>{/if}</label>
                             <div class="panel-default">
+                                {if $ehCupomFiscal}
+                                    <input type="hidden" name="idNatop" value="{$natOperacao_id}">
+                                    <select id="idNatop" class="form-control" disabled title="Fixa conforme par&acirc;metro do cupom (venda presencial)">
+                                        {html_options values=$natOperacao_ids selected=$natOperacao_id output=$natOperacao_names}
+                                    </select>
+                                {else}
                                     <select id="idNatop" name="idNatop" class="form-control">
                                         {html_options values=$natOperacao_ids selected=$natOperacao_id output=$natOperacao_names}
                                     </select>
+                                {/if}
                             </div>
                         </div>
 
-                        <div {if $subMenu !== 'financeiroEntradaNf'} 
+                        <div {if $subMenu !== 'financeiroEntradaNf' && !$ehCupomFiscal} 
                                 class="col-md-2 col-sm-2 col-xs-2" 
+                             {elseif $ehCupomFiscal}
+                                class="col-md-2 col-sm-2 col-xs-2"
                              {else} 
                                 class="col-md-3 col-sm-3 col-xs-3"
                              {/if}

@@ -148,6 +148,29 @@ Class c_tools {
             return 0;
         }
     }
+
+    /**
+     * Converte valor monetário BR (1.234,56), BD (1234.56) ou numérico.
+     * Não remove ponto quando não há vírgula (evita 150.50 virar 15050).
+     */
+    static function parseMoedaValor($valor)
+    {
+        if ($valor === null || $valor === '') {
+            return 0.0;
+        }
+        if (is_numeric($valor)) {
+            return round((float) $valor, 2);
+        }
+        $s = trim((string) $valor);
+        if ($s === '') {
+            return 0.0;
+        }
+        if (strpos($s, ',') !== false) {
+            return round((float) self::moedaBd($s), 2);
+        }
+
+        return round((float) str_replace(' ', '', $s), 2);
+    }
     
     /**
      * Funcao para retirar todos os espaços da string e aspas

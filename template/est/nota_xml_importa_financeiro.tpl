@@ -7,8 +7,8 @@
 }
 </style>
 
-<script type="text/javascript" src="{$pathJs}/est/s_nota_xml_importa.js"> </script>
 <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
+<script type="text/javascript" src="{$pathJs}/est/s_nota_xml_importa.js"> </script>
 <!-- page content -->
 <div class="right_col" role="main">
     <div class="class">
@@ -171,8 +171,7 @@
                                                                     aria-hidden="true"></span></button> </td>
                                                         <td style="width: 20px;"> <button type="button"
                                                                 class="btn btn-warning btn-xs"
-                                                                onClick="javascript:submitAtualPedidoCondPG('S',{-2}"
-                                                                );"><span class="glyphicon glyphicon-minus"
+                                                                onClick="javascript:submitAtualPedidoCondPG('S',-2);"><span class="glyphicon glyphicon-minus"
                                                                     aria-hidden="true"></span></button> </td>
                                                     </tr>
                                                 </thead>

@@ -6,6 +6,57 @@ function submitVoltar() {
     f.submit();
 } // fim submitVoltar
 
+function parseQuantidadeBR(valor) {
+    if (valor === null || valor === undefined || valor === '') {
+        return 0;
+    }
+    if (typeof valor === 'number') {
+        return valor;
+    }
+    var str = String(valor).trim();
+    if (str.indexOf(',') !== -1) {
+        return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+    }
+    return parseFloat(str) || 0;
+}
+
+function formatarQuantidadeBR(valor) {
+    return parseQuantidadeBR(valor).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+function aplicarMascaraQuantidade() {
+    $('.money-editavel').each(function() {
+        var $el = $(this);
+        if ($el.data('maskMoney')) {
+            $el.maskMoney('destroy');
+        }
+        var valor = parseQuantidadeBR($el.attr('data-valor'));
+        $el.maskMoney({
+            decimal: ',',
+            thousands: '.',
+            allowZero: true,
+            precision: 2,
+            affixesStay: false,
+            allowNegative: false
+        });
+        $el.val(valor.toFixed(2).replace('.', ','));
+        $el.maskMoney('mask');
+    });
+}
+
+function obterQuantidadeExecutada(input) {
+    if ($(input).data('maskMoney')) {
+        var unmasked = $(input).maskMoney('unmasked');
+        if (unmasked && unmasked.length) {
+            return parseFloat(unmasked[0]) || 0;
+        }
+    }
+    return parseQuantidadeBR(input.value);
+}
+
 function submitLetra() {
     
     f = document.lancamento;
@@ -99,13 +150,11 @@ function submitConfirmar() {
     // Validar cada linha antes de prosseguir
     linhas.forEach(linha => {
         const inputExec = linha.querySelector('[name="quantidade_executada"]');
-        const qtdExec = parseFloat(linha.querySelector('[name="qtd_exec"]').value) || 0;
+        const qtdExec = parseQuantidadeBR(linha.querySelector('[name="qtd_exec"]').value);
+        const executada = obterQuantidadeExecutada(inputExec);
         
-        // Converter valor mascarado para número usando o plugin
-        const executada = $(inputExec).maskMoney('unmasked')[0] || 0;
-        
-        // Pegar descrição do serviço da linha anterior
-        const descricao = linha.previousElementSibling.querySelector('td').textContent.trim();
+        // Pegar descrição do serviço na mesma linha
+        const descricao = linha.querySelector('td:first-child').textContent.trim();
 
         // Verificar se há excesso
         if (executada > qtdExec) {
@@ -155,7 +204,7 @@ function enviarFormulario(f, linhas) {
     // Coletar os dados para envio
     const dados = Array.from(linhas, linha => ({
         id_servico: linha.querySelector('[name="id_servico"]').value,
-        quantidade_executada: $(linha.querySelector('[name="quantidade_executada"]')).maskMoney('unmasked')[0] || 0,
+        quantidade_executada: obterQuantidadeExecutada(linha.querySelector('[name="quantidade_executada"]')),
         qtd_exec: linha.querySelector('[name="qtd_exec"]')?.value || '',
     }));
 
@@ -226,3 +275,11 @@ function submitCadastrarImagemOS(id) {
         "toolbar=no,location=no,resizable=yes,menubar=yes,scrollbars=yes");
 
 } // submitCadastrarImagem
+
+function validateExecutada(event) {
+    const input = event.target;
+    const executada = obterQuantidadeExecutada(input);
+    const row = input.closest('tr');
+    const qtdExec = parseQuantidadeBR(row.querySelector('[name="qtd_exec"]').value);
+    input.classList.toggle('input-error', executada > qtdExec);
+}

@@ -18,6 +18,7 @@ require_once($dir . "/../../class/ped/c_pedido_venda_gerente_tools.php");
 require_once($dir . "/../../forms/ped/p_pedido_venda_nf_pecas_novo.php");
 require_once($dir . "/../../forms/ped/p_pedido_venda_nf_ps.php");
 require_once($dir . "/../../class/est/c_produto.php");
+require_once($dir . "/../../class/crm/c_conta.php");
 
 //Class P_situacao
 Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
@@ -31,6 +32,8 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
 
     private $m_dados_ped        = NULL;
     private $m_pedidos_agrupado = NULL;
+    private $m_pessoa_filtro    = NULL;
+    private $m_parm               = [];
     public $smarty              = NULL;
 
     /**
@@ -39,13 +42,15 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
      * @param VARCHAR $letra
      * 
      */
-    function __construct($submenu, $letra, $codProduto, $qtdeConferido) {
+    function __construct($submenu = null, $letra = null, $codProduto = null, $qtdeConferido = null) {
 // Cria uma instancia variaveis de sessao
         session_start();
         c_user::from_array($_SESSION['user_array']);
 
-        //Assim obtém os dados passando pelo filtro contra INJECTION ( segurança PHP )
-        $parmPost = filter_input_array(INPUT_POST, FILTER_DEFAULT);
+        $parmGet = filter_input_array(INPUT_GET, FILTER_DEFAULT) ?: [];
+        $parmPost = filter_input_array(INPUT_POST, FILTER_DEFAULT) ?: [];
+        $parm = array_merge($parmGet, $parmPost);
+        $this->m_parm = $parm;
 
         // Cria uma instancia do Smarty
         $this->smarty = new Smarty;
@@ -57,13 +62,20 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
         $this->smarty->cache_dir = ADMraizCliente . "/smarty/cache/";
 
         // inicializa variaveis de controle
-        $this->m_submenu = $submenu;
-        $this->m_letra = $letra;
-        $this->m_codProduto = $codProduto;
-        $this->m_qtdeConferido = $qtdeConferido;
+        $this->m_submenu = ($submenu !== null) ? $submenu : ($parm['submenu'] ?? '');
+        $this->m_letra = ($letra !== null) ? $letra : ($parm['letra'] ?? '');
+        $this->m_codProduto = ($codProduto !== null) ? $codProduto : ($parm['codProduto'] ?? '');
+        $this->m_qtdeConferido = ($qtdeConferido !== null) ? $qtdeConferido : ($parm['qtdeConferido'] ?? '');
 
-        $this->m_dados_ped        = $parmPost['dadosPed'];
-        $this->m_pedidos_agrupado = $parmPost['pedidoAgrupado'];
+        $this->m_dados_ped = $parm['dadosPed'] ?? '';
+        $this->m_pedidos_agrupado = $parm['pedidoAgrupado'] ?? '';
+        $this->m_pessoa_filtro = trim((string) ($parm['pessoaFiltro'] ?? ''));
+        // Parametro usado para historico do form gerente pedido
+        $this->m_data_history = $parm['data_history'] ?? '';
+
+        if ($submenu === null) {
+            $this->setId((string) ($parm['id'] ?? ''));
+        }
 
         $this->m_par = explode("|", $this->m_letra);
         $this->m_par_ped = explode("|", $this->m_dados_ped);
@@ -76,12 +88,13 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
         $this->smarty->assign('admClass', ADMclass);
         $this->smarty->assign('httpCliente', ADMhttpCliente);
         $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
+        $this->smarty->assign('SCRIPT_NAME', $_SERVER['SCRIPT_NAME'] ?? 'index.php');
 
         // dados para exportacao e relatorios
         $this->smarty->assign('titulo', "Gerência Pedidos");
-        $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6,7 ]"); 
-        $this->smarty->assign('disableSort', "[ 0, 6, 7 ]"); 
-        $this->smarty->assign('numLine', "25"); 
+        $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,7,8 ]"); 
+        $this->smarty->assign('disableSort', "[ 0, 3, 7, 8 ]");
+        $this->smarty->assign('numLine', "25");
         // include do javascript
         // include ADMjs . "/ped/s_pedido_venda_gerente.js";
         // include ADMjs . "/ped/s_pedido_venda_conferencia.js";
@@ -97,25 +110,40 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
         switch ($this->m_submenu) {
             case 'imprime':
                 if ($this->verificaDireitoUsuario('PedGerente', 'R')) {
-                    // BUSCA PARAMETROS
-                    $parametros = new c_banco;
-                    $parametros->setTab("FAT_PARAMETRO");
-                    $sitEmiteNf = $parametros->getField("FLUXOPEDIDO", "FILIAL=".$this->m_empresacentrocusto);
-                    $parametros->close_connection();                        
-                    
-                    if ($sitEmiteNf == 'S'):
-                        $this->atualizarField('situacao', 2);
-                    // $this->setSituacao(2);
-                    else:    
-                        $this->atualizarField('situacao', 3);
-                        // $this->setSituacao(3);
-                    endif;
-                    // $this->alteraPedidoSituacao();
+                    // Romaneio: na situação 6 (Pedido) imprime e avança fase; na 3 (Emitir NF) só reimprime
+                    $arrPedido = $this->select_pedidoVenda();
+                    $sitAtual = (int) ($arrPedido[0]['SITUACAO'] ?? 0);
+                    if ($sitAtual === 6) {
+                        $parametros = new c_banco;
+                        $parametros->setTab("FAT_PARAMETRO");
+                        $sitEmiteNf = $parametros->getField("FLUXOPEDIDO", "FILIAL=".$this->m_empresacentrocusto);
+                        $parametros->close_connection();
+                        if ($sitEmiteNf == 'S') {
+                            $this->atualizarField('situacao', 2);
+                        } else {
+                            $this->atualizarField('situacao', 3);
+                        }
+                    }
                     $this->mostraPedidoGerente('');
                 }
                 break;
             case 'financeiro':
                 if ($this->verificaDireitoUsuario('PedGerente', 'S')) {
+                    $arrPedFin = $this->select_pedidoVenda();
+                    $objContaBloq = new c_conta();
+                    if (strtoupper((string) $objContaBloq->contaBloqueada((int) ($arrPedFin[0]['CLIENTE'] ?? 0))) === 'S') {
+                        $this->mostraPedidoGerente('');
+                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Cliente bloqueado',
+                                text: 'Cliente bloqueado. Verifique com o financeiro.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
                     $pedidoFinaliza = new p_pedido_venda_nf_pecas_novo($this->getId(), 'financeiro');
                     $pedidoFinaliza->controle();
                 }
@@ -128,6 +156,38 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
                 break;
             case 'notafiscal':
                 if ($this->verificaDireitoUsuario('PedGerente', 'S')) {
+                    $arrPedNf = $this->select_pedidoVenda();
+                    if (is_array($arrPedNf) && (int) ($arrPedNf[0]['SITUACAO'] ?? 0) === 13) {
+                        $this->mostraPedidoGerente('');
+                        $msgEnc = addslashes(
+                            'Pedido em encomenda — emissão de NF bloqueada até liberação de estoque. '
+                            . 'Use Financeiro → Produtos para cadastrar parcelas.'
+                        );
+                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'info',
+                                title: 'Encomenda',
+                                text: '" . $msgEnc . "',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
+                    $objContaBloq = new c_conta();
+                    if (strtoupper((string) $objContaBloq->contaBloqueada((int) ($arrPedNf[0]['CLIENTE'] ?? 0))) === 'S') {
+                        $this->mostraPedidoGerente('');
+                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Cliente bloqueado',
+                                text: 'Cliente bloqueado. Verifique com o financeiro.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
                     $pedidoFinaliza = new p_pedido_venda_nf_pecas_novo($this->getId(), 'notafiscal');
                     $pedidoFinaliza->controle();
                 }
@@ -140,6 +200,11 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
             case 'todosPedidosMes':
                 if ($this->verificaDireitoUsuario('PedGerente', 'S')) {
                     $this->mostraPedidoGerente('todosDoMes');
+                }
+                break;
+            case 'ultimos60Dias':
+                if ($this->verificaDireitoUsuario('PedGerente', 'S')) {
+                    $this->mostraPedidoGerente('ultimos60Dias');
                 }
                 break;
             case 'todosPedidos':
@@ -191,6 +256,22 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
                 break;    
             case 'cadastraFinanceiro': 
                 break;
+            case 'pesquisaClienteAjax':
+                if ($this->verificaDireitoUsuario('PedGerente', 'C')) {
+                    $clienteResult = [];
+                    $term = trim((string) ($this->m_parm['term'] ?? ''));
+                    if ($term !== '') {
+                        $resultPesq = (new c_conta())->select_pessoa_letra($term);
+                        for ($i = 0; $i < count($resultPesq); $i++) {
+                            $clienteResult[$i]['id'] = trim($resultPesq[$i]['CLIENTE']);
+                            $clienteResult[$i]['text'] = trim($resultPesq[$i]['NOME']);
+                        }
+                    }
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode($clienteResult, JSON_UNESCAPED_UNICODE);
+                    exit;
+                }
+                break;
             default:
                 if ($this->verificaDireitoUsuario('PedGerente', 'C')) {
                     $this->mostraPedidoGerente('');
@@ -207,7 +288,7 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
     function imprimePedido($mensagem) {
 
         // $lanc = $this->select_pedidoVenda_letra('||||1|2|3');
-        $lanc = $this->select_pedidoVenda_letra('||||3,6|');
+        $lanc = $this->select_pedidoVenda_letra('||||' . $this->getSituacoesFiltroGerente() . '|');
 
         $this->smarty->assign('pathImagem', $this->img);
         $this->smarty->assign('mensagem', $mensagem);
@@ -224,6 +305,8 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
 //---------------------------------------------------------------
 //---------------------------------------------------------------
     function mostraPedidoGerente($mensagem, $tipoMsg=NULL) {
+        $pessoaFiltro = trim((string) $this->m_pessoa_filtro);
+
         if ($mensagem == 'A'){
               $lanc = $this->select_pedidoVenda_letra_atual('');
         }
@@ -233,19 +316,28 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
             $mes = date("m");
             $ano = date("Y");
             $dataFim = date("d/m/Y", mktime(0, 0, 0, $mes+1, 0, $ano));
-            $letra = $dataIni."|".$dataFim.'|||3,6|';
-            $lanc = $this->select_pedidoVenda_letra($letra);
+            $sitFiltro = $this->getSituacoesFiltroGerente();
+            $letra = $dataIni . '|' . $dataFim . '|' . $pessoaFiltro . '||' . $sitFiltro . '|';
+            $lanc = $this->select_pedidoVenda_letra($letra, null, true);
+        }
+        else if($mensagem == 'ultimos60Dias'){
+            $dataFim = date("d/m/Y");
+            $dataIni = date("d/m/Y", strtotime('-59 days'));
+            $sitFiltro = $this->getSituacoesFiltroGerente();
+            $letra = $dataIni . '|' . $dataFim . '|' . $pessoaFiltro . '||' . $sitFiltro . '|';
+            $lanc = $this->select_pedidoVenda_letra($letra, null, true);
         }
         else if($mensagem == 'todosPedidos'){
-            
-            $letra = '||||3,6|';
-            $lanc = $this->select_pedidoVenda_letra($letra);
+            $sitFiltro = $this->getSituacoesFiltroGerente();
+            $letra = '||' . $pessoaFiltro . '||' . $sitFiltro . '|';
+            $lanc = $this->select_pedidoVenda_letra($letra, null, true);
         }
         else {     
             $dataIni =  date("d/m/Y");
             $dataFim =  date("d/m/Y");
-            $letra = $dataIni."|".$dataFim.'|||3,6|';
-            $lanc = $this->select_pedidoVenda_letra($letra);
+            $sitFiltro = $this->getSituacoesFiltroGerente();
+            $letra = $dataIni . '|' . $dataFim . '|' . $pessoaFiltro . '||' . $sitFiltro . '|';
+            $lanc = $this->select_pedidoVenda_letra($letra, null, true);
             $this->smarty->assign('mensagem', $mensagem);
             $this->smarty->assign('tipoMsg', $tipoMsg);
         }
@@ -284,20 +376,42 @@ Class p_pedido_venda_conferecia_novo extends c_pedidoVenda {
         $this->smarty->assign('condPgto_ids', $condPgto_ids);
         $this->smarty->assign('condPgto_names', $condPgto_names);
         $this->smarty->assign('condPgto_id', $this->getCondPg());
-
+        // Parametro usado para historico do form gerente pedido
+        // submenu esta sendo uitlizado como parametro de pesquisa
+        $this->smarty->assign('data_history', $this->m_submenu );
+        $this->smarty->assign('mod', 'ped');
+        $this->smarty->assign('form', 'pedido_venda_gerente_novo');
+        $this->smarty->assign('pessoaFiltro', $this->m_pessoa_filtro);
+        $nomeClienteFiltro = '';
+        if ($pessoaFiltro !== '') {
+            $consulta = new c_banco();
+            $consulta->setTab('FIN_CLIENTE');
+            $nomeClienteFiltro = (string) $consulta->getField('NOME', 'CLIENTE=' . $pessoaFiltro);
+            $consulta->close_connection();
+        }
+        $this->smarty->assign('nomeClienteFiltro', $nomeClienteFiltro);
 
         $this->smarty->display('pedido_venda_gerente_novo.tpl');
+    }
+
+    /**
+     * Situações exibidas na grade: 3,6 e 13 (encomenda) quando ENCOMENDA=S na filial.
+     */
+    private function getSituacoesFiltroGerente(): string
+    {
+        $param = new c_banco();
+        $param->setTab('FAT_PARAMETRO');
+        $encomenda = $param->getField('ENCOMENDA', 'FILIAL=' . $this->m_empresacentrocusto);
+        $param->close_connection();
+        return ($encomenda === 'S') ? '3,6,13' : '3,6';
     }
 
 //fim mostraPedidoConferencia
 //-------------------------------------------------------------
 }
 
-//	END OF THE CLASS
-// Rotina principal - cria classe
-$pedido = new p_pedido_venda_conferecia_novo($_POST['submenu'], $_POST['letra'], $_POST['codProduto'], $_POST['qtdeConferido']);
-
-if (isset($_POST['id'])) { $pedido->setId($_POST['id']); } else {$pedido->setId('');};
-
-$pedido->controle();
+// variavel definida no p_pedido_venda_nf_pecas_novo.php para evitar execução do controle
+if (!defined('APENAS_FUNCOES')) {
+    (new p_pedido_venda_conferecia_novo())->controle();
+}
 ?>

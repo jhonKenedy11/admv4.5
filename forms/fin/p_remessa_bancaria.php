@@ -151,6 +151,13 @@ class p_remessa_bancaria extends c_lancamento
         return strtr($string, $conversao);
     }
 
+    function removerCaracteresEspeciais($string)
+    {
+        // Substitui todos os caracteres especiais por uma string vazia
+        $stringSemEspeciais = preg_replace('/[^A-Za-z0-9]/', '', $string);
+
+        return $stringSemEspeciais;
+    }
     /**
      * @name downloadFile
      * @description download arquivo do servidor para maquina local
@@ -499,9 +506,7 @@ class p_remessa_bancaria extends c_lancamento
             $file_target = '';
             $ambiente = ".REM"; //TST
             $remessa = $this->selectRemessaBancaria($this->m_letra);
-            $teste_array = is_array($remessa);
-
-            if (isset($teste_array)) {
+            if (is_array($remessa) && count($remessa) > 0) {
                 $objContaBanco = new c_contaBanco;
 
                 // DADOS CONTA
@@ -516,7 +521,8 @@ class p_remessa_bancaria extends c_lancamento
                 $contaCorrente = substr(str_replace($char, "", $conta[0]['CONTACORRENTE']), 0, 8);
                 $multa = str_replace(".", "", $conta[0]['MULTA']);
                 $juros = $conta[0]['JUROS'];
-                $juros = ($conta[0]['JUROS'] * $remessa[$i]['TOTAL']) / 100;
+                $valorBaseJuros = (float) ($remessa[$i]['ORIGINAL'] ?? $remessa[$i]['TOTAL'] ?? 0);
+                $juros = ($conta[0]['JUROS'] * $valorBaseJuros) / 100 / 30;
                 $nossoNumero = $conta[0]['ULTIMONOSSONRO']; // atualizar conta
                 $charValor = array(".");
                 $descontoBonificacao = str_replace($charValor, "", $conta[0]['DESCONTOBONIFICACAO']);
@@ -603,7 +609,8 @@ class p_remessa_bancaria extends c_lancamento
                 // registro tipo 1 - transacao
                 for ($i = 0; $i < count($remessa); $i++) {
                     $numRegistro++;
-                    $juros = ($conta[0]['JUROS'] * $remessa[$i]['TOTAL']) / 100;
+                    $valorBaseJuros = (float) ($remessa[$i]['ORIGINAL'] ?? $remessa[$i]['TOTAL'] ?? 0);
+                    $juros = ($conta[0]['JUROS'] * $valorBaseJuros) / 100 / 30;
                     $juros = number_format($juros, 2, '.', '');
 
                     $objContaBanco->setId($remessa[$i]['CONTA']);
@@ -888,9 +895,7 @@ class p_remessa_bancaria extends c_lancamento
             $file_target = '';
             $ambiente = ".REM"; //TST
             $remessa = $this->selectRemessaBancaria($this->m_letra);
-            $teste_array = is_array($remessa);
-        
-            if (isset($teste_array)){
+            if (is_array($remessa) && count($remessa) > 0) {
                 
                 //valida numero de documento e parcela
                 for ($j=0; $j < count($remessa); $j++){
@@ -913,7 +918,8 @@ class p_remessa_bancaria extends c_lancamento
                 $contaCorrente = substr(str_replace($char, "", $conta[0]['CONTACORRENTE']), 0,8);
                 $multa = str_replace(".", "", $conta[0]['MULTA']);
                 $juros = $conta[0]['JUROS'];
-                $juros = ($conta[0]['JUROS']*$remessa[$i]['TOTAL'])/100;
+                $valorBaseJuros = (float) ($remessa[$i]['ORIGINAL'] ?? $remessa[$i]['TOTAL'] ?? 0);
+                $juros = ($conta[0]['JUROS'] * $valorBaseJuros) / 100 / 30;
                 //$nossoNumero = $conta[0]['ULTIMONOSSONRO']; // atualizar conta
                 $charValor = array(".");
                 $descontoBonificacao = str_replace($charValor, "", $conta[0]['DESCONTOBONIFICACAO']);
@@ -983,7 +989,8 @@ class p_remessa_bancaria extends c_lancamento
                 // registro tipo 1 - transacao
                 for ($i=0; $i < count($remessa); $i++){
                     $numRegistro++;
-                    $juros = ($conta[0]['JUROS']*$remessa[$i]['TOTAL'])/100;
+                    $valorBaseJuros = (float) ($remessa[$i]['ORIGINAL'] ?? $remessa[$i]['TOTAL'] ?? 0);
+                    $juros = ($conta[0]['JUROS'] * $valorBaseJuros) / 100 / 30;
                     $juros = number_format($juros , 2, '.', '');
                     
                     $objContaBanco->setId($remessa[$i]['CONTA']);
@@ -1196,8 +1203,7 @@ class p_remessa_bancaria extends c_lancamento
             $file_target = '';
             $ambiente = ".REM"; //REM / TST
             $remessa = $this->selectRemessaBancaria($this->m_letra) ?? [];
-            $teste_array = is_array($remessa);
-            if (isset($teste_array)) {
+            if (is_array($remessa) && count($remessa) > 0) {
 
                 // busca emitente
                 $emitente = new c_banco;
@@ -1297,7 +1303,8 @@ class p_remessa_bancaria extends c_lancamento
                 // registro tipo 1 - transacao
                 for ($i = 0; $i < count($remessa); $i++) {
                     $numRegistro++;
-                    $juros = ($conta[0]['JUROS'] * $remessa[$i]['TOTAL']) / 100;
+                    $valorBaseJuros = (float) ($remessa[$i]['ORIGINAL'] ?? $remessa[$i]['TOTAL'] ?? 0);
+                    $juros = ($conta[0]['JUROS'] * $valorBaseJuros) / 100 / 30;
                     $juros = number_format($juros, 2, '.', '');
 
                     $objContaBanco->setId($remessa[$i]['CONTA']);
@@ -1504,408 +1511,549 @@ class p_remessa_bancaria extends c_lancamento
     } //fim remessaBancaria341
 
 
-    public function remessaBancaria748($letra = NULL)
-    {
+         
+ /**
+ * @name remessaBancaria748 - SICREDI
+ * @description gera arquivo de remessa para o banco correspondente com titulos em aberto do tipo boleto
+ * @param int $letra - parametros
+ * @return int $count - numero de parcelas geradas
+ */
+public function remessaBancaria748($letra = NULL){
+    $status = null;
+    $dadosEmpresa = $this->busca_dadosEmpresaCC($this->m_empresacentrocusto);
+    
+    try {
+        $par = explode("|", $this->m_letra);
+        $contaBanco = $par[2];
+        $file_target = '';
+        $ambiente = ".REM";
+        $remessa = $this->selectRemessaBancaria($this->m_letra);
+        if (is_array($remessa) && count($remessa) > 0) {
+            $objContaBanco = new c_contaBanco;
+    
+            // DADOS CONTA
+            $objContaBanco->setId($contaBanco);
+            $conta = $objContaBanco->select_ContaBanco();
+            $banco = $conta[0]['BANCO'];
+            $codEmpresa = $conta[0]['NUMNOBANCO'];
+            $nomeEmpresa = $conta[0]['NOMECONTABANCO'];
+            $codCarteira = str_pad($conta[0]['CARTEIRA'], 3, "0", STR_PAD_LEFT);
+            $agencia = substr($conta[0]['AGENCIA'], 0,5);
+            $posto = $conta[0]['POSTO'];
+            $char = array("-", "/", ".");
+            $contaCorrente = substr(str_replace($char, "", $conta[0]['CONTACORRENTE']), 0,8);
+            $multa = str_replace(".", "", $conta[0]['MULTA']);
+            $juros = $conta[0]['JUROS'];
+            $charValor = array(".");
+            $descontoBonificacao = str_replace($charValor, "", $conta[0]['DESCONTOBONIFICACAO']);
+            $condicaoEmissaoBoleto = $conta[0]['CONDICAOEMISSAOBOLETO'];
+            $msg1 = $conta[0]['MSGBLOQUETO'];
+            $identificacaoOcorrencia = '01';
 
-        try {
-            $par = explode("|", $this->m_letra);
-            $contaBanco = $par[2];
-            $file_target = '';
-            $ambiente = ".REM"; //REM / TST
-            $remessa = $this->selectRemessaBancaria($this->m_letra);
-            $teste_array = is_array($remessa);
-            if (isset($teste_array)) {
+            //Arquivo remessa
+            $path = ADMraizCliente."/banco/".$banco."/remessa/".date("Y");
+            
+            // Verifica e cria pasta do ano se necessário
+            $this->checkAndCreateYearFolder($banco);
 
-                // busca emitente
-                $emitente = new c_banco;
-                $emitente->setTab('AMB_EMPRESA');
-                $arrEmitente = $emitente->getRecord('empresa=' . $this->m_empresaid);
-                $emitente->close_connection();
+            // IMPLEMENTACAO QUE BUSCA O UMTIMO NUMERO NO DIRETORIO
+            // COMENTADO POIS QUANDO NAO A REGISTRO NAO TEM TRATAMENTO
+            // Fluxo para buscar o ultimo arquivo no diretorio
+            // $latestFile = $this->getMostRecentFile($path);
 
-                $objContaBanco = new c_contaBanco;
+            // if (file_exists($latestFile)) {
+            //     // Lê todas as linhas do arquivo
+            //     $lines = file($latestFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            //     // Verifica se o arquivo contém pelo menos uma linha
+            //     if (!empty($lines)) {
+            //         // Acessa a primeira linha
+            //         $firstLine = $lines[0];
+            
+            //         // Extrai os caracteres da posição 111 até 117
+            //         $latestNumberRemessa = intval(substr($firstLine, 110, 7));
+            
+            //     } else {
+            //         throw new Exception("Última remessa encontrada não contém conteúdo, entre em contato com o suporte!");
+            //     }
+            // } else {
+            //     throw new Exception("Erro ao localizar último número de remessa, entre em contato com o suporte!");
+            // }
+            
+    
+            // gera e grava o numero do arquivo de remessa
+            $numRemessa = $objContaBanco->geraNumeroRemessa($contaBanco, $conta[0]['NUMREMESSA']); // atualizar conta
+            //$numRemessa = $objContaBanco->geraNumeroRemessa($contaBanco, $latestNumberRemessa);
+            $numRegistro  = 1;
+        
 
-                // DADOS CONTA
-                $objContaBanco->setId($contaBanco);
-                $conta = $objContaBanco->select_ContaBanco();
-                $banco = $conta[0]['BANCO'];
-                $codEmpresa = $conta[0]['NUMNOBANCO'];
-                $nomeEmpresa = $conta[0]['NOMECONTABANCO'];
-                $codCarteira = str_pad($conta[0]['CARTEIRA'], 3, "0", STR_PAD_LEFT);
-                //         $codCarteira = '009';
-                $agencia = substr($conta[0]['AGENCIA'], 0, 5);
-                $char = array("-", "/", ".");
-                $contaCorrente = substr(str_replace($char, "", $conta[0]['CONTACORRENTE']), 0, 8);
-                $multa = str_replace(".", "", $conta[0]['MULTA']);
-                $juros = $conta[0]['JUROS'];
-                //$nossoNumero = $conta[0]['ULTIMONOSSONRO']; // atualizar conta
-                $charValor = array(".");
-                $descontoBonificacao = $conta[0]['DESCONTOBONIFICACAO'];
-                $condicaoEmissaoBoleto = $conta[0]['CONDICAOEMISSAOBOLETO'];
-                $msg1 = $conta[0]['MSG1BOLETO'];
-                $identificacaoOcorrencia = '01';
-
-                // gera e grava o numero do arquivo de remessa
-                $numRemessa = $objContaBanco->geraNumeroRemessa($contaBanco, $conta[0]['NUMREMESSA']); // atualizar conta
-                $numRegistro  = 1;
-
-                //Arquivo remessa
-                $path = ADMraizCliente . "/banco/" . $banco . "/remessa/" . date("Y");
-                $filename = "/CB" . date("dm");
-                $serieArq = 0;
-                // teste se arquivo existe
-                do {
-                    $serieArq++;
-                    $file_target = $path . $filename . str_pad($serieArq, 2, "0", STR_PAD_LEFT) . $ambiente;
-                } while (file_exists($file_target));
-
-                // Verifica e cria diretório se necessário
-                $directory = dirname($file_target);
-                if (!is_dir($directory)) {
-                    if (!mkdir($directory, 0777, true)) {
-                        throw new Exception("Falha ao criar diretório: $directory");
-                    }
-                }
-
-                // Verifica permissões de escrita
-                if (!is_writable($directory)) {
-                    throw new Exception("Diretório sem permissão de escrita: $directory");
-                }
-
-                // Tenta criar o arquivo com tratamento moderno de erros
-                $wh = fopen($file_target, 'w+');
-                if (!$wh) {
-                    $error = error_get_last();
-                    throw new Exception("Erro ao gerar arquivo de remessa: " . $error['message']);
-                }
-
-                // registro header
-                //001 a 001  001  Identificação do registro header  A identicação do header deve ser “0”(zero) 
-                $headerWrite = "0";
-                //002 a 002  001  Identificação do arquivo remessa  A identificação do arquivo de remessa deve ser “1”. 
-                $headerWrite .= "1";
-                //003 a 009  007  Literal remessa  “REMESSA” 
-                $headerWrite .= "REMESSA";
-                //010 a 011  002  Código do serviço de cobrança  O código de serviço de cobrança é “01”
-                $headerWrite .= "01";
-                //012 a 026  015  Literal cobrança  “COBRANCA” 
-                $headerWrite .= str_pad("COBRANCA", 15, " ", STR_PAD_RIGHT);
-                //027 a 031  005  Código do beneficiário  Código do beneficiário  
-                $headerWrite .= str_pad($contaCorrente, 5, "0", STR_PAD_LEFT);
-                //032 a 045  014  CPF/CGC do beneficiário  
-                //Informar CPF/CNPJ do beneficiário. Alinhado à direita e zeros à esquerda;
-                $headerWrite .= $arrEmitente[0]['CNPJ'];
-                //046 a 076  031  Filler  Deixar em Brancos (sem preenchimento) 
-                $headerWrite .= str_pad("", 31, " ", STR_PAD_RIGHT);
-                //077 a 079  003  Número do Sicredi  “748”  
-                $headerWrite .= "748";
-                //080 a 094  015  Literal Sicredi  “SICREDI” 
-                $headerWrite .= str_pad("SICREDI", 15, " ", STR_PAD_RIGHT);
-                //095 a 102  008  Data de gravação do arquivo  
-                //O Formato da data de geração do arquivo deve estar no padrão: AAAAMMDD
-                $headerWrite .= date("Ymd");
-                //103 a 110  008  Filler  Deixar em Branco (sem preenchimento)  
-                $headerWrite .= str_pad(" ", 8, " ", STR_PAD_RIGHT);
-                //111 a 117  007  Número da remessa  
-                //Deve ser maior que zero: número do último arquivo remessa + 1; 
-                $headerWrite .= '0000001'; //?
-                //118 a 390  273  Filler  Deixar em Branco (sem preenchimento)  
-                $headerWrite .= str_pad("", 273, " ", STR_PAD_RIGHT);
-                //391 a 394  004  Versão do sistema  2.00 (o ponto deve ser colocado)  
-                $headerWrite .= "2.00";
-                //395 a 400  006  Número seqüencial do registro  Alinhado à direita e zeros à esquerda;  
-                $headerWrite .= '000001'; //?
-                fwrite($wh, $headerWrite . "\r\n");
-
-                // registro tipo 1 - transacao
-                for ($i = 0; $i < count($remessa); $i++) {
-                    $numRegistro++;
-                    $juros = ($conta[0]['JUROS'] * $remessa[$i]['TOTAL']) / 100;
-                    $juros = number_format($juros, 2, '.', '');
-
-                    $objContaBanco->setId($remessa[$i]['CONTA']);
-                    $arrContaBanco = $objContaBanco->select_ContaBanco();
-                    // verifica nosso numero, senão exister gera e grava em fin_conta
-                    if (is_null($remessa[$i]['NOSSONUMERO'])):
-                        $nossoNumero = $objContaBanco->geraNossoNumero($remessa[$i]['CONTA'], $arrContaBanco[0]['ULTIMONOSSONRO']);  // na impressão calcular e guardar no lancamento
-                    else:
-                        $nossoNumero = $remessa[$i]['NOSSONUMERO'];
-                    endif;
-                    $nn = str_pad($codCarteira, 3, "0", STR_PAD_LEFT) . str_pad($nossoNumero, 11, "0", STR_PAD_LEFT);
-                    $digitoNN = c_contaBanco::mod11($codCarteira . str_pad($nossoNumero, 11, "0", STR_PAD_LEFT), 7);
-                    // Posicao  Nome Campo                Tam Conteudo
-                    //001 a 001  001  Identificação do registro detalhe  Identificação do registro detalhe de estar “1”
-                    $transacaoWrite = "1";
-                    //002 a 002  001  Tipo de cobrança  “A” - Sicredi Com Registro 
-                    $transacaoWrite .= 'A';
-                    //003 a 003  001  Tipo de carteira  “A” – Simples 
-                    $transacaoWrite .= 'A';
-                    //004 a 004    001    Tipo de Impressão    “A” – Normal  “B” – Carnê  
-                    $transacaoWrite .= 'A';
-                    //005 a 016  012  Filler  Deixar em Branco (sem preenchimento)  
-                    $transacaoWrite .= str_pad("", 12, " ", STR_PAD_RIGHT);
-                    //017 a 017  001  Tipo de moeda  “A” – Real  
-                    $transacaoWrite .= 'A';
-                    //018 a 018  001  Tipo de desconto  “A” – Valor  “B” – Percentual  
-                    $transacaoWrite .= 'A';
-                    //019 a 019  001  Tipo de juros     “A” – Valor  “B” – Percentual  
-                    $transacaoWrite .= 'A';
-                    //020 a 047  028  Filler  Deixar em Branco (sem preenchimento
-                    $transacaoWrite .= str_pad(" ", 28, " ", STR_PAD_RIGHT);
-                    //048 a 056  009  Nosso número Sicredi   
-                    //Se a impressão for pela Sicredi (A) é possível deixar em branco (sem preenchimento - gerado  automaticamente pelo Banco) ou informar "Nosso Número" devidamente preenchido. 
-                    //Se for impressão pelo Cedente (B) - informar o "Nosso Número" conforme exemplo informações abaixo:   
-                    //16 - ano atual  
-                    //2 a 9 - byte de geração "somente será "1" se 
-                    //forem boletos pré-impressos". xxxxx - número sequencial d - dígito verificador calculado ou seja, a nomenclatura correta é: 132xxxxxD
-                    $transacaoWrite .= str_pad($nossoNumero, 9, "0", STR_PAD_LEFT);
-                    //057 a 062  006  Filler  Deixar em Branco (sem preenchimento)  
-                    $transacaoWrite .= str_pad(" ", 6, " ", STR_PAD_RIGHT);
-                    //063 a 070  008  Data da Instrução O Formato da data de instrução do arquivo deve estar no padrão: AAAAMMDD  
-                    $transacaoWrite .= date("yymd");
-                    //071 a 071  001  Campo alterado, quando instrução “31”  
-                    //Campo deve estar vazio (sem preenchimento), só utilizar quando 109-110 for = 31. 
-                    //Usar as seguintes opções:  
-                    //A – Desconto;  
-                    //B - Juros por dia;  
-                    //C - Desconto por dia de antecipação;  
-                    //D - Data limite para concessão de desconto;  
-                    //E - Cancelamento de protesto automático; 
-                    //F - Carteira de cobrança - não disponível.
-                    $transacaoWrite .= str_pad(" ", 1, " ", STR_PAD_RIGHT);
-                    //072 a 072  001  Postagem do título  
-                    //“S” - Para postar o título diretamente ao pagador  
-                    //“N” - Não postar e remeter o título para o beneficiário  
-                    $transacaoWrite .= 'N';
-                    //073 a 073  001  Filler  Deixar em Branco (sem preenchimento)  
-                    $transacaoWrite .= str_pad(" ", 1, " ", STR_PAD_RIGHT);
-                    //074 a 074  001  Emissão do boleto  
-                    //“A” – Impressão é feita pelo Sicredi  
-                    //“B” – Impressão é feita pelo Beneficiário
-                    $transacaoWrite .= "B";
-                    //075 a 076  002  Número da parcela do carnê  Quando o tipo de impressão for “B – Carnê” (posição 004).  
-                    $transacaoWrite .= str_pad(" ", 2, " ", STR_PAD_RIGHT);
-                    //077 a 078  002  Número total de parcelas do carnê  Quando o tipo de impressão for “B – Carnê” (posição 004).  
-                    $transacaoWrite .= str_pad(" ", 2, " ", STR_PAD_RIGHT);
-                    //079 a 082  004  Filler  Deixar em Branco (sem preenchimento)
-                    $transacaoWrite .= str_pad(" ", 4, " ", STR_PAD_RIGHT);
-                    //083 a 092  010  Valor de desconto por dia de antecipação  Informar valor de desconto (alinhado à direita e zeros à esquerda) ou senão preencher com zeros.  
-                    $transacaoWrite .= str_pad("0", 10, "0", STR_PAD_RIGHT);
-                    //093 a 096  004  % multa por pagamento em atraso  Alinhado à direita com zeros à esquerda, sem separador decimal ou preencher com zeros.  
-                    $transacaoWrite .= str_pad("0", 4, "0", STR_PAD_RIGHT);
-                    //097 a 108  012  Filler  Brancos (sem preenchimento) 
-                    $transacaoWrite .= str_pad(" ", 12, " ", STR_PAD_RIGHT);
-                    //109 a 110  002  Instrução Este campo só permite usar os seguintes códigos:   
-                    //01 - Cadastro de título;  
-                    //02 - Pedido de baixa;  
-                    //04 - Concessão de abatimento;  
-                    //05 - Cancelamento de abatimento concedido;  
-                    //06 - Alteração de vencimento;  
-                    //09 - Pedido de protesto;   
-                    //18 - Sustar protesto e baixar título;  
-                    //19 - Sustar protesto e manter em carteira;
-                    $transacaoWrite .= '01';
-                    //111 a 120  010  Seu número  
-                    //Este campo nunca pode se repetir (Diferente de branco) 
-                    //normalmente usado neste campo o número da nota fiscal gerada para o pagador.  
-                    $transacaoWrite .= str_pad($remessa[$i]['ID'], 10, " ", STR_PAD_RIGHT);
-                    //121 a 126  006  Data de vencimento  
-                    //A data de vencimento deve ser sete dias MAIOR que o campo 151 a 156 “Data de emissão”.  Formato: DDMMAA  
-                    $transacaoWrite .= date('dmy', strtotime($remessa[$i]['VENCIMENTO']));
-                    //127 a 139  013  Valor do título  Alinhado à direita e zeros à esquerda;  
-                    $transacaoWrite .= str_pad(str_replace($charValor, "", $remessa[$i]['TOTAL']), 13, "0", STR_PAD_LEFT);
-                    //140 a 148  009  Filler  Deixar em Branco (sem preenchimento)  
-                    $transacaoWrite .= str_pad("", 9, " ", STR_PAD_RIGHT);
-                    //149 a 149  001  Espécie de documento  
-                    //Este campo só permite usar os seguintes códigos:  
-                    //A - Duplicata Mercantil por Indicação;  
-                    //B - Duplicata Rural;  
-                    //C - Nota Promissória;  
-                    //D - Nota Promissória Rural;  
-                    //E - Nota de Seguros;  
-                    //G – Recibo;  
-                    //H - Letra de Câmbio;  
-                    //I - Nota de Débito;  
-                    //J - Duplicata de Serviço por Indicação; 
-                    //K – Outros.  
-                    //O – Boleto Proposta  
-                    //Obs.: Se título possuir protesto automático, favor utilizar o código A, 
-                    //pois esta é uma espécie de documento que permite utilizar o protesto automático sem a utilização de um Sacador Avalista.  
-                    //Obs.: O Boleto Proposta da liberdade ao pagador de aceitar, ou não, 
-                    //o produto ou serviço vinculado ao boleto em questão. Não sendo prejudicado pelo não pagamento do mesmo.  
-                    $transacaoWrite .= 'A';
-                    //150 a 150  001  Aceite do título    
-                    //“S” – sim  
-                    //“N” – não
-                    $transacaoWrite .= 'N';
-                    //151 a 156  006  Data de emissão  
-                    //A data de emissão deve ser sete dias MENOR que o campo 121 a 126 “Data de vencimento”.   
-                    //Formato: DDMMAA
-                    $transacaoWrite .= date('dmy', strtotime($remessa[$i]['EMISSAO']));
-                    //157 a 158  002  Instrução de protesto automático  
-                    //“00” - Não protestar automaticamente  
-                    //“06” - Protestar automaticamente
-                    $transacaoWrite .= '06';
-                    //159 a 160  002  Número de dias p/protesto automático  
-                    //Campo numérico - mínimo 03 (três) dias  
-                    //Quando preenchido com 3 ou 4 dias o sistema comandará protesto em dias úteis após o vencimento. 
-                    //Quando preenchido acima de 4 dias, o sistema comandará protesto em dias corridos após o vencimento.  
-                    $transacaoWrite .= '10';
-                    //161 a 173  013  Valor/% de juros por dia de atraso  Preencher com valor (alinhados à direita com zeros à esquerda) ou preencher com zeros.  
-                    $transacaoWrite .= str_pad(str_replace($charValor, "", $juros), 13, "0", STR_PAD_LEFT);
-                    //174 a 179  006  Data limite p/concessão de desconto  
-                    //Informar data no padrão: DDMMAA ou preencher com zeros.  
-                    $transacaoWrite .= str_pad("0", 6, "0", STR_PAD_RIGHT);
-                    //180 a 192  013  Valor/% do desconto  
-                    //Informar valor do desconto (alinhado à direita e zeros à esquerda) ou preencher com zeros.  
-                    $transacaoWrite .= str_pad("0", 13, "0", STR_PAD_RIGHT);
-                    //193 a 205  013  Filler  Sempre preencher com zeros neste campo.  
-                    $transacaoWrite .= str_pad("0", 13, "0", STR_PAD_RIGHT);
-                    //206 a 218  013  Valor do abatimento  
-                    //Informar valor do abatimento (alinhado à direita e zeros à esquerda) ou preencher com zeros.  
-                    $transacaoWrite .= str_pad("0", 13, "0", STR_PAD_RIGHT);
-                    //219 a 219  001  Tipo de pessoa do pagador: PF ou PJ  
-                    //“1” - Pessoa Física  
-                    //“2” - Pessoa Jurídica  
-                    if ($remessa[$i]['TIPOPESSOA'] == 'J'):
-                        $transacaoWrite .= '2';
-                    else:
-                        $transacaoWrite .= '1';
-                    endif;
-                    //220 a 220  001  Filler  Sempre preencher com zeros neste campo.  
-                    $transacaoWrite .= '0';
-                    //221 a 234  014  CPF/CNPJ do Pagador  
-                    //Alinhado à direita e zeros à esquerda;  
-                    //Obs: No momento dos testes para homologação estes dados devem ser enviados com informações válidas.  
-                    $transacaoWrite .= str_pad(
-                        str_replace(
-                            "/",
-                            "",
-                            str_replace(
-                                "-",
-                                "",
-                                str_replace(".", "", $remessa[$i]['CNPJCPF'])
-                            )
-                        ),
-                        14,
-                        "0",
-                        STR_PAD_LEFT
-                    );
-                    //235 a 274  040  Nome do pagador  
-                    //Neste campo informar o nome do pagador sem acentuação ou caracteres especiais.    
-                    $nome = substr($this->removeAcentos($remessa[$i]['NOME']), 0, 40);
-                    $nome = trim($nome);
-                    $nome = str_pad($nome, 40, " ", STR_PAD_RIGHT);
-                    $transacaoWrite .= $nome;
-                    //275 a 314  040  Endereço do pagador  
-                    //Neste campo informar o endereço do pagador sem acentuação ou caracteres especiais. 
-                    $endereco = substr($this->removeAcentos($remessa[$i]['ENDERECO'] . "," . $remessa[$i]['NUMERO']), 0, 40);
-                    $endereco = trim($endereco);
-                    $endereco = str_pad($endereco, 40, " ", STR_PAD_RIGHT);
-                    $transacaoWrite .= $endereco;
-                    //315 a 319  005  Código do pagador na cooperativa beneficiário  
-                    //Se pagador novo, o campo deve conter zeros. Para pagador já cadastrado, enviar o código enviado no primeiro arquivo de retorno ou sempre zeros quando o sistema do beneficiário não utiliza esse campo – campo alfanumérico;  
-                    $transacaoWrite .= str_pad("0", 5, "0", STR_PAD_RIGHT);
-                    //320 a 325  006  Filler  Sempre preencher com zeros neste campo.  
-                    $transacaoWrite .= str_pad("0", 6, "0", STR_PAD_RIGHT);
-                    //326 a 326  001  Filler  Deixar em Branco (sem preenchimento)  
-                    $transacaoWrite .= " ";
-                    //327 a 334  008  CEP do pagador  Obrigatório ser um CEP Válido  
-                    $transacaoWrite .= str_pad($remessa[$i]['CEP'], 8, "0", STR_PAD_RIGHT);
-                    //335 a 339  005  Código do Pagador junto ao cliente  
-                    //Campo numérico (zeros quando inexistente)  
-                    //Obs.: Para validações de arquivos deixar este campo com zeros, após a homologação pode ser usado o código do cliente, conforme informação do campo.
-                    $transacaoWrite .= str_pad("0", 5, "0", STR_PAD_RIGHT);
-                    //340 a 353  014  CPF/CNPJ do Sacador Avalista  
-                    //Alinhado à direita e zeros à esquerda. Deixar em branco caso não exista Sacador Avalista. O Sacador Avalista deve ser diferente do beneficiário e pagador.  
-                    $transacaoWrite .= str_pad(" ", 14, " ", STR_PAD_RIGHT);
-                    //354 a 394  041  Nome do Sacador Avalista  
-                    //Deixar em brancos quando inexistente. Caso utilize usar sem acentuação ou caracteres especiais.  
-                    $transacaoWrite .= str_pad(" ", 41, " ", STR_PAD_RIGHT);
-                    //395 a 400  006  Número sequencial do registro  
-                    //Neste campo sempre informar "000002" para primeiro registro de cobrança. 
-                    //Alinhado à direita e zeros à esquerda;  
-                    $transacaoWrite .= str_pad($numRegistro, 6, "0", STR_PAD_LEFT);
-                    // grava arquivo txt
-                    fwrite($wh, $transacaoWrite . "\r\n");
-
-                    $numRegistro++;
-                    //001 a 001  001  Identificação do registro Informativo  “5” 
-                    $transacaoWrite = "5";
-                    //002 a 002  001  Tipo de Informativo  “E” – Específico de um título  
-                    $transacaoWrite .= "E";
-                    //003 a 007  005  Código do beneficiário  Conta Corrente sem o DV ou conta beneficiário   9.6.1  Se cobrança com registro:  
-                    $transacaoWrite .= str_pad($contaCorrente, 5, "0", STR_PAD_LEFT);
-                    //008 a 017  010  Identificação do título seu número  
-                    $transacaoWrite .= str_pad($remessa[$i]['ID'], 10, " ", STR_PAD_RIGHT);
-                    //Este campo nunca pode se repetir (Diferente de branco) normalmente usado neste campo o número da nota fiscal gerada para o pagador.  
-                    //018 a 018  001  Filler  Deixar em Branco (sem preenchimento) 
-                    $transacaoWrite .= str_pad(" ", 1, " ", STR_PAD_RIGHT);
-                    //019 a 019  001  
-                    //Tipo de cobrança  Obs.: O SICREDI não validará este campo  
-                    //“A” - cobrança com registro  “C” - cobrança sem registro  
-                    $transacaoWrite .= 'A';
-                    //020 a 021  002  Número da linha do informativo  
-                    //Campo informa o número da linha do informativo - Começando com 1 até 99.
-                    $transacaoWrite .= str_pad("01", 2, " ", STR_PAD_RIGHT);
-                    //022 a 101  080  Texto da linha do informativo  
-                    //Campo utilizado para texto com até 80 posições. Usar sem acentuação ou caracteres especiais.     
-                    $transacaoWrite .= str_pad(" ", 80, " ", STR_PAD_RIGHT);
-                    //102 a 103  002  Número da linha do informativo  
-                    //Campo informa o número da linha do     informativo - Começando com 1 até 99.  
-                    $transacaoWrite .= str_pad("02", 2, " ", STR_PAD_RIGHT);
-                    //104 a 183  080  Texto da linha do informativo  
-                    //Campo utilizado para texto com até 80 posições. Usar sem acentuação ou caracteres especiais.     
-                    $transacaoWrite .= str_pad(" ", 80, " ", STR_PAD_RIGHT);
-                    //184 a 185  002  Número da linha do informativo  
-                    //Campo informa o número da linha do informativo - Começando com 1 até 99.  
-                    $transacaoWrite .= str_pad("03", 2, " ", STR_PAD_RIGHT);
-                    //186 a 265  080  Texto da linha do informativo  
-                    //Campo utilizado para texto com até 80 posições. Usar sem acentuação ou caracteres especiais.     
-                    $transacaoWrite .= str_pad(" ", 80, " ", STR_PAD_RIGHT);
-                    //266 a 267  002  Número de linha do informativo  
-                    //Campo informa o número da linha do informativo - Começando com 1 até 99.  
-                    $transacaoWrite .= str_pad("04", 2, " ", STR_PAD_RIGHT);
-                    //268 a 347  080  Texto da linha do informativo  
-                    //Campo utilizado para texto com até 80 posições. Usar sem acentuação ou caracteres especiais.     
-                    $transacaoWrite .= str_pad(" ", 80, " ", STR_PAD_RIGHT);
-                    //348 a 394  047  Filler  Deixar em Branco (sem preenchimento)  
-                    $transacaoWrite .= str_pad(" ", 47, " ", STR_PAD_RIGHT);
-                    //395 a 400  006  Número sequencial do registro  Alinhado à direita e zeros à esquerda;
-                    $transacaoWrite .= str_pad($numRegistro, 6, "0", STR_PAD_LEFT);
-                    // grava arquivo txt
-                    fwrite($wh, $transacaoWrite . "\r\n");
-                    // atualiza fin_lancamento com nosso e numero e data do envio do arquivo de remessa              
-                    $this->atualizaRemessa($remessa[$i]['ID'], $nossoNumero, $numRemessa, date('Y-m-d'), $filename . str_pad($serieArq, 2, "0", STR_PAD_LEFT) . $ambiente);
-                } // for    
-                // grava trailler
-                $numRegistro++;
-                //001 a 001  001  Identificação do registro trailer  “9”  002 a 002  001  Identificação do arquivo remessa  “1”  003 a 005  003  Número do Sicredi  “748”  
-                $traillerWrite = "9";
-                //002 a 002  001  Identificação do arquivo remessa  “1”  
-                $traillerWrite .= "1";
-                //003 a 005  003  Número do Sicredi  “748” 
-                $traillerWrite .= "748";
-                //006 a 010  005  Código do beneficiário  Conta Corrente sem o DV ou conta beneficiário.  
-                $traillerWrite .= str_pad($contaCorrente, 5, "0", STR_PAD_LEFT);
-                //011 a 394  384  Filler  
-                //Deixar em Branco (sem preenchimento)  395 a 400  006  Número seqüencial do registro  Alinhado à direita e zeros à esquerda
-                $traillerWrite .= str_pad(" ", 384, " ", STR_PAD_RIGHT);
-                //395 a 400 Número Seqüencial de Registro 006 Nº Seqüencial do Último Registro  X 
-                $traillerWrite .= str_pad($numRegistro, 6, "0", STR_PAD_LEFT);
-
-                fwrite($wh, $traillerWrite . "\r\n");
-            } // if
-            else {
-                return 'Não existe boletos para enviar remessa bancária!!';
+            /* 
+            A nomenclatura esperada do arquivo precisa ser CCCCCmdd.XXX onde:
+            CCCCC = código do cedente (31480)
+            m = mês (1 ao 9 = janeiro a setembro; O=Out, N=Nov e D=dez)
+            dd = dia;
+            */
+            switch(date("m")){
+                case "01":
+                    $m = 1;
+                break;
+                case "02":
+                    $m = 2;
+                break;
+                case "03":
+                    $m = 3;
+                break;
+                case "04":
+                    $m = 4;
+                break;
+                case "05":
+                    $m = 5;
+                break;
+                case "06":
+                    $m = 6;
+                break;
+                case "07":
+                    $m = 7;
+                break;
+                case "08":
+                    $m = 8;
+                break;
+                case "09":
+                    $m = 9;
+                break;
+                case "10":
+                    $m = "O";
+                break;
+                case "11":
+                    $m = "N";
+                break;
+                case "12":
+                    $m = "D";
+                break;
             }
-            fclose($wh); // No error
-            //$this->downloadFile($file_target);
 
-        } catch (Exception $ex) {
-            $this->mostraRemessa($ex);
+            $filename = "/".$codEmpresa.$m.date("d");
+            $serieArq = 0;
+
+            // teste se arquivo existe
+            $file_target =  $path.$filename.$ambiente;
+            if(file_exists($file_target)){
+                throw new Exception( "Arquivo já existe, contate o suporte!".$php_errormsg ); //401 - Erro ao criar o arquivo
+            }
+    
+            // cria arquivo
+            $wh = fopen($file_target, 'w+');
+            if ( !$wh ) {
+                throw new Exception( "Erro ao criar o arquivo de remessa, entre em contato com o suporte!".$php_errormsg ); //401 - Erro ao criar o arquivo
+            }
+            
+
+            // 9.1 Registro header
+            // Posicao   Nome Campo                       Tam Conteudo
+            // 001 a 001 Identificação do registro header 001 0 (zero)
+            $headerWrite = 0;
+
+            // 002 a 002 Identificação do Arquivo Remessa 001 1 (um)
+            $headerWrite .= 1;
+
+            // 003 a 009 Literal Remessa                  007 "REMESSA" 
+            $headerWrite .= "REMESSA";
+
+            // 010 a 011 Código do serviço de cobrança    002 O código de serviço de cobrança é "01"
+            $headerWrite .= "01";
+
+            // 012 a 019 Literal cobrança                 008 "COBRANCA"
+            $headerWrite .= "COBRANCA";
+
+             // 020 a 026 Filler                          007 Deixar em branco (sem preenchimento)
+            $headerWrite .= str_pad('', 7, " ", STR_PAD_RIGHT);
+
+            // 027 a 031 Código do beneficiário/cedente cadastrado na Cooperativa  005
+            $headerWrite .= str_pad($codEmpresa, 5, "0", STR_PAD_LEFT);
+
+            // 032 a 045 CPF/CGC do beneficiário          014 Informar CPF/CNPJ do beneficiário. Alinhado à direita e zeros à esquerda;
+            $headerWrite .= str_pad($dadosEmpresa['0']['CNPJ'], 14, "0", STR_PAD_LEFT);
+
+            // 046 a 076 Filler                           031 Deixar em Brancos (sem preenchimento)
+            $headerWrite .= str_pad('', 31, " ", STR_PAD_RIGHT);
+
+            // 077 a 079 Número do SICREDI                003 "748"
+            $headerWrite .= "748";
+
+            // 080 a 094 Literal Sicredi                  015 "SICREDI" 
+            $headerWrite .= str_pad('SICREDI', 15, " ", STR_PAD_RIGHT);
+
+            // 095 a 102 Data de gravação do arquivo      008 O Formato da data de geração do arquivo deve estar no padrão: AAAAMMDD
+            $headerWrite .= date("Ymd");
+
+            // 103 a 110 Filler                           008 Deixar em Branco (sem preenchimento)
+            $headerWrite .= str_pad('', 8, " ", STR_PAD_RIGHT);
+
+            // 111 a 117 Nº Número da remessa             007 Deve ser maior que zero: número do último arquivo remessa + 1;
+            $headerWrite .= str_pad($numRemessa, 7, "0", STR_PAD_LEFT);
+
+            // 118 a 390 Filler                           273 Deixar em Branco (sem preenchimento)
+            $headerWrite .= str_pad("", 273, " ", STR_PAD_RIGHT);
+
+            // 391 a 394 Versão do sistema                004 2.00 (o ponto deve ser colocado)  
+            $headerWrite .= "2.00";
+            
+            // 395 a 400 Número sequencial do registro    006 Alinhado à direita e zeros à esquerda;   
+            $headerWrite .= str_pad($numRegistro, 6, "0", STR_PAD_LEFT);
+            
+            fwrite($wh, $headerWrite."\r\n");
+
+            #################### FIM Registro header ####################
+
+            //9.2 Registro detalhe (Tipo 1) - Cobrança com registro
+            for ($i=0; $i < count($remessa); $i++){
+                $numRegistro++;
+                //$juros = ($conta[0]['JUROS']*$remessa[$i]['TOTAL'])/100;
+                $juros = number_format($juros , 2, '.', '');
+                
+                $objContaBanco->setId($remessa[$i]['CONTA']);
+                $arrContaBanco = $objContaBanco->select_ContaBanco();
+
+                // verifica nosso numero, senão exister gera e grava em fin_conta
+                if (is_null($remessa[$i]['NOSSONUMERO'])):
+                    $nossoNumero = $objContaBanco->geraNossoNumero($remessa[$i]['CONTA'], $arrContaBanco[0]['ULTIMONOSSONRO'], $banco, $agencia, $posto, $codEmpresa);  // na impressão calcular e guardar no lancamento
+                else:
+                    $nossoNumero = $remessa[$i]['NOSSONUMERO'];
+                endif;
+
+                //numero sequencia para gerar o DV do nosso numero
+                //$numeroSequencial = intval(substr($remessa[$i]['NOSSONUMERO'], 4, 5));
+
+                //$byte = substr($nossoNumero, 3, 1);
+                //$ano = substr($nossoNumero, 0, 2);
+                //$digitoNN = c_contaBanco::mod11($agencia.$posto.$codEmpresa.$ano.$byte.$numeroSequencial);
+
+                // Posicao   Nome Campo                     Tam Conteudo
+                // 001 a 001 Identificação do Registro      001 Identificação do registro detalhe de estar "1"
+                $transacaoWrite = 1;
+
+                // 002 a 002 Tipo de cobrança               001 "A" - Sicredi Com Registro
+                $transacaoWrite .= "A";
+
+                // 003 a 003 Tipo de carteira               001 "A" – Simples
+                $transacaoWrite .= "A";
+
+                // 004 a 004 Tipo de Impressão              001 "A" – Normal / "B" – Carnê
+                $transacaoWrite .= "A";
+
+                // 005 a 005 Filler                         012 Deixar em Branco (sem preenchimento)
+                $transacaoWrite .= str_pad("", 1, " ", STR_PAD_RIGHT);
+
+                //QUANDO FOR UTILZIAR QRCODE
+                // 006 a 006 Tipo de Boleto                 001 H - Híbrido
+                $transacaoWrite .= " ";
+
+                // 007 a 016 Filler                         010 Deixar em Branco (sem preenchimento)
+                $transacaoWrite .= str_pad("", 10, " ", STR_PAD_RIGHT);
+
+                // 017 a 017 Tipo de moeda                  001 "A" – Real
+                $transacaoWrite .= "A";
+
+                // 018 a 018 Tipo de desconto               001 "A" – Valor / "B" – Percentual
+                $transacaoWrite .= "B";
+
+                // 019 a 019 Tipo de juros                  001 "A" – Valor / "B" – Percentual
+                $transacaoWrite .= "B";
+
+                // 020 a 047 Filler                         028 Deixar em Branco (sem preenchimento)
+                $transacaoWrite .= str_pad("", 28, " ", STR_PAD_RIGHT);
+
+                // 048 a 056 Nosso número Sicredi           009 18 - ano atual
+                //                                              2 a 9 - byte de geração "somente será "1" se
+                //                                              forem boletos pré-impressos". xxxxx - número
+                //                                              sequencial d - dígito verificador calculado ou
+                //                                              seja, a nomenclatura correta é: 182xxxxxD
+                //$nossoNumeroEnd = date("y").'/'.$byte.str_pad($nossoNumero, 4, "0", STR_PAD_LEFT).$digitoNN;
+                $nossoNumeroEnd = str_replace('/', '', $nossoNumero);
+                $transacaoWrite .= str_pad($nossoNumeroEnd, 8, "0", STR_PAD_LEFT);
+                //$transacaoWrite .= $digitoNN;
+
+                // 057 a 062 Filler                         006 Deixar em Branco (sem preenchimento)
+                $transacaoWrite .= str_pad("", 6, " ", STR_PAD_RIGHT);
+
+                // 063 a 070 Data da Instrução              008 O Formato da data de instrução do arquivo deve estar no padrão: AAAAMMDD
+                $transacaoWrite .= date('Ymd', strtotime($remessa[$i]['EMISSAO']));                
+
+                /* 071 a 071 Campo alterado, quando instrução "31"  001 Campo deve estar vazio (sem preenchimento),
+                                                                        só utilizar quando 109-110 for = 31. Usar as
+                                                                        seguintes opções:
+                                                                        A – Desconto;
+                                                                        B - Juros por dia;
+                                                                        C - Desconto por dia de antecipação;
+                                                                        D - Data limite para concessão de
+                                                                        desconto; 
+                                                                        E - Cancelamento de protesto automático; F - Carteira de cobrança - não disponível.
+                                                                        G - Cancelamento de negativação automática */
+                $transacaoWrite .= str_pad("", 1, " ", STR_PAD_RIGHT);
+
+                /* 072 a 072 Postagem do título             001 S - Impressão e postagem dos títulos serão feitas pelo
+                                                                Sicredi
+                                                                N - Postagem dos títulos será feita pelo
+                                                                beneficiário/cedenteObs.: Se a impressão do título
+                                                                (campo 074) for realizada pelo beneficiário/cedente, a
+                                                                postagem também deverá ser realizada por ele */
+                $transacaoWrite .= "N";
+
+                // 073 a 073 Filler                         001 Deixar em Branco (sem preenchimento)
+                $transacaoWrite .= str_pad("", 1, " ", STR_PAD_RIGHT);
+
+                // 074 a 074 Emissão do boleto              001 "A" – Impressão é feita pelo Sicredi / "B" – Impressão é feita pelo Beneficiário
+                $transacaoWrite .= "B";
+
+                // 075 a 076 Número da parcela do carnê     002 Quando o tipo de impressão for "B – Carnê" (posição 004).
+                $transacaoWrite .= "00";
+
+                // 077 a 078 Número total de parcelas do carnê 002 Quando o tipo de impressão for "B – Carnê" (posição 004).
+                $transacaoWrite .= "00";
+
+                // 079 a 082 Filler                         004 Deixar em Branco (sem preenchimento)
+                $transacaoWrite .= str_pad("", 4, " ", STR_PAD_RIGHT);
+
+                // 083 a 092 Valor de desconto por dia de antecipação 010 Informar valor de desconto (alinhado à direita e zeros à esquerda) ou senão preencher com zeros.
+                $transacaoWrite .= str_pad("", 10, "0", STR_PAD_RIGHT);
+
+                
+                // 093 a 096 % multa por pagamento em atraso 004 Alinhado à direita com zeros à esquerda, sem separador decimal ou preencher com zeros.
+                if ($multa < 0){
+                    $transacaoWrite .= str_pad($multa, 4, "0", STR_PAD_LEFT);
+                }else{    
+                    $transacaoWrite .= str_pad("", 4, "0", STR_PAD_RIGHT);
+                }
+
+                // 097 a 108 Filler                         012 Brancos (sem preenchimento)
+                $transacaoWrite .= str_pad("", 12, " ", STR_PAD_RIGHT);
+
+                // 109 a 110 Instrução                      002 Este campo só permite usar os seguintes códigos:
+                //                                              01 - Cadastro de título;
+                //                                              02 - Pedido de baixa;
+                //                                              04 - Concessão de abatimento;
+                //                                              05 - Cancelamento de abatimento concedido;
+                //                                              06 - Alteração de vencimento;
+                //                                              09 - Pedido de protesto;
+                //                                              18 - Sustar protesto e baixar título;
+                //                                              19 - Sustar protesto e manter em carteira;
+                //                                              31 - Alteração de outros dados;
+                //                                              45 - Incluir Negativação;
+                //                                              75 - Excluir Negativação e Manter em Carteira;
+                //                                              76 -Excluir Negativação e Baixar título.
+                $transacaoWrite .= $identificacaoOcorrencia;
+
+                // 111 a 120 Seu número                     010 Diferente de branco - normalmente usados neste campo o número da nota fiscal gerada para o pagador.
+                $transacaoWrite .= str_pad($remessa[$i]['ID'], 10, "0", STR_PAD_LEFT);
+
+                // 121 a 126 Data de vencimento             006 A data de vencimento deve ser sete dias MAIOR que o campo 151 a 156 "Data de emissão". Formato: DDMMAA
+                $transacaoWrite .= date('dmy', strtotime($remessa[$i]['VENCIMENTO']));
+
+                // 127 a 139 Valor do título                013 Alinhado à direita e zeros à esquerda;
+                $transacaoWrite .= str_pad(str_replace($charValor, "", $remessa[$i]['TOTAL']), 13, "0", STR_PAD_LEFT);
+
+                // 140 a 141 Filler                         002 Deixar em Branco (sem preenchimento)
+                $transacaoWrite .= str_pad("", 2, " ", STR_PAD_RIGHT);
+
+                // 142 a 148 Filler                         003 Deixar em Branco (sem preenchimento) - PDF PARECE ESTAR COM O TAMANHO ERRADO
+                $transacaoWrite .= str_pad("", 7, " ", STR_PAD_RIGHT);
+
+                // 149 a 149 Espécie de documento           001 Este campo só permite usar os seguintes códigos:
+                //                                              A - Duplicata Mercantil por Indicação;
+                //                                              B - Duplicata Rural;
+                //                                              C - Nota Promissória;
+                //                                              D - Nota Promissória Rural;
+                //                                              E - Nota de Seguros;
+                //                                              G - Recibo;
+                //                                              H - Letra de Câmbio;
+                //                                              I - Nota de Débito;
+                //                                              J - Duplicata de Serviço por Indicação; 
+                //                                              K – Outros.
+                //                                              O – Boleto Proposta
+                //                                              Obs.: Se título possuir protesto automático, favor
+                //                                              utilizar o código A, pois esta é uma espécie de
+                //                                              documento que permite utilizar o protesto
+                //                                              automático sem a utilização de um Sacador
+                //                                              Avalista.
+                //                                              Obs.: O Boleto Proposta da liberdade ao pagador
+                //                                              de aceitar, ou não, o produto ou serviço vinculado
+                //                                              ao boleto em questão. Não sendo prejudicado
+                //                                              pelo não pagamento do mesmo.
+                $transacaoWrite .= 'A';
+
+                // 150 a 150 Aceite do título                   001 "S" – Sim / "N" – Não
+                $transacaoWrite .= 'S';
+
+                // 151 a 156 Data de emissão                    006 A data de emissão deve ser sete dias MENOR que o campo 121 a 126 "Data de vencimento". Formato: DDMMAA
+                $transacaoWrite .= date('dmy', strtotime($remessa[$i]['EMISSAO']));                
+
+                // 157 a 158 Instrução de protesto automático    002 "00" - Não protestar automaticamente / "06" - Protestar automaticamente
+                if($conta[0]['PROTESTO'] !== '' and $conta[0]['PROTESTO'] > 0){
+                    $transacaoWrite .= "06";
+                }else{
+                    $transacaoWrite .= "00";
+                }
+
+                // 159 a 160 Número de dias p/protesto automático 002 Campo numérico - mínimo 03 (três) dias
+                //                                                   Quando preenchido com 3 ou 4 dias o sistema
+                //                                                   comandará protesto em dias úteis após o
+                //                                                   vencimento. Quando preenchido acima de 4 dias,
+                //                                                   o sistema comandará protesto em dias corridos
+                //                                                   após o vencimento.
+                if($conta[0]['PROTESTO'] !== '' and $conta[0]['PROTESTO'] > 0){
+                    $transacaoWrite .= str_pad($conta[0]['PROTESTO'], 2, "0", STR_PAD_RIGHT);
+                }else{
+                    $transacaoWrite .= "00";
+                }
+
+                // 161 a 173 Valor/% de juros por dia de atraso  013 Preencher com valor (alinhados à direita com zeros à esquerda) ou preencher com zeros.
+                $transacaoWrite .= str_pad(str_replace($charValor, "", $juros), 13, "0", STR_PAD_LEFT);
+
+                // 174 a 179 Data limite p/concessão de desconto 006 Informar data no padrão: DDMMAA ou preencher com zeros.
+                $transacaoWrite .= str_pad("", 6, "0", STR_PAD_RIGHT);
+
+                // 180 a 192 Valor/% do desconto                 013 Informar valor do desconto (alinhado à direita e zeros à esquerda) ou preencher com zeros.
+                $transacaoWrite .= str_pad($descontoBonificacao, 13, "0", STR_PAD_LEFT);
+
+                // 193 a 194 Instrução de negativação automática 002 "00" - não negativar automaticamente / "06" – Negativar automaticamente
+                $transacaoWrite .= "00";
+
+                // 195 a 196 Número de dias p/ negativação automática 002 Campo numérico - mínimo 03 (três) dias.
+                //                                                        Quando preenchido com 3 ou 4 dias o sistema
+                //                                                        comandará negativação em dias úteis após o
+                //                                                        vencimento. Quando preenchido acima de 4 dias,
+                //                                                        o sistema comandará negativação em dias
+                //                                                        corridos após o vencimento.
+                $transacaoWrite .= "00";
+
+                //197 a 205 Filler                              009 Sempre preencher com zeros neste campo.
+                $transacaoWrite .= str_pad("", 9, "0", STR_PAD_LEFT);
+
+                // 206 a 218 Valor do abatimento                013 Informar valor do abatimento (alinhado à direita e zeros à esquerda) ou preencher com zeros.
+                $transacaoWrite .= str_pad("", 13, "0", STR_PAD_LEFT);
+
+                // 219 a 219 Tipo de pessoa do pagador: PF ou PJ 001 "1" - Pessoa Física / "2" - Pessoa Jurídica
+                if ($remessa[$i]['TIPOPESSOA'] == 'J'){
+                    $transacaoWrite .= '2';
+                }else{    
+                    $transacaoWrite .= '1';
+                }
+
+                // 220 a 220 Filter Sempre preencher com zeros neste campo.
+                $transacaoWrite .= '0';
+
+                // 221 a 234 CPF/CNPJ do Pagador        014 Alinhado à direita e zeros à esquerda; 
+                $transacaoWrite .= str_pad($this->removerCaracteresEspeciais($remessa[$i]['CNPJCPF']), 14, "0", STR_PAD_LEFT);
+
+                // 235 a 274 Nome do pagador            040 Neste campo informar o nome do pagador sem acentuação ou caracteres especiais.
+                $nome = substr($this->removeAcentos($remessa[$i]['NOME']), 0, 40);
+                $nome = trim($nome);
+                $nome = str_pad($nome, 40, " ", STR_PAD_RIGHT);
+                $tamNome = strlen($nome);
+                $transacaoWrite .= $nome;
+
+                // 275 a 314 Endereço do pagador        040 Neste campo informar o endereço do pagador sem acentuação ou caracteres especiais.
+                $endereco = substr($this->removeAcentos($remessa[$i]['ENDERECO']), 0, 40);
+                $endereco = trim($endereco);
+                $endereco = str_pad($endereco, 40, " ", STR_PAD_RIGHT);
+                $tamEnd = strlen($endereco);
+                $transacaoWrite .= $endereco;
+
+                // 315 a 319 Código do pagador na cooperativa beneficiário 005 Se pagador novo, o campo deve conter zeros.
+                //                                                             Para pagador já cadastrado, enviar o código
+                //                                                             enviado no primeiro arquivo de retorno ou
+                //                                                             sempre zeros quando o sistema do beneficiário
+                //                                                             não utiliza esse campo – campo alfanumérico;
+                $transacaoWrite .= str_pad("", 5, "0", STR_PAD_LEFT);
+
+                // 320 a 325 Filler                     006 Sempre preencher com zeros neste campo.
+                $transacaoWrite .= str_pad("", 6, "0", STR_PAD_LEFT);
+
+                // 326 a 326 Filler                     001 Deixar em Branco (sem preenchimento)
+                $transacaoWrite .= " ";
+
+                // 327 a 334 CEP do pagador             008 Obrigatório ser um CEP Válido
+                $cep1 = $remessa[$i]['CEP'];
+                $transacaoWrite .= str_pad($cep1, 8, " ", STR_PAD_RIGHT);
+
+                // 335 a 339 Código do Pagador junto ao cliente 005  Para validações de arquivos deixar este
+                //                                                   campo com zeros, após a homologação pode ser
+                //                                                   usado o código do cliente, conforme informação
+                //                                                   do campo
+                //$transacaoWrite .= str_pad($remessa[$i]['DOCTO'].$remessa[$i]['PARCELA'], 10, "0", STR_PAD_LEFT);
+                $transacaoWrite .= str_pad("", 5, "0", STR_PAD_LEFT);
+
+
+                // 340 a 353 CPF/CNPJ do Sacador Avalista  014        Alinhado à direita e zeros à esquerda. Deixar em
+                //                                                    branco caso não exista Sacador Avalista. O
+                //                                                    Sacador Avalista deve ser diferente do
+                //                                                    beneficiário e pagador.
+                $transacaoWrite .= str_pad("", 14, " ", STR_PAD_LEFT);
+
+                // 354 a 394 Nome do Sacador Avalista  041           Deixar em brancos quando inexistente. Caso
+                //                                                   utilize usar sem acentuação ou caracteres
+                //                                                   especiais.
+                $transacaoWrite .= str_pad("", 41, " ", STR_PAD_LEFT);
+
+                // 395 a 400 Número sequencial do registro   006  Neste campo sempre informar "000002" para
+                //                                                  primeiro registro de cobrança. Alinhado à direita
+                //                                                  e zeros à esquerda;  
+                $transacaoWrite .= str_pad($numRegistro, 6, "0", STR_PAD_LEFT);
+                
+                // grava arquivo txt
+                fwrite($wh, $transacaoWrite."\r\n");
+
+                // atualiza fin_lancamento com nosso e numero e data do envio do arquivo de remessa
+                $this->atualizaRemessa($remessa[$i]['ID'], $nossoNumero, $numRemessa, date('Y-m-d'), $filename.$ambiente);
+                
+            } // for
+            
+            // grava trailler
+            $numRegistro++;
+            //001 a 001 Identificação Registro 001 '9'  X 
+            $traillerWrite = "9";
+            //002 a 002 Identificação do arquivo  remessa 001 '1'
+            $traillerWrite .= "1";
+            //003 a 005 Número do Sicredi 003 - 748
+            $traillerWrite .= "748";
+            //006 a 010 Código do beneficiário/cedente
+            $traillerWrite .= $codEmpresa;
+            //011 a 394 Filler 384 deixar em branco
+            $traillerWrite .= str_pad("", 384, " ", STR_PAD_LEFT);
+            //395 a 400 Número Seqüencial de Registro 006 Nº Seqüencial do Último Registro  X 
+            $traillerWrite .= str_pad($numRegistro, 6, "0", STR_PAD_LEFT);
+    
+            fwrite($wh, $traillerWrite."\r\n");
+        } // if
+        else {
+           return 'Não existe boletos para enviar remessa bancária!!';
         }
+        //echo "Total Registros:-->".$numCartao;
+        fclose($wh); // No error
+        //$this->downloadFile($file_target);
+        
+        //valida se existe registros duplicados
+        $resultIguais =  $this->valoresDuplicados($this->array_nosso_numero);
+        if(!empty($resultIguais)){
+            // Remove o arquivo se ele existe
+            if (file_exists($file_target)) {
+                unlink($file_target);
+                $duplicadosString = implode(', ', $resultIguais);
+                throw new Exception("Registros duplicados (".$duplicadosString."), remessa excluída. <br> Contate o suporte e envie os registros duplicados!");
+                //$this->mostraRemessa(null, null, "Registros duplicados (".$duplicadosString."), remessa excluida!");
+            }
+        }
+        
+    } catch (Exception $ex) {
+        $status = false;
+        $this->mostraRemessa(null, null, $ex->getMessage(), false);
+    }
+
+    if($status !== false){
         $this->mostraRemessa($file_target, $banco);
+    }
+    
     } //fim remessaBancaria748
+
 
 
     //---------------------------------------------------------------
@@ -1977,7 +2125,7 @@ class p_remessa_bancaria extends c_lancamento
         $sql = "select conta as id, nomeinterno as descricao from fin_conta  where status ='A'";
         $consulta->exec_sql($sql);
         $consulta->close_connection();
-        $result = $consulta->resultado;
+        $result = $consulta->resultado ?? [];
         for ($i = 0; $i < count($result); $i++) {
             $conta_ids[$i] = $result[$i]['ID'];
             $conta_names[$i] = ucwords(strtolower($result[$i]['DESCRICAO']));

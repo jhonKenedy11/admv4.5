@@ -196,7 +196,7 @@
                   <div class="col-md-5 col-sm-5 col-xs-5">
                         <div>
                               <h2 class="text-center">
-                                    <strong>Relatório de Movimentação de Estoque</strong><br>
+                                    <strong>Relatório de Movimentação de Estoque 12345</strong><br>
                                     <strong>Período - {$dataIni} - {$dataFim}</strong>
                               </h2>
                         </div>
@@ -206,7 +206,7 @@
                   </div>
             </div>
             <div class="x_panel">
-                        {if count($resultado) > 0}
+                        {if !empty($resultado)}
                               <div class="table-responsive">
                                     <table class="table table-striped" style="margin-bottom: 0;">
                                           <thead>
@@ -266,43 +266,49 @@
             </div>
       </div>
 </div>
-
+<script type="text/javascript" src="{$pathJs}/est/s_estoque_relatorio.js"></script>
+<script src="{$pathJs}/../bib/js/vendor/xlsx.full.min.js"></script>
 <script type="text/javascript">
       function exportarTabelaParaExcel() {
-            // Pega a tabela que já está sendo exibida
             var table = document.querySelector('.table-striped');
             if (!table) {
                   alert('Tabela não encontrada!');
                   return;
             }
-            
-            // Converte a tabela para CSV
-            var csv = '';
-            var rows = table.querySelectorAll('tr');
-            
-            for (var i = 0; i < rows.length; i++) {
-                  var row = rows[i];
-                  var cells = row.querySelectorAll('td, th');
-                  var rowData = [];
-                  
-                  for (var j = 0; j < cells.length; j++) {
-                        var cellText = cells[j].textContent.trim();
-                        // Escapa vírgulas e aspas
-                        if (cellText.indexOf(',') !== -1 || cellText.indexOf('"') !== -1) {
-                              cellText = '"' + cellText.replace(/"/g, '""') + '"';
-                        }
-                        rowData.push(cellText);
-                  }
-                  
-                  csv += rowData.join(',') + '\n';
+
+            if (typeof XLSX === 'undefined') {
+                  alert('Biblioteca de exportação (XLSX) não carregada!');
+                  return;
             }
-            
-            // Cria o blob e faz o download
-            var blob = new Blob([csv], {ldelim}type: 'text/csv;charset=utf-8;'{rdelim});
-            var link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'Movimentacao_Estoque_{$dataIni}_a_{$dataFim}.csv';
-            link.click();
+
+            var wb = XLSX.utils.book_new();
+            var ws = XLSX.utils.table_to_sheet(table, { raw: true });
+
+            if (typeof converteColunaNumeroBR === 'function') {
+                  converteColunaNumeroBR(ws, 4); // Quantidade
+                  converteColunaNumeroBR(ws, 5); // Valor Unit.
+                  converteColunaNumeroBR(ws, 6); // Valor Total
+            }
+
+            ws['!cols'] = [
+                  {ldelim}wch: 10{rdelim},
+                  {ldelim}wch: 8{rdelim},
+                  {ldelim}wch: 40{rdelim},
+                  {ldelim}wch: 20{rdelim},
+                  {ldelim}wch: 12{rdelim},
+                  {ldelim}wch: 14{rdelim},
+                  {ldelim}wch: 14{rdelim},
+                  {ldelim}wch: 18{rdelim},
+                  {ldelim}wch: 18{rdelim},
+                  {ldelim}wch: 14{rdelim}
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws, "Movimentação Estoque");
+
+            var dataIni = '{$dataIni}';
+            var dataFim = '{$dataFim}';
+            var nomeArquivo = 'Movimentacao_Estoque_' + dataIni.replace(/\//g, '_') + '_a_' + dataFim.replace(/\//g, '_') + '.xlsx';
+            XLSX.writeFile(wb, nomeArquivo);
       }
 </script>
       </div>

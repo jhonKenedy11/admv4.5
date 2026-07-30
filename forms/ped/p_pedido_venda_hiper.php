@@ -505,7 +505,13 @@ Class p_pedido_venda extends c_pedidoVenda {
         if (!empty($this->m_pesq)){
             $objProdutoQtde = new c_produto_estoque();
             $lancPesq = $objProdutoQtde->produtoQtdePreco($this->m_pesq, $this->m_empresacentrocusto);
-//            $lancPesq = $this->select_pedido_venda_item_letra($this->m_pesq);
+            $gedBase = rtrim(ADMhttpCliente, '/') . '/';
+            foreach ($lancPesq as &$row) {
+                $path = $row['PATH'] ?? $row['path'] ?? '';
+                $row['PATH'] = $path;
+                $row['img_src'] = $path ? $gedBase . implode('/', array_map('rawurlencode', explode('/', $path))) : '';
+            }
+            unset($row);
             $this->smarty->assign('lancPesq', $lancPesq);
         }
 

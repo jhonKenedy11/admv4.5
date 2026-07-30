@@ -280,10 +280,11 @@ public function select_inventario_letra($letra){
 
 public function select_inventario_produto_letra(){
 
-	$sql  = "SELECT IP.*, P.DESCRICAO AS DESCPRODUTO, P.UNIDADE, P.CODIGOBARRAS AS EAN, G.DESCRICAO AS DESCGRUPO, P.UNIFRACIONADA as UNIFRACIONADA ";
+	// Inclui CODFABRICANTE para exibir o código do fabricante no fluxo de inventário
+	$sql  = "SELECT IP.*, P.DESCRICAO AS DESCPRODUTO, P.UNIDADE, P.CODFABRICANTE AS CODFABRICANTE, P.CODIGOBARRAS AS EAN,  G.DESCRICAO AS DESCGRUPO, P.UNIFRACIONADA as UNIFRACIONADA ";
    	$sql .= "FROM EST_INVENTARIO_PRODUTO IP ";
 	$sql .= "LEFT JOIN EST_PRODUTO P ON (IP.CODPRODUTO = P.CODIGO) ";
-	$sql .= "LEFT JOIN EST_GRUPO G ON (P.GRUPO = G.GRUPO) ";
+	$sql .= "LEFT JOIN (SELECT GRUPO, MAX(DESCRICAO) AS DESCRICAO FROM EST_GRUPO GROUP BY GRUPO) G ON (G.GRUPO = P.GRUPO) ";
 	$sql .= "where INVENTARIOID =".$this->getId();
 
 	$sql .= " ORDER BY P.GRUPO, P.DESCRICAO";
@@ -302,7 +303,7 @@ public function select_prod_inventario_cadastro_letra($letra, $grupo){
 
 	$sql  = "SELECT DISTINCT P.*, G.DESCRICAO AS DESCGRUPO, P.DESCRICAO AS DESCPRODUTO ";
    	$sql .= "FROM EST_PRODUTO P ";
-	$sql .= "LEFT JOIN EST_GRUPO G ON (P.GRUPO = G.GRUPO) ";
+	$sql .= "LEFT JOIN (SELECT GRUPO, MAX(DESCRICAO) AS DESCRICAO FROM EST_GRUPO GROUP BY GRUPO) G ON (G.GRUPO = P.GRUPO) ";
 	
 	if($par[0] != ''){
 		$cond =  strpos($sql, 'where') === false ? 'where' : 'and';
@@ -398,7 +399,7 @@ public function alteraInventarioProduto($dadosProdInventario){
 
             // 1. Buscar quantidade anterior (QUANTIDADENOVA atual)
             $banco = new c_banco;
-            $sqlSelect = "SELECT QUANTIDADENOVA FROM EST_INVENTARIO_PRODUTO WHERE CODPRODUTO = '".$idProduto."'";
+            $sqlSelect = "SELECT QUANTIDADENOVA FROM EST_INVENTARIO_PRODUTO WHERE ID = '".$idProduto."'";
             $res = $banco->exec_sql($sqlSelect);
             $quantidadeAnterior = 0;
             if ($res && $res[0]['QUANTIDADENOVA'] !== null) {
@@ -661,24 +662,29 @@ public function excluirInventarioProduto($idProdutoInventario){
      * Por fim, retorna o HTML gerado em formato JSON para ser utilizado na interface (normalmente via AJAX).
      */
     public function retornaPesquisaItensInventarioModal($filtros) {
-    $sql = "SELECT EP.CODIGO, EP.DESCRICAO, EG.DESCRICAO AS GRUPO, EP.LOCALIZACAO FROM EST_PRODUTO EP ";
-    $sql .="INNER JOIN EST_GRUPO EG ON EG.GRUPO = EP.GRUPO";
+    // Seleciona também o código do fabricante para retornar na busca do inventário
+    $sql = "SELECT EP.CODIGO, EP.DESCRICAO, EP.CODFABRICANTE, EG.DESCRICAO AS GRUPO, EP.LOCALIZACAO FROM EST_PRODUTO EP ";
+    $sql .= "LEFT JOIN (SELECT GRUPO, MAX(DESCRICAO) AS DESCRICAO FROM EST_GRUPO GROUP BY GRUPO) EG ON (EG.GRUPO = EP.GRUPO) ";
     
     $conditions = [];
     
     // controle de filtros do where.
     if (!empty($filtros['codigo'])) {
-        $conditions[] = "EP.CODIGO = '{$filtros['codigo']}'";
+        $codigoEsc = addslashes($filtros['codigo']);
+        // Procura pelo código interno, código do fabricante ou código de barras
+        $conditions[] = " (EP.CODIGO = '{$codigoEsc}' OR EP.CODFABRICANTE LIKE '{$codigoEsc}%' OR EP.CODIGOBARRAS LIKE '{$codigoEsc}%') ";
     }
     if (!empty($filtros['nome'])) {
-        $conditions[] = "EP.DESCRICAO LIKE '%{$filtros['nome']}%'";
+        $nomeEsc = addslashes($filtros['nome']);
+        $conditions[] = "EP.DESCRICAO LIKE '%{$nomeEsc}%'";
     }
     if (!empty($filtros['grupo'])) {
-        $grupo = "'" . str_replace(",", "','", $filtros['grupo']) . "'";
+        $grupo = "'" . str_replace(",", "','", addslashes($filtros['grupo'])) . "'";
         $conditions[] = "EP.GRUPO IN ({$grupo})";
     }
     if (!empty($filtros['localizacao'])) {
-        $conditions[] = "EP.LOCALIZACAO LIKE '{$filtros['localizacao']}%'";
+        $localEsc = addslashes($filtros['localizacao']);
+        $conditions[] = "EP.LOCALIZACAO LIKE '{$localEsc}%'";
     }
     $conditions[] = ($filtros['foraLinha'] == 1) ? "EP.DATAFORALINHA IS NOT NULL" : "EP.DATAFORALINHA IS NULL";
     

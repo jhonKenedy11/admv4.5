@@ -130,7 +130,7 @@
                         </div-->
                         <div class="x_panel">
                               <div class="x_content">
-                                    {if $pedido|count > 0}
+                                    {if is_array($pedido) && $pedido|@count > 0}
                                           <section class="content invoice">
                                                 <div class="row small">
                                                       <div class="col-xs-12 table">
@@ -256,6 +256,42 @@
                         <button class="btn btn-default" onclick="window.print();"><i class="fa fa-print"></i>
                               Imprimir</button>
                   </div>
+                  <div class="col-xs-12">
+                        <button class="btn btn-success" onclick="exportarTabelaParaExcel();">
+                              <i class="fa fa-file-excel-o"></i> Exportar Excel
+                        </button>
+                  </div>
             </div>
       </div>
 </section>
+<script type="text/javascript" src="{$pathJs}/ped/s_pedido_relatorio.js"></script>
+<script src="{$pathJs}/../bib/js/vendor/xlsx.full.min.js"></script>
+<script type="text/javascript">
+      function exportarTabelaParaExcel() {
+            var table = document.querySelector('.table-striped');
+            if (!table) {
+                  alert('Tabela não encontrada!');
+                  return;
+            }
+      }
+
+      if (typeof XLSX === 'undefined') {
+            alert('Biblioteca de exportação (XLSX) não carregada!');
+            return;
+      }
+
+      var wb = XLSX.utils.book_new();
+      var ws = XLSX.utils.table_to_sheet(table, { raw: true });
+      if (typeof converteColunaNumeroBR === 'function') {
+          for (var c = 5; c <= 11; c++) converteColunaNumeroBR(ws, c);
+      }
+      XLSX.utils.book_append_sheet(wb, ws, "Fatura Analitico");
+
+      var dataIni = '{$dataIni}';
+      var dataFim = '{$dataFim}';
+      var nomeArquivo = 'Fatura_Analitico_' +
+            dataIni.replace(/\//g, '_') + '_a_' +
+            dataFim.replace(/\//g, '_') + '.xlsx';
+
+      XLSX.writeFile(wb, nomeArquivo);
+</script>

@@ -365,7 +365,8 @@ Class p_produto extends c_produto {
         $this->smarty->assign('codBarras', "'".$this->getCodBarras()."'");
         $this->smarty->assign('codProdutoAnvisa', "'".$this->getCodProdutoAnvisa()."'");
         $this->smarty->assign('localizacao', $this->getLocalizacao());
-        $this->smarty->assign('dataForaLinha', $this->getDataForaLinha('F'));
+        $dataForaLinha = $this->getDataForaLinha('F') ?? '';
+        $this->smarty->assign('dataForaLinha', $dataForaLinha ?? '');
         
         // NCM
         $consulta = new c_banco();

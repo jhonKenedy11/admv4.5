@@ -1,3 +1,6 @@
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
+<script type="text/javascript" src="{$pathJs}/est/s_nota_fiscal_produto.js"> </script>
+<script type="text/javascript" src="{$pathJs}/est/s_nota_fiscal.js"> </script>
 <style type="text/css">
 input[type="number"]::-webkit-outer-spin-button, 
 input[type="number"]::-webkit-inner-spin-button {
@@ -63,6 +66,7 @@ label
     margin-top: 52px;
 }
 </style>
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <script type="text/javascript" src="{$pathJs}/est/s_nota_fiscal_produto.js"> </script>
 
 <!-- page content -->
@@ -223,6 +227,12 @@ label
                                      placeholder="Ordem Serviço" value={$ordem}>
                                 </div>
 
+                                <div class="col-md-3 col-sm-6 col-xs-6">
+                                    <label for="nItemPed">Item OC</label>
+                                    <input class="form-control" maxlength="6" id="nItemPed" type="text" name="nItemPed"
+                                     placeholder="Número Item Ordem Compra" value={$nItemPed}>
+                                </div>
+
                             </div>
                             </br>
 
@@ -237,7 +247,7 @@ label
                                 <div class="col-md-3 col-sm-6 col-xs-6  text-left">
                                     <label for="unitario">Valor Unitário</label>
                                     <input class="form-control moneyUnitario has-feedback-left" type="money" id="unitario" name="unitario"
-                                        required="required" onblur="soma()" maxlength="14" value="{$unitario|number_format:$casasDecimais:',':'.'}">
+                                        required="required" onblur="soma()" maxlength="14" value={$unitario}>
                                     <span class="form-control-feedback left" aria-hidden="true" id="Sproduto"><b>R$</b></span>
                                 </div>
 
@@ -300,7 +310,7 @@ label
                                 <div class="col-md-4 col-sm-6 col-xs-6 text-left">
                                     <label for="aliqIcms" title="<pICMS>">Al&iacute;quota ICMS</label>
                                     <input class="form-control money has-feedback-left" type="money" id="aliqIcms" name="aliqIcms"
-                                        value={$aliqIcms} maxlength="5">
+                                        value={$aliqIcms} maxlength="7">
                                     <span class="form-control-feedback left" aria-hidden="true" id="SIcms"><b>&#37;</b></span>
                                 </div>
                         
@@ -319,20 +329,20 @@ label
                                 <div class="col-md-3 col-sm-6 col-xs-6 text-left">
                                     <label for="percReducaoBc" title="<pRedBC>">Al&iacute;quota da Redu&ccedil;&atilde;o de BC</label>
                                     <input class="form-control money has-feedback-left" type="money" id="percReducaoBc" name="percReducaoBc" 
-                                        maxlength="5" value={$percReducaoBc}>
+                                        maxlength="7" value={$percReducaoBc}>
                                     <span class="form-control-feedback left" aria-hidden="true" id="SIcms"><b>&#37;</b></span>
                                 </div>
                                 
                                 <div class="col-md-3 col-sm-6 col-xs-6 text-left">
                                     <label for="valorIcmsOperacao" title="<pRedBC>">Valor ICMS da Operação</label>
                                     <input class="form-control money has-feedback-left" type="money" id="valorIcmsOperacao" name="valorIcmsOperacao" 
-                                        maxlength="5" value={$valorIcmsOperacao}>
+                                        maxlength="8" value={$valorIcmsOperacao}>
                                     <span class="form-control-feedback left" aria-hidden="true" id="SIcms"><b>R$</b></span>
                                 </div>
                                 
                                 <div class="col-md-3 col-sm-6 col-xs-6 text-left">
                                     <label for="percDiferido" title="<pDif>">Al&iacute;quota do Diferimento</label>
-                                    <input class="form-control money has-feedback-left" type="money" maxlength="5" id="percDiferido" name="percDiferido" value={$percDiferido}>
+                                    <input class="form-control money has-feedback-left" type="money" maxlength="8" id="percDiferido" name="percDiferido" value={$percDiferido}>
                                     <span class="form-control-feedback left" aria-hidden="true" id="SIcms"><b>&#37;</b></span>
                                 </div>
 

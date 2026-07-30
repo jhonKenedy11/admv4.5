@@ -18,12 +18,13 @@ include_once($dir . "/../../bib/c_database_pdo.php");
      */    
         
     // Campos tabela
-    private $id         	= NULL; // INT(11)
-    private $descricao  	= NULL; // VARCHAR(60)
-    private $created_user  	= NULL; // INT(11)
-    private $update_user  	= NULL; // INT(11)
-    private $created_at	    = NULL; // TIMESTAMP
-    private $update_at     	= NULL; //TIMESTAMP
+    protected $id         	    = NULL; // INT(11)
+    protected $descricao  	    = NULL; // VARCHAR(60)
+    protected $created_user  	= NULL; // INT(11)
+    protected $update_user  	= NULL; // INT(11)
+    protected $created_at	    = NULL; // TIMESTAMP
+    protected $update_at     	= NULL; //TIMESTAMP
+    protected $status_nfs_servico = NULL; // NULL ou 'em_processamento' ou 'processado' ou 'erro'
 
     //construtor
     function __construct(){
@@ -790,9 +791,15 @@ include_once($dir . "/../../bib/c_database_pdo.php");
             $sql = "SELECT 
                     P.NFS_SERIE AS PRESTADOR_NFS_SERIE,
                     P.NFS_SITUACAO_TRIBUTARIA AS PRESTADOR_NFS_SITUACAO_TRIBUTARIA,
+                    P.NFS_INSS AS PRESTADOR_NFS_INSS,
+                    P.NFS_PIS AS PRESTADOR_NFS_PIS,
+                    P.NFS_COFINS AS PRESTADOR_NFS_COFINS,
+                    P.NFS_IR AS PRESTADOR_NFS_IR,
+                    P.NFS_CONTRIBUICAO_SOCIAL AS PRESTADOR_NFS_CONTRIBUICAO_SOCIAL,
                     E.EMPRESA AS PRESTADOR_EMPRESA,
                     E.NOMEEMPRESA AS PRESTADOR_EMPRESA_NOME,
                     E.CODMUNICIPIO AS PRESTADOR_CODIGO_MUNICIPIO,
+                    ES.CODIGO_UF AS PRESTADOR_CODIGO_UF,
                     E.CNPJ AS PRESTADOR_CNPJ,
                     CONCAT(
                         SUBSTRING(CNPJ, 1, 2), '.', 
@@ -802,7 +809,8 @@ include_once($dir . "/../../bib/c_database_pdo.php");
                         SUBSTRING(CNPJ, 13, 2)
                     ) as PRESTADOR_CNPJ_FORMATADO
                 FROM AMB_EMPRESA E
-                LEFT JOIN EST_PARAMETRO P ON P.FILIAL = E.CENTROCUSTO
+                LEFT JOIN EST_PARAMETRO P ON P.FILIAL = E.CENTROCUSTO 
+                INNER JOIN AMB_ESTADOS ES ON ES.SIGLA = E.UF 
                 WHERE EMPRESA = :empresa_id";
                 
             $banco->prepare($sql);
@@ -887,28 +895,41 @@ include_once($dir . "/../../bib/c_database_pdo.php");
 
 
     /**
-     * Busca todos os serviços disponíveis para um município específico
-     * @param string $codigoMunicipio - Código do município
-     * @return array - Array com IDs e descrições dos serviços
+     * Busca todos os serviços disponíveis (não depende de município)
+     * @return array - Array com IDs e descrições dos serviços + ID do serviço padrão
      */
-    public function searchListaServicosAjax(string $codigo_municipio) : array
+    public function searchListaServicosAjax(string $codigo_municipio = null) : array
     {
         try {
             $banco = new c_banco_pdo();
             
-            // Consulta SQL para buscar todos os serviços disponíveis
-            // Pode ser filtrada por município se necessário
+            // Buscar o serviço padrão da tabela EST_PARAMETRO para a empresa logada
+            $sqlParametro = "SELECT P.NFS_SERVICO, 
+                                    (SELECT REPLACE(CODIGO, '.', '') FROM EST_SERVICOS_CODIGOS WHERE ID = P.NFS_SERVICO) AS CODIGO_ID_PADRAO
+                            FROM EST_PARAMETRO P
+                            INNER JOIN AMB_EMPRESA E ON E.CENTROCUSTO = P.FILIAL
+                            WHERE E.EMPRESA = :empresa_id
+                            LIMIT 1";
+            
+            $banco->prepare($sqlParametro);
+            $banco->bindValue(':empresa_id', $this->m_empresaid, \PDO::PARAM_INT);
+            $banco->execute();
+            $parametro = $banco->fetch();
+            
+            $servico_padrao_id = isset($parametro['CODIGO_ID_PADRAO']) ? $parametro['CODIGO_ID_PADRAO'] : null;
+            
+            // Consulta SQL para buscar todos os serviços disponíveis (sem filtro de município)
             $sql = "SELECT ID, REPLACE(CODIGO, '.', '') AS CODIGO_ID, CODIGO, SERVICO, ALIQUOTA, RETENCAO, RETENCAO_LEI_189_25, OBRAS 
                     FROM EST_SERVICOS_CODIGOS
-                    WHERE COD_MUNICIPIO = :codigo_municipio ";
+                    WHERE 1=1
+                    ORDER BY CODIGO ASC";
             
             $banco->prepare($sql);
-            $banco->bindValue(':codigo_municipio', $codigo_municipio, \PDO::PARAM_STR);
             $banco->execute();
             
             $resultado = $banco->fetchAll();
             
-            // Formata os resultados para o formato esperado pelo combo
+            // Formata os resultados - apenas um foreach simples
             $servicosResult = array();
             foreach ($resultado as $servico) {
                 $servicosResult[] = array(
@@ -918,8 +939,14 @@ include_once($dir . "/../../bib/c_database_pdo.php");
                 );
             }
             
+            // Retorna itens + ID do serviço padrão separadamente
+            $response = array(
+                'items' => $servicosResult,
+                'default' => $servico_padrao_id
+            );
+            
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode($servicosResult, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
             
         } catch (Exception $e) {
             header('Content-Type: application/json; charset=utf-8');
@@ -969,29 +996,42 @@ include_once($dir . "/../../bib/c_database_pdo.php");
     }
 
     /**
-     * Busca situações tributárias disponíveis para um município específico
-     * @param string $codigoMunicipio - Código do município
-     * @return array - Array com IDs e descrições das situações tributárias
+     * Busca situações tributárias disponíveis
+     * @param string $codigoMunicipio - Código do município (opcional, mantido para compatibilidade)
+     * @return array - Array com IDs e descrições das situações tributárias + ID da situação padrão
      */
-    public function searchSituacaoTributaria(string $codigo_municipio) : array
+    public function searchSituacaoTributaria(string $codigo_municipio = null) : array
     {
         try {
             $banco = new c_banco_pdo();
             
+            // Buscar a situação tributária padrão da tabela EST_PARAMETRO para a empresa logada
+            $sqlParametro = "SELECT P.NFS_SITUACAO_TRIBUTARIA,
+                                    (SELECT CODIGO FROM EST_SERVICOS_SITUACAO_TRIBUTARIA WHERE ID = P.NFS_SITUACAO_TRIBUTARIA) AS CODIGO_PADRAO
+                            FROM EST_PARAMETRO P
+                            INNER JOIN AMB_EMPRESA E ON E.CENTROCUSTO = P.FILIAL
+                            WHERE E.EMPRESA = :empresa_id
+                            LIMIT 1";
+            
+            $banco->prepare($sqlParametro);
+            $banco->bindValue(':empresa_id', $this->m_empresaid, \PDO::PARAM_INT);
+            $banco->execute();
+            $parametro = $banco->fetch();
+            
+            $situacao_tributaria_padrao_codigo = isset($parametro['CODIGO_PADRAO']) ? $parametro['CODIGO_PADRAO'] : null;
+            
             // Consulta SQL para buscar situações tributárias disponíveis
-            // Pode ser filtrada por município se necessário
             $sql = "SELECT ID, CODIGO, SIGLA, DESCRICAO, UF
                     FROM EST_SERVICOS_SITUACAO_TRIBUTARIA
                     WHERE 1 = 1 
                     ORDER BY CODIGO ASC";
             
             $banco->prepare($sql);
-            //$banco->bindValue(':codigo_municipio', $codigo_municipio, \PDO::PARAM_STR);
             $banco->execute();
             
             $resultado = $banco->fetchAll();
             
-            // Formata os resultados para o formato esperado pelo combo
+            // Formata os resultados - apenas um foreach simples
             $situacoesResult = array();
             foreach ($resultado as $situacao) {
                 $situacoesResult[] = array(
@@ -1000,8 +1040,14 @@ include_once($dir . "/../../bib/c_database_pdo.php");
                 );
             }
             
+            // Retorna itens + código da situação tributária padrão separadamente
+            $response = array(
+                'items' => $situacoesResult,
+                'default' => $situacao_tributaria_padrao_codigo
+            );
+            
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode($situacoesResult, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
             
         } catch (Exception $e) {
             header('Content-Type: application/json; charset=utf-8');
@@ -1024,13 +1070,12 @@ include_once($dir . "/../../bib/c_database_pdo.php");
             
             // Consulta SQL para buscar situações tributárias disponíveis
             // Pode ser filtrada por município se necessário
-            $sql = "SELECT ID, DESCRICAO, NUMPARCELAS 
+            $sql = "SELECT ID, CONCAT(DESCRICAO, ' (', NUMPARCELAS, 'x)') AS DESCRICAO, NUMPARCELAS 
                     FROM FAT_COND_PGTO
                     WHERE 1 = 1 
                     ORDER BY DESCRICAO ASC";
             
             $banco->prepare($sql);
-            //$banco->bindValue(':codigo_municipio', $codigo_municipio, \PDO::PARAM_STR);
             $banco->execute();
             
             $resultado = $banco->fetchAll();
@@ -1056,7 +1101,41 @@ include_once($dir . "/../../bib/c_database_pdo.php");
         exit;
     }
 
-    
+
+    public function searchGeneros() : array
+    {
+        try {
+            $banco = new c_banco_pdo();
+            
+            // Consulta SQL para buscar gêneros disponíveis
+            $sql = "SELECT GENERO AS ID, DESCRICAO, TIPOLANCAMENTO
+                    FROM FIN_GENERO
+                    ORDER BY GENERO ASC";
+            
+            $banco->prepare($sql);
+            $banco->execute();
+            
+            $resultado = $banco->fetchAll();
+            
+            // Formata os resultados para o formato esperado pelo combo
+            $generosResult = array();
+            foreach ($resultado as $genero) {
+                $generosResult[] = array(
+                    'id' => $genero['ID'],
+                    'text' => $genero['ID'] . ' - ' . $genero['DESCRICAO'],
+                    'tipo_lancamento' => $genero['TIPOLANCAMENTO']
+                );
+            }
+            
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode($generosResult, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+        } catch (Exception $e) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(array('erro' => 'Erro na consulta: ' . $e->getMessage()), JSON_UNESCAPED_UNICODE);
+        }
+        
+        exit;
+    }
 
 } 	//	END OF THE CLASS
 ?>

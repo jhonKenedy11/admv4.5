@@ -33,6 +33,9 @@ public $m_rateioCC = NULL;
 public $m_atividade = NULL;
 public $smarty = NULL;
 public $idAnexo = NULL;
+// Inferir tipo de propriedade php 8>
+public string $id_lancamento;
+public string $banco;
 
 
 
@@ -73,6 +76,11 @@ function __construct($submenu, $letra, $opcao, $letraC, $ancora, $rateioCC, $lan
         //vars anexo
         $this->idAnexo = (isset($parmGet['idAnexo']) ? $parmGet['idAnexo'] : (isset($parmPost['idAnexo']) ? $parmPost['idAnexo'] : null));
 
+        $this->id_lancamento = $parmPost['id'] ?? '';
+        $this->banco         = $parmPost['banco'] ?? '';
+
+
+
         // caminhos absolutos para todos os diretorios biblioteca e sistema
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
         $this->smarty->assign('bootstrap', ADMbootstrap);
@@ -81,8 +89,8 @@ function __construct($submenu, $letra, $opcao, $letraC, $ancora, $rateioCC, $lan
 
         // dados para exportacao e relatorios
         $this->smarty->assign('titulo', "Lançamentos Financeiros");
-        $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6,7, 8, 9, 10, 11 ]"); 
-        $this->smarty->assign('disableSort', "[ 11 ]"); 
+        $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6,7, 8, 9, 10, 11, 12 ]"); 
+        $this->smarty->assign('disableSort', "[ 12 ]"); 
         $this->smarty->assign('numLine', "25"); 
 
         // include do javascript
@@ -271,7 +279,18 @@ function controle(){
                     if (($this->getDocto() >0) && $this->existeDocumento()){
                         // $this->m_submenu = "cadastrar";
                         $tipoMsg = "alerta";
-                        $this->desenhaCadastroLancamento("DOCUMENTO JÁ EXISTENTE, ALTERE O NÚMERO DO DOCUMENTO", $tipoMsg);
+                        $msgRetorno = "DOCUMENTO JÁ EXISTENTE, ALTERE O NÚMERO DO DOCUMENTO";
+                        echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script> ";
+                        echo "<script>
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'Atenção',
+                            width: 510,
+                            text: '".$msgRetorno.".',
+                            confirmButtonText: 'OK'
+                        });
+                        </script>";
+                        $this->desenhaCadastroLancamento($msgRetorno, $tipoMsg);
                         // $this->mostraLancamentos("DOCUMENTO JÁ EXISTENTE, ALTERE O NÚMERO DO DOCUMENTO", $tipoMsg);
                     }                        
                     else {
@@ -279,11 +298,32 @@ function controle(){
                         $id = $this->incluiLancamento();
                         if (is_numeric($id)) {
                                 $this->incluirRateio($id, $this->m_rateioCC);
-                                $tipoMsg = "sucesso";
-                                $this->mostraLancamentos("OS DADOS DA LANÇAMENTO <b> $id </b> FORAM CADASTRADOS!", $tipoMsg);
+                                $msgRetorno = "Os dados do lançamento $id foram cadastrados!";
+                                echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script> ";
+                                echo "<script>
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Sucesso',
+                                    width: 510,
+                                    text: '".$msgRetorno."',
+                                    confirmButtonText: 'OK'
+                                });
+                                </script>";
+                                $this->mostraLancamentos('', 'sucesso');
                         }else{
                                 $tipoMsg = "alerta";
-                                $this->desenhaCadastroLancamento($id, $tipoMsg);
+                                $msgRetorno = is_string($id) ? $id : "Não foi possível cadastrar o lançamento, contate o suporte!";
+                                echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script> ";
+                                echo "<script>
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Atenção',
+                                    width: 510,
+                                    text: '".$msgRetorno."',
+                                    confirmButtonText: 'OK'
+                                });
+                                </script>";
+                                $this->desenhaCadastroLancamento($msgRetorno, $tipoMsg);
 
                         }
                    }
@@ -292,7 +332,7 @@ function controle(){
         case 'altera':
            if ($this->verificaDireitoUsuario('FinLancamento', 'A')){
                 $this->m_ancora = $this->getId();
-                // $this->deletarRateioCC($this->getId());
+                // $this->deletarRateioCC();
                 // $this->incluirRateio($this->getId(), $this->m_rateioCC);
                 $resultAltera = $this->alteraLancamento();
                 if($resultAltera){
@@ -326,7 +366,7 @@ function controle(){
             break;
         case 'salvarateio':
            if ($this->verificaDireitoUsuario('FinLancamento', 'A')){
-                $this->deletarRateioCC($this->getId());
+                $this->deletarRateioCC();
                 $this->incluirRateio($this->getId(), $this->m_rateioCC);
                 $this->desenhaCadastroLancamento();
             }
@@ -365,7 +405,33 @@ function controle(){
                 if ($this->verificaDireitoUsuario('FinLancamento', 'S')){
                         //$this->buscaCadastroLancamento();
                         $count = $this->add_massa_lancamento($this->m_atividade);
-                        $this->mostraLancamentos($count.' LANÇAMENTOS CADASTRADOS COM SUCESSO!!');
+                        if (is_numeric($count)) {
+                                $msgRetorno = $count.' LANÇAMENTOS CADASTRADOS COM SUCESSO!!';
+                                echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script> ";
+                                echo "<script>
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Sucesso',
+                                    width: 510,
+                                    text: '".$msgRetorno."',
+                                    confirmButtonText: 'OK'
+                                });
+                                </script>";
+                                $this->mostraLancamentos('', 'sucesso');
+                        } else {
+                                $msgRetorno = is_string($count) ? $count : 'Não foi possível gerar os lançamentos em lote, contate o suporte!';
+                                echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script> ";
+                                echo "<script>
+                                Swal.fire({
+                                    icon: 'warning',
+                                    title: 'Atenção',
+                                    width: 510,
+                                    text: '".$msgRetorno."',
+                                    confirmButtonText: 'OK'
+                                });
+                                </script>";
+                                $this->mostraLancamentos('', 'alerta');
+                        }
                 }
                 break;
         case 'agruparLanc':
@@ -422,7 +488,32 @@ function controle(){
                                 }       
                                 
                         }
-                        $this->mostraLancamentos('Lançamentos Baixados com sucesso!!', 'sucesso');
+                        $letraRelBaixaLote = $this->m_par_agrupado[1]."|".$this->m_par_agrupado[0];
+                        $dadosLancRelBaixaLote = '';
+                        for($i = 2; $i < count($this->m_par_agrupado); $i++){
+                                if($this->m_par_agrupado[$i] != ''){
+                                        $dadosLancRelBaixaLote .= $this->m_par_agrupado[$i]."|";
+                                }
+                        }
+                        echo "<script>
+                                window.open(
+                                  'index.php?mod=fin&form=rel_lanc_baixa_lote&opcao=imprimir&letra=".$letraRelBaixaLote."&dadosLanc=".$dadosLancRelBaixaLote."&rel=D&_t=' + new Date().getTime(),
+                                  'consulta',
+                                  'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes'
+                                );
+                              </script>";
+                        $msgRetorno = 'Lançamentos Baixados com sucesso!!';
+                        echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script> ";
+                        echo "<script>
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Sucesso',
+                            width: 510,
+                            text: '".$msgRetorno."',
+                            confirmButtonText: 'OK'
+                        });
+                        </script>";
+                        $this->mostraLancamentos('', 'sucesso');
                 }
                 break;
         case 'clonaFinanceiro':
@@ -565,6 +656,44 @@ function controle(){
                 }
                 $this->desenhaCadastroLancamento('');
             break;
+        case 'atualizaJuros':
+                if ($this->verificaDireitoUsuario('FinLancamento', 'S')){
+                       $lanc = $this->selectLancamentosParaAtualizarJurosByLetra($this->m_letra) ?? [];
+                       if(count($lanc) > 0){
+                        foreach($lanc as $l){
+                            $this->atualizaJuros($l['ID']);
+                        }
+                        $msgRetorno = 'Juros atualizados com sucesso!';
+                        echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script> ";
+                        echo "<script>
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Sucesso',
+                            width: 510,
+                            text: '".$msgRetorno."',
+                            confirmButtonText: 'OK'
+                        });
+                        </script>";
+                        $this->mostraLancamentos('', 'sucesso');
+                       }else{
+                        $msgRetorno = 'Não há lançamentos para atualizar juros!';
+                        echo "<script type='text/javascript' src='".ADMsweetAlert2."/dist/sweetalert2.all.min.js'></script> ";
+                        echo "<script>
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Informação',
+                            width: 510,
+                            text: '".$msgRetorno."',
+                            confirmButtonText: 'OK'
+                        });
+                        </script>";
+                        $this->mostraLancamentos('', 'info');
+                       }
+                }
+                break;
+        case 'dadosManutencaoCobrancaApi':
+                $this->dadosManutencaoCobrancaApi($this->id_lancamento, $this->banco);                
+                break;
         default:
                 if ($this->verificaDireitoUsuario('FinLancamento', 'C')){
                         $this->mostraLancamentos('');
@@ -656,8 +785,8 @@ function desenhaCadastroLancamento($mensagem = NULL, $tipoMsg=NULL){
     $consulta = new c_banco();
     $sql  = "select tipo as id, padrao as descricao from amb_ddm ";
     $sql .= "where (alias='FIN_MENU') and (campo='TipoDoctoPgto') ";
-    $sql .= "and ((Tipo = 'X') or (Tipo = 'N') or (Tipo = 'B') or (Tipo = 'D') or (Tipo = 'E') or ";
-    $sql .= "(Tipo = 'C') or (Tipo = 'T') or (Tipo = 'A') or (Tipo = 'K') or (Tipo = 'P') or (Tipo = 'N') )";
+    //$sql .= "and ((Tipo = 'X') or (Tipo = 'N') or (Tipo = 'B') or (Tipo = 'D') or (Tipo = 'E') or ";
+    //$sql .= "(Tipo = 'C') or (Tipo = 'T') or (Tipo = 'A') or (Tipo = 'K') or (Tipo = 'P') or (Tipo = 'N')  )";
     $consulta->exec_sql($sql);
     $consulta->close_connection();
     $result = $consulta->resultado;
@@ -701,7 +830,8 @@ function desenhaCadastroLancamento($mensagem = NULL, $tipoMsg=NULL){
 
     // modo PAG/REC
     $consulta = new c_banco();
-    $sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='FIN_MENU') and (campo='ModoPgto') and ((tipo = 'C')or(tipo='B')) ";
+    //$sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='FIN_MENU') and (campo='ModoPgto') and ((tipo = 'C')or(tipo='B')) ";
+    $sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='FIN_MENU') and (campo='ModoPgto') ";
     $consulta->exec_sql($sql);
     $consulta->close_connection();
     $result = $consulta->resultado;
@@ -718,7 +848,7 @@ function desenhaCadastroLancamento($mensagem = NULL, $tipoMsg=NULL){
     $sql = "select conta as id, nomeinterno as descricao, banco from fin_conta where status ='A'";
     $consulta->exec_sql($sql);
     $consulta->close_connection();
-    $result = $consulta->resultado;
+    $result = $consulta->resultado ?? [];
     $conta = $this->getConta();
     for ($i=0; $i < count($result); $i++){
             $conta_ids[$i] = $result[$i]['ID'];
@@ -737,7 +867,7 @@ function desenhaCadastroLancamento($mensagem = NULL, $tipoMsg=NULL){
     $sql = "select moeda as id, nome as descricao from fin_moeda order by moeda";
     $consulta->exec_sql($sql);
     $consulta->close_connection();
-    $result = $consulta->resultado;
+    $result = $consulta->resultado ?? [];
     for ($i=0; $i < count($result); $i++){
             $moeda_ids[$i] = $result[$i]['ID'];
             $moeda_names[$i] = ucwords(strtolower($result[$i]['DESCRICAO']));
@@ -810,9 +940,13 @@ function desenhaCadastroLancamento($mensagem = NULL, $tipoMsg=NULL){
         $this->smarty->assign('obsped',$result[0]['OBS']);    
     }
 
-    $lancAnexo = $this->selectAnexo($this->getId());
+    if($this->getId() != 0){
+        $lancAnexo = $this->selectAnexo($this->getId());
+    }else{
+        $lancAnexo = null;
+    }
     $this->smarty->assign('lancAnexo', $lancAnexo);
-
+    
     $this->smarty->display('lancamento_cadastro.tpl');
 
 }//fim desenhaCadLancamento
@@ -823,12 +957,14 @@ function desenhaCadastroLancamento($mensagem = NULL, $tipoMsg=NULL){
 */
 function mostraLancamentos($mensagem, $tipoMsg=NULL){
     
-    if ($this->m_letra != ''){
-    	$lanc = $this->select_lancamento_letra($this->m_letra) ?? [];
-    }else {
-        $lanc = [];
+    $lanc = [];
+    if ($this->m_letra != '') {
+    	$lanc = $this->select_lancamento_letra($this->m_letra);
+    	if (!is_array($lanc)) $lanc = [];
     }
-	
+
+    $vencimento = '';
+    $total = '';
     for ($l=0; $l < count($lanc); $l++){
         if ($l==0){ 
                 $vencimento = $lanc[$l]['VENCIMENTO'];
@@ -1015,7 +1151,7 @@ function mostraLancamentos($mensagem, $tipoMsg=NULL){
     $sql = "SELECT * FROM fin_conta  where status ='A'";
     $consulta->exec_sql($sql);
     $consulta->close_connection();
-    $result = $consulta->resultado;
+    $result = $consulta->resultado ?? [];
     for ($i=0; $i < count($result); $i++){
             $conta_ids[$i] = $result[$i]['CONTA'];
             $conta_names[$i] = ucwords(strtolower($result[$i]['NOMEINTERNO']));
@@ -1064,7 +1200,7 @@ function mostraLancamentos($mensagem, $tipoMsg=NULL){
     $sql = "SELECT tipo as id, padrao as descricao FROM amb_ddm WHERE (alias='FIN_MENU') AND (campo='TipoDoctoPgto')";
     $consulta->exec_sql($sql);
     $consulta->close_connection();
-    $result = $consulta->resultado;
+    $result = $consulta->resultado ?? [];
     for ($i=0; $i < count($result); $i++){
             $tipoDocumento_ids[$i] = $result[$i]['ID'];
             $tipoDocumento_names[$i] = ucwords(strtolower($result[$i]['DESCRICAO']));
@@ -1092,7 +1228,7 @@ function mostraLancamentos($mensagem, $tipoMsg=NULL){
     $sql = "select conta as id, nomeinterno as descricao, banco from fin_conta where status ='A'";
     $consulta->exec_sql($sql);
     $consulta->close_connection();
-    $result = $consulta->resultado;
+    $result = $consulta->resultado ?? [];
     $conta = $this->getConta();
     for ($i=0; $i < count($result); $i++){
             $conta_ids[$i] = $result[$i]['ID'];

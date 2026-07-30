@@ -1,3 +1,4 @@
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <script type="text/javascript" src="{$pathJs}/est/s_nota_fiscal_produto.js"> </script>
 <script type="text/javascript" src="{$pathJs}/est/s_nota_fiscal.js"> </script>
 

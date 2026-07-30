@@ -22,6 +22,7 @@ require_once($dir . "/../../class/est/c_nota_fiscal_produto.php");
 include_once($dir . "/../../class/est/c_produto.php");
 include_once($dir . "/../../class/est/c_nat_operacao.php");
 include_once($dir . "/../../class/est/c_produto_estoque.php");
+require_once($dir . "/../../class/est/c_parametro.php");
 
 //Class P_mostraUpload
 class p_nota_xml_importa extends c_nota_fiscal
@@ -51,10 +52,18 @@ class p_nota_xml_importa extends c_nota_fiscal
     public $m_input           = NULL;
     public $m_color_tr        = NULL;
     public $m_param           = NULL;
+    public $m_codigoXmlBusca  = NULL;
+    public $m_descricaoXmlBusca = NULL;
+    public $m_termoBuscaEquiv = NULL;
+    public $m_idProdutoEquiv  = NULL;
+    public $m_pessoaEquiv     = NULL;
+    public $destinatario      = NULL;
+    public $xml_token         = NULL;
+    public $xml_arq           = NULL;
 
     //---------------------------------------------------------------
     //---------------------------------------------------------------
-    function p_nota_xml_importa($submenu, $letra)
+    function __construct($submenu, $letra)
     {
 
         //Assim obtém os dados passando pelo filtro contra INJECTION ( segurança PHP )
@@ -78,12 +87,7 @@ class p_nota_xml_importa extends c_nota_fiscal
 
         $this->natOper = (isset($parmPost['idNatOp']) ? $parmPost['idNatOp'] : '');
 
-        $this->m_submenu = $submenu;
-        if ($this->m_submenu == '' and $_GET["submenu"] == "conferirAjax") {
-            $this->m_submenu = $_GET["submenu"];
-        } else if ($parmGet['submenu'] !== '' and $parmGet['submenu'] !== null){
-            $this->m_submenu = $parmGet['submenu'];
-        }
+        $this->m_submenu = isset($parmPost['submenu']) ? $parmPost['submenu'] : (isset($parmGet['submenu']) ? $parmGet['submenu'] : '');
 
         $this->m_letra = $letra;
         $this->m_par = explode("|", $this->m_letra);
@@ -115,8 +119,21 @@ class p_nota_xml_importa extends c_nota_fiscal
         $this->xml_name = isset($parmPost['tempFile']) ? $parmPost['tempFile'] : '';
         $this->objItensValida = isset($parmPost['objItensValida']) ? $parmPost['objItensValida'] : null;
         $this->existeNotaFiscal = isset($parmPost['existeNotaFiscal']) ? $parmPost['existeNotaFiscal'] : null;
+        $this->m_codigoXmlBusca = isset($parmPost['codigoXml']) ? $parmPost['codigoXml'] : (isset($parmGet['codigoXml']) ? $parmGet['codigoXml'] : '');
+        $this->m_descricaoXmlBusca = isset($parmPost['descricaoXml']) ? $parmPost['descricaoXml'] : (isset($parmGet['descricaoXml']) ? $parmGet['descricaoXml'] : '');
+        $this->m_termoBuscaEquiv = isset($parmPost['termo']) ? $parmPost['termo'] : (isset($parmGet['termo']) ? $parmGet['termo'] : '');
+        $this->m_idProdutoEquiv = isset($parmPost['idProduto']) ? $parmPost['idProduto'] : (isset($parmGet['idProduto']) ? $parmGet['idProduto'] : 0);
+        $this->m_pessoaEquiv = isset($parmPost['pessoa']) ? $parmPost['pessoa'] : (isset($parmGet['pessoa']) ? $parmGet['pessoa'] : 0);
+
+        $this->xml_token = isset($parmPost['xml_token']) ? $parmPost['xml_token'] : '';
+
+        if ($this->m_submenu === '' && $this->xml_token === '' && $this->m_param !== 'entradaManifesto') {
+            $this->limparXmlTemp();
+        }
+
         // caminhos absolutos para todos os diretorios biblioteca e sistema
         $this->smarty->assign('pathJs',  ADMhttpBib . '/js');
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
 
@@ -135,6 +152,31 @@ class p_nota_xml_importa extends c_nota_fiscal
     {
         $conversao = array('&' => 'e');
         return strtr($string, $conversao);
+    }
+
+    private function limparXmlTemp()
+    {
+        if (!empty($_SESSION['xml_import']['path']) && is_file($_SESSION['xml_import']['path'])) {
+            @unlink($_SESSION['xml_import']['path']);
+        }
+        unset($_SESSION['xml_import']);
+    }
+
+    private function normalizarXml($xml)
+    {
+        if (isset($xml->infNFe->det)) {
+            for ($i = 0; $i < count($xml->infNFe->det); $i++) {
+                $xml->infNFe->det[$i]->prod->xProd = str_replace(array("'", '"'), '', (string) $xml->infNFe->det[$i]->prod->xProd);
+            }
+        } elseif (isset($xml->NFe->infNFe->det)) {
+            for ($i = 0; $i < count($xml->NFe->infNFe->det); $i++) {
+                $xml->NFe->infNFe->det[$i]->prod->xProd = str_replace(array("'", '"'), '', (string) $xml->NFe->infNFe->det[$i]->prod->xProd);
+            }
+            if (isset($xml->NFe->infNFe->emit->xNome)) {
+                $xml->NFe->infNFe->emit->xNome = $this->removeChar((string) $xml->NFe->infNFe->emit->xNome);
+            }
+        }
+        return $xml;
     }
 
     //---------------------------------------------------------------
@@ -189,7 +231,8 @@ class p_nota_xml_importa extends c_nota_fiscal
 
                     if($resultFin){
                         $transaction->commit($transaction->id_connection);
-                        
+                        $this->limparXmlTemp();
+
                         $msgRetorno = 'Nota fiscal e financeiro cadastrados!';
                         echo "<script src='https://unpkg.com/sweetalert/dist/sweetalert.min.js'></script> ";
                         echo "<style>.swal-modal{width: 510px !important;}.swal-title{font-size: 21px;}</style> ";
@@ -235,16 +278,207 @@ class p_nota_xml_importa extends c_nota_fiscal
                     $this->mostraNota('');
                 }
                 break;
-            case 'conferirAjax':
+            case 'uploadXmlAjax':
+                header('Content-type: application/json; charset=utf-8');
+                if (!$this->verificaDireitoUsuario('EstImportaNFE', 'I')) {
+                    echo json_encode(array('success' => false, 'message' => 'Sem permissão para importar XML.'));
+                    die;
+                }
+                if (empty($_FILES['file']['tmp_name']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+                    echo json_encode(array('success' => false, 'message' => 'Falha no envio do arquivo XML.'));
+                    die;
+                }
+                $xml = @simplexml_load_file($_FILES['file']['tmp_name']);
+                if ($xml === false) {
+                    echo json_encode(array('success' => false, 'message' => 'Arquivo XML inválido ou corrompido.'));
+                    die;
+                }
+                $dir = ADMraizCliente . '/temp/xml_import';
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0750, true);
+                }
+                if (!file_exists($dir . '/.htaccess')) {
+                    file_put_contents($dir . '/.htaccess', "Require all denied\n");
+                }
+                $this->limparXmlTemp();
+                $token = bin2hex(random_bytes(16));
+                $path = $dir . '/' . $token . '.xml';
+                $xml = $this->normalizarXml($xml);
+                if (file_put_contents($path, $xml->asXML()) === false) {
+                    echo json_encode(array('success' => false, 'message' => 'Não foi possível gravar o XML temporário.'));
+                    die;
+                }
+                $_SESSION['xml_import'] = array(
+                    'token' => $token,
+                    'path' => $path,
+                    'name' => $_FILES['file']['name'],
+                );
+                $inf = isset($xml->NFe->infNFe) ? $xml->NFe->infNFe : (isset($xml->infNFe) ? $xml->infNFe : null);
+                $resumo = array('emitente' => '', 'numero' => '', 'serie' => '');
+                if ($inf) {
+                    $resumo['emitente'] = (string) $inf->emit->xNome;
+                    $resumo['numero'] = (string) $inf->ide->nNF;
+                    $resumo['serie'] = (string) $inf->ide->serie;
+                }
+                echo json_encode(array('success' => true, 'token' => $token, 'resumo' => $resumo, 'message' => 'XML carregado com sucesso.'));
+                die;
+            case 'atualizarXmlAjax':
+                header('Content-type: application/json; charset=utf-8');
+                if (!$this->verificaDireitoUsuario('EstImportaNFE', 'I')) {
+                    echo json_encode(array('success' => false, 'message' => 'Sem permissão para importar XML.'));
+                    die;
+                }
+                $token = isset($_POST['xml_token']) ? $_POST['xml_token'] : $this->xml_token;
+                $codigoXml = isset($_POST['codigoXml']) ? trim($_POST['codigoXml']) : '';
+                $codigoNovo = isset($_POST['codigoNovo']) ? trim($_POST['codigoNovo']) : '';
+                if (empty($_SESSION['xml_import']['path']) || $_SESSION['xml_import']['token'] !== $token || !is_readable($_SESSION['xml_import']['path'])) {
+                    echo json_encode(array('success' => false, 'message' => 'Xml não localizado ou sessão expirada.'));
+                    die;
+                }
+                if ($codigoXml === '' || $codigoNovo === '') {
+                    echo json_encode(array('success' => false, 'message' => 'Códigos inválidos para atualização.'));
+                    die;
+                }
+                $path = $_SESSION['xml_import']['path'];
+                $fp = @fopen($path, 'c+');
+                if (!$fp || !flock($fp, LOCK_EX)) {
+                    if ($fp) {
+                        fclose($fp);
+                    }
+                    echo json_encode(array('success' => false, 'message' => 'Não foi possível atualizar o código no XML.'));
+                    die;
+                }
+
+                $dom = new DOMDocument('1.0', 'UTF-8');
+                $xmlContent = stream_get_contents($fp);
+                if ($xmlContent === false || $xmlContent === '' || !@$dom->loadXML($xmlContent)) {
+                    flock($fp, LOCK_UN);
+                    fclose($fp);
+                    echo json_encode(array('success' => false, 'message' => 'Não foi possível atualizar o código no XML.'));
+                    die;
+                }
+
+                $alterou = false;
+                foreach ($dom->getElementsByTagName('cProd') as $cProd) {
+                    if (trim($cProd->textContent) !== $codigoXml) {
+                        continue;
+                    }
+                    $prod = $cProd->parentNode;
+                    $tags = $prod->getElementsByTagName('cProdAlter');
+                    if ($tags->length) {
+                        $tags->item(0)->textContent = $codigoNovo;
+                    } else {
+                        $prod->appendChild($dom->createElement('cProdAlter', $codigoNovo));
+                    }
+                    $alterou = true;
+                }
+
+                if (!$alterou) {
+                    flock($fp, LOCK_UN);
+                    fclose($fp);
+                    echo json_encode(array('success' => false, 'message' => 'Não foi possível atualizar o código no XML.'));
+                    die;
+                }
+
+                $novoXml = $dom->saveXML();
+                ftruncate($fp, 0);
+                rewind($fp);
+                if (fwrite($fp, $novoXml) === false) {
+                    flock($fp, LOCK_UN);
+                    fclose($fp);
+                    echo json_encode(array('success' => false, 'message' => 'Não foi possível atualizar o código no XML.'));
+                    die;
+                }
+                fflush($fp);
+                flock($fp, LOCK_UN);
+                fclose($fp);
+
+                if (!array_key_exists('fabricante', $_SESSION['xml_import'])) {
+                    $fabricante = null;
+                    $xml = @simplexml_load_string($novoXml);
+                    if ($xml !== false && isset($xml->NFe->infNFe->emit)) {
+                        $regPessoa = $this->busca_cliente(
+                            substr((string) $xml->NFe->infNFe->emit->xNome, 0, 50),
+                            (string) $xml->NFe->infNFe->emit->CNPJ
+                        );
+                        $fabricante = !empty($regPessoa[0]['CLIENTE']) ? $regPessoa[0]['CLIENTE'] : null;
+                    }
+                    $_SESSION['xml_import']['fabricante'] = $fabricante;
+                }
+
+                $buscaProduto = $this->busca_produto_new(substr($codigoNovo, 0, 25), $_SESSION['xml_import']['fabricante']);
+                $produtoEncontrado = is_array($buscaProduto);
+                $origemConsulta = ($produtoEncontrado && !empty($buscaProduto[0]['ORIGEM_CONSULTA']))
+                    ? $buscaProduto[0]['ORIGEM_CONSULTA'] : null;
+                $corLinha = '#a5a1a100';
+
+                if ($this->existeNotaFiscal) {
+                    $corLinha = '#ffb3c2cc';
+                } elseif ($origemConsulta === 'CODFABRICANTE_FABRICANTE') {
+                    $corLinha = '#99e794eb';
+                } elseif ($origemConsulta === 'CODFABRICANTE') {
+                    $corLinha = '#efbf67';
+                } elseif ($origemConsulta === 'EQUIVALENCIA') {
+                    $corLinha = '#a5a1a1c7';
+                }
+
+                echo json_encode(array(
+                    'success' => true,
+                    'message' => 'Código atualizado no XML.',
+                    'codigoNovo' => $codigoNovo,
+                    'codigoXml' => $codigoXml,
+                    'corLinha' => $corLinha,
+                    'produtoEncontrado' => $produtoEncontrado,
+                    'origemConsulta' => $origemConsulta,
+                ));
+                die;
+            case 'limparXmlAjax':
+                header('Content-type: application/json; charset=utf-8');
                 if ($this->verificaDireitoUsuario('EstImportaNFE', 'I')) {
-                    $tableDisagreements = $this->conferirNotaFiscal($this->xml_arq);
-                    $tableItens = $this->desenhaTabelaItens($this->xml_arq);
+                    $this->limparXmlTemp();
+                    echo json_encode(array('success' => true));
+                } else {
+                    echo json_encode(array('success' => false, 'message' => 'Sem permissão para importar XML.'));
+                }
+                die;
+            case 'conferirAjax':
+                $result = '';
+                if ($this->verificaDireitoUsuario('EstImportaNFE', 'I')) {
+                    $xml = false;
+                    if (!empty($_SESSION['xml_import']['path'])) {
+                        $xml = simplexml_load_file($_SESSION['xml_import']['path']);
+                    }
+                    if ($xml === false) {
+                        header('Content-type: application/json');
+                        echo json_encode(array('error' => 'Xml não localizado ou sessão expirada. Faça o upload novamente.'));
+                        die;
+                    }
+                    $tableDisagreements = $this->conferirNotaFiscal($xml);
+                    $tableItens = $this->desenhaTabelaItens($xml);
                     $result = $tableDisagreements . '<br>' . $tableItens;
                 }
 
                 header('Content-type: application/json');
                 header('existeNotaFiscal:'. $this->existeNotaFiscal);
                 echo json_encode($result, JSON_FORCE_OBJECT);
+                die;
+            case 'buscarEquivalenteAjax':
+                if ($this->verificaDireitoUsuario('EstImportaNFE', 'I')) {
+                    $result = $this->buscarProdutosEquivalentesAjax();
+                } else {
+                    $result = array();
+                }
+                header('Content-type: application/json');
+                echo json_encode($result);
+                die;
+            case 'vincularEquivalenteAjax':
+                if ($this->verificaDireitoUsuario('EstImportaNFE', 'I')) {
+                    $result = $this->vincularProdutoEquivalenteAjax();
+                } else {
+                    $result = array('success' => false, 'message' => 'Sem permissao para vincular equivalencia.');
+                }
+                header('Content-type: application/json');
+                echo json_encode($result);
                 die;
             case 'entradaManifesto':
                 if ($this->verificaDireitoUsuario('EstImportaNFE', 'I')) {
@@ -334,7 +568,7 @@ class p_nota_xml_importa extends c_nota_fiscal
         $totalGeral = $total;
         //$valorParcela = money_format('%i', $totalGeral / $numParcelas);
         //$valorParcela =  str_replace(number_format(($totalGeral / $numParcelas),2),',','');
-        $valorParcela =  round($totalGeral / $numParcelas, 2, PHP_ROUND_HALF_DOWN);
+        $valorParcela =  round($totalGeral / $numParcelas, 2, PHP_ROUND_HALF_DOWN) || 0;
         if ($acrescentarParcela > 0) {
             $totalNumParcelas += $acrescentarParcela;
         }
@@ -442,6 +676,33 @@ class p_nota_xml_importa extends c_nota_fiscal
         return $banco->resultado;
     } //fim select_pessoa
 
+    public function buscarProdutosEquivalentesAjax()
+    {
+        $codigoXml = $this->m_codigoXmlBusca;
+        $descricaoXml = $this->m_descricaoXmlBusca;
+        $termo = $this->m_termoBuscaEquiv;
+
+        $termoBusca = $termo != '' ? $termo : ($codigoXml != '' ? $codigoXml : $descricaoXml);
+        $objProduto = new c_produto();
+        $resultados = $objProduto->buscarProdutosPorTermo($termoBusca);
+        $this->smarty->assign('listaEquivalentes', $resultados);
+        $htmlRows = $this->smarty->fetch('nota_xml_importa_equivalentes_rows.tpl');
+
+        return array(
+            'success' => true,
+            'html' => $htmlRows
+        );
+    }
+
+    public function vincularProdutoEquivalenteAjax()
+    {
+        $idProduto = intval($this->m_idProdutoEquiv);
+        $pessoa = intval($this->m_pessoaEquiv);
+        $codigoXml = trim((string)$this->m_codigoXmlBusca);
+        $objProduto = new c_produto();
+        return $objProduto->vincularProdutoEquivalenteImportacao($idProduto, $pessoa, $codigoXml);
+    }
+
 
     public function busca_financeiro($pessoa, $docto, $serie)
     {
@@ -476,6 +737,21 @@ class p_nota_xml_importa extends c_nota_fiscal
         $this->m_msg .= "<table id='tableDisagreements' class='table tableProd table-bordered' width='100%' style='border-radius:8px !important; border-collapse:inherit !important;'>";
         $this->m_msg .= "<tr colspan='4' align='center'><td align='center' id='divergencia' colspan='4'><h5>Diverg&ecirc;ncias !</h5></tr>";
         foreach ($xml->NFe as $key => $item) {
+
+            //Valida destinatario
+            $empresa = $this->select_empresa_centro_custo($this->m_empresacentrocusto);
+            $destinatario = $item->infNFe->dest->CNPJ;
+
+            if($destinatario[0] != $empresa[0]['CNPJ']){
+                $result = false;
+                $this->destinatario = false;
+                $this->m_msg .= "<tr><td colspan='4'><center>";
+                $this->m_msg .= "<h4><b>Destinatário da nota fiscal importada é diferente do centro de custo!</b></h4> <br>";
+                $this->m_msg .= "<b>Destinatário:</b> " . $item->infNFe->dest->xNome . " - CNPJ: " . $item->infNFe->dest->CNPJ . "<br>";
+                $this->m_msg .= "<b>Centro de custo:</b> " . $empresa[0]['NOME'] . " CNPJ: " . $empresa[0]['CNPJ'] . "<br>";
+                $this->m_msg .= "</center></td></tr>";
+                return $result;
+            }
 
             // cliente
             $regPessoa = $this->busca_cliente(substr($item->infNFe->emit->xNome, 0, 50), $item->infNFe->emit->CNPJ);
@@ -543,7 +819,8 @@ class p_nota_xml_importa extends c_nota_fiscal
                     $teste_array = is_array($regProduto);
 
                     if (!$teste_array) {
-                        $this->m_msg .= "<tr><td>";
+                        $cProdXmlAttr = htmlspecialchars((string) $item->infNFe->det[$i]->prod->cProd, ENT_QUOTES, 'UTF-8');
+                        $this->m_msg .= "<tr class='divergencia-produto' data-cprod-xml='" . $cProdXmlAttr . "'><td>";
 
                         //forehead of the tag nfAdProd exists - implementation day 11-07-23
                         if (isset($item->infNFe->det[$i]->prod->cProdAlter)) {
@@ -567,7 +844,8 @@ class p_nota_xml_importa extends c_nota_fiscal
                             $result = false;
                             $params = $produto->produtoXmlJson($item->infNFe->det[$i], $pessoa->getPessoa());
                             $this->m_msg .= "<input type='button' style='margin-top:5px;vertical-align:middle;' class='btn btn-xs btn-success' name='button_envia' value='CADASTRAR' onClick='javascript:submitInsertJson(" . $params . ");'>";
-                            $this->m_msg .= "<input type='button' style='margin-top:5px;vertical-align:middle' class='btn btn-xs btn-dark' name='button_pesquisa' value='PESQUISAR' onClick='javascript:submitSearchJson(" . $params . ");'>";
+                            $this->m_msg .= "<input type='button' style='margin-top:5px;vertical-align:middle; margin-left:4px;' class='btn btn-xs btn-primary' name='button_vincular' value='VINCULAR' onClick='javascript:submitBindEquivalent(" . $params . ");'>";
+                            // $this->m_msg .= "<input type='button' style='margin-top:5px;vertical-align:middle' class='btn btn-xs btn-dark' name='button_pesquisa' value='PESQUISAR' onClick='javascript:submitSearchJson(" . $params . ");'>";
                         }else{
                             $this->m_msg .= "AGUARDANDO...";
                         }
@@ -615,36 +893,18 @@ class p_nota_xml_importa extends c_nota_fiscal
     //---------------------------------------------------------------
     function cadastrarNotaFiscal()
     {
-
-        //Obtendo info. dos arquivos
-        $f_name = $_FILES['file']['name'];
-        $f_tmp = $_FILES['file']['tmp_name'];
-        $f_type = $_FILES['file']['type'];
-        //$f_tmp = $_POST['f_tmp'];
-
-        if ((file_exists($f_tmp)) or (strlen($this->xml_arq) > 10)) {
-
-            // if (strlen($this->xml_arq) > 10){
-            //    $xml = new SimpleXMLElement($this->xml_arq);
-            // } else {
-            //     $xml = simplexml_load_file($f_tmp);
-            // }
-
-            $this->m_msg = "Arquivo XML com erro de leitura, selecionar novamente XML para Cadastrar ou Visualizar!!";
-            if (file_exists($f_tmp)) {
-                $xml = simplexml_load_file($f_tmp);
-            } elseif (strlen($this->xml_arq) > 10) {
-                $xml = simplexml_load_string($this->xml_arq);
-                if ($xml != false) {
-                    $xml = new SimpleXMLElement($this->xml_arq);
-                }
-            } else {
-                $xml = false;
-            }
-            $xml != false ?  $result = $this->conferirNotaFiscal($xml) : $result = false;
-        } else {
-            $result = false;
+        if ($this->m_param === 'entradaManifesto' && $this->m_idNf && !$this->xml_arq) {
+            $r = $this->busca_xml($this->m_idNf);
+            $this->xml_arq = !empty($r[0]['XMLCONSULTA']) ? $r[0]['XMLCONSULTA'] : '';
         }
+        $xml = !empty($_SESSION['xml_import']['path'])
+            ? simplexml_load_file($_SESSION['xml_import']['path'])
+            : simplexml_load_string($this->xml_arq);
+        if ($xml === false) {
+            $this->m_msg = "Arquivo XML com erro de leitura, selecionar novamente XML para Cadastrar ou Visualizar!!";
+            return false;
+        }
+        $result = $this->conferirNotaFiscal($xml);
 
     
         if ($result) {
@@ -655,9 +915,9 @@ class p_nota_xml_importa extends c_nota_fiscal
             $produto = new c_produto();
             $parametros = new c_banco;
             $parametros->setTab("EST_PARAMETRO");
-            $genero = $parametros->getParametros("GENERO");
             $nopEntrada = $parametros->getParametros("NATOPENTRADA");
             $xmlConferirEstoque = $parametros->getParametros("XMLCONFERIRESTOQUE");
+            $xmlManterOrigemCst = $parametros->getParametros("XMLMANTERORIGEMCST");
 
             //novo parametro para entrada de xml de nota nao processada pelo manifesto
             $existeNotaFiscalNaoProcessada = $this->existeNotaFiscalNaoProcessada();
@@ -765,7 +1025,9 @@ class p_nota_xml_importa extends c_nota_fiscal
                     $this->setSituacao('B');
                 } else {
                     //new validation input manifest
-                    if($this->m_param !== 'entradaManifesto' and $existeNotaFiscalNaoProcessada == false){
+                    if($this->m_param !== 'entradaManifesto' and (!empty($existeNotaFiscalNaoProcessada))){
+                        $this->setSituacao('A');
+                    }else if ($xmlConferirEstoque == 'S') {
                         $this->setSituacao('A');
                     }else{
                         $this->setSituacao('B');
@@ -785,7 +1047,9 @@ class p_nota_xml_importa extends c_nota_fiscal
                 endif;
 
                 $this->setFinalidadeEmissao($item->infNFe->ide->finNFe);
-                $this->setGenero($genero);
+                $objParametro = new c_parametro();
+                $generoEntrada = $objParametro->getGeneroEntradaFinanceiro($this->getCentroCusto());
+                $this->setGenero($generoEntrada);
                 $this->setOrigem('NFE');
                 $this->setDoc($item->infNFe->ide->nNF);
                 $this->setTransportador($item->infNFe->transp->modFrete); // verificar outras opção de frete no XML
@@ -845,6 +1109,10 @@ class p_nota_xml_importa extends c_nota_fiscal
                     if ($teste_array) {
                         // ATUALIZA DADOS DO PRODUTOS;
                         $params = $produto->produtoXmlJson($item->infNFe->det[$i], $pessoa->getPessoa(), 'P', $produto, $regProduto[0]['CODIGO']);
+                        if ($xmlManterOrigemCst == 'S') {
+                            $produto->setOrigem($regProduto[0]['ORIGEM']);
+                            $produto->setTribIcms($regProduto[0]['TRIBICMS']);
+                        }
                         $produto->setPrecoBase($regProduto[0]['PRECOBASE'], true);
                         $produto->setPercCalculo($regProduto[0]['PERCCALCULO'], true);
                         $produto->setPrecoInformado($regProduto[0]['PRECOINFORMADO'], true);
@@ -870,23 +1138,90 @@ class p_nota_xml_importa extends c_nota_fiscal
                         }
 
                         $produto->setQuantUltimaCompraEquiv(doubleval($item->infNFe->det[$i]->prod->qCom), true);
-                        if ($produto->getTribIcms() == null) {
-                            $produto->setTribIcms($regProduto[0]['TRIBICMS']);
-                        }
-                        if ($produto->getOrigem() == null) {
-                            $produto->setOrigem($regProduto[0]['ORIGEM']);
+                        if ($xmlManterOrigemCst != 'S') {
+                            if ($produto->getTribIcms() == null) {
+                                $produto->setTribIcms($regProduto[0]['TRIBICMS']);
+                            }
+                            if ($produto->getOrigem() == null) {
+                                $produto->setOrigem($regProduto[0]['ORIGEM']);
+                            }
                         }
 
                         if (!$produto->alteraProdutoEquivalencia()) {
                             $produto->incluiProdutoEquivalencia();
                         }
 
-                        $msgErro .= $produto->alteraProdutoNFEntrada($arrNatOper[0]['ALTERAPRECOS'], $produto->getPrecoBase());
+                        // Extrai valores de IPI e ST do XML para cálculo de custo médio e reposição
+                        $valorIpiUnitario = 0;
+                        $valorStUnitario = 0;
+                        $quantidade = doubleval($item->infNFe->det[$i]->prod->qCom);
+                        
+                        // Extrai IPI
+                        if (isset($item->infNFe->det[$i]->imposto->IPI->IPITrib->vIPI)) {
+                            $valorIpiTotal = doubleval($item->infNFe->det[$i]->imposto->IPI->IPITrib->vIPI);
+                            if ($quantidade > 0) {
+                                $valorIpiUnitario = $valorIpiTotal / $quantidade;
+                            }
+                        } elseif (isset($item->infNFe->det[$i]->imposto->IPI->IPITrib->vUnid)) {
+                            // IPI por unidade
+                            $valorIpiUnitario = doubleval($item->infNFe->det[$i]->imposto->IPI->IPITrib->vUnid);
+                        }
+                        
+                        // Extrai ST (ICMS ST)
+                        if (isset($item->infNFe->det[$i]->imposto->ICMS->ICMS10->vICMSST)) {
+                            $valorStTotal = doubleval($item->infNFe->det[$i]->imposto->ICMS->ICMS10->vICMSST);
+                            if ($quantidade > 0) {
+                                $valorStUnitario = $valorStTotal / $quantidade;
+                            }
+                        } elseif (isset($item->infNFe->det[$i]->imposto->ICMS->ICMS30->vICMSST)) {
+                            $valorStTotal = doubleval($item->infNFe->det[$i]->imposto->ICMS->ICMS30->vICMSST);
+                            if ($quantidade > 0) {
+                                $valorStUnitario = $valorStTotal / $quantidade;
+                            }
+                        } elseif (isset($item->infNFe->det[$i]->imposto->ICMS->ICMS70->vICMSST)) {
+                            $valorStTotal = doubleval($item->infNFe->det[$i]->imposto->ICMS->ICMS70->vICMSST);
+                            if ($quantidade > 0) {
+                                $valorStUnitario = $valorStTotal / $quantidade;
+                            }
+                        } elseif (isset($item->infNFe->det[$i]->imposto->ICMS->ICMS90->vICMSST)) {
+                            $valorStTotal = doubleval($item->infNFe->det[$i]->imposto->ICMS->ICMS90->vICMSST);
+                            if ($quantidade > 0) {
+                                $valorStUnitario = $valorStTotal / $quantidade;
+                            }
+                        }
+                        
+                        // Extrai frete e outros custos (se disponíveis no XML)
+                        $valorFreteUnitario = 0;
+                        $outrosCustosUnitario = 0;
+                        // O frete geralmente vem no total da NF, não por item
+                        // Se necessário, pode ser calculado proporcionalmente
+                        
+                        $msgErro .= $produto->alteraProdutoNFEntrada(
+                            $arrNatOper[0]['ALTERAPRECOS'], 
+                            $produto->getPrecoBase(),
+                            $valorIpiUnitario,
+                            $valorStUnitario,
+                            $valorFreteUnitario,
+                            $outrosCustosUnitario
+                        );
 
                         // insere produto nf
                         $params = $produto->produtoXmlJson($item->infNFe->det[$i], $pessoa->getPessoa(), 'N', $nfProduto, $regProduto[0]['CODIGO'], $lastNF) . "\n";
+                        if ($xmlManterOrigemCst == 'S') {
+                            $nfProduto->setOrigem($regProduto[0]['ORIGEM']);
+                            $nfProduto->setTribIcms($regProduto[0]['TRIBICMS']);
+                        }
+                        // Entrada: grava custo de reposição do produto em CUSTOPRODUTO do item da NF (formato BR para setCustoProduto/getCustoProduto)
+                        $nfProduto->setCustoProduto($produto->getCustoReposicao('F'));
                         //new validation input manifest
                         $resultIncluiProduto = $nfProduto->incluiNotaFiscalProduto();
+
+                        // Concatena na OBS do atendimento (OS): " produto {xProd} nota entrada {numero NF}". idOsItem = CAT_ATENDIMENTO_ID (número da OS digitado pelo usuário).
+                        $idOsItem = $parmPost['idOsItem_' . $i];
+                        if ($idOsItem !== '' && $resultIncluiProduto) {
+                            $objProduto = new c_produto();
+                            $objProduto->incluiNFProdutoOs($this->getNumero(), $idOsItem, $regProduto[0]['CODIGO']);
+                        }
 
                         if ($xmlConferirEstoque == 'N') {
 
@@ -1116,7 +1451,7 @@ class p_nota_xml_importa extends c_nota_fiscal
                 //INFORMACOES ADICIONAIS
                 $infAdic_infCpl = $item->infNFe->infAdic->infCpl;
 
-                if (count($item->infNFe->cobr->dup) > 0) {
+                if (count($item->infNFe->cobr->dup ?? []) > 0) {
                     for ($i = 0; $i < count($item->infNFe->cobr->dup); $i++) {
                         $det_pag_nDup[$i] = $item->infNFe->cobr->dup[$i]->nDup;
                         $det_pag_dVenc[$i] = $item->infNFe->cobr->dup[$i]->dVenc;
@@ -1424,7 +1759,7 @@ class p_nota_xml_importa extends c_nota_fiscal
             </tr>
             <?php
 
-            if (count($item->infNFe->cobr->dup) > 0) {
+            if (count($item->infNFe->cobr->dup ?? []) > 0) {
                 for ($i = 0; $i < count($item->infNFe->cobr->dup); $i++) {
                     echo '<tr>';
                     echo '   <td>' . $det_pag_nDup[$i] . '</td>';
@@ -1433,7 +1768,7 @@ class p_nota_xml_importa extends c_nota_fiscal
                     echo '</tr>';
                 }
             } else {
-                for ($i = 0; $i < count($item->infNFe->pag->detPag); $i++) {
+                for ($i = 0; $i < count($item->infNFe->pag->detPag ?? []); $i++) {
                     echo '<tr>';
                     echo '   <td>' . $det_pag_nDup[$i] . '</td>';
                     echo '   <td>' . $det_pag_dVenc[$i] . '</td>';
@@ -1445,7 +1780,7 @@ class p_nota_xml_importa extends c_nota_fiscal
         </table>
         <br><br><br><br>
 
-        <table>
+        <table {if $destinatario eq false} style="display:none" {/if}>
             <tr>
                 <td> <b> DADOS ADICIONAIS</b></td>
             </tr>
@@ -1491,6 +1826,7 @@ class p_nota_xml_importa extends c_nota_fiscal
                         <th style="text-align:center;"> QTD</th>
                         <th style="text-align:center;"> V. UNITARIO</th>
                         <th style="text-align:center;"> V. TOTAL</th>
+                        <th style="text-align:center; width:8%;"> OS</th>
                         <!--<th> BC ICMS</th> -->
                         <!--<th> V. ICMS</th> -->
                         <!--<th> V. IPI</th> -->
@@ -1509,52 +1845,48 @@ class p_nota_xml_importa extends c_nota_fiscal
 
                 //se exitir o codigo alterado faz a busca por ele
                 if (isset($xml->NFe->infNFe->det[$i]->prod->cProdAlter)) {
-                    $buscaProduto = $this->busca_produto_new(substr($xml->NFe->infNFe->det[$i]->prod->cProdAlter, 0, 25), $$regPessoa[0]['CLIENTE']);
+                    $buscaProduto = $this->busca_produto_new(substr($xml->NFe->infNFe->det[$i]->prod->cProdAlter, 0, 25), $regPessoa[0]['CLIENTE']);
                 } else {
                     $buscaProduto = $this->busca_produto_new(substr($xml->NFe->infNFe->det[$i]->prod->cProd, 0, 25), $regPessoa[0]['CLIENTE']);
                 }
 
-
-                //se existir nota fiscal desabilita acoes do input e seta a cor vermelha para a <TR>
-                if($this->existeNotaFiscal){
+                if ($this->existeNotaFiscal) {
+                    $this->m_color_tr = '#ffb3c2cc';
                     $this->m_input = 'none';
-                    $this->m_color_tr =  '#ffb3c2cc';
-                }else{
-                    //se existir seta a cor de cada <TD> com a cor da consulta
-                    if ($buscaProduto[0]['ORIGEM_CONSULTA'] == 'CODFABRICANTE_FABRICANTE') {
-                        $this->m_color_tr = '#99e794eb';
-                    } elseif ($buscaProduto[0]['ORIGEM_CONSULTA'] == 'CODFABRICANTE') {
-                        $this->m_color_tr = '#efbf67';
-                    } elseif ($buscaProduto[0]['ORIGEM_CONSULTA'] == 'EQUIVALENCIA') {
-                        $this->m_color_tr = '#a5a1a1c7';
-                    } else {
-                        $this->m_color_tr = '#a5a1a100';
+                } else {
+                    $this->m_input = 'all';
+                    $this->m_color_tr = '#a5a1a100';
+                    if (is_array($buscaProduto) && !empty($buscaProduto[0]['ORIGEM_CONSULTA'])) {
+                        if ($buscaProduto[0]['ORIGEM_CONSULTA'] === 'CODFABRICANTE_FABRICANTE') {
+                            $this->m_color_tr = '#99e794eb';
+                        } elseif ($buscaProduto[0]['ORIGEM_CONSULTA'] === 'CODFABRICANTE') {
+                            $this->m_color_tr = '#efbf67';
+                        } elseif ($buscaProduto[0]['ORIGEM_CONSULTA'] === 'EQUIVALENCIA') {
+                            $this->m_color_tr = '#a5a1a1c7';
+                        }
                     }
-                    //habilita acoes do input
-                    $this->m_input =  'all';
                 }
+
+                $cProdXml = htmlspecialchars((string) $xml->NFe->infNFe->det[$i]->prod->cProd, ENT_QUOTES, 'UTF-8');
+                $produtoOk = (is_array($buscaProduto) && !$this->existeNotaFiscal) ? '1' : '0';
 
                 //########################## <TR> #################################
-                $table .= '<tr style="background-color:' . $this->m_color_tr . ';" id="infoProd">';
+                $table .= '<tr style="background-color:' . $this->m_color_tr . ';" class="linha-item-xml" data-cprod-xml="' . $cProdXml . '" data-produto-ok="' . $produtoOk . '" id="infoProd">';
 
                 //END logic <TR>
+                $cProdValor = isset($xml->NFe->infNFe->det[$i]->prod->cProdAlter)
+                    ? (string) $xml->NFe->infNFe->det[$i]->prod->cProdAlter
+                    : (string) $xml->NFe->infNFe->det[$i]->prod->cProd;
+                $cProdValorEsc = htmlspecialchars($cProdValor, ENT_QUOTES, 'UTF-8');
 
-                //se existir o codigo alterado no xml insere o valor alterado
-                if (isset($xml->NFe->infNFe->det[$i]->prod->cProdAlter)) {
-                    $input = '<input type="text" class="form-control" 
-                    style="background-color: #fff0; padding:0; pointer-events: ' .$this->m_input. '"
-                    id="codProd" name="codProd' . $xml->NFe->infNFe->det[$i]->prod->cProdAlter . '" 
-                    value="' . $xml->NFe->infNFe->det[$i]->prod->cProdAlter . '" 
-                    onchange="javascript:mudaCodProdXmlNew(this.value, `' .
-                    $xml->NFe->infNFe->det[$i]->prod->cProd . '`)">';
-                }else{
-                    $input = '<input type="text" class="form-control" 
-                    style="background-color: #fff0; padding:0; pointer-events: ' .$this->m_input. '"
-                    id="codProd" name="codProd' . $xml->NFe->infNFe->det[$i]->prod->cProd . '" 
-                    value="' . $xml->NFe->infNFe->det[$i]->prod->cProd . '" 
-                    onchange="javascript:mudaCodProdXmlNew(this.value, `' . 
-                    $xml->NFe->infNFe->det[$i]->prod->cProd . '`)">';
-                }
+                $input = '<input type="text" class="form-control input-cod-prod-xml" 
+                    style="background-color: #fff0; padding:0; pointer-events: ' . $this->m_input . '"
+                    id="codProd_' . $i . '" 
+                    name="codProd' . $cProdValorEsc . '" 
+                    value="' . $cProdValorEsc . '" 
+                    data-cod-xml="' . $cProdXml . '"
+                    data-cod-atual="' . $cProdValorEsc . '"
+                    title="Digite o código e pressione Tab ou Enter">';
 
                 //########################## <TD> #################################
                 $table .= '<td id="cProd" width="14.5%">' . $input . '</td>';
@@ -1567,6 +1899,8 @@ class p_nota_xml_importa extends c_nota_fiscal
                 $table .= '<td id="quantidade" align="center" width="7%">' . $xml->NFe->infNFe->det[$i]->prod->qCom . '</td>';
                 $table .= '<td id="vlrUnitario" width="8%" align="center">' . $xml->NFe->infNFe->det[$i]->prod->vUnTrib . '</td>';
                 $table .= '<td id="vlrTotal" width="7%" align="center">' . $xml->NFe->infNFe->det[$i]->prod->vProd . '</td>';
+                $inputOsStyle = 'background-color: #fff0; padding:0; pointer-events: ' . $this->m_input . '; width:100%;';
+                $table .= '<td id="idOs" width="8%" align="center"><input type="text" class="form-control" name="idOsItem_' . $i . '" value="" style="' . $inputOsStyle . '" placeholder="ex: 3251" title="OS (opcional)" /></td>';
                 $table .= '<td id="cEan" hidden width="7%" align="center">' . $xml->NFe->infNFe->det[$i]->prod->cEAN . '</td>';
                 $table .= '<td id="cEANTrib" hidden width="7%" align="center">' . $xml->NFe->infNFe->det[$i]->prod->cEANTrib . '</td>';
                 //  echo '   <td>'.$det_vBCICMS[$i].'</td>';
@@ -1596,6 +1930,7 @@ class p_nota_xml_importa extends c_nota_fiscal
         $this->smarty->cache_dir = ADMraizCliente . "/smarty/cache/";
 
         $this->smarty->assign('pathJs',  ADMhttpBib . '/js');
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
         $this->smarty->assign('raizFonte', $this->raizFonte);
@@ -1604,69 +1939,67 @@ class p_nota_xml_importa extends c_nota_fiscal
 
         $result = false;
         $cadastrar = 'false';
+        $xml = false;
+        if ($tipoMsg === NULL) {
+            $tipoMsg = '';
+        }
         $mensagem != '' ? $this->m_msg = $mensagem :  '';
         $this->smarty->assign('mensagem', $this->m_msg);
 
-        //Obtendo info. dos arquivos
-        $f_name = $_FILES['file']['name'];
-        $f_tmp = $_FILES['file']['tmp_name'];
-        $f_type = $_FILES['file']['type'];
-        /*
-    if ($_POST['f_tmp'] != ""){
-        $f_tmp = $_POST['f_tmp'];
-    }
-    */
-        // Estancio o arquivo xml na variavel $xml que sera um objeto contendo o arquivo.
-        //if (file_exists($_FILES['file']['tmp_name'])):
-
-        if (file_exists($f_tmp)) :
-            $xml = simplexml_load_file($f_tmp);
-
-            if(isset($xml->infNFe->det)){
-                for($i=0; $i < count($xml->infNFe->det); $i++){
-                    $xml->infNFe->det[$i]->prod->xProd = str_replace(["'", '"'], '', $xml->infNFe->det[$i]->prod->xProd); 
-                }
-            }else{
-                $count = $xml->NFe->infNFe->det->attributes()["nItem"];
-                for($i=0; $i < $count[0]; $i++){
-                    $xml->NFe->infNFe->det[$i]->prod->xProd = str_replace(["'", '"'], '', $xml->NFe->infNFe->det[$i]->prod->xProd); 
-                }
+        if ($this->m_param === 'entradaManifesto' && $this->m_idNf && !$this->xml_arq) {
+            $r = $this->busca_xml($this->m_idNf);
+            $this->xml_arq = !empty($r[0]['XMLCONSULTA']) ? $r[0]['XMLCONSULTA'] : '';
+        }
+        $xml = !empty($_SESSION['xml_import']['path'])
+            ? simplexml_load_file($_SESSION['xml_import']['path'])
+            : simplexml_load_string($this->xml_arq);
+        if ($xml) {
+            if (!empty($_SESSION['xml_import']['path'])) {
+                $xml = $this->normalizarXml($xml);
+                file_put_contents($_SESSION['xml_import']['path'], $xml->asXML());
             }
-
-            // filtra caracter especial.
-            $nome = $xml->NFe->infNFe->emit->xNome;
-            $xml->NFe->infNFe->emit->xNome = $this->removeChar($nome);
-            if ($xml != false) {
-                $xml_str = $xml->asXML();
-                $this->smarty->assign('xml_arq', $xml_str);
-                $result = $this->conferirNotaFiscal($xml);
-            } else {
-                $tipoMsg = 'alerta';
-                $this->m_msg = "Falha ao importar xml. Arquivo xml invalido.";
-                $this->smarty->assign('mensagem', $this->m_msg);
-            }
-
-        elseif ($this->xml_arq != '') :
-            $this->smarty->assign('xml_arq', $this->xml_arq);
-
-            libxml_use_internal_errors(true);
-
-            $xml = simplexml_load_string($this->xml_arq);
-
-            if ($xml === false) {
-                echo "Erro ao carregar o XML:";
-                foreach(libxml_get_errors() as $error) {
-                    echo "<br>", $error->message;
-                }
-            }
-            
             $result = $this->conferirNotaFiscal($xml);
-        endif;
+        } elseif ($this->xml_token !== '') {
+            $tipoMsg = 'alerta';
+            if ($this->m_msg === '') {
+                $this->m_msg = "Falha ao importar xml. Arquivo xml invalido ou sessão expirada. Envie o XML novamente.";
+            }
+            $this->limparXmlTemp();
+            $this->xml_token = '';
+            $this->smarty->assign('mensagem', $this->m_msg);
+        }
+
+        $xml_loaded = ($xml !== false);
+        $xml_file_name = '';
+        if (isset($_SESSION['xml_import']['name'])) {
+            $xml_file_name = $_SESSION['xml_import']['name'];
+        } elseif ($this->xml_name !== '') {
+            $xml_file_name = $this->xml_name;
+        }
+
+        $xml_resumo = array();
+        if ($xml_loaded) {
+            $inf = isset($xml->NFe->infNFe) ? $xml->NFe->infNFe : (isset($xml->infNFe) ? $xml->infNFe : null);
+            if ($inf) {
+                $xml_resumo = array(
+                    'emitente' => (string) $inf->emit->xNome,
+                    'cnpj' => (string) $inf->emit->CNPJ,
+                    'numero' => (string) $inf->ide->nNF,
+                    'serie' => (string) $inf->ide->serie,
+                    'qtdItens' => isset($inf->det) ? count($inf->det) : 0,
+                );
+            }
+        }
+
+        $this->smarty->assign('xml_token', $this->xml_token);
+        $this->smarty->assign('xml_file_name', $xml_file_name);
+        $this->smarty->assign('xml_loaded', $xml_loaded);
+        $this->smarty->assign('xml_resumo', $xml_resumo);
 
         $this->smarty->assign('url', ADMhttpCliente . "/index.php");
         $this->smarty->assign('pathImagem', $this->img);
         if ($result) :
-            if ($_FILES['file']['name'] == $this->m_name) :
+            if ($xml_loaded) :
                 $this->smarty->assign('cadastrar', true);
             endif;
         else :
@@ -1675,12 +2008,14 @@ class p_nota_xml_importa extends c_nota_fiscal
         $this->smarty->assign('letra', $this->m_letra);
         $this->smarty->assign('subMenu', $this->m_submenu);
         $this->smarty->assign('tmp_name', $this->m_name);
-        $this->smarty->assign('file', $_FILES['file']['name']);
-        $this->smarty->assign('tempFile', $_FILES['file']['name'] == '' ? $this->xml_name : $_FILES['file']['name']);
+        $f_name_upload = isset($_FILES['file']['name']) ? $_FILES['file']['name'] : '';
+        $this->smarty->assign('file', $f_name_upload);
+        $this->smarty->assign('tempFile', $f_name_upload !== '' ? $f_name_upload : $xml_file_name);
         $this->smarty->assign('tipoMsg', $tipoMsg);
         $this->smarty->assign('nota_fiscal_div', $this->m_nota_fiscal_div);
         $this->smarty->assign('existeNotaFiscal', $this->existeNotaFiscal);
         $this->smarty->assign('idNf', $this->m_idNf);
+        $this->smarty->assign('destinatario', $this->destinatario);
 
         //$permiteAlterarFinanceiroXML = $this->verificaDireitoUsuario('PEDPERMITEALTERARFINANCEIROXML', 'S', 'N');
         //$this->smarty->assign('permiteAlterarFinanceiroXML', $permiteAlterarFinanceiroXML);
@@ -1731,6 +2066,13 @@ class p_nota_xml_importa extends c_nota_fiscal
             for ($i = 0; $i < count($result); $i++) {
                 $genero_ids[$i] = $result[$i]['ID'];
                 $genero_names[$i] = $result[$i]['ID'] . " - " . $result[$i]['DESCRICAO'];
+            }
+            if (empty($this->getGenero())) {
+                $objParametro = new c_parametro();
+                $generoEntrada = $objParametro->getGeneroEntradaFinanceiro($this->m_empresacentrocusto);
+                if (!empty($generoEntrada)) {
+                    $this->setGenero($generoEntrada);
+                }
             }
             $this->smarty->assign('genero_ids', $genero_ids);
             $this->smarty->assign('genero_names', $genero_names);
@@ -1848,7 +2190,7 @@ class p_nota_xml_importa extends c_nota_fiscal
                     $total = $item->infNFe->total->ICMSTot->vNF;
                     $total = str_replace(".", ",", $total);
                     $this->smarty->assign('total', $total);
-                    if (count($item->infNFe->cobr->dup) > 0) {
+                    if (count($item->infNFe->cobr->dup ?? []) > 0) {
                         for ($i = 0; $i < count($item->infNFe->cobr->dup); $i++) {
                             $nDup = $item->infNFe->cobr->dup[$i]->nDup;
                             $fin[$i]['PARCELA'] = trim($nDup);
@@ -1881,42 +2223,12 @@ class p_nota_xml_importa extends c_nota_fiscal
 
             $this->smarty->display('nota_xml_importa_financeiro.tpl');
         } else {
-            if (file_exists($_FILES['file']['tmp_name'])) {
-                /*       
-        $teste = str_replace('.tmp', random_int(100, 999).'.tmp' , $_FILES['file']['tmp_name']);
-        
-        $_FILES['file']['tmp_name'] = $teste;
-
-        //$this->smarty->assign('f_tmp',$this->$teste);
-        
-        $this->smarty->assign('f_tmp',$_FILES['file']['tmp_name']);
-
-        $this->smarty->assign('f_name', $this->$f_name);
-        $this->smarty->assign('f_type)', $this->$f_type);
-        
-        $arquivo = fopen($teste,'w');
-        $info = $xml->asXML();
-        fwrite($arquivo, $info);
-        fclose($arquivo);
-        */
-                $this->smarty->assign('f_tmp', $_FILES['file']['tmp_name']);
-                $this->smarty->assign('f_name', $_FILES['file']['name']);
-                $this->smarty->assign('f_type', $_FILES['file']['type']);
-            }
-
-            if (($xml == false) and (file_exists($f_tmp))) {
-                $this->m_msg = "Arquivo XML com erro de leitura, selecionar novamente XML para Cadastrar ou Visualizar!!";
-                $this->smarty->assign('mensagem', $this->m_msg);
+            if ($xml === false && $xml_loaded === false && $mensagem !== '') {
                 $this->smarty->assign('tipoMsg', 'alerta');
             }
             $this->smarty->display('nota_xml_importa.tpl');
-            // $xml = $this->xml_arq;
-            if ($xml != false) {
-                if (file_exists($_FILES['file']['tmp_name'])) {
-                    $this->mostraNotaFiscalXML1($xml);
-                } elseif ($this->xml_arq != "") {
-                    $this->mostraNotaFiscalXML1($xml);
-                }
+            if ($xml !== false) {
+                $this->mostraNotaFiscalXML1($xml);
             }
         }
     } //fim nota_xml_importa
@@ -1924,41 +2236,20 @@ class p_nota_xml_importa extends c_nota_fiscal
 }    //	END OF THE CLASS
 
 // Rotina principal - cria classe
-$notaXml = new p_nota_xml_importa(
-    $_POST['submenu'],
-    $_POST['letra']
-);
+$submenuIni = isset($_POST['submenu']) ? $_POST['submenu'] : (isset($_GET['submenu']) ? $_GET['submenu'] : '');
+$letraIni = isset($_POST['letra']) ? $_POST['letra'] : '';
 
+$notaXml = new p_nota_xml_importa($submenuIni, $letraIni);
 
 if (isset($_POST['tempFile'])) {
     $notaXml->m_tmp = $_POST['tempFile'];
-} else {
-    $notaXml->m_tmp = '';
-};
-if (isset($_FILES['file'])) {
+}
+if (isset($_FILES['file']['name'])) {
     $notaXml->m_name = $_FILES['file']['name'];
-} else {
-    $notaXml->m_name = '';
-};
-if (isset($_FILES['file'])) {
-    $notaXml->m_tmp = $_FILES['file']['tmp_name'];
-} else {
-    $notaXml->m_tmp = '';
-};
-if (isset($_FILES['file'])) {
-    $notaXml->m_type = $_FILES['file']['type'];
-} else {
-    $notaXml->m_type = '';
-};
-if (isset($_FILES['file'])) {
-    $notaXml->m_size = $_FILES['file']['size'];
-} else {
-    $notaXml->m_size = '';
-};
-
-$f_name = $_FILES['file']['name'];
-$f_tmp = $_FILES['file']['tmp_name'];
-$f_type = $_FILES['file']['type'];
+    $notaXml->m_tmp = isset($_FILES['file']['tmp_name']) ? $_FILES['file']['tmp_name'] : '';
+    $notaXml->m_type = isset($_FILES['file']['type']) ? $_FILES['file']['type'] : '';
+    $notaXml->m_size = isset($_FILES['file']['size']) ? $_FILES['file']['size'] : '';
+}
 
 $notaXml->controle();
 

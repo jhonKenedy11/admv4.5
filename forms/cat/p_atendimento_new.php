@@ -144,6 +144,7 @@ class p_atendimento_new extends c_atendimento
         $this->setPercDescontoPecas(isset($parmPost['percDescontoPecas']) ? $parmPost['percDescontoPecas'] : '');
         $this->setAcrescimoPecas(isset($parmPost['acrescimoPecas']) ? $parmPost['acrescimoPecas'] : '');
         $this->setTotalPecas(isset($parmPost['totalPecas']) ? $parmPost['totalPecas'] : '');
+        $this->setNfEntradaPecas(isset($parmPost['nfEntradaPecas']) ? $parmPost['nfEntradaPecas'] : '');
 
         //==========================SERVICOS=======================
         $this->setIdServico(isset($parmPost['idServicos']) ? $parmPost['idServicos'] : '');
@@ -398,8 +399,20 @@ class p_atendimento_new extends c_atendimento
                     }
                     $this->setCentroCusto($this->m_empresacentrocusto);
                     $idAtendimento = $this->incluiAtendimento();
-                    $this->setId($idAtendimento);
-                    $this->smarty->assign('id', $this->getId());
+                    
+                    if (intval($idAtendimento) > 0) {
+                        $this->setId($idAtendimento);
+                        $this->smarty->assign('id', $this->getId());
+                    } else {
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro ao incluir',
+                                text: 'Ocorreu um erro ao cadastrar o atendimento. Tente novamente.'
+                            });
+                        </script>";
+                        return;
+                    }
                 } else {
                     $idAtendimento = $this->getId();
                 }
@@ -545,7 +558,9 @@ class p_atendimento_new extends c_atendimento
         $this->smarty->assign('catEquipamentoId', $this->getCatEquipamentoId());
         $this->smarty->assign('descEquipamento', $this->getDescEquipamento());
 
-
+        $this->smarty->assign('idPecas', $this->getIdPecas());
+        $this->smarty->assign('nfEntradaPecas', $this->getNfEntradaPecas());
+       
         if ($this->getId() != ''):
 
             $lancPesq = $this->select_pecas_atendimento();
@@ -553,7 +568,7 @@ class p_atendimento_new extends c_atendimento
 
             $lancItens = $this->select_servicos_atendimento();
             $this->smarty->assign('lancItens', $lancItens);
-
+           
             $consulta = new c_banco;
             $consulta->setTab("CAT_ATENDIMENTO");
             $vlrPecas = $consulta->getField("VALORPECAS", "ID=" . $this->getId());

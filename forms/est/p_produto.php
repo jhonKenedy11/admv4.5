@@ -24,7 +24,7 @@ require_once($dir . "/../../class/crm/c_conta.php");
 require_once($dir . "/../../class/est/c_ncm.php");
 require_once($dir . "/../../class/est/c_estoque_rel.php");
 require_once($dir . "/../../class/ped/c_parametro.php");
-
+require_once($dir . "/../../bib/c_performance_logger.php");
 //Class P_produto
 class p_produto extends c_produto
 {
@@ -96,6 +96,7 @@ class p_produto extends c_produto
         $this->m_function = (isset($parmPost['function']) ? $parmPost['function'] : null);
         $this->m_produtoId = (isset($parmPost['produtoId']) ? $parmPost['produtoId'] : null);
         $this->m_divId = (isset($parmPost['divId']) ? $parmPost['divId'] : null);
+        $this->m_qtde = (isset($parmGet['qtde']) ? $parmGet['qtde'] : (isset($parmPost['qtde']) ? $parmPost['qtde'] : 1));
 
         $this->from = (isset($parmGet['from']) ? $parmGet['from'] : (isset($parmPost['from']) ? $parmPost['from'] : ''));
 
@@ -108,6 +109,9 @@ class p_produto extends c_produto
         // form atendimento (consulta)
         $this->idTipoAtendimento = (isset($parmGet['idTipoAtendimento']) ? $parmGet['idTipoAtendimento'] : (isset($parmPost['idTipoAtendimento']) ? $parmPost['idTipoAtendimento'] : ''));
         $this->tipoCategoriaAtendimento = (isset($parmGet['tipoCategoriaAtendimento']) ? $parmGet['tipoCategoriaAtendimento'] : (isset($parmPost['tipoCategoriaAtendimento']) ? $parmPost['tipoCategoriaAtendimento'] : ''));
+
+        $this->pagina_atual = (isset($parmGet['pagina']) ? $parmGet['pagina'] : (isset($parmPost['pagina']) ? $parmPost['pagina'] : 1));
+        $this->quantidade_pesquisada = (isset($parmGet['quantidade_pesquisada']) ? $parmGet['quantidade_pesquisada'] : (isset($parmPost['quantidade_pesquisada']) ? $parmPost['quantidade_pesquisada'] : 0));
 
         $this->m_idImagem = $_REQUEST['idimg'];
         $this->m_destaque = $_REQUEST['destaque'];
@@ -129,18 +133,18 @@ class p_produto extends c_produto
         // dados para exportacao e relatorios
         if ($this->m_opcao == "pesquisar"):
             $this->smarty->assign('titulo', "Produtos");
-            $this->smarty->assign('colVis', "[ 0,1,2,3,4,5 ]");
-            $this->smarty->assign('disableSort', "[ 5 ]");
-            $this->smarty->assign('numLine', "25");
+            $this->smarty->assign('colVis', "[  ]");
+            $this->smarty->assign('disableSort', "[ ]");
+            $this->smarty->assign('numLine', "50");
         else:
             $this->smarty->assign('titulo', "Produtos");
-            $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6 ]");
-            $this->smarty->assign('disableSort', "[ 6 ]");
-            $this->smarty->assign('numLine', "25");
+            $this->smarty->assign('colVis', "[ ]"); 
+            $this->smarty->assign('disableSort', "[ ]"); 
+            $this->smarty->assign('numLine', "50"); 
         endif;
 
         // metodo SET dos dados do FORM para o TABLE
-        $this->setId(isset($parmPost['id']) ? $parmPost['id'] : '');
+        $this->setId(isset($parmPost['id']) ? $parmPost['id'] : (isset($parmGet['parm']) ? $parmGet['parm'] : ''));
         $this->setDesc(isset($parmPost['desc']) ? $parmPost['desc'] : '');
         $this->setDescricaoDetalhada(isset($parmPost['descricaoDetalhada']) ? $parmPost['descricaoDetalhada'] : '');
         $this->setGrupo(isset($parmPost['grupo']) ? $parmPost['grupo'] : '');
@@ -154,6 +158,7 @@ class p_produto extends c_produto
         $this->setDataForaLinha(isset($parmPost['dataForaLinha']) ? $parmPost['dataForaLinha'] : '');
         $this->setNcm(isset($parmPost['ncm']) ? $parmPost['ncm'] : '');
         $this->setCest(isset($parmPost['cest']) ? $parmPost['cest'] : '');
+        $this->setCclasstrib(isset($parmPost['cclasstrib']) ? $parmPost['cclasstrib'] : '');
         $this->setOrigem(isset($parmPost['origem']) ? $parmPost['origem'] : '');
         $this->setTribIcms(isset($parmPost['tribIcms']) ? $parmPost['tribIcms'] : '');
         $this->setMoeda(isset($parmPost['moeda']) ? $parmPost['moeda'] : '');
@@ -185,7 +190,6 @@ class p_produto extends c_produto
         $this->setAnp(isset($parmPost['anp']) ? $parmPost['anp'] : '');
         $this->setMarca(isset($parmPost['marca']) ? $parmPost['marca'] : '');
 
-
         // REPARO DADOS UNITARIO
         $this->setIdReparo(isset($parmPost['idReparo']) ? $parmPost['idReparo'] : '');
         $this->setProdutoReparo(isset($parmPost['id']) ? $parmPost['id'] : '');
@@ -211,7 +215,8 @@ class p_produto extends c_produto
         $this->setDataUltimaCompraEquiv(isset($parmPost['dataUltimaCompraEquiv']) ? $parmPost['dataUltimaCompraEquiv'] : '');
         $this->setQuantUltimaCompraEquiv(isset($parmPost['quantUltimaCompraEquiv']) ? $parmPost['quantUltimaCompraEquiv'] : '');
         $this->setNfUltimaCompraEquiv(isset($parmPost['nfUltimaCompraEquiv']) ? $parmPost['nfUltimaCompraEquiv'] : '');
-
+        $this->setMarcaEquivalente(isset($parmPost['marcaEquivalente']) ? $parmPost['marcaEquivalente'] : '');
+        $this->setPrecoUnitarioEquiv(isset($parmPost['precoUnitarioEquiv']) ? $parmPost['precoUnitarioEquiv'] : '0,00');
 
         // include do javascript
         //include ADMjs . "/est/s_produto.js";
@@ -334,8 +339,8 @@ class p_produto extends c_produto
         switch ($this->m_submenu) {
             case 'destaqueImagem':
                 $tipoMsg = 'sucesso';
-                $this->destaqueImagemProdutoNao();
-                $errMSG = $this->destaqueImagemProduto($this->m_idImagem, $this->m_destaque);
+                $this->destaqueImagemProdutoGedNao();
+                $errMSG = $this->destaqueImagemProdutoGed($this->m_idImagem, $this->m_destaque);
                 if ($errMSG != ''):
                     $tipoMsg = 'erro';
                 endif;
@@ -343,85 +348,93 @@ class p_produto extends c_produto
                 break;
             case 'excluiImagem':
                 $tipoMsg = 'erro';
-                $errMSG = $this->excluiImagemProduto($this->m_idImagem);
-                if ($errMSG == ''):
-                    unlink('images/doc/meli/' . $this->getId() . '/' . $this->m_idImagem . '.jpg');
+                
+                // Busca o PATH do arquivo para deletar
+                $sql = "SELECT `PATH` FROM AMB_GED WHERE `ID` = ".$this->m_idImagem;
+                $banco = new c_banco;
+                $banco->exec_sql($sql);
+                $pathArquivo = $banco->resultado[0]['PATH'] ?? null;
+                $banco->close_connection();
+                
+                $errMSG = $this->excluiImagemProdutoGed($this->m_idImagem);
+                if ($errMSG == '' && $pathArquivo):
+                    // Remove o arquivo físico (PATH é relativo, adiciona raizCliente)
+                    $arquivoCompleto = ADMraizCliente . "/" . $pathArquivo;
+                    if (file_exists($arquivoCompleto)) {
+                        unlink($arquivoCompleto);
+                    }
                     $tipoMsg = 'sucesso';
                 endif;
                 $this->desenhaCadastroImagemProduto($errMSG, $tipoMsg);
                 break;
             case 'salvarImagem':
-                if ($this->select_produto_imagem()) {
-                    $idImagem = $this->gravaImagemProduto('EST', 'N');
-                } else {
-                    $idImagem = $this->gravaImagemProduto('EST', 'S');
-                }
+                $imgFile = $_FILES['upload']['name'];
+                $tmp_dir = $_FILES['upload']['tmp_name'];
+                $imgSize = $_FILES['upload']['size'];
 
-                //$tipoMsg = "sucesso";
-                if ($idImagem > 0):
-
-                    $imgFile = $_FILES['upload']['name'];
-                    $tmp_dir = $_FILES['upload']['tmp_name'];
-                    $imgSize = $_FILES['upload']['size'];
-
-                    if (empty($imgFile) and (is_file($this->m_tmp))):
+                if ($imgSize > 0):
+                    if (empty($imgFile)):
                         $errMSG = "Selecione uma imagem.";
+                        $tipoMsg = "erro";
                     else:
-                        $upload_dir = ADMraizCliente . "/images/doc/est/" . $this->getId() . "/"; // upload directory
-
-                        if (!file_exists($upload_dir)) {
-                            mkdir($upload_dir, 0777, true);
+                        // Define o diretório no padrão GED (sem barra inicial para ser relativo)
+                        $upload_dir = "ged/EST_PRODUTO/" . $this->getId() . "/";
+                        
+                        // Cria o diretório físico se não existir
+                        if (!file_exists(ADMraizCliente . "/" . $upload_dir)) {
+                            mkdir(ADMraizCliente . "/" . $upload_dir, 0777, true);
                         }
 
-                        //$upload_dir = $this->mkDir('images', 'auto', $this->getId());
-                        //$upload_dir = 'images/auto/'; // upload directory
-
-                        $imgExt = strtolower(pathinfo($imgFile, PATHINFO_EXTENSION)); // get image extension
-
-                        // valid image extensions
-                        $valid_extensions = array('jpeg', 'jpg'); // valid extensions
-
-                        // rename uploading image
-                        $anunciopic = $idImagem . ".jpg";
-
-
-
+                        $imgExt = strtolower(pathinfo($imgFile, PATHINFO_EXTENSION));
+                        
+                        // Extensões válidas
+                        $valid_extensions = array('jpeg', 'jpg', 'png', 'pdf');
+                        
+                        // Verifica se já existe imagem (primeira será destaque)
+                        $existentes = $this->select_produto_ged();
+                        $destaque = (is_array($existentes) && count($existentes) > 0) ? 'N' : 'S';
+                        
+                        // Grava no banco com o caminho relativo (sem raizCliente)
+                        $pathCompleto = $upload_dir . $imgFile;
+                        $idGed = $this->gravaImagemProdutoGed($pathCompleto, $destaque);
+                        
                         $tipoMsg = "sucesso";
-                        // allow valid image file formats
+                        
+                        // Valida e faz upload
                         if (in_array($imgExt, $valid_extensions)):
-                            // Check file size '2MB'
+                            // Tamanho máximo 2MB
                             if ($imgSize < 2000000):
                                 try {
-                                    if (!move_uploaded_file($tmp_dir, $upload_dir . $anunciopic)):
-                                        //throw new RuntimeException('Desculpe, seu arquivo é muito grande, tamanho máximo 2MB.');                                                    
-                                        $errMSG = "Desculpe, seu arquivo é muito grande, tamanho máximo 2MB.";
+                                    // Move arquivo para o diretório físico
+                                    $arquivoFisico = ADMraizCliente . "/" . $pathCompleto;
+                                    if (!move_uploaded_file($tmp_dir, $arquivoFisico)):
+                                        $errMSG = "Erro ao mover o arquivo para o diretório local.";
                                         $tipoMsg = "erro";
                                     endif;
                                 } catch (Error $e) {
-                                    throw new Exception($e->getMessage() . "Imagem não salva ");
+                                    $errMSG = "Erro ao salvar imagem: " . $e->getMessage();
+                                    $tipoMsg = "erro";
                                 }
-
                             else:
-                                $errMSG = "Desculpe, seu arquivo é muito grande, tamanho máximo 2MB.";
+                                $errMSG = "Arquivo muito grande, tamanho máximo 2MB.";
                                 $tipoMsg = "erro";
                             endif;
-
                         else:
-                            $errMSG = "Desculpe, inserir somente arquivo JPG, JPEG são permitidos.";
+                            $errMSG = "Formato inválido. Permitidos: JPG, JPEG, PNG, PDF";
                             $tipoMsg = "erro";
                         endif;
-                    endif;
-
-                    if ($tipoMsg != "sucesso"):
-                        $this->excluiImagemProduto($idImagem);
+                        
+                        // Se houve erro, remove o registro do banco
+                        if ($tipoMsg != "sucesso" && $idGed):
+                            $this->excluiImagemProdutoGed($idGed);
+                        endif;
                     endif;
                 else:
-                    $errMSG = "Imagem não foi salva.";
+                    $errMSG = "Nenhum arquivo selecionado.";
                     $tipoMsg = "erro";
                 endif;
 
                 $this->desenhaCadastroImagemProduto($errMSG, $tipoMsg);
-
                 break;
             case 'cadastrarImagem':
                 if ($this->verificaDireitoUsuario('EstItemEstoque', 'I')) {
@@ -464,12 +477,20 @@ class p_produto extends c_produto
 
                     if ($this->m_form_old != "produtoPesquisarNfe") {
                         if ($msg) {
+                            // Se abriu via registerProd (fluxo de cadastro vindo de importação), retornar só o ID para o opener e fechar
+                            if ($this->m_par[0] === 'registerProd') {
+                                echo "<script type='text/javascript'>
+                                if (window.opener && window.opener.document && window.opener.document.lancamento) {
+                                    try {
+                                        window.opener.document.lancamento.codProduto.value = '" . intval($msg) . "';
+                                    } catch (e) {}
+                                }
+                                window.close();
+                                </script>";
+                                exit;
+                            }
                             $msgRetorno = 'Cadastro produto realizado!';
-                            // echo "<script src='https://unpkg.com/sweetalert/dist/sweetalert.min.js'></script> ";
-                            // echo "<style>.swal-modal{width: 510px !important;}.swal-title{font-size: 21px;}</style> ";
-                            // echo "<script>swal({text: `$msgRetorno`, title: 'Sucesso!', icon: 'success',button: 'Ok',});</script>";
-                            // echo "<script>setTimeout(function() { window.opener.location.reload(); window.close(); }, 2000);</script>";
-                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script type='text/javascript' src='" . ADMhttpBib . "/../bootstrap/vendors/sweetalert2/dist/sweetalert2.all.min.js'></script> ";
                             echo "<script>
                             Swal.fire({
                                 icon: 'success',
@@ -485,9 +506,18 @@ class p_produto extends c_produto
                             $this->desenhaCadProduto($msg, 'alerta');
                         }
                     } else {
-                        if (is_int($msg) || $msg = true) { //testar cadastro
+                        // cadastro via XML (produtoPesquisarNfe)
+                        if ($this->m_form_old == "produtoPesquisarNfe" && is_int($msg) && $msg > 0) {
+                            $this->smarty->assign('fecharAposCadastro', true);
+                            $this->smarty->assign('msgSucesso', 'Produto cadastrado com sucesso!');
+                            $this->desenhaCadProduto('');
+                            break;
+                        }
+                        
+                        // cadastro via formulário
+                        if (is_int($msg) && $msg > 0) {
                             $msgRetorno = 'Produto cadastrado!';
-                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script type='text/javascript' src='" . ADMhttpBib . "/../bootstrap/vendors/sweetalert2/dist/sweetalert2.all.min.js'></script> ";
                             echo "<script>
                             Swal.fire({
                                 icon: 'success',
@@ -495,12 +525,16 @@ class p_produto extends c_produto
                                 width: 510,
                                 text: '" . $msgRetorno . ".',
                                 confirmButtonText: 'OK'
+                            }).then((result) => {
+                                if (result.isConfirmed && window.opener) {
+                                    window.close();
+                                }
                             });
                             </script>";
                             $this->desenhaCadProduto('');
                         } else {
                             $msgRetorno = 'Erro ao inserir o produto, entre em contato com o suporte!';
-                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script type='text/javascript' src='" . ADMhttpBib . "/../bootstrap/vendors/sweetalert2/dist/sweetalert2.all.min.js'></script> ";
                             echo "<script>
                             Swal.fire({
                                 icon: 'warning',
@@ -636,6 +670,19 @@ class p_produto extends c_produto
                     $this->produto();
                     $this->m_submenu = 'alterar';
                     $this->desenhaCadProduto($msg, 'alerta');
+                }
+                break;
+            case 'alteraequivalencia':
+                if ($this->verificaDireitoUsuario('EstItemEstoque', 'A')) {
+                    $res = $this->alteraProdutoEquivalencia();
+                    if($res){
+                        $this->alteraProduto();
+                        $this->produto();
+                        $this->m_submenu = 'alterar';
+                        $this->desenhaCadProduto('Equivalência alterada com sucesso!', 'alerta');
+                    }else{
+                        $this->desenhaCadProduto('Equivalência não alterada!', 'alerta');
+                    }
                 }
                 break;
             case 'excluiequivalencia':
@@ -818,6 +865,13 @@ class p_produto extends c_produto
                 }
                 echo json_encode($returnAjax);
                 break;
+                case 'imp_etiqueta':
+                    $dados = $this->select_produto_etiqueta($this->getId(), $this->m_empresacentrocusto);
+                    $this->smarty->assign('empresa', $dados['empresa'] ?? []);
+                    $this->smarty->assign('produto', $dados['produto'] ?? []);
+                    $this->smarty->assign('qtde', $this->m_qtde);
+                    $this->smarty->display('produto_etiqueta.tpl');
+                    break;
             default:
                 if ($this->verificaDireitoUsuario('EstItemEstoque', 'C')) {
                     $this->mostraProduto('');
@@ -894,18 +948,9 @@ class p_produto extends c_produto
         $this->smarty->assign('grupo', $this->getGrupo());
 
         // MARCA
-        $consulta = new c_banco();
-        $sql = "SELECT marca as id, descricao FROM EST_MARCA ORDER BY descricao";
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
-        $result = $consulta->resultado ?? [];
-        for ($i = 0; $i < count($result); $i++) {
-            $marca_ids[$i] = $result[$i]['ID'];
-            $marca_names[$i] = $result[$i]['DESCRICAO'] . " - " . $result[$i]['ID'];
-        }
-        $this->smarty->assign('marca_ids', $marca_ids);
-        $this->smarty->assign('marca_names', $marca_names);
-
+        $marca_combo = $this->select_marca_combo();
+        $this->smarty->assign('marca_ids', $marca_combo['ids']);
+        $this->smarty->assign('marca_names', $marca_combo['names']);
         $this->smarty->assign('marca', $this->getMarca());
 
         $this->smarty->assign('pessoa', $this->getFabricante());
@@ -927,7 +972,8 @@ class p_produto extends c_produto
 
         $this->smarty->assign('codProdutoAnvisa', "'" . $this->getCodProdutoAnvisa() . "'");
         $this->smarty->assign('localizacao', "'" . $this->getLocalizacao() . "'");
-        $this->smarty->assign('dataForaLinha', $this->getDataForaLinha('F'));
+        $dataForaLinha = $this->getDataForaLinha('F') ?? '';
+        $this->smarty->assign('dataForaLinha', $dataForaLinha ?? '');
 
         // NCM
         $ncm = trim($this->getNcm());
@@ -953,6 +999,12 @@ class p_produto extends c_produto
         $this->smarty->assign('ncm_ids', $ncm_ids);
         $this->smarty->assign('ncm_names', $ncm_names);
         $this->smarty->assign('ncm', $this->getNcm());
+
+        // CClasstrib
+        $cclasstribCombo = $this->getCclasstribCombo();
+        $this->smarty->assign('cclasstrib_ids', $cclasstribCombo['ids']);
+        $this->smarty->assign('cclasstrib_names', $cclasstribCombo['names']);
+        $this->smarty->assign('cclasstrib', $this->getCclasstrib());
 
         $this->smarty->assign('cest', $this->getCest());
         $this->smarty->assign('precoPromocao', $this->getPrecoPromocao('F'));
@@ -1046,13 +1098,6 @@ class p_produto extends c_produto
         //=== consulta regime tributário da empresa.
 
         $consulta = new c_banco();
-        //$consulta->setTab('AMB_EMPRESA');
-        //$regime = $consulta->getField('REGIMETRIBUTARIO', 'empresa=' . $this->m_empresaid);
-            //if ($regime == 3):
-                //$sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='FAT_MENU') and (campo='TributacaoIcms')";
-            //else:
-                    // $sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='FAT_MENU') and (campo='csosn')";
-            //endif;
         // Busca tanto TributacaoIcms quanto csosn
         $sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='FAT_MENU') and (campo='TributacaoIcms')";
         $consulta->exec_sql($sql);
@@ -1118,29 +1163,16 @@ class p_produto extends c_produto
 
             $classProdutoQtde = new c_produto_estoque();
             $produtoQuant = $classProdutoQtde->produtoQtde($this->getId(), $this->m_empresacentrocusto) ?? [];
-            switch (count($produtoQuant)) {
-                case 1:
-                    $quantAtual = $produtoQuant[0]['QUANTIDADE'];
-                    $quantReservada = 0;
-                    break;
-                case 2:
-                    $quantAtual = $produtoQuant[0]['QUANTIDADE'];
-                    $quantReservada = $produtoQuant[1]['QUANTIDADE'];
-                    break;
-                case 3:
-                    $quantAtual = $produtoQuant[0]['QUANTIDADE'];
-                    $quantReservada = $produtoQuant[1]['QUANTIDADE'] + $produtoQuant[2]['QUANTIDADE'];
-                    break;
-                case 4:
-                    $quantAtual = $produtoQuant[0]['QUANTIDADE'];
-                    $quantReservada = $produtoQuant[1]['QUANTIDADE'] + $produtoQuant[2]['QUANTIDADE'] + $produtoQuant[3]['QUANTIDADE'];
-                    break;
-                default:
-                    $quantAtual = 0;
-                    $quantReservada = 0;
+            $produtoQuant = is_array($produtoQuant) ? $produtoQuant : [];
+            for ($qi = 0; $qi < count($produtoQuant); $qi++) {
+                $qtd = isset($produtoQuant[$qi]['QUANTIDADE']) ? (float) $produtoQuant[$qi]['QUANTIDADE'] : 0;
+                if ((string) $produtoQuant[$qi]['STATUS'] === '0') {
+                    $quantAtual += $qtd;
+                } else {
+                    $quantReservada += $qtd;
+                }
             }
         }
-        //$this->smarty->assign('quantAtual', $quantAtual);   old
         //formatar QtdeAtual
         $quantTotal = $quantAtual + $quantReservada;
         $quantAtual = number_format($quantAtual, 2, ',', '.');
@@ -1155,23 +1187,7 @@ class p_produto extends c_produto
 
         $parametros = new c_banco;
         $parametros->setTab("EST_PARAMETRO");
-        /*
-        $origem = $this->getOrigem();
-        if ( $origem != "") {
-            $this->smarty->assign('origem', $origem);
-        } else {
-            $origem = $parametros->getField("ORIGEM", "FILIAL=".$this->m_empresacentrocusto);
-            $this->smarty->assign('origem', $origem);
-        }
         
-        $tribicms = $this->getTribIcms();
-        if ( $tribicms != "") {
-            $this->smarty->assign('tribIcms', $tribicms);
-        } else {
-            $tribicms = $parametros->getField("TRIBICMS", "FILIAL=".$this->m_empresacentrocusto);
-            $this->smarty->assign('tribIcms', $tribicms);
-        }
-        */
         $base = $this->getPrecoBase();
         if ($base != "") {
             $this->smarty->assign('precoBase_id', $base);
@@ -1193,15 +1209,32 @@ class p_produto extends c_produto
         $tabela = $this->select_produto_tabela();
         $this->smarty->assign('tabela', $tabela);
 
-        // CODIGO EQUIVALENTE
-        $equiv = $this->select_produto_equivalencia();
-        $this->smarty->assign('equiv', $equiv);
+        // CODIGO EQUIVALENTE - só busca se o produto já existe (tem ID)
+        if ($this->getId() != '' && $this->getId() > 0) {
+            $equiv = $this->select_produto_equivalencia();
+            $this->smarty->assign('equiv', $equiv);
+        } else {
+            $this->smarty->assign('equiv', []);
+        }
 
         // REPAROS
-        $reparo = $this->selectProdutoReparo($this->getId());
-        $this->smarty->assign('reparo', $reparo);
+        if($this->getId() != '' && $this->getId() > 0) {
+            $reparo = $this->selectProdutoReparo($this->getId());
+            $this->smarty->assign('reparo', $reparo);
+        } else {
+            $this->smarty->assign('reparo', []);
+        }
+
+        // IMPOSTOS NOTA ENTRADA - só busca se o produto já existe (tem ID)
+        if ($this->getId() != '' && $this->getId() > 0) {
+            $impostosNotaEntrada = $this->select_impostos_nota_entrada();
+            $this->smarty->assign('impostosNotaEntrada', $impostosNotaEntrada);
+        } else {
+            $this->smarty->assign('impostosNotaEntrada', []);
+        }
 
         $this->smarty->assign('codEquivalente', $this->getCodEquivalente());
+        $this->smarty->assign('marcaEquivalente', $this->getMarcaEquivalente());
 
         //BUSCA PRODUTO REPARO
         $ajax_request = @($_SERVER["HTTP_AJAX_REQUEST_BUSCA_PROD_REPAROS"] == "true");
@@ -1247,13 +1280,18 @@ class p_produto extends c_produto
         $this->smarty->assign('activeTab01', 'active in');
         $this->smarty->assign('pathCliente', ADMhttpCliente);
 
-        if ((isset($this->m_letra)) && $this->m_letra != '') {
-            $parmPost['codigo'] == '' ? $parmPost['codigo'] = $this->m_par[6] : $parmPost['codigo'];
-            $produto = $this->select_produto_letra($this->m_letra, $parmPost['codigo']);
-            $this->m_par[6] != '' ? $this->m_par[0] = $produto[0]['DESCRICAO'] : '';
-            $equi = $this->select_equivalente_letra($this->m_letra, $parmPost['codigo']);
-            $this->smarty->assign('equi', $equi);
+        if ((isset($this->m_letra)) && $this->m_letra != '') { 
 
+            $parmPost['codigo'] == '' ? $parmPost['codigo'] = $this->m_par[6] : $parmPost['codigo'];
+
+            $produto = $this->select_produto_letra($this->m_letra, $parmPost['codigo'], $this->pagina_atual);
+
+            $this->m_par[6] != '' ? $this->m_par[0] = $produto[0]['DESCRICAO'] : '';
+            
+            $equi = $this->select_equivalente_letra($this->m_letra, $parmPost['codigo']);
+
+            $this->smarty->assign('equi', $equi);
+            
             // Operador de coalescencia para php 8.3 
             $produto = is_array($produto) ? $produto : [];
 
@@ -1264,47 +1302,10 @@ class p_produto extends c_produto
                     $this->smarty->assign('id', $produto[0]['CODIGO']);
                 }
 
-
-                //DESATIVADO POIS A CONSULTA SERA REALIZADO POR AJAX (Funcao ativaAba())
-                //$param = '|||'.$parmPost['codigo'].'|||'.$this->m_empresacentrocusto;
-                // $consulta = new c_estoque_rel;
-                //BUSCA NOTAS
-                //$notas = c_estoque_rel::select_consulta_produto_preco($param);
-                //$this->smarty->assign('notas', $notas);
-
-                //BUSCA PEDIDOS
-                // $par = explode("|", $param);
-
-                // $pedido = $this->buscaPedidoPedido($par[3]);
-                // if($pedido != null){
-                //     $this->smarty->assign('pedido', $pedido);
-                //     //variavel que habilita tabela ou msg que nao existe
-                //     $this->smarty->assign('existePedido', 'yes');
-                // }else{
-                //     $this->smarty->assign('existePedido', 'no');
-                // }
-                //BUSCA COTACAO
-                // $cotacao = $this->buscaPedidoCotacao($par[3]);
-                // if($cotacao != null){
-                //     $this->smarty->assign('cotacao', $cotacao);
-                //     //variavel que habilita tabela ou msg que nao existe
-                //     $this->smarty->assign('existeCotacao', 'yes');
-                // }else{
-                //     $this->smarty->assign('existeCotacao', 'no');
-                // }
-
-                //BUSCA REPARO
-                // $reparo = $this->selectProdutoReparo($par[3]);
-                // if($reparo != null){
-                //     $this->smarty->assign('reparo', $reparo);
-                //     //variavel que habilita tabela ou msg que nao existe
-                //     $this->smarty->assign('existeReparo', 'yes');
-                // }else{
-                //     $this->smarty->assign('existeReparo', 'no');
-                // }
-
             }
         }
+
+
         $parmPost['codFabricante'] == '' ? $parmPost['codFabricante'] = $this->m_par[2] : $parmPost['codFabricante'];
 
         if ($parmPost['codFabricante'] != '') {
@@ -1387,126 +1388,112 @@ class p_produto extends c_produto
 
         //condicao para buscar estoque para as divs
         if ($this->m_function == 'updateDivs' and $this->m_divId == 'divEstoque') {
-            $produto[$i]['CODIGO'] = $this->m_produtoId;
+            $produto[]['CODIGO'] = $this->m_produtoId;
         }
 
         $resultProduto = [];
         $p = 0;
         $classProdutoQtde = new c_produto_estoque();
+        $mensagem_estoque_limitado = '';
 
         // Operador de coalescencia para php 8.3 
         $produto = $produto ?? [];
+        
+        //$performanceLogger = new PerformanceLogger('performance_log.txt'); 
+        //$performanceLogger->start('consulta_estoque');
 
         if (is_array($produto) && count($produto) > 0) {
-            for ($i = 0; $i < count($produto); $i++) {
-
-                $produtoQuant = $classProdutoQtde->produtoQtde($produto[$i]['CODIGO'], $this->m_empresacentrocusto) ?? [];
-
+            $totalProdutos = count($produto);
+            $limiteEstoque = 50;
+            
+            // Verifica se há mais de 50 produtos para exibir mensagem
+            if ($totalProdutos > $limiteEstoque) {
+                $mensagem_estoque_limitado = "A busca de estoque foi realizada apenas para os primeiros {$limiteEstoque} itens. Para visualizar o estoque dos demais produtos, refine sua pesquisa.";
+            }
+            
+            // Processa TODOS os produtos, mas consulta estoque apenas dos primeiros 50
+            for ($i = 0; $i < $totalProdutos; $i++) {
+                
+                // Inicializa estoque e reserva
                 $produto[$i]['ESTOQUE'] = 0;
-
                 $produto[$i]['RESERVA'] = 0;
+                
+                // Consulta estoque apenas para os primeiros 50 produtos
+                if ($i < $limiteEstoque) {
+                    $produtoQuant = $classProdutoQtde->produtoQtde($produto[$i]['CODIGO'], $this->m_empresacentrocusto) ?? [];
 
-                for ($q = 0; $q < count($produtoQuant); $q++) {
-                    if ($produtoQuant[$q]['STATUS'] == 0):
-                        $produto[$i]['ESTOQUE'] = $produtoQuant[$q]['QUANTIDADE'];
-                    else:
-                        $produto[$i]['RESERVA'] = $produtoQuant[$q]['QUANTIDADE'];
-                    endif;
-                    //$produto[$i]['CENTROCUSTO'] = $produtoQuant[$q]['CCUSTO'];
+                    $produtoQuant = is_array($produtoQuant) ? $produtoQuant : [];
+
+                    for ($q = 0; $q < count($produtoQuant); $q++) {
+                        if ($produtoQuant[$q]['STATUS'] == 0):
+                            $produto[$i]['ESTOQUE'] = $produtoQuant[$q]['QUANTIDADE'];
+                        else:
+                            $produto[$i]['RESERVA'] = $produtoQuant[$q]['QUANTIDADE'];
+                        endif;
+                    }
                 }
+                
                 $resultProduto[$p] = $produto[$i];
                 $p++;
             }
         } else {
             $resultProduto = [];
         }
-        //ESTOQUE POR CENTRO CUSTO
-        $consulta = new c_banco();
-        $sql = "select centroCusto from FIN_CENTRO_CUSTO WHERE NIVEL = '1'";
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
 
-        // Operador de coalescencia para php 8.3 
-        $centroCusto = $consulta->resultado ?? $consulta->resultado ?? [];
+        //$performanceLogger->log('Tempo de execução: ' . $performanceLogger->end('consulta_estoque') . ' ms');
+        //$performanceLogger->lineBreak(2);
 
-        for ($i = 0; $i < count($produto); $i++) {
-            for ($k = 0; $k < count($centroCusto); $k++) {
 
-                $produtoQuant = $classProdutoQtde->produtoQtde($produto[$i]['CODIGO'], $centroCusto[$k]['CENTROCUSTO']) ?? [];
-                $produtoEst[$i]['ESTOQUE'] = 0;
+        //$performanceLogger->start('consulta_estoque_centro_custo');
+        // se clicar na aba estoque e o produto for selecionado, busca o estoque por centro de custo
+        if($this->m_divId == 'divEstoque' and $this->m_produtoId !== '' and $this->m_produtoId !== null){
 
-                $produtoEst[$i]['RESERVA'] = 0;
+            //ESTOQUE POR CENTRO CUSTO
+            $consulta = new c_banco();
+            $sql = "select centroCusto, descricao from FIN_CENTRO_CUSTO WHERE NIVEL = '1'";
+            $consulta->exec_sql($sql);
+            $consulta->close_connection();
 
-                for ($q = 0; $q < count($produtoQuant); $q++) {
-                    if ($produtoQuant[$q]['STATUS'] == 0) {
-                        $produtoEst[$i]['ESTOQUE'] = $produtoQuant[$q]['QUANTIDADE'];
-                    } else {
-                        $produtoEst[$i]['RESERVA'] = $produtoQuant[$q]['QUANTIDADE'];
+            // Operador de coalescencia para php 8.3 
+            $centroCusto = $consulta->resultado ?? $consulta->resultado ?? [];
+
+            for ($i = 0; $i < count($produto); $i++) {
+                for ($k = 0; $k < count($centroCusto); $k++) {
+
+                    $produtoQuant = $classProdutoQtde->produtoQtde($produto[$i]['CODIGO'], $centroCusto[$k]['CENTROCUSTO']) ?? [];
+                    $produtoEst[$i]['ESTOQUE'] = 0;
+
+                    $produtoEst[$i]['RESERVA'] = 0;
+
+                    for ($q = 0; $q < count($produtoQuant); $q++) {
+                        if ($produtoQuant[$q]['STATUS'] == 0) {
+                            $produtoEst[$i]['ESTOQUE'] = $produtoQuant[$q]['QUANTIDADE'];
+                        } else {
+                            $produtoEst[$i]['RESERVA'] = $produtoQuant[$q]['QUANTIDADE'];
+                        }
+                        $produtoEst[$i]['CENTROCUSTO'] = $centroCusto[$k]['CENTROCUSTO'] . ' - ' . $centroCusto[$k]['DESCRICAO'];
                     }
-                    $produtoEst[$i]['CENTROCUSTO'] = $produtoQuant[$q]['CCUSTO'];
+                    $resultEstoque[$k] = $produtoEst[$i];
                 }
-                $resultEstoque[$k] = $produtoEst[$i];
+            }
+            if ($parmPost['codigo'] != '' || $parmPost['codFabricante'] != '') {
+                $this->smarty->assign('estoque', $resultEstoque);
             }
         }
-        if ($parmPost['codigo'] != '' || $parmPost['codFabricante'] != '') {
-            $this->smarty->assign('estoque', $resultEstoque);
-        }
+
+        //$performanceLogger->end('consulta_estoque_centro_custo');
+        //$performanceLogger->lineBreak(2);
 
         // MARCA
-        $consulta = new c_banco();
-        $sql = "SELECT marca as ID, descricao FROM EST_MARCA";
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
-        $result = is_array($consulta->resultado) ? $consulta->resultado : [];
-        $marca_ids[0] = '';
-        $marca_names[0] = 'Selecione Marca';
-        for ($i = 0; $i < count($result); $i++) {
-            $marca_ids[$i + 1] = $result[$i]['ID'];
-            $marca_names[$i + 1] = $result[$i]['ID'] . " - " . $result[$i]['DESCRICAO'];
-        }
-        $this->smarty->assign('marca_ids', $marca_ids);
-        $this->smarty->assign('marca_names', $marca_names);
+        $marca_combo = $this->select_marca_combo();
+        $this->smarty->assign('marca_ids', $marca_combo['ids']);
+        $this->smarty->assign('marca_names', $marca_combo['names']);
         if ($this->m_par[1] == "")
             $this->smarty->assign('marca_id', 'Todos');
         else
             $this->smarty->assign('marca_id', $this->m_par[1]);
 
-        $this->smarty->assign('imgBtn', true);
-
-        /*            $produtoQuant = $classProdutoQtde->produtoQtde($produto[$i]['CODIGO'], $this->m_empresacentrocusto);
-            switch (count($produtoQuant)){
-                case 0://não localizou nada
-                    $produto[$i]['ESTOQUE'] = 0;
-                    $produto[$i]['RESERVA'] = 0;
-                    if ($this->m_par[4] == 'F'){
-                        $resultProduto[$p] = $produto[$i];
-                        $p++;
-                    }
-                break;
-                case 1://DISPONIVEL somente estoque
-                    $produto[$i]['ESTOQUE'] = $produtoQuant[0]['QUANTIDADE'];
-                    $produto[$i]['RESERVA'] = 0;
-                    $resultProduto[$p] = $produto[$i];
-                    $p++;
-                break;
-                default : // disponivel estoque com reservas
-                    $produto[$i]['ESTOQUE'] = $produtoQuant[0]['QUANTIDADE'];
-                    $produto[$i]['RESERVA'] = $produtoQuant[1]['QUANTIDADE']+$produtoQuant[2]['QUANTIDADE']+$produtoQuant[3]['QUANTIDADE'];
-                    $resultProduto[$p] = $produto[$i];
-                    $p++;
-                break;
-            }
-        }//for
- * 
- * 
- */
-        //validação Botão imagem [padrão]
-        //$parametros = new c_banco;
-        //$parametros->setTab("EST_PARAMETRO");
-        //$imgBtn = $parametros->getField("IMGBTN", "FILIAL=".$this->m_empresacentrocusto);
-        //if ($imgBtn == 'S'){ 
-        $this->smarty->assign('imgBtn', true);
-        // }
+        $this->smarty->assign('imgBtn', true);  
 
         //checkBox produto_pesquisar 
         if (count($resultProduto) == 1) {
@@ -1517,7 +1504,14 @@ class p_produto extends c_produto
         $this->smarty->assign('from', $this->from);
         $this->smarty->assign('acao', $this->acao);  // pode ser vazio ou alterar 
         $this->smarty->assign('lanc', $resultProduto);
-        $this->smarty->assign('quantArray', count($resultProduto));
+
+        // Paginacao
+        $this->smarty->assign('quantidade_total_produtos_pesquisados', $this->quantidade_total_produtos_pesquisados);
+        $this->smarty->assign('pagina_atual', $this->pagina_atual);
+        $this->smarty->assign('quantidade_maxima_por_pagina', $this->quantidade_maxima_por_pagina);
+        $this->smarty->assign('quantidade_pesquisada', $this->quantidade_pesquisada);
+        $this->smarty->assign('total_paginas', $this->total_paginas);
+        $this->smarty->assign('mensagem_estoque_limitado', $mensagem_estoque_limitado);
 
         if ($this->from == 'atendimento' || $this->from == 'atendimento_new') {
             if ($this->tipoCategoriaAtendimento == '') {
@@ -1549,7 +1543,8 @@ class p_produto extends c_produto
             }
 
             //condicao para impressao, sera uitlizado apenas no ajax
-            $this->smarty->assign('lanc', 1);
+            // 11-MAIO-2026 e necessario passsar um array para nao quebrar a build do template
+            $this->smarty->assign('lanc', [1]);
 
             //fluxo busca cotacoes
             $cotacao = $this->buscaPedidoCotacao($this->m_produtoId) ?? [];
@@ -1643,24 +1638,17 @@ class p_produto extends c_produto
             default:
                 $this->smarty->display('produto_mostra.tpl');
         }
-
-        /*        if ($this->m_opcao=="pesquisar"):
-            $this->smarty->display('produto_pesquisar.tpl');
-        else:
-            $this->smarty->display('produto_mostra.tpl');
-        endif;
- * 
- */
     }
     // fim mostraProdutos
     //----------------------------------------------------------------
     function desenhaCadastroImagemProduto($mensagem = NULL, $tipoMsg = null)
     {
 
-        $lanc = $this->select_produto_imagem() ?? [];
+        $lanc = $this->select_produto_ged() ?? [];
         $produto = $this->select_produto_letra(null, $this->getId());
 
         $this->smarty->assign('pathImagem', $this->img);
+        $this->smarty->assign('pathCliente', ADMhttpCliente);
         $this->smarty->assign('pathJs', ADMhttpBib . '/js');
         $this->smarty->assign('submenu', $this->m_submenu);
         $this->smarty->assign('letra', $this->m_letra);
@@ -1682,7 +1670,6 @@ class p_produto extends c_produto
 
 //	END OF THE CLASS
 // Rotina principal - cria classe
-//$produto = new p_produto(isset($parmPost['id']) ? $parmPost['id'] : '''submenu'], $_POST['letra'], $_POST['quant'], $_POST['acao'], $_REQUEST['pesquisa'], $_POST['opcao'], $_POST['loc'], $_POST['ns'], $_POST['idNF']);
 $produto = new p_produto();
 
 $produto->controle();

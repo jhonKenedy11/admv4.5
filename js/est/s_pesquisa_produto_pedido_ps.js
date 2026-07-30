@@ -82,7 +82,6 @@ function fechar() {
 
 //fecha pesquisa de produto e atualiza campos da form que chamou
 function fechaProdutoPesquisaAtendimento(e) {
-    debugger;
     f = window.opener.document.lancamento;
 
     var linha = $(e).closest("tr");
@@ -93,6 +92,7 @@ function fechaProdutoPesquisaAtendimento(e) {
     var descricaoProduto = linha.find("td:eq(3)").text().trim(); 
     var unidade          = linha.find("td:eq(4)").text().trim(); 
     var vlrUnitario      = linha.find("td:eq(5)").text().trim();
+    var focarQuantidade = false;
 
     if(document.lancamento.acao.value != ''){
         f.codProduto.value        = id;
@@ -104,10 +104,20 @@ function fechaProdutoPesquisaAtendimento(e) {
         f.descProduto.value       = descricaoProduto  
         f.uniProduto.value        = unidade
         f.vlrUnitarioPecas.value  = vlrUnitario
+        if (f.quantidadePecas) {
+            if (!f.quantidadePecas.value) {
+                f.quantidadePecas.value = '0,00';
+            }
+            focarQuantidade = true;
+        }
     }
-    
-       
+
     window.close();
+    if (focarQuantidade && window.opener && typeof window.opener.focarCampoPecas === 'function') {
+        window.opener.focarCampoPecas('quantidadePecas');
+    } else if (focarQuantidade && f.quantidadePecas) {
+        f.quantidadePecas.focus();
+    }
 }
 
 function calculaTotalProdutoAtendimento(codigo){

@@ -14,6 +14,7 @@
 </style>
 
 <script type="text/javascript" src="{$pathJs}/ped/s_pedido_ps.js"> </script>
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <!-- page content -->
 <div class="right_col" role="main" style="padding: 14px;">
 
@@ -280,15 +281,16 @@
                         <!--table class="table table-striped jambo_table bulk_action"-->
                         <thead>
                             <tr class="headings">
-                                <th style="width:45px;text-align:center">Pedido</th>
-                                <th style="width: 50px;">Situação</th>
+                                <th style="width:30px;text-align:center">Ped.</th>
+                                <th style="width: 50px;text-align:center">Situação</th>
+                                <th style="width: 80px;text-align:center">Vendedor</th>
                                 <th>Cliente</th>
                                 {if isset($lanc) && isset($lanc[0].OBRA_DESC)}
                                     <th>Obra</th>
                                 {/if}
-                                <th style="width: 50px;">Emissao</th>
-                                <th style="width: 60px;">Total</th>
-                                <th style="width: 40px;">Manuten&ccedil;&atilde;o</th>
+                                <th style="width: 50px;text-align:center">Emissao</th>
+                                <th style="width: 60px;text-align:center">Total</th>
+                                <th style="width: 95px;text-align:center">Manuten&ccedil;&atilde;o</th>
 
                             </tr>
                         </thead>
@@ -299,13 +301,14 @@
                                 <tr>
                                     <td style="text-align:center"> {$lanc[i].ID} </td>
                                     <td style="text-align:center"> {$lanc[i].SITUACAODESC} </td>
+                                    <td style="text-align:center"> {$lanc[i].VENDEDOR_NOME} </td>
                                     <td> {$lanc[i].NOME} </td>
                                     {if isset($lanc[0].OBRA_DESC)}
                                         <td> {$lanc[i].OBRA_DESC} </td>
                                     {/if}
                                     <td style="text-align:center"> {$lanc[i].EMISSAO|date_format:"%d/%m/%Y"} </td>
                                     <td style="text-align:center"> {$lanc[i].TOTAL|number_format:2:",":"."} </td>
-                                    <td>
+                                    <td style="text-align:center">
                                         <button type="submit" class="btn btn-primary btn-xs"
                                             onclick="javascript:submitAlterar('{$lanc[i].ID}', '{$lanc[i].SITUACAO}', '{$lanc[i].CLIENTE}');"><span
                                                 class="glyphicon glyphicon-pencil" aria-hidden="true"
@@ -327,7 +330,6 @@
 
                         </tbody>
                     </table>
-                    <div id="popup" title="IMPRESSÃO"></div>
                 </div> <!-- div class="x_content" = inicio tabela -->
             </div> <!-- div class="x_panel" = painel principal-->
         </div> <!-- div class="col-md-12 col-sm-12 col-xs-12 "-->
@@ -402,9 +404,6 @@
         }
     });
 </script>
-<!-- LINKS PARA POPUP DE IMPRESSAO -->
-<link rel="stylesheet" href="//code.jquery.com/ui/1.12.0/themes/base/jquery-ui.css">
-<script src="https://code.jquery.com/ui/1.12.0/jquery-ui.js"></script>
 
 <!-- Select2 -->
 <script src="{$bootstrap}/select2-master/dist/js/select2.full.min.js"></script>

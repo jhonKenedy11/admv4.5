@@ -9,6 +9,15 @@ let wizard;
 // Controle de carregamento de estados
 let carregamentoEstadosPromise = null;
 
+// Parâmetros de impostos padrão (alíquotas percentuais)
+let parametrosImpostos = {
+    inss: 0,
+    pis: 0,
+    cofins: 0,
+    ir: 0,
+    contribuicao_social: 0
+};
+
 // Event listeners
 $(document).ready(function() {
 
@@ -21,26 +30,6 @@ $(document).ready(function() {
             $('#divEstado').hide();
             $('#estado').val('');
         }
-    });
-
-
-
-    // Estado - Select comum sem Select2 (sem controle de estado)
-    $('#estado').on('change', function() {
-        
-        var estadoId = $(this).val();
-        
-        // Atualizar placeholder do local_prestacao baseado na seleção do estado
-        if (estadoId && estadoId.trim() !== '') {
-            // Estado selecionado - habilitar busca de cidades
-            $('#local_prestacao').data('select2').$container.find('.select2-selection__placeholder').text('Digite para buscar cidades...');
-        } else {
-            // Nenhum estado selecionado - mostrar aviso
-            $('#local_prestacao').data('select2').$container.find('.select2-selection__placeholder').text('Selecione primeiro um estado...');
-        }
-        
-        // Limpar campos dependentes quando estado mudar
-        desabilitarCamposDependentes();
     });
 
 
@@ -76,6 +65,9 @@ $(document).ready(function() {
 
     // Configurar parcelas
     configurarParcelas();
+
+    // Configurar gêneros
+    configurarGeneros();
 });
 
 /**
@@ -91,6 +83,9 @@ function limparCamposDependentes() {
 
         // Limpar campo valor_servico usando inputmask
         $('#valor_servico').inputmask('setvalue', 0);
+        
+        // Limpar campo tributa_municipio_prestador
+        $('#tributa_municipio_prestador').val('N');
         
         console.log('Campos dependentes limpos');
     } catch (error) {
@@ -131,22 +126,15 @@ function alimentarTelaServicos() {
  * Inicializa Select2 para todos os combos
  */
 function inicializarSelect2() {
-    debugger
+    
 
     // Local da Prestação (Cidade) - Sempre habilitado, validação será feita na busca
     $('#local_prestacao').select2({
         width: "99%",
-        placeholder: "Selecione primeiro um estado...",
+        placeholder: "Digite para buscar o município de prestação...",
         language: {
             // Texto insuficiente
             inputTooShort: function() {
-
-                var estadoId = $('#estado').val();
-
-                if (!estadoId || estadoId.trim() === '') {
-                    return "Selecione um estado primeiro";
-                }
-
                 return "Digite no mínimo 3 caracteres";
             },
 
@@ -157,14 +145,7 @@ function inicializarSelect2() {
 
             // Nenhum resultado
             noResults: function() {
-
-                var estadoId = $('#estado').val();
-
-                if (!estadoId || estadoId.trim() === '') {
-                    return "Selecione um estado primeiro";
-                }
-
-                return "Nenhuma cidade encontrada";
+                return "Nenhum município encontrado";
             },
 
             // Erro na busca
@@ -180,67 +161,29 @@ function inicializarSelect2() {
             dataType: "json",
             type: "POST",
             url: window.location.pathname + '?mod=est&form=faturamento_nfs&submenu=searchCidadeAjax&opcao=ajax',
-            beforeSend: function(xhr, settings) {
-                debugger
-                // Validar se existe estado selecionado ANTES de fazer a consulta
-                var estadoId = $('#estado').val();
-                if (!estadoId || estadoId.trim() === '') {
-                    // Mostrar mensagem de aviso
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'Atenção!',
-                            text: 'Selecione um estado primeiro para buscar cidades',
-                            toast: true,
-                            position: 'top-end',
-                            showConfirmButton: false,
-                            timer: 3000
-                        });
-                    }
-                    // Cancelar a requisição se não há estado selecionado
-                    xhr.abort();
-                    return false;
-                }
-            },
             data: function(params) {
                 return {
                     term: params.term,
-                    estado: $('#estado').val(),
-                    estado_sigla: $('#estado').find('option:selected').text().split(' - ')[0],
+                    estado: $('#estado').val() || '',
+                    estado_sigla: $('#estado').find('option:selected').text().split(' - ')[0] || '',
                 };
             },
             processResults: function(response) {
                 return {
                     results: response || []
                 };
-            },
-            error: function(xhr, status, error) {
-                // Se a requisição foi cancelada (abort), mostrar mensagem
-                if (status === 'abort') {
-                    // Mostrar mensagem de erro no Select2
-                    $('#local_prestacao').select2('open');
-                    $('#local_prestacao').select2('close');
-                    
-                    // Mostrar toast/alert
-                    if (typeof Swal !== 'undefined') {
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'Atenção!',
-                            text: 'Selecione um estado primeiro',
-                            toast: true,
-                            position: 'top-end',
-                            showConfirmButton: false,
-                            timer: 3000
-                        });
-                    }
-                }
             }
         }
     });
 
+    // Event listener para mudança no local de prestação
+    $('#local_prestacao').on('change', function() {
+        atualizarTributaMunicipioPrestador();
+    });
+
     // Event listener para mudança na lista de serviços
 $('#lista_servico').on('change', function() {
-        debugger
+        
         var servicoId = $(this).val();
         
         if (servicoId) {
@@ -270,7 +213,6 @@ $('#lista_servico').on('change', function() {
  * Configura o combo da lista de serviços (carrega todos os serviços disponíveis)
  */
 function configurarListaServicos() {
-    console.log('Configurando lista de serviços...');
     
     // Mostrar loading no combo
     $('#lista_servico').html('<option value="">Carregando serviços...</option>');
@@ -288,22 +230,32 @@ function configurarListaServicos() {
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         },
         success: function(response) {
-            console.log('Serviços carregados:', response);
+
             
-            if (response && Array.isArray(response) && response.length > 0) {
+            
+            if (response && response.items && Array.isArray(response.items) && response.items.length > 0) {
                 // Limpar o combo
                 $('#lista_servico').empty();
                 
                 // Adicionar opção padrão
                 $('#lista_servico').append('<option value="">Selecione um serviço</option>');
                 
-                // Adicionar todas as opções com dados da alíquota
-                response.forEach(function(servico) {
+                // Adicionar todas as opções com dados da alíquota - apenas um foreach
+                response.items.forEach(function(servico) {
+
                     if (servico.id && servico.text) {
+
                         var aliquota = servico.aliquota || '0,0000';
-                        $('#lista_servico').append('<option value="' + servico.id + '" data-aliquota="' + aliquota + '">' + servico.text + '</option>');
+                        var optionHtml = '<option value="' + servico.id + '" data-aliquota="' + aliquota + '">' + servico.text + '</option>';
+                        $('#lista_servico').append(optionHtml);
                     }
+
                 });
+                
+                // Selecionar o serviço padrão se existir (operação direta, sem foreach)
+                if (response.default) {
+                    $('#lista_servico').val(response.default).trigger('change');
+                }
                 
             } else {
                 // Em caso de erro ou resposta vazia
@@ -321,7 +273,6 @@ function configurarListaServicos() {
  * Configura o combo da situação tributária (carrega todas as situações disponíveis)
  */
 function configurarSituacaoTributaria() {
-    console.log('Configurando situação tributária...');
     
     // Mostrar loading no combo
     $('#situacao_tributaria').html('<option value="">Carregando situações tributárias...</option>');
@@ -339,21 +290,27 @@ function configurarSituacaoTributaria() {
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         },
         success: function(response) {
-            console.log('Situações tributárias carregadas:', response);
             
-            if (response && Array.isArray(response) && response.length > 0) {
+            if (response && response.items && Array.isArray(response.items) && response.items.length > 0) {
                 // Limpar o combo
                 $('#situacao_tributaria').empty();
                 
                 // Adicionar opção padrão
                 $('#situacao_tributaria').append('<option value="">Selecione uma situação tributária</option>');
                 
-                // Adicionar todas as opções
-                response.forEach(function(situacao) {
+                // Adicionar todas as opções - apenas um foreach
+                response.items.forEach(function(situacao) {
+
                     if (situacao.id && situacao.text) {
                         $('#situacao_tributaria').append('<option value="' + situacao.id + '">' + situacao.text + '</option>');
                     }
+
                 });
+                
+                // Selecionar a situação tributária padrão se existir (operação direta, sem foreach)
+                if (response.default) {
+                    $('#situacao_tributaria').val(response.default).trigger('change');
+                }
                 
             } else {
                 // Em caso de erro ou resposta vazia
@@ -373,7 +330,6 @@ function configurarSituacaoTributaria() {
  * @param {string|number} cidadeId - ID da cidade selecionada
  */
 function configurarParcelas() {
-    debugger
     
     // Mostrar loading no combo
     $('#parcelas').html('<option value="">Carregando parcelas...</option>');
@@ -390,15 +346,17 @@ function configurarParcelas() {
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         },
         success: function(response) {
-            debugger
             
             if (response && Array.isArray(response) && response.length > 0) {
+
                 // Limpar o combo
                 $('#parcelas').empty();
                 
                 // Adicionar todas as opções
                 response.forEach(function(situacao) {
+
                     if (situacao.id && situacao.text) {
+
                         // Monta o option com atributos extras
                         var option = '<option value="' + situacao.id + '" ' +
                                      'data-value="' + situacao.data_value + '">' +
@@ -417,6 +375,73 @@ function configurarParcelas() {
             console.error('Erro ao carregar situações tributárias:', error);
             $('#parcelas').html('<option value="">Erro ao carregar parcelas</option>');
             $('#parcelas').prop('disabled', true);
+        }
+    });
+}
+
+
+/**
+ * Configura o combo de gêneros (carrega todos os gêneros disponíveis)
+ */
+function configurarGeneros() {
+    
+    // Mostrar loading no combo
+    $('#genero').html('<option value="">Carregando gêneros...</option>');
+
+    // Fazer requisição AJAX para buscar gêneros
+    $.ajax({
+        url: window.location.pathname + '?mod=est&form=faturamento_nfs&submenu=searchGeneros&opcao=ajax',
+        type: 'POST',
+        dataType: 'json',
+        xhrFields: {
+            withCredentials: true
+        },
+        beforeSend: function(xhr) {
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        },
+        success: function(response) {
+            
+            if (response && Array.isArray(response) && response.length > 0) {
+
+                // Limpar o combo
+                $('#genero').empty();
+                
+                // Adicionar todas as opções
+                response.forEach(function(genero) {
+
+                    if (genero.id && genero.text) {
+
+                        var tipo = genero.tipo_lancamento || '';
+                        
+                        var option = '<option value="' + genero.id + '" ' +
+                                     'data-tipo="' + tipo + '" ' +
+                                     'class="genero-tipo-' + tipo.toLowerCase() + '">' +
+                                     genero.text +
+                                     '</option>';
+                                     
+                        $('#genero').append(option);
+                    }
+                });
+                
+                // Select2 básico
+                $('#genero').select2({
+                    width: '100%',
+                    templateResult: function(item) {
+                        if (!item.id) return item.text;
+                        var tipo = $(item.element).data('tipo');
+                        var cor = tipo == 'R' ? '#28a745' : (tipo == 'P' ? '#dc3545' : '#999');
+                        return $('<span style="border-left: 3px solid ' + cor + '; padding-left: 8px;">' + item.text + '</span>');
+                    }
+                });
+                
+            } else {
+                $('#genero').html('<option value="">Nenhum gênero encontrado</option>');
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Erro ao carregar gêneros:', error);
+            $('#genero').html('<option value="">Erro ao carregar gêneros</option>');
+            $('#genero').prop('disabled', true);
         }
     });
 }
@@ -509,11 +534,26 @@ function calcularTodosCampos() {
         // ISSRF 
         var issrf = (base_calculo * aliquota) / 100;
         
-        // 5. APLICAR VALORES NOS CAMPOS CALCULADOS
+        // 5. CALCULAR IMPOSTOS BASEADOS NOS PARÂMETROS
+        // Aplicar alíquotas percentuais sobre a base de cálculo
+        var valor_inss = (base_calculo * parametrosImpostos.inss) / 100;
+        var valor_pis = (base_calculo * parametrosImpostos.pis) / 100;
+        var valor_cofins = (base_calculo * parametrosImpostos.cofins) / 100;
+        var valor_ir = (base_calculo * parametrosImpostos.ir) / 100;
+        var valor_contribuicao_social = (base_calculo * parametrosImpostos.contribuicao_social) / 100;
+        
+        // 6. APLICAR VALORES NOS CAMPOS CALCULADOS
         // Usar inputmask.setvalue para garantir que o inputmask processe corretamente
         $('#base_calculo').inputmask('setvalue', base_calculo);
         $('#issqn').inputmask('setvalue', issqn);
         $('#issrf').inputmask('setvalue', issrf);
+        
+        // Impostos parametrizados no Step 4
+        $('#valor_inss').inputmask('setvalue', valor_inss);
+        $('#valor_pis').inputmask('setvalue', valor_pis);
+        $('#valor_cofins').inputmask('setvalue', valor_cofins);
+        $('#valor_ir').inputmask('setvalue', valor_ir);
+        $('#valor_contribuicao_social').inputmask('setvalue', valor_contribuicao_social);
         
         // Valores totais no Step 4
         $('#valor_total_servicos').inputmask('setvalue', valor_servico);
@@ -522,10 +562,10 @@ function calcularTodosCampos() {
         $('#valor_total_desconto').inputmask('setvalue', desc_incondicional);
         $('#valor_total_aliquota').inputmask('setvalue', aliquota);
         
-        // 6. CONTROLAR ESTADO DOS BOTÕES
+        // 7. CONTROLAR ESTADO DOS BOTÕES
         controlarEstadoBotoes();
         
-        // 7. CALCULAR PARCELAS SE NECESSÁRIO
+        // 8. CALCULAR PARCELAS SE NECESSÁRIO
         var numero_parcelas = parseInt($('#parcelas').find('option:selected').data('value')) || 1;
         var descricao_parcelas = $('#parcelas').find('option:selected').text() || '';
 
@@ -559,10 +599,10 @@ function executarCalculosComDelay() {
 
 /**
  * Configura eventos de cálculo automático
- * Configurado para os 3 campos principais: valor_servico, desc_incondicional, valor_deducao
+ * Configurado para os 4 campos principais: valor_servico, desc_incondicional, valor_deducao, aliquota
  */
 function configurarEventosCalculo() {    
-    // Eventos para os 3 campos principais que disparam o cálculo
+    // Eventos para os 4 campos principais que disparam o cálculo
     $('#valor_servico').on('input', function() {
         console.log('Campo valor_servico alterado');
         executarCalculosComDelay();
@@ -575,6 +615,11 @@ function configurarEventosCalculo() {
     
     $('#valor_deducao').on('input', function() {
         console.log('Campo valor_deducao alterado');
+        executarCalculosComDelay();
+    });
+    
+    $('#aliquota').on('input', function() {
+        console.log('Campo aliquota alterado');
         executarCalculosComDelay();
     });
     
@@ -690,8 +735,6 @@ function controlarEstadoBotoes() {
         var btnEmitir = $('#btnEmitirNFS');
         var btnVisualizar = $('#btnVisualizar');
         
-        console.log('Controlando estado dos botões. Valor do serviço:', valorServico);
-        
         if (valorServico > 0) {
             // Habilitar botões
             btnEmitir.prop('disabled', false).removeClass('disabled');
@@ -757,6 +800,13 @@ function limparCamposCalculados() {
         $('#base_calculo').inputmask('setvalue', 0);
         $('#issqn').inputmask('setvalue', 0);
         $('#issrf').inputmask('setvalue', 0);
+        
+        // Limpar impostos parametrizados do Step 4
+        $('#valor_inss').inputmask('setvalue', 0);
+        $('#valor_pis').inputmask('setvalue', 0);
+        $('#valor_cofins').inputmask('setvalue', 0);
+        $('#valor_ir').inputmask('setvalue', 0);
+        $('#valor_contribuicao_social').inputmask('setvalue', 0);
         
         // Limpar valores totais do Step 4
         $('#valor_total_servicos').inputmask('setvalue', 0);
@@ -916,8 +966,6 @@ function aplicarMascara(selector, tipo, options) {
             console.warn('Tipo de máscara não reconhecido:', tipo);
             break;
     }
-    
-    console.log('Máscara aplicada:', tipo, 'em', selector);
 }
 
 /**
@@ -1172,8 +1220,6 @@ async function populatesModalData(dados) {
         // 3. Preencher dados dos serviços
         await preencherDadosServicos(servicos);
         
-        console.log('Dados preenchidos com sucesso!');
-        
     } catch (error) {
         console.error('Erro ao preencher dados:', error);
         throw error;
@@ -1212,7 +1258,7 @@ async function preencherDadosPrestador(data_provider) {
  * @param {Array} data_borrower - Dados do tomador
  */
 async function preencherDadosTomador(data_borrower) {
-    debugger
+    
     if (!data_borrower || data_borrower.length === 0) {
         console.log('Cliente não encontrado ou sem dados do tomador');
         return;
@@ -1268,7 +1314,7 @@ function aguardar(ms) {
 
 // Função para inicializar o wizard
 function inicializarWizard() {
-    debugger
+    
     try {
         // Resetar wizard anterior se existir
         if (wizard && typeof wizard.goToStep === 'function') {
@@ -1292,7 +1338,7 @@ function inicializarWizard() {
             showStepURLhash: false,
             keyNavigation: false, // Desabilita navegação por teclado para não interferir nos campos de input
             toolbarSettings: {
-                toolbarPosition: 'bottom',
+                toolbarPosition: 'top',
                 toolbarButtonPosition: 'right',
                 showNextButton: true,
                 showPreviousButton: true,
@@ -1391,7 +1437,7 @@ function limparCamposValores() {
 
 // Função para preencher campos do tomador
 function preencherCamposTomador(dados_tomador) {
-    debugger
+    
     try {
         if (!dados_tomador) {
             console.warn('Dados do tomador não fornecidos');
@@ -1523,8 +1569,8 @@ function preencherCamposTomador(dados_tomador) {
         }
         
         // Carregar estados e setar o estado do tomador se disponível
-        var estadoId = dados_tomador.TOMADOR_ENDERECO_UF_ID || null;
-        carregarEstadosStep3(estadoId);
+        //var estadoId = dados_tomador.TOMADOR_ENDERECO_UF_ID || null;
+        //carregarEstadosStep3(estadoId);
         
         //console.log('Campos do tomador preenchidos com sucesso');
         return true;
@@ -1590,6 +1636,7 @@ function carregarEstados() {
  * @param {string} estadoId - ID do estado para setar (opcional)
  */
 async function carregarEstadosStep3(estadoId) {
+    
     try {
         // Aguardar carregamento dos estados
         await carregarEstados();
@@ -1597,8 +1644,8 @@ async function carregarEstadosStep3(estadoId) {
         // Se foi passado um ID, setar o valor
         if (estadoId) {
             $('#estado').val(estadoId).trigger('change');
-            console.log('Estado setado no step3:', estadoId);
         }
+
     } catch (error) {
         console.error('Erro ao carregar estados:', error);
     }
@@ -1606,7 +1653,7 @@ async function carregarEstadosStep3(estadoId) {
 
 // Função para preencher campos do prestador
 function preencherCamposPrestador(dados_prestador) {
-    debugger
+    
     try {
         if (!dados_prestador) {
             console.warn('Dados do prestador não fornecidos');
@@ -1633,10 +1680,13 @@ function preencherCamposPrestador(dados_prestador) {
             $('#prestador_codigo_municipio').val(dados_prestador.PRESTADOR_CODIGO_MUNICIPIO);
         }
 
+        // Carregar estados e setar o estado do tomador se disponível
+        var estadoId = dados_prestador.PRESTADOR_CODIGO_UF || null;
+        carregarEstadosStep3(estadoId);
+
         if (dados_prestador.PRESTADOR_NFS_SERIE) {
             $('#prestador_serie').val(dados_prestador.PRESTADOR_NFS_SERIE);
         }
-
 
         if (dados_prestador.PRESTADOR_NFS_SITUACAO_TRIBUTARIA) {
             $('#prestador_situacao_tributaria').val(dados_prestador.PRESTADOR_NFS_SITUACAO_TRIBUTARIA);
@@ -1647,6 +1697,15 @@ function preencherCamposPrestador(dados_prestador) {
         }else{
             $('#prestador_data_fato_gerador').val(new Date().toLocaleDateString('pt-BR'));
         }
+        
+        // Armazenar parâmetros de impostos nas variáveis globais
+        parametrosImpostos.inss = parseFloat(dados_prestador.PRESTADOR_NFS_INSS || 0);
+        parametrosImpostos.pis = parseFloat(dados_prestador.PRESTADOR_NFS_PIS || 0);
+        parametrosImpostos.cofins = parseFloat(dados_prestador.PRESTADOR_NFS_COFINS || 0);
+        parametrosImpostos.ir = parseFloat(dados_prestador.PRESTADOR_NFS_IR || 0);
+        parametrosImpostos.contribuicao_social = parseFloat(dados_prestador.PRESTADOR_NFS_CONTRIBUICAO_SOCIAL || 0);
+        
+        console.log('Parâmetros de impostos carregados:', parametrosImpostos);
         
         //console.log('Campos do prestador preenchidos com sucesso');
         return true;
@@ -1689,7 +1748,7 @@ function calcularValores(servicos) {
 
 // Função para adicionar texto à descrição
 function adicionarADescricao(elemento) {
-    debugger
+    
 
 
     let descricao = $('#descricao');
@@ -1710,7 +1769,7 @@ function adicionarADescricao(elemento) {
     }
     
     // Verifica se vai ultrapassar o limite de caracteres
-    const max_caracteres = 200;
+    const max_caracteres = 1000;
  
     if (novo_conteudo.length > max_caracteres) {
         Swal.fire({
@@ -1721,17 +1780,6 @@ function adicionarADescricao(elemento) {
             position: 'top-end',
             showConfirmButton: false,
             timer: 3000
-        });
-    } else {
-        // Notifica o usuário
-        Swal.fire({
-            icon: 'success',
-            title: 'Adicionado!',
-            text: 'Texto adicionado à descrição',
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 2000
         });
     }
     
@@ -1745,7 +1793,7 @@ function adicionarADescricao(elemento) {
  // Função para validar descrição
  function validarDescricao(elemento) {
 
-    const max_caracteres = 200;
+    const max_caracteres = 1000;
     const texto_atual = elemento.value.trim(); // Limpa para validar corretamente
     const caracteres_restantes = max_caracteres - texto_atual.length;
     
@@ -1763,7 +1811,7 @@ function adicionarADescricao(elemento) {
 
 // Função para preencher a modal com os serviços
 function preencherModalServicos(servicos) {
-    debugger
+    
     try {
         var step3 = $('#step_3 .panel_servicos .panel-body');
         
@@ -1781,16 +1829,16 @@ function preencherModalServicos(servicos) {
             html = '<div class="alert alert-info">Nenhum serviço cadastrado para este documento.</div>';
         } else {
             html = '<div class="table-responsive">' +
-                   '<table class="table table-striped table-bordered table-hover">' +
+                   '<table class="table table-bordered jambo_table table-striped">' +
                    '<thead class="thead-dark">' +
                    '<tr>' +
                    '<th>Descrição</th>' +
-                   '<th>Quantidade</th>' +
-                   '<th>Unidade</th>' +
-                   '<th>Valor Unitário</th>' +
-                   '<th>Total</th>' +
-                   '<th>Data</th>' +
-                   '<th>Usuário</th>' +
+                   '<th class="text-center">Quantidade</th>' +
+                   '<th class="text-center">Unidade</th>' +
+                   '<th class="text-center">Valor Unitário</th>' +
+                   '<th class="text-center">Total</th>' +
+                   '<th class="text-center">Data</th>' +
+                   '<th class="text-center">Usuário</th>' +
                    '</tr>' +
                    '</thead>' +
                    '<tbody>';
@@ -1849,8 +1897,8 @@ function preencherModalServicos(servicos) {
                        '<td class="clickable" data-texto="' + (servico.DESCSERVICO || servico.DESCRICAO || 'N/A').replace(/"/g, '&quot;') + '" onclick="adicionarADescricao(this)" title="' + (servico.DESCSERVICO || servico.DESCRICAO || '') + '">' + descricao + '</td>' +
                        '<td class="text-center clickable" data-texto="' + String(quantidadeExibida).replace(/"/g, '&quot;') + '" onclick="adicionarADescricao(this)">' + quantidadeExibida + '</td>' +
                        '<td class="text-center clickable" data-texto="' + (servico.UNIDADE || 'N/A').replace(/"/g, '&quot;') + '" onclick="adicionarADescricao(this)">' + (servico.UNIDADE || 'N/A') + '</td>' +
-                       '<td class="text-right clickable" data-texto="' + (valorUnitario + '').replace(/"/g, '&quot;') + '" onclick="adicionarADescricao(this)">' + valorUnitario + '</td>' +
-                       '<td class="text-right clickable" data-texto="' + (valorTotal + '').replace(/"/g, '&quot;') + '" onclick="adicionarADescricao(this)"><strong>' + valorTotal + '</strong></td>' +
+                       '<td class="text-center clickable" data-texto="' + (valorUnitario + '').replace(/"/g, '&quot;') + '" onclick="adicionarADescricao(this)">' + valorUnitario + '</td>' +
+                       '<td class="text-center clickable" data-texto="' + (valorTotal + '').replace(/"/g, '&quot;') + '" onclick="adicionarADescricao(this)"><strong>' + valorTotal + '</strong></td>' +
                        '<td class="text-center clickable" data-texto="' + (dataFormatada + '').replace(/"/g, '&quot;') + '" onclick="adicionarADescricao(this)"><small>' + dataFormatada + '</small></td>' +
                        '<td class="text-center clickable" data-texto="' + (servico.NOME_USUARIO || 'N/A').replace(/"/g, '&quot;') + '" onclick="adicionarADescricao(this)"><small>' + (servico.NOME_USUARIO || 'N/A') + '</small></td>' +
                        '</tr>';
@@ -1864,43 +1912,6 @@ function preencherModalServicos(servicos) {
                            '</tr>';
                 }
             });
-            
-            html += '</tbody></table></div>';
-            
-            // Adicionar resumo dos totais
-            var totalGeral = 0;
-            var quantidadeTotal = 0;
-            var quantidadeExecutadaTotal = 0;
-            
-            servicos.forEach(function(servico) {
-                if (servico.TOTALSERVICO && !isNaN(parseFloat(servico.TOTALSERVICO))) {
-                    totalGeral += parseFloat(servico.TOTALSERVICO);
-                }
-                if (servico.QUANTIDADE && !isNaN(parseFloat(servico.QUANTIDADE))) {
-                    quantidadeTotal += parseFloat(servico.QUANTIDADE);
-                }
-                if (servico.QUANTIDADE_EXECUTADA && !isNaN(parseFloat(servico.QUANTIDADE_EXECUTADA))) {
-                    quantidadeExecutadaTotal += parseFloat(servico.QUANTIDADE_EXECUTADA);
-                }
-            });
-            
-            var resumoQuantidade = quantidadeTotal.toFixed(2) + ' unidade(s)';
-            if (quantidadeExecutadaTotal > 0 && quantidadeExecutadaTotal !== quantidadeTotal) {
-                resumoQuantidade = quantidadeTotal.toFixed(2) + ' / ' + quantidadeExecutadaTotal.toFixed(2) + ' unidade(s) (contratada/executada)';
-            }
-            
-            html += '<div class="row mt-3">' +
-                   '<div class="col-md-6">' +
-                   '<div class="alert alert-info">' +
-                   '<strong>Resumo:</strong> ' + servicos.length + ' serviço(s), ' + resumoQuantidade +
-                   '</div>' +
-                   '</div>' +
-                   '<div class="col-md-6">' +
-                   '<div class="alert alert-success">' +
-                   '<strong>Valor Total:</strong> ' + formatarMoedaBR(totalGeral) +
-                   '</div>' +
-                   '</div>' +
-                   '</div>';
         }
         
         step3.html(html);
@@ -1908,7 +1919,7 @@ function preencherModalServicos(servicos) {
         return true;
         
     } catch (error) {
-        debugger
+        
         console.error('Erro ao preencher modal de serviços:', error);
         var step3 = $('#step_3 .panel_servicos .panel-body');
         if (step3.length) {
@@ -1929,25 +1940,29 @@ function validarDadosEmissao() {
     try {
         var erros = [];
         
-        // Validar prestador
-        if (!$('#prestador_cnpj').val()) {
-            erros.push('CNPJ do prestador é obrigatório');
+        if (!$('#estado').val()) {
+            erros.push('Estado do tomador');
         }
         
-        // Validar tomador
-        if (!$('#tipo').val()) {
-            erros.push('Tipo de pessoa é obrigatório');
+        if (!$('#local_prestacao').val()) {
+            erros.push('Local de prestação');
         }
-        if (!$('#cpfcnpj').val()) {
-            erros.push('CPF/CNPJ do tomador é obrigatório');
+        
+        if (!$('#lista_servico').val()) {
+            erros.push('Lista de serviço');
         }
-        if (!$('#nome_razao_social').val()) {
-            erros.push('Nome/Razão social do tomador é obrigatório');
+
+        if (!$('#situacao_tributaria').val()) {
+            erros.push('Situação tributária');
         }
         
         // Validar valores
         if (!$('#valor_total_servicos').val()) {
-            erros.push('Valor total dos serviços é obrigatório');
+            erros.push('Valor do serviço');
+        }
+
+        if (!$('#parcelas').val()) {
+            erros.push('Parcelas');
         }
         
         if (erros.length > 0) {
@@ -1969,11 +1984,12 @@ function validarDadosEmissao() {
 
 // Função para emitir NFS
 function emitirNFS() {
-    debugger
+    
     try {
-        // if (!validarDadosEmissao()) {
-        //     return false;
-        // }
+
+        if (!validarDadosEmissao()) {
+            return false;
+        }
         
         // Mostrar loading
         Swal.fire({
@@ -2046,6 +2062,7 @@ function emitirNFS() {
  * A formatação e validação final são feitas no backend
  */
 function getDadosNfs() {
+    
     try {
         var dados = {
             nota_fiscal: {
@@ -2061,6 +2078,7 @@ function getDadosNfs() {
                 observacao: $('#observacoes').val() || null
             },
             prestador: {
+                razao_social: $('#prestador_empresa_nome').val(),
                 cpfcnpj: $('#prestador_cnpj').val(),
                 cidade: $('#prestador_codigo_municipio').val()
             },
@@ -2087,18 +2105,25 @@ function getDadosNfs() {
                 fone_fax: $('#tomador_fone_fax').val() ? $('#tomador_fone_fax').val().replace(/\D/g, '') : null
             },
             itens: [{
-                tributa_municipio_prestador: $('#tributa_municipio_prestador').val() || 'S',
+                tributa_municipio_prestador: $('#tributa_municipio_prestador').val() || 'N',
                 codigo_local_prestacao_servico: obterValorSelect2('#local_prestacao') || null,
+                descricao_local_prestacao_servico: obterTextoSelect2('#local_prestacao') || null,
                 codigo_item_lista_servico: obterValorSelect2('#lista_servico') || null,
                 descritivo: $('#descricao').val() || 'Prestação de serviços',
                 aliquota_item_lista_servico: obterValorPercentual('#aliquota'), // Backend formata
                 situacao_tributaria: parseInt($('#situacao_tributaria').val()) || 0,
+                situacao_tributaria_desc: obterTextoSelect2('#situacao_tributaria') || null,
+                valor_desconto_incondicional: obterValorNumerico('#desc_incondicional'), // Backend formata
+                valor_desconto_deducao: obterValorNumerico('#valor_deducao'), // Backend formata
+                base_calculo: obterValorNumerico('#base_calculo'), // Backend formata
+                valor_servico: obterValorNumerico('#valor_servico'), // Backend formata
                 valor_tributavel: obterValorNumerico('#base_calculo'), // Backend formata
                 valor_deducao: obterValorNumerico('#valor_deducao'), // Backend formata
                 valor_issqn: obterValorNumerico('#issqn'), // Backend formata
                 valor_issrf: obterValorNumerico('#issrf') // Backend formata
             }],
             forma_pagamento: {
+                genero: obterValorSelect2('#genero') || null,
                 numero_parcelas: $('#parcelas').find('option:selected').data('value') || null,
                 parcelas: obterDadosParcelas()
             }
@@ -2193,20 +2218,70 @@ function returnSendNfsError($xhr, $status, $error) {
 
 // Função para visualizar dados
 function visualizarDados() {
-    try {
-        // Ir para o último step para visualizar todos os dados
-        if (wizard && typeof wizard.goToStep === 'function') {
-            wizard.goToStep(3); // Step 4 (índice 3)
-        }
-    } catch (error) {
-        console.error('Erro ao visualizar dados:', error);
+    
+
+    $data = getDadosNfs();
+
+    if (!$data) {
+        return false;
     }
+
+    var json = JSON.stringify($data);
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.target = '_blank';
+    form.action = 'index.php';
+
+    let input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'mod';
+    input.value = 'est';
+    form.appendChild(input);
+
+    input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'form';
+    input.value = 'faturamento_nfs';
+    form.appendChild(input);
+
+    input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'submenu';
+    input.value = 'preVisualizationInvoice';
+    form.appendChild(input);
+
+    input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'json';
+    input.value = json;
+    form.appendChild(input);
+
+    input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'opcao';
+    input.value = 'ajax';
+    form.appendChild(input);
+
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
 }
 
 // Função para limpar todos os campos da modal
 function limparTodosCamposModal() {
     try {
         console.log('Limpando todos os campos da modal...');
+        
+        // Resetar parâmetros de impostos
+        parametrosImpostos = {
+            inss: 0,
+            pis: 0,
+            cofins: 0,
+            ir: 0,
+            contribuicao_social: 0
+        };
         
         // Limpar campos do prestador (Step 1)
         $('#prestador_empresa_nome').val('');
@@ -2267,6 +2342,7 @@ function limparTodosCamposModal() {
         $('#aliquota').val('0,00');
         $('#issqn').inputmask('setvalue', 0);
         $('#issrf').inputmask('setvalue', 0);
+        $('#tributa_municipio_prestador').val('N');
         $('#descricao').val('');
         
         // Resetar contador de caracteres da descrição
@@ -2336,7 +2412,7 @@ function limparTodosCampos() {
  * @returns {string|number|null} - Valor do campo ou null se não houver seleção
  */
 function obterValorSelect2(selector) {
-    debugger
+    
     try {
         var elemento = $(selector);
         if (!elemento.length) {
@@ -2461,6 +2537,40 @@ function separarDDDTelefone(telefone) {
     return null;
 }
 
+/**
+ * Atualiza o campo tributa_municipio_prestador comparando o município do prestador com o local de prestação
+ * Se forem iguais: S, se diferentes: N
+ */
+function atualizarTributaMunicipioPrestador() {
+    try {
+        // Obter código do município do prestador
+        var codigoMunicipioPrestador = $('#prestador_codigo_municipio').val();
+        
+        // Obter código do local de prestação (valor selecionado no select2)
+        var codigoLocalPrestacao = $('#local_prestacao').val();
+        
+        
+        // Validar se ambos os valores existem
+        if (!codigoMunicipioPrestador || !codigoLocalPrestacao) {
+            $('#tributa_municipio_prestador').val('N');
+            return;
+        }
+        
+        // Comparar os códigos dos municípios
+        if (codigoMunicipioPrestador === codigoLocalPrestacao) {
+            // Se forem iguais, tributa no município do prestador
+            $('#tributa_municipio_prestador').val('S');
+        } else {
+            // Se forem diferentes, não tributa no município do prestador
+            $('#tributa_municipio_prestador').val('N');
+        }
+        
+    } catch (error) {
+        console.error('Erro ao atualizar tributa_municipio_prestador:', error);
+        $('#tributa_municipio_prestador').val('N');
+    }
+}
+
 // Expor funções globalmente para uso externo
 window.abrirModalServicos = abrirModalServicos;
 window.alimentarTelaServicos = alimentarTelaServicos;
@@ -2486,5 +2596,6 @@ window.configurarListaServicos = configurarListaServicos;
 window.configurarSituacaoTributaria = configurarSituacaoTributaria;
 window.limparCamposDependentes = limparCamposDependentes;
 window.configurarParcelas = configurarParcelas;
+window.atualizarTributaMunicipioPrestador = atualizarTributaMunicipioPrestador;
 
 

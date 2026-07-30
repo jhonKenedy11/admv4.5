@@ -9,6 +9,7 @@
     }
 </style>
 <script type="text/javascript" src="{$pathJs}/est/s_nota_fiscal.js"> </script>
+<script type="text/javascript" src="{$pathJs}/est/s_nota_fiscal_devolucao.js"> </script>
 <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <!-- page content -->
 <div class="right_col" role="main">
@@ -59,9 +60,6 @@
                                         <span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span>
                                             Cadastro</span>
                                     </button>
-                                </li>
-                                <li>
-                                    <a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
                                 </li>
                                 <li class="dropdown">
                                     <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button"
@@ -132,9 +130,6 @@
 
                                     </ul>
 
-                                </li>
-                                <li>
-                                    <a class="close-link"><i class="fa fa-close"></i></a>
                                 </li>
                             {/if}
 
@@ -396,9 +391,9 @@
     <!-- panel tabela dados -->
     <div class="col-md-12 col-xs-12">
         <div class="x_panel small">
-            <table id="datatable-buttons" class="table table-bordered jambo_table">
-                <thead>
-                    <tr style="background: #2A3F54; color: white;">
+                <table id="datatable-buttons" class="table table-bordered jambo_table">
+                    <thead>
+                        <tr class="headings">
                         {if $from neq 'manifesto_fiscal'}
                             <th>#</th>
                         {/if}
@@ -456,12 +451,14 @@
                                     <button type="button" title="Alterar" class="btn btn-primary btn-xs"
                                         onclick="javascript:submitAlterar('{$lanc[i].ID}');"><span
                                             class="glyphicon glyphicon-pencil" aria-hidden="true"></span></button>
+                                    {if $lanc[i].SITUACAO neq 'C' && $lanc[i].SITUACAO neq 'B'}
                                     <button type="button" title="Deletar" class="btn btn-danger btn-xs"
-                                        onclick="javascript:submitExcluir('{$lanc[i].ID}');"><span
+                                        onclick="javascript:submitExcluir('{$lanc[i].ID}', '{$lanc[i].SITUACAO}');"><span
                                             class="glyphicon glyphicon-trash" aria-hidden="true"></span></button>
+                                    {/if}
                                     <button type="button" title="Produtos" class="btn btn-warning btn-xs"
                                         onclick="javascript:submitCadastroProdutosMostra('{$lanc[i].ID}');"><span
-                                            class="glyphicon glyphicon-barcode" aria-hidden="true"></span></button>
+                                            class="glyphicon glyphicon-th-large" aria-hidden="true"></span></button>
                                     <!--    {if $lanc[i].TIPONOTA eq '0 - ENTRADA'}
                                             <button type="button" title="Receber Produto" class="btn btn-warning btn-xs" onclick="javascript:submitReceber('{$lanc[i].ID}');"><span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span></button>
                                         {else}    
@@ -475,31 +472,39 @@
                                         {/if}
                                         onclick="javascript:submitGerarXML('{$lanc[i].ID}');"><span
                                             class="glyphicon glyphicon-font" aria-hidden="true"></span></button>
-                                    <button type="button" title="Imprime Danfe" class="btn btn-success btn-xs" target="_blank"
-                                        onclick="javascript:printDanfe('{$lanc[i].ID}');"><span
-                                            class="glyphicon glyphicon-print" aria-hidden="true"></span></button>
+                                    <button type="button"
+                                        class="btn btn-success btn-xs"
+                                        {if $lanc[i].SITUACAO neq 'B'}
+                                            disabled title="Disponível após autorização da NF-e"
+                                        {else}
+                                            title="Nota Fiscal, Boletos e E-mail"
+                                        {/if}
+                                        onclick="javascript:abrirNotaFiscalBoletoBancario('{$lanc[i].ID}');"><span
+                                            class="glyphicon glyphicon-list-alt" aria-hidden="true"></span></button>
+                                    {if $lanc[i].MODELO neq '65'}
                                     <button type="button" title="Imprimir Etiqueta" class="btn btn-warning btn-xs"
                                         onclick="javascript:abrir('index.php?mod=est&form=nota_fiscal_imp_etiqueta&opcao=imprimir&parm={$lanc[i].ID}');"><span
                                             class="glyphicon glyphicon-tag" aria-hidden="true"></span></button>
+                                    {/if}
 
                                     {$xml_trata1 = $lanc[i].PATHDANFE|replace:"/PDF/":"/ENVIADAS/APROVADAS/"}
+                                    {if $lanc[i].MODELO eq '65'}
+                                    {$xml_trata2 = $xml_trata2|replace:"-DANFCE.PDF":"-NFE.XML"}
+                                    {else}
                                     {$xml_trata2 = $xml_trata1|replace:"-DANFE.PDF":"-NFE.XML"}
+                                    {/if}
                                     {$xml_path = $xml_trata2|replace:"HTTPS://ADMSISTEMA.COM.BR/": "/"|lower}
                                     {if $lanc[i].PATHDANFE neq ''}
                                     <a href="{$xml_path}" download>
-                                        <button type="button" title="Download XML" class="btn btn-success btn-xs">
-                                            <span class="glyphicon glyphicon-list" aria-hidden="true"></span>
+                                        <button type="button" title="Download XML" class="btn btn-default btn-xs">
+                                            <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span>
                                         </button>
                                     </a>
                                     {else}
-                                    <button type="button" title="Download XML" disabled class="btn btn-success btn-xs">
-                                        <span class="glyphicon glyphicon-list" aria-hidden="true"></span>
+                                    <button type="button" title="Download XML" disabled class="btn btn-default btn-xs">
+                                        <span class="glyphicon glyphicon-download-alt" aria-hidden="true"></span>
                                     </button>
                                     {/if}
-                                    <button type="button" title="Enviar NF e Boleto por Email" {if $lanc[i].SITUACAO neq 'B'} disabled {/if}
-                                        class="btn btn-info btn-xs"
-                                        onclick="javascript:submitEnviarEmailBoleto('{$lanc[i].ID}');"><span
-                                            class="glyphicon glyphicon-envelope" aria-hidden="true"></span></button>
                                 </td>
                             {/if}
                         </tr>

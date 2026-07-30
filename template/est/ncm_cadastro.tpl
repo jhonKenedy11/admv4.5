@@ -5,8 +5,7 @@
     border-radius: 5px;
 }
 </style>
-<!--<script type="text/javascript" src="{$pathJs}/est/s_ncm.js"> </script> -->
-<script type="text/javascript" src="{$pathJs}/bib/s_default.js"> </script>
+<script type="text/javascript" src="{$pathJs}/est/s_ncm.js"> </script>
 <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 
         <!-- page content -->

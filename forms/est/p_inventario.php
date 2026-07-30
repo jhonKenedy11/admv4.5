@@ -421,7 +421,8 @@ Class p_inventario extends c_inventario {
             $produtoQuant = $classProdutoQtde->produtoQtdeInventario($produto[$i]['CODPRODUTO'], $this->m_empresacentrocusto);
             $produto[$i]['ESTOQUE'] = 0;
             $produto[$i]['RESERVA'] = 0;
-            for($q=0;$q<count($produtoQuant ?? []);$q++){
+            $produtoQuant = is_array($produtoQuant) ? $produtoQuant : [];
+            for($q=0;$q<count($produtoQuant);$q++){
                 if ($produtoQuant[$q]['STATUS'] == 0):
                         $produto[$i]['ESTOQUE'] = $produtoQuant[$q]['QUANTIDADE'];
                 else:    

@@ -198,7 +198,7 @@
                   </div>
             </div>
             <div class="x_panel">
-                  {if count($resultado) > 0}
+                  {if !empty($resultado)}
                         <div class="table-responsive">
                               <table class="table table-striped" style="margin-bottom: 0;">
                                     <thead>
@@ -209,15 +209,35 @@
                                                 <th style="width: 8%">Localização</th>
                                                 <th style="width: 5%">Unidade</th>
                                                 <th style="width: 10%">Cód. Fabricante</th>
-                                                <th style="width: 8%; text-align: center;">Estoque</th>
-                                                <th style="width: 8%; text-align: center;">Reserva</th>
-                                                <th style="width: 8%; text-align: center;">Disponível</th>
+                                                <th style="width: 7%; text-align: center;">Estoque</th>
+                                                <th style="width: 7%; text-align: center;">Reserva</th>
+                                                <th style="width: 7%; text-align: center;">Disponível</th>
                                                 <th style="width: 8%; text-align: center;">Custo Compra</th>
+                                                <th style="width: 8%; text-align: center;">Valor Informado</th>
                                                 <th style="width: 8%; text-align: center;">Preço Venda</th>
+                                                <th style="width: 9%; text-align: center;">Total R$ (custo)</th>
+                                                <th style="width: 9%; text-align: center;">Total R$ (venda)</th>
                                           </tr>
                                     </thead>
                                     <tbody>
+                                          {assign var=_totEstoque value=0}
+                                          {assign var=_totReserva value=0}
+                                          {assign var=_totDisp value=0}
+                                          {assign var=_totValCusto value=0}
+                                          {assign var=_totValVenda value=0}
                                           {foreach $resultado as $item}
+                                                {assign var=_qE value=$item.ESTOQUE+0}
+                                                {assign var=_qR value=$item.RESERVA+0}
+                                                {assign var=_qD value=$item.DISPONIVEL+0}
+                                                {assign var=_cc value=$item.CUSTOCOMPRA+0}
+                                                {assign var=_pv value=$item.VENDA+0}
+                                                {math equation="a*b" a=$_qE b=$_cc assign=_linhaCusto}
+                                                {math equation="a*b" a=$_qE b=$_pv assign=_linhaVenda}
+                                                {math equation="x+y" x=$_totEstoque y=$_qE assign=_totEstoque}
+                                                {math equation="x+y" x=$_totReserva y=$_qR assign=_totReserva}
+                                                {math equation="x+y" x=$_totDisp y=$_qD assign=_totDisp}
+                                                {math equation="x+y" x=$_totValCusto y=$_linhaCusto assign=_totValCusto}
+                                                {math equation="x+y" x=$_totValVenda y=$_linhaVenda assign=_totValVenda}
                                                 <tr>
                                                       <td>{$item.CODIGO}</td>
                                                       <td>{$item.DESCRICAO}</td>
@@ -229,10 +249,24 @@
                                                       <td style="text-align: center;">{$item.RESERVA|number_format:0:',':'.'}</td>
                                                       <td style="text-align: center;">{$item.DISPONIVEL|number_format:0:',':'.'}</td>
                                                       <td style="text-align: center;">{$item.CUSTOCOMPRA|number_format:2:',':'.'}</td>
+                                                      <td style="text-align: center;">{$item.PRECOINFORMADO|number_format:2:',':'.'}</td>
                                                       <td style="text-align: center;">{$item.VENDA|number_format:2:',':'.'}</td>
+                                                      <td style="text-align: center;">{$_linhaCusto|number_format:2:',':'.'}</td>
+                                                      <td style="text-align: center;">{$_linhaVenda|number_format:2:',':'.'}</td>
                                                 </tr>
                                           {/foreach}
                                     </tbody>
+                                    <tfoot>
+                                          <tr style="font-weight: bold;">
+                                                <td colspan="6" style="text-align: right;">Totais</td>
+                                                <td style="text-align: center;">{$_totEstoque|number_format:0:',':'.'}</td>
+                                                <td style="text-align: center;">{$_totReserva|number_format:0:',':'.'}</td>
+                                                <td style="text-align: center;">{$_totDisp|number_format:0:',':'.'}</td>
+                                                <td colspan="3"></td>
+                                                <td style="text-align: center;">{$_totValCusto|number_format:2:',':'.'}</td>
+                                                <td style="text-align: center;">{$_totValVenda|number_format:2:',':'.'}</td>
+                                          </tr>
+                                    </tfoot>
                               </table>
                         </div>
                   {else}
@@ -255,17 +289,23 @@
       </div>
 </div>
 
+<script type="text/javascript" src="{$pathJs}/est/s_estoque_relatorio.js"></script>
+<script src="{$pathJs}/../bib/js/vendor/xlsx.full.min.js"></script>
 <script type="text/javascript">
       function exportarTabelaParaExcel() {
-            // Pega a tabela que já está sendo exibida
             var table = document.querySelector('.table-striped');
             if (!table) {
                   alert('Tabela não encontrada!');
                   return;
             }
             
-            // Converte a tabela para CSV
-            var csv = '';
+            if (typeof XLSX === 'undefined') {
+                  alert('Biblioteca Excel não carregada. Por favor, recarregue a página.');
+                  return;
+            }
+            
+            var wb = XLSX.utils.book_new();
+            var ws_data = [];
             var rows = table.querySelectorAll('tr');
             
             for (var i = 0; i < rows.length; i++) {
@@ -275,21 +315,40 @@
                   
                   for (var j = 0; j < cells.length; j++) {
                         var cellText = cells[j].textContent.trim();
-                        // Escapa vírgulas e aspas
-                        if (cellText.indexOf(',') !== -1 || cellText.indexOf('"') !== -1) {
-                              cellText = '"' + cellText.replace(/"/g, '""') + '"';
-                        }
                         rowData.push(cellText);
                   }
                   
-                  csv += rowData.join(',') + '\n';
+                  ws_data.push(rowData);
             }
             
-            // Cria o blob e faz o download
-            var blob = new Blob([csv], {ldelim}type: 'text/csv;charset=utf-8;'{rdelim});
-            var link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'Estoque_Geral_{$dataImp}.csv';
-            link.click();
+            var ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+            if (typeof converteColunaNumeroBR === 'function') {
+                  converteColunaNumeroBR(ws, 9);
+                  converteColunaNumeroBR(ws, 10);
+                  converteColunaNumeroBR(ws, 11);
+                  converteColunaNumeroBR(ws, 12);
+                  converteColunaNumeroBR(ws, 13);
+            }
+            
+            var colWidths = [];
+            for (var col = 0; col < ws_data[0].length; col++) {
+                  var maxLength = 0;
+                  for (var row = 0; row < ws_data.length; row++) {
+                        if (ws_data[row][col]) {
+                              var cellLength = String(ws_data[row][col]).length;
+                              if (cellLength > maxLength) {
+                                    maxLength = cellLength;
+                              }
+                        }
+                  }
+                  colWidths.push({ wch: Math.min(Math.max(maxLength, 10), 50) });
+            }
+            ws['!cols'] = colWidths;
+            
+            XLSX.utils.book_append_sheet(wb, ws, "Estoque Geral");
+            
+            var fileName = 'Estoque_Geral_{$dataImp}.xlsx';
+            XLSX.writeFile(wb, fileName);
       }
 </script> 

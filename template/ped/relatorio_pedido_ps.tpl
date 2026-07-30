@@ -1,3 +1,4 @@
+{debug}
 <!--dev verifique a pasta templates do cliente-->
 <style>
       .headtab {
@@ -295,31 +296,26 @@
                                                       </div>
                                                 {/if}
                                                 {if $parcelas neq ''}
+                                                      <div class="col-md-12 col-sm-12 col-xs-12" style="margin-top:10px; margin-bottom:5px;">
+                                                            <strong>Financeiro</strong>
+                                                            {if $descCondPgto neq ''} — {$descCondPgto}{/if}
+                                                      </div>
                                                       <table class="table table-striped">
                                                             <tr>
-                                                                  <th></th>
-                                                                  <th></th>
-                                                                  <th></th>
-                                                                  <th></th>
                                                                   <th>PARCELA</th>
+                                                                  <th>TIPO DOCUMENTO</th>
                                                                   <th>DATA VENC</th>
                                                                   <th>VALOR</th>
                                                             </tr>
                                                             <tbody>
                                                                   {section name=p loop=$parcelas}
                                                                         <tr>
-                                                                              <td></td>
-                                                                              <td></td>
-                                                                              <td></td>
-                                                                              <th></th>
                                                                               <td> {$parcelas[p].PARCELA} / {$totalParc} </td>
-                                                                              <td> {$parcelas[p].VENCIMENTO|date_format:"%d/%m/%Y"}
-                                                                              </td>
-                                                                              <td> {$parcelas[p].VALOR|number_format:2:",":"."}
-                                                                              </td>
+                                                                              <td> {$parcelas[p].TIPODOCTO_NOME} </td>
+                                                                              <td> {$parcelas[p].VENCIMENTO|date_format:"%d/%m/%Y"} </td>
+                                                                              <td> {$parcelas[p].VALOR|number_format:2:",":"."} </td>
                                                                         </tr>
-                                                                        <p>
-                                                                        {/section}
+                                                                  {/section}
                                                             </tbody>
                                                       </table>
                                                 {/if}

@@ -3,9 +3,25 @@
   .x_panel {
     border-radius: 5px;
   }
+  .btn_banco_api{
+    color: #fff !important;
+    background-color:rgb(100, 82, 234) !important;
+    border-color:rgb(100, 82, 234) !important;
+  }
+  .btn_banco_api:hover{
+    color: #fff !important;
+    background-color:rgb(126, 111, 240) !important;
+    border-color:rgb(126, 111, 240) !important;
+  }
 </style>
+
 <script type="text/javascript" src="{$pathJs}/fin/s_lancamento.js"> </script>
+<!-- <script type="text/javascript" src="{$pathJs}/fin/s_consolidacao_bancaria_apis.js"> </script> -->
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <!-- page content -->
 <div class="right_col" role="main">
 
@@ -65,26 +81,34 @@
                         Financeiro</span></button>
                   </li>
                   <li>
+                    <button type="button" class="btn btn-dark btn-xs" onClick="javascript:consultaDREAnual();"><span> DRE
+                        Financeiro Anual</span></button>
+                  </li>
+                  <li>
                     <button type="button" class="btn btn-dark btn-xs" onClick="javascript:lancPedDataEntrega();"><span>
                         Rel. Financeiro Data Entrega</span></button>
                   </li>
-                  <li><button type="button" class="btn btn-dark btn-xs" onClick="javascript:agrupaLancModal();">
+                  <li>
+                    <button type="button" class="btn btn-dark btn-xs" onClick="javascript:agrupaLancModal();">
                       <span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span> Agrupar Lançamentos</span>
                     </button>
                   </li>
-                  <li><button type="button" class="btn btn-dark btn-xs" onClick="javascript:baixaLoteLancModal();">
+                  <li>
+                    <button type="button" class="btn btn-dark btn-xs" onClick="javascript:baixaLoteLancModal();">
                       <span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span> Baixa em Lote</span>
                     </button>
                   </li>
-                  <li><button type="button" class="btn btn-dark btn-xs" onClick="javascript:impSlipLote();">
+                  <li>
+                    <button type="button" class="btn btn-dark btn-xs" onClick="javascript:impSlipLote();">
                       <span class="glyphicon glyphicon-print" aria-hidden="true"></span><span> Slip em Lote</span>
                     </button>
                   </li>
+                  <li>
+                    <button type="button" class="btn btn-dark btn-xs" onClick="javascript:submitAtualizaJuros();">
+                      <span class="glyphicon glyphicon-refresh" aria-hidden="true"></span><span> Atualizar Juros</span>
+                    </button>
+                  </li>
                 </ul>
-
-              </li>
-              <li><a class="close-link"><i class="fa fa-close"></i></a>
-              </li>
             </ul>
             <div class="clearfix"></div>
           </div>
@@ -199,7 +223,7 @@
                     <input type="text" class="form-control" id="nome" name="nome" placeholder="Conta" value="{$nome}">
                     <span class="input-group-btn">
                       <button type="button" class="btn btn-primary"
-                        onClick="javascript:abrir('{$pathCliente}/index.php?mod=crm&form=contas&opcao=pesquisar');">
+                        onClick="javascript:abrir('{$pathCliente}/index.php?mod=crm&form=contas&opcao=pesquisar&from=lancamento');">
                         <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
                       </button>
                     </span>
@@ -210,6 +234,7 @@
               <!-- include modal -->
               {include file="lancamento_agrupamento_modal.tpl"}
               {include file="lancamento_baixa_lote_modal.tpl"}
+
 
             </form>
 
@@ -239,6 +264,7 @@
                 <th>Movimento</th>
                 <th>Total</th>
                 <th class="invis">pessoaId</th>
+                <th hidden>Obs</th>
                 <th style="width: 110px;">Manuten&ccedil;&atilde;o</th>
               </tr>
             </thead>
@@ -268,24 +294,45 @@
                     {$lanc[i].TIPOLANCAMENTO}|{$lanc[i].MULTA|number_format:2:",":"."} |
                     {$lanc[i].JUROS|number_format:2:",":"."} | {$lanc[i].DESCONTO|number_format:2:",":"."} |
                     {$lanc[i].ORIGINAL|number_format:2:",":"."} </td>
+                  <td hidden>{$lanc[i].OBS} </td>
                   <td class=" last">
-                    <button type="button" class="btn btn-primary btn-xs"
-                      onclick="javascript:submitAlterar('{$lanc[i].ID}');"><span class="glyphicon glyphicon-pencil"
-                        aria-hidden="true" title="Editar"></span></button>
+
+                    <button type="button" class="btn btn-primary btn-xs" onclick="javascript:submitAlterar('{$lanc[i].ID}');">
+                      <span class="glyphicon glyphicon-pencil" aria-hidden="true" title="Editar"></span>
+                    </button>
+                    
                     {if $lanc[i].TIPODOCTO eq 'B'}
-                    <button type="button" class="btn btn-warning btn-xs"
-                      onclick="javascript:abrir('{$pathCliente}/index.php?mod=blt&form=boleto_imprime&opcao=blank&letra={$lanc[i].ID}');">
-                      <span class="glyphicon glyphicon-barcode" aria-hidden="true" title="Boleto"></span></button>
+                      <button type="button" class="btn btn-warning btn-xs"
+                        onclick="javascript:abrir('{$pathCliente}/index.php?mod=blt&form=boleto_imprime&opcao=blank&letra={$lanc[i].ID}');">
+                        <span class="glyphicon glyphicon-barcode" aria-hidden="true" title="Boleto"></span>
+                      </button>
                     {/if}
+
                     <button type="button" class="btn btn-info btn-xs"
                       onclick="javascript:abrir('{$pathCliente}/index.php?mod=fin&form=rel_recibo_imprime&opcao=imprimir&id={$lanc[i].ID}');">
-                      <span class="glyphicon glyphicon-file" aria-hidden="true" title="Recibo"></span></button>
+                      <span class="glyphicon glyphicon-file" aria-hidden="true" title="Recibo"></span>
+                    </button>
+
                     <button type="button" class="btn btn-success btn-xs"
                       onclick="javascript:abrir('{$pathCliente}/index.php?mod=fin&form=rel_duplicata_imprime&opcao=imprimir&id={$lanc[i].ID}');">
-                      <span class="glyphicon glyphicon-duplicate" aria-hidden="true" title="Duplicata"></span></button>
+                      <span class="glyphicon glyphicon-duplicate" aria-hidden="true" title="Duplicata"></span>
+                    </button>
+
                     <button type="button" class="btn btn-info btn-xs"
                       onclick="javascript:abrir('{$pathCliente}/index.php?mod=fin&form=rel_slip_imprime&opcao=imprimir&id={$lanc[i].ID}');">
-                      <span class="glyphicon glyphicon-print" aria-hidden="true" title="Slip"></span></button>
+                      <span class="glyphicon glyphicon-print" aria-hidden="true" title="Slip"></span>
+                    </button>
+
+                    
+                    <!-- Botões para o lançamento de recebimento API remover apos teste -->
+                    {if $lanc[i].TIPODOCTO eq "B" && $lanc[i].NBANCO neq 'null' && $lanc[i].NBANCO neq '' && $lanc[i].TIPOLANCAMENTO eq "RECEBIMENTO" && $lanc[i].ENVIA_BOLETO eq "A" }
+                        <button type="button" class="btn btn-xs btn_banco_api" title="Manutencao de Cobrança Bancária API"
+                          onclick="javascript:OpenModalManutencaoCobrancaApi('{$lanc[i].ID}', '{$lanc[i].NBANCO}');">
+                          <span class="glyphicon glyphicon-globe" aria-hidden="true" title="Manutencao de Cobrança Bancária API"></span>
+                        </button>  
+                    {/if}
+
+
                   </td>
                 </tr>
 
@@ -307,7 +354,7 @@
 </div> <!-- class='' = controla menu user -->
 
 
-
+{include file="manutencao_cobranca_api_modal.tpl"}
 {include file="template/database.inc"}
 
 <!-- Datatables -->

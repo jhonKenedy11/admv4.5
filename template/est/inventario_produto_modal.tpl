@@ -81,6 +81,7 @@
                   <th>Produto</th>
                   <th>Grupo</th>
                   <th>Código</th>
+                  <th>Cod Fabricante</th>
                   <th>Localização</th>
                 </tr>
                   </thead>

@@ -16,7 +16,7 @@ $dir = dirname(__FILE__);
 require_once($dir . "/../../../smarty/libs/Smarty.class.php");
 require_once($dir . "/../../class/ped/c_pedido_aprovacao.php");
 require_once($dir . "/../../class/crm/c_conta.php"); 
-require_once($dir . "/../../class/ped/c_pedido_venda_nf.php");  
+require_once($dir . "/../../class/ped/c_pedido_venda_nf.php");
 include_once($dir."/../../bib/c_date.php");
 
 
@@ -72,6 +72,7 @@ Class p_pedido_aprovacao extends c_pedido_aprovacao {
         // caminhos absolutos para todos os diretorios biblioteca e sistema
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
         $this->smarty->assign('bootstrap', ADMbootstrap);
+        $this->smarty->assign('pathSweet', ADMhttpCliente . '/../sweetalert2');
         $this->smarty->assign('raizCliente', $this->raizCliente);
         $this->smarty->assign('admClass', ADMclass);
 
@@ -95,17 +96,24 @@ Class p_pedido_aprovacao extends c_pedido_aprovacao {
         switch ($this->m_submenu) {
 
             case 'aprovado':
-                $this->pedido_aprovado($this->m_id);
-                $this->mostraPedidoAprovacao('Pedido Aprovado - '.$this->m_id, 'sucesso');
+                $resultado = $this->executarAprovacaoPedido((int) $this->m_id);
+                if (!empty($resultado['gerouFinanceiro'])) {
+                    break;
+                }
+                $this->mostraPedidoAprovacao();
+                $swalIcon = !empty($resultado['ok']) ? 'success' : 'error';
+                $swalTitle = !empty($resultado['ok']) ? 'Sucesso!' : 'Erro!';
+                $swalMsg = addslashes((string) ($resultado['msg'] ?? ''));
+                echo "<script>Swal.fire('{$swalTitle}', '{$swalMsg}', '{$swalIcon}');</script>";
                 break; 
             
             case 'desaprovado':
                 $this->pedido_desaprovado($this->m_id, $this->obs);
-                $this->mostraPedidoAprovacao('');
+                $this->mostraPedidoAprovacao();
                 break;            
             default:
                 if ($this->verificaDireitoUsuario('PEDAPROVACAO', 'C')) {
-                        $this->mostraPedidoAprovacao('');
+                        $this->mostraPedidoAprovacao();
                 }
         }
     }
@@ -113,18 +121,19 @@ Class p_pedido_aprovacao extends c_pedido_aprovacao {
     
 //---------------------------------------------------------------
 //---------------------------------------------------------------
-    function mostraPedidoAprovacao($mensagem=NULL,  $tipoMsg = NULL) {        
+    function mostraPedidoAprovacao() {        
         
        
-        if ($this->m_letra != '') {           
+        if ($this->m_letra != '') {
             $lanc = $this->select_pedido_aprovacao_letra($this->m_letra);
+        } else {
+            // Carga inicial: listar pendentes (sit 10) sem exigir clique em Pesquisa
+            $lanc = $this->select_pedido_aprovacao_letra('|||||');
         }
       
 
         $this->smarty->assign('pathImagem', $this->img);
         $this->smarty->assign('pathCliente', ADMhttpCliente);
-        $this->smarty->assign('mensagem', $mensagem);
-        $this->smarty->assign('tipoMsg', $tipoMsg);
         $this->smarty->assign('letra', $this->m_letra);
         $this->smarty->assign('subMenu', $this->m_submenu);
         $this->smarty->assign('opcao', $this->m_opcao);
@@ -185,6 +194,50 @@ Class p_pedido_aprovacao extends c_pedido_aprovacao {
         $this->smarty->display('pedido_aprovacao_mostra.tpl');
     }
 
+
+    function executarAprovacaoPedido($id)
+    {
+        $id = (int) $id;
+        if ($id <= 0) {
+            return ['ok' => false, 'msg' => 'Pedido inválido.'];
+        }
+
+        require_once(dirname(__FILE__) . '/../../class/ped/c_pedido_ps_tools.php');
+        $ps = new c_pedido_ps_tools();
+        $ps->setId($id);
+        $ps->buscaPedido();
+
+        $isPs = strtoupper((string) $ps->getEspecie()) === 'D'
+            && (int) $ps->getIdNatop() === 1
+            && (int) $ps->getSituacao() === 10;
+
+        if (!$isPs) {
+            $this->pedido_aprovado($id);
+            return ['ok' => true, 'msg' => 'Pedido Aprovado - ' . $id];
+        }
+
+        $destino = (int) ($ps->pedidoPsResolverConfirmacaoEstoque($id)['destino'] ?? 6);
+        if ($destino === 0) {
+            return ['ok' => false, 'msg' => 'Estoque insuficiente para confirmar o pedido.'];
+        }
+
+        $objContaBloq = new c_conta();
+        if (strtoupper((string) $objContaBloq->contaBloqueada((int) $ps->getCliente())) === 'S') {
+            return ['ok' => false, 'msg' => 'Cliente bloqueado. Verifique com o financeiro.'];
+        }
+
+        $ps->alteraSituacaoAprovacaoPedido($destino, (int) $this->m_userid);
+        $fin = $ps->pedidoPsFinalizarPosConfirmacao(10, $destino);
+        if (empty($fin['ok'])) {
+            return ['ok' => false, 'msg' => (string) ($fin['erro'] ?? 'Erro ao finalizar aprovação do pedido.')];
+        }
+        if (!empty($fin['gerouFinanceiro'])) {
+            return ['ok' => true, 'msg' => '', 'gerouFinanceiro' => true];
+        }
+
+        $msg = ($destino === 13) ? 'Pedido aprovado como encomenda - ' : 'Pedido Aprovado - ';
+        return ['ok' => true, 'msg' => $msg . $id];
+    }
 
 
     function comboSql($sql, $par, &$id, &$ids, &$names) {

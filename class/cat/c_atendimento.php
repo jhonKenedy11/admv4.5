@@ -70,6 +70,7 @@ class c_atendimento extends c_user
     private $percDescontoPecas         = NULL;
     private $acrescimoPecas         = NULL;
     private $valorTotalPecas = NULL;
+    private $nfEntradaPecas = NULL;
 
     //CAT_SERVICO
 
@@ -89,7 +90,6 @@ class c_atendimento extends c_user
     private $valorTotalServico = NULL;
     private $quantidadeExecutada = NULL;
     private $fatPedidoServicoId = NULL;
-
 
 
     //construtor
@@ -725,6 +725,19 @@ class c_atendimento extends c_user
         }
     }
 
+    function setNfEntradaPecas($nfEntradaPecas)
+    {
+        $this->nfEntradaPecas = $nfEntradaPecas;
+    }
+    function getNfEntradaPecas()
+    {
+        if (empty($this->nfEntradaPecas)) {
+            return 'null';
+        } else {
+            return $this->nfEntradaPecas;
+        }
+    }
+
     function setPedidoId($pedido_id)
     {
         $this->pedido_id = $pedido_id;
@@ -968,6 +981,7 @@ class c_atendimento extends c_user
     {
         return $this->fatPedidoServicoId;
     }
+
     //===============FIM-SERVICO=========================
 
 
@@ -1426,7 +1440,7 @@ class c_atendimento extends c_user
         $sql = "INSERT INTO CAT_AT_PECAS (";
 
         $sql .= "CODPRODUTO, CODFABRICANTE, CODPRODUTONOTA, QUANTIDADE, UNIDADE, VALORUNITARIO, DESCRICAO  , DESCONTO, PERCDESCONTO, ";
-        $sql .= " VALORTOTAL, CAT_ATENDIMENTO_ID, CREATED_USER, CREATED_AT ) ";
+        $sql .= " VALORTOTAL, CAT_ATENDIMENTO_ID, NFENTRADA, CREATED_USER, CREATED_AT ) ";
 
         if ($banco->gerenciadorDB == 'interbase') {
             $sql .= "VALUES (" . $this->getId() . ", '";
@@ -1445,6 +1459,7 @@ class c_atendimento extends c_user
             . $this->getPercDescontoPecas() . ", "
             . $this->getTotalPecas('B') . ", '"
             . $this->getIdAtendimentoPecas() . "',"
+            . $this->getNfEntradaPecas() . ", "
             . $this->m_userid . ",'"
             . date("Y-m-d H:i:s") .  "' ); ";
 
@@ -1478,6 +1493,7 @@ class c_atendimento extends c_user
         $sql .= "DESCONTO = " . $this->getDescontoPecas('B') . ", ";
         $sql .= "PERCDESCONTO = " . $this->getPercDescontoPecas('B') . ", ";
         $sql .= "VALORTOTAL = " . $this->getTotalPecas('B') . ", ";
+        $sql .= "NFENTRADA = " . $this->getNfEntradaPecas() . ", ";
         $sql .= "UPDATED_USER = '" . $this->m_userid . "', ";
         $sql .= "UPDATED_AT = '" . date("Y-m-d H:i:s") . "' ";
 
@@ -1509,10 +1525,10 @@ class c_atendimento extends c_user
         $created_at = date('Y-m-d H:i:s');
         $sql = "INSERT INTO CAT_AT_PECAS (
             CAT_ATENDIMENTO_ID, CODPRODUTO, CODFABRICANTE, CODPRODUTONOTA, QUANTIDADE, QUANTIDADEUTILIZADA, UNIDADE, VALORUNITARIO, DESCRICAO, VALORCUSTO, 
-            DESCONTO, PERCDESCONTO, ACRESCIMO, VALORTOTAL, CREATED_USER, CREATED_AT)
+            DESCONTO, PERCDESCONTO, ACRESCIMO, VALORTOTAL, NFENTRADA, CREATED_USER, CREATED_AT)
             SELECT " . $idNovo . " as CAT_ATENDIMENTO_ID, 
                 CODPRODUTO, CODFABRICANTE, CODPRODUTONOTA,QUANTIDADE, QUANTIDADEUTILIZADA, UNIDADE, VALORUNITARIO, DESCRICAO, VALORCUSTO, 
-                DESCONTO, PERCDESCONTO, ACRESCIMO, VALORTOTAL, CREATED_USER, '" . $created_at . "' AS CREATED_AT 
+                DESCONTO, PERCDESCONTO, ACRESCIMO, VALORTOTAL, NFENTRADA, CREATED_USER, '" . $created_at . "' AS CREATED_AT 
             FROM CAT_AT_PECAS 
             WHERE CAT_ATENDIMENTO_ID = '" . $idAntigo . "' ";
 
@@ -1627,8 +1643,12 @@ class c_atendimento extends c_user
 
     public function select_pecas_atendimento()
     {
-        $sql = "SELECT T.CODFABRICANTE, T.LOCALIZACAO, P.* FROM CAT_AT_PECAS P ";
-        $sql .= "LEFT JOIN EST_PRODUTO T ON  T.CODIGO=P.CODPRODUTO ";
+        // Busca peças da OS e puxa fornecedor/custo do item na nota (se houver) via subqueries
+        $sql = "SELECT T.CODFABRICANTE, T.LOCALIZACAO, P.*, ";
+        $sql .= "(SELECT F.NOME FROM FIN_CLIENTE F JOIN EST_NOTA_FISCAL NF ON F.CLIENTE = NF.PESSOA JOIN EST_NOTA_FISCAL_PRODUTO N2 ON N2.IDNF = NF.ID AND N2.CODPRODUTO = P.CODPRODUTO WHERE NF.NUMERO = P.NFENTRADA LIMIT 1) AS FORNECEDOR, ";
+        $sql .= "(SELECT N.CUSTOPRODUTO FROM EST_NOTA_FISCAL_PRODUTO N JOIN EST_NOTA_FISCAL NF2 ON N.IDNF = NF2.ID WHERE NF2.NUMERO = P.NFENTRADA AND N.CODPRODUTO = P.CODPRODUTO LIMIT 1) AS CUSTOPRODUTO ";
+        $sql .= "FROM CAT_AT_PECAS P ";
+        $sql .= "LEFT JOIN EST_PRODUTO T ON T.CODIGO = P.CODPRODUTO ";
         $sql .= "WHERE (CAT_ATENDIMENTO_ID = '" . $this->getId() . "') ";
         //echo strtoupper($sql)."<BR>";
         $banco = new c_banco;
@@ -2048,7 +2068,7 @@ class c_atendimento extends c_user
     public function buscaParametros()
     {
         $consulta = new c_banco();
-        $sql = "SELECT * FROM cat_parametros;";
+        $sql = "SELECT * FROM CAT_PARAMETROS;";
         $consulta->exec_sql($sql);
         $consulta->close_connection();
         $result = $consulta->resultado;
@@ -2146,4 +2166,6 @@ class c_atendimento extends c_user
         $banco->close_connection();
         return $banco->resultado;
     }
+
+ 
 } //	END OF THE CLASS

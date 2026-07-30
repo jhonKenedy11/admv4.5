@@ -49,12 +49,12 @@ class p_rel_atendimento extends c_atendimento_relatorio
         $this->id_status = isset($this->parmPost['id_status']) ? $this->parmPost['id_status'] : ($this->parmGet['id_status'] ? $this->parmGet['id_status'] : null);
         $this->id_servico = isset($this->parmPost['id_servico']) ? $this->parmPost['id_servico'] : ($this->parmGet['id_servico'] ? $this->parmGet['id_servico'] : null);
         $this->centro_custo = isset($this->parmPost['centro_custo']) ? $this->parmPost['centro_custo'] : ($this->parmGet['centro_custo'] ? $this->parmGet['centro_custo'] : null);
-        $this->num_pedido = isset($this->parmPost['num_pedido']) ? $this->parmPost['num_pedido'] : ($this->parmGet['num_pedido'] ? $this->parmGet['num_pedido'] : null);
         $this->num_os = isset($this->parmPost['num_os']) ? $this->parmPost['num_os'] : ($this->parmGet['num_os'] ? $this->parmGet['num_os'] : null);
         $this->usuario = isset($this->parmPost['usuario']) ? $this->parmPost['usuario'] : ($this->parmGet['usuario'] ? $this->parmGet['usuario'] : null);
         $this->id_pedido = isset($this->parmPost['id_pedido']) ? $this->parmPost['id_pedido'] : ($this->parmGet['id_pedido'] ? $this->parmGet['id_pedido'] : null);
         $this->dataIni = isset($this->parmPost['dataIni']) ? $this->parmPost['dataIni'] : ($this->parmGet['dataIni'] ? $this->parmGet['dataIni'] : null);
         $this->dataFim = isset($this->parmPost['dataFim']) ? $this->parmPost['dataFim'] : ($this->parmGet['dataFim'] ? $this->parmGet['dataFim'] : null);
+        $this->ordenacao = isset($this->parmPost['ordenacao']) ? $this->parmPost['ordenacao'] : ($this->parmGet['ordenacao'] ? $this->parmGet['ordenacao'] : '1');
         
         $this->data_consulta = isset($this->parmPost['data_consulta']) ? $this->parmPost['data_consulta'] : ($this->parmGet['data_consulta'] ? $this->parmGet['data_consulta'] : null);
         $dates = explode(' - ', $this->data_consulta);
@@ -67,7 +67,7 @@ class p_rel_atendimento extends c_atendimento_relatorio
         $this->smarty->assign('raizCliente', $this->raizCliente);
         $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
 
-        $this->smarty->assign('titulo', "Relatório de Aniversário");
+        $this->smarty->assign('titulo', "Relatórios de Atendimento");
         $this->smarty->assign('colVis', "[ 0, 1 ]");
         $this->smarty->assign('disableSort', "[ 2 ]");
         $this->smarty->assign('numLine', "25");
@@ -79,8 +79,7 @@ class p_rel_atendimento extends c_atendimento_relatorio
             case 'relatorio_medicao':               
                 $this->mostraRelatorioAtendimento($this->id_pedido);
                 break;
-
-            case 'relatorio_servico':
+            case 'relatorio':
                 $this->m_object = [
                     "usuario" => $this->usuario,
                     "id_servico" => $this->id_servico,
@@ -89,37 +88,13 @@ class p_rel_atendimento extends c_atendimento_relatorio
                     "centro_custo" => $this->centro_custo,
                     "data_ini" => $this->data_ini,
                     "data_fim" => $this->data_fim,
-                    "num_pedido" => $this->num_pedido,
+                    "id_pedido" => $this->id_pedido,
                     "num_os" => $this->num_os,
                     "cliente_id" => $this->cliente_id,
+                    "ordenacao" => $this->ordenacao,
                 ];
 
-                $this->mostraRelatorioAtendimento($this->m_object);
-                break;
-            case 'relatorio_usuario':
-                $this->m_object = [
-                    "usuario" => $this->usuario,
-                    "centro_custo" => $this->centro_custo,
-                    "data_fim" => $this->data_fim,
-                    "data_ini" => $this->data_ini,
-                    "num_pedido" => $this->num_pedido,
-                    "num_os" => $this->num_os,
-                ];
-
-                $this->mostraRelatorioAtendimento($this->m_object);
-                break;
-            case 'relatorio_equipamento':
-                $this->m_object = [
-                    "equipamento" => $this->equipamento,
-                    "centro_custo" => $this->centro_custo,
-                    "data_fim" => $this->data_fim,
-                    "data_ini" => $this->data_ini,
-                    "num_pedido" => $this->num_pedido,
-                    "num_os" => $this->num_os,
-                    "cliente_id" => $this->cliente_id,
-                ];
-
-                $this->mostraRelatorioAtendimento($this->m_object);
+                $this->imprimeRelatorio();
                 break;
             default:
                 $this->mostraRelatorio();
@@ -132,13 +107,70 @@ class p_rel_atendimento extends c_atendimento_relatorio
         $this->smarty->assign('subMenu', $this->m_submenu);
         $this->smarty->assign('pathCliente', ADMhttpCliente);
         $this->smarty->assign("ADMhttpBib", ADMhttpBib);
+        $this->smarty->assign('pathSweet', ADMhttpCliente . '/../sweetalert2');
 
         $this->smarty->assign('data_ini', date("01/m/Y"));
         $this->smarty->assign('data_fim', date("d/m/Y"));
+        $this->smarty->assign('ordenacao', $this->ordenacao);
 
         $this->comboAtendimento();
 
         $this->smarty->display('rel_atendimento_mostra.tpl');
+    }
+
+    function imprimeRelatorio()
+    {
+        $this->smarty->assign('pathImagem', $this->img);
+        $this->smarty->assign('letra', $this->m_letra);
+        $this->smarty->assign('subMenu', $this->m_submenu);
+        $this->smarty->assign('pathCliente', ADMhttpCliente);
+        $this->smarty->assign("ADMhttpBib", ADMhttpBib);
+        
+        $this->smarty->assign('data_ini', $this->data_ini);
+        $this->smarty->assign('data_fim', $this->data_fim);
+        $this->smarty->assign('dataImp', date("d/m/Y H:i:s"));
+        
+        $this->m_object = [
+            "usuario" => $this->usuario,
+            "id_servico" => $this->id_servico,
+            "equipamento" => $this->equipamento,
+            "id_status" => $this->id_status,
+            "centro_custo" => $this->centro_custo,
+            "data_ini" => $this->data_ini,
+            "data_fim" => $this->data_fim,
+            "id_pedido" => $this->id_pedido,
+            "num_os" => $this->num_os,
+            "cliente_id" => $this->cliente_id,
+            "ordenacao" => $this->ordenacao,
+        ];
+
+        switch ($this->m_tipo_relatorio) {
+            case 'relatorio_medicao':
+                $lanc = $this->selectRelatorioMedicao($this->m_object);
+                $this->smarty->assign('lanc', $lanc);
+                $this->smarty->display('relatorio_medicao.tpl');
+                break;
+            case 'relatorio_equipamento':
+                $lanc = $this->selectRelatorioAtendimento($this->m_object);
+                $this->smarty->assign('lanc', $lanc);
+                $this->smarty->display('relatorio_equipamento.tpl');
+                break;
+            case 'relatorio_usuario':
+                $lanc = $this->selectRelatorioAtendimento($this->m_object);
+                $this->smarty->assign('lanc', $lanc);
+                $this->smarty->display('relatorio_usuario.tpl');
+                break;
+            case 'relatorio_periodo':
+                $lanc = $this->selectRelatorioPeriodoDetalhado($this->m_object);
+                $this->smarty->assign('lanc', $lanc);
+                $this->smarty->display('relatorio_periodo.tpl');
+                break;
+            default:
+                $lanc = $this->selectRelatorioAtendimento($this->m_object);
+                $this->smarty->assign('lanc', $lanc);
+                $this->smarty->display('relatorio_servico.tpl');
+                break;
+        }
     }
 
     function mostraRelatorioAtendimento($params)

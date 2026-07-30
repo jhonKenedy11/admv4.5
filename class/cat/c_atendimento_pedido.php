@@ -17,7 +17,7 @@ include_once($dir . "/../../class/crm/c_conta.php");
 include_once($dir . "/../../class/est/c_produto.php");
 
 
-Class c_atendimento_pedido extends c_use r {
+Class c_atendimento_pedido extends c_user {
 
     /**
      * TABLE NAME CAT_ATENDIMENTO
@@ -168,7 +168,12 @@ Class c_atendimento_pedido extends c_use r {
             if ($format == 'F') {
                 return number_format($this->valorPecas, 2, ',', '.');
             } else {
-                return c_tools::moedaBd($this->valorPecas);
+                // Se o valor já é numérico, retorna direto; caso contrário, converte com moedaBd
+                if (is_numeric($this->valorPecas)) {
+                    return $this->valorPecas;
+                } else {
+                    return c_tools::moedaBd($this->valorPecas);
+                }
             }
         } else {
             return 0;
@@ -261,6 +266,31 @@ Class c_atendimento_pedido extends c_use r {
     function setCentroCusto($centroCusto) { $this->centroCusto = $centroCusto; }
     function getCentroCusto() { return $this->centroCusto; }
 
+    function setValorDesconto($valorDesconto, $format=false) {
+        $this->valorDesconto = $valorDesconto; 
+        if ($format):
+                $this->valorDesconto = number_format($this->valorDesconto, 2, ',', '.');
+        endif;
+        
+    }
+    
+    function getValorDesconto($format = NULL) {
+        if (!empty($this->valorDesconto)) {
+            if ($format == 'F') {
+                return number_format($this->valorDesconto, 2, ',', '.');
+            } else {
+                // Se o valor já é numérico, retorna direto; caso contrário, converte com moedaBd
+                if (is_numeric($this->valorDesconto)) {
+                    return $this->valorDesconto;
+                } else {
+                    return c_tools::moedaBd($this->valorDesconto);
+                }
+            }
+        } else {
+            return 0;
+        }        
+    }
+
   
 
    //=================PECAS========================
@@ -352,7 +382,12 @@ Class c_atendimento_pedido extends c_use r {
             if ($format == 'F') {
                 return number_format($this->valorDescontoItem, 2, ',', '.');
             } else {
-                return c_tools::moedaBd($this->valorDescontoItem);
+                // Se o valor já é numérico, retorna direto; caso contrário, converte com moedaBd
+                if (is_numeric($this->valorDescontoItem)) {
+                    return $this->valorDescontoItem;
+                } else {
+                    return c_tools::moedaBd($this->valorDescontoItem);
+                }
             }
         } else {
             return 0;
@@ -372,7 +407,12 @@ Class c_atendimento_pedido extends c_use r {
             if ($format == 'F') {
                 return number_format($this->percDescontoItem, 2, ',', '.');
             } else {
-                return c_tools::moedaBd($this->percDescontoItem);
+                // Se o valor já é numérico, retorna direto; caso contrário, converte com moedaBd
+                if (is_numeric($this->percDescontoItem)) {
+                    return $this->percDescontoItem;
+                } else {
+                    return c_tools::moedaBd($this->percDescontoItem);
+                }
             }
         } else {
             return 0;
@@ -475,10 +515,15 @@ Class c_atendimento_pedido extends c_use r {
             if ($format == 'F') {
                 return number_format($this->qtSolicitada, 2, ',', '.');
             } else {
-                $num = str_replace('.', '', $this->qtSolicitada);
-				$num = str_replace(',', '.', $num);
-                return $num;                
-                //return c_tools::moedaBd($this->unitario);
+                // Se o valor já é numérico, retorna direto
+                if (is_numeric($this->qtSolicitada)) {
+                    return $this->qtSolicitada;
+                } else {
+                    // Converte string formatada para número
+                    $num = str_replace('.', '', $this->qtSolicitada);
+                    $num = str_replace(',', '.', $num);
+                    return $num;
+                }
             }
         } else {
             return 0;
@@ -496,10 +541,15 @@ Class c_atendimento_pedido extends c_use r {
             if ($format == 'F') {
                 return number_format($this->unitario, 2, ',', '.');
             } else {
-                $num = str_replace('.', '', $this->unitario);
-				$num = str_replace(',', '.', $num);
-                return $num;                
-                //return c_tools::moedaBd($this->unitario);
+                // Se o valor já é numérico, retorna direto
+                if (is_numeric($this->unitario)) {
+                    return $this->unitario;
+                } else {
+                    // Converte string formatada para número
+                    $num = str_replace('.', '', $this->unitario);
+                    $num = str_replace(',', '.', $num);
+                    return $num;
+                }
             }
         } else {
             return 0;
@@ -532,18 +582,35 @@ Class c_atendimento_pedido extends c_use r {
         }
     }
 
-    function setTotalItem() {
+    function setTotalItem($total = null) {
 //        if ($this->getPrecoPromocao() != 0):
 //            $this->setUnitario($this->getPrecoPromocao('B'));
 //        endif;
-        $this->totalItem = str_replace('.', ',', ($this->getQtSolicitada('B') * $this->getUnitario('B')));
+        if ($total !== null) {
+            // Se o total já foi passado, converte e armazena
+            if (is_string($total) && strpos($total, ',') !== false) {
+                $this->totalItem = c_tools::moedaBd($total);
+            } else {
+                $this->totalItem = $total;
+            }
+        } else {
+            // Calcula o total: (quantidade * unitário) - desconto
+            $subtotal = $this->getQtSolicitada('B') * $this->getUnitario('B');
+            $desconto = $this->getDescontoItem('B');
+            $this->totalItem = $subtotal - $desconto;
+        }
     }
     function getTotalItem($format = NULL) {
         if (!empty($this->totalItem)) {
             if ($format == 'F') {
                 return number_format($this->totalItem, 2, ',', '.');
             } else {
-                return c_tools::moedaBd($this->totalItem);
+                // Se o valor já é numérico, retorna direto; caso contrário, converte com moedaBd
+                if (is_numeric($this->totalItem)) {
+                    return $this->totalItem;
+                } else {
+                    return c_tools::moedaBd($this->totalItem);
+                }
             }
         } else {
             return 0;
@@ -1228,7 +1295,7 @@ Class c_atendimento_pedido extends c_use r {
 
         $sql = "INSERT INTO FAT_PEDIDO (";
         $sql .= "cliente,  situacao, especie, emissao, horaemissao, condpg,  ";
-        $sql .= " frete, DESPACESSORIAS, TOTALPRODUTOS, total,   ";
+        $sql .= " frete, DESPACESSORIAS, TOTALPRODUTOS, total, desconto,  ";
         $sql .= " ccusto, centrocustoentrega,  obs,  usrfatura, USERINSERT, DATEINSERT) ";
         $sql .= "VALUES ('";
         $sql .=   $this->getCliente() . "','"
@@ -1241,6 +1308,7 @@ Class c_atendimento_pedido extends c_use r {
                 . $this->getDespAcessorias('B') . "', '"
                 . $this->getTotalPecasUtilizada('B') . "', '"
                 . $this->getValorTotal('B') . "', '"
+                . $this->getValorDesconto('B') . "', '"
                 . $this->m_empresacentrocusto . "', '"
                 . $this->m_empresacentrocusto . "', '"
                 . $this->getObs() . "', '"

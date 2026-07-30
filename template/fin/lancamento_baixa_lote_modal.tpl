@@ -7,7 +7,7 @@
                   <h4>Baixa Titulos em Lote </h4>
               </div> 
               <div class="col-md-8 col-sm-12 col-xs-12" align="right">
-              <button type="button" class="btn btn-primary" data-dismiss="modal" onClick="javascript:rel_lanc_baixado_lote(),submitBaixaLancamentoLote();">Confirmar</button>
+              <button type="button" class="btn btn-primary" data-dismiss="modal" onClick="javascript:submitBaixaLancamentoLote();">Confirmar</button>
               <button type="button" class="btn btn-default" data-dismiss="modal" >Fechar</button>
               </div>
           </div>

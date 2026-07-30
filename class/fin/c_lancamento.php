@@ -18,6 +18,9 @@ include_once($dir . "/../../bib/c_date.php");
 include_once($dir . "/../../bib/c_tools.php");
 include_once($dir . "/../../bib/c_date.php");
 include_once($dir . "/../../class/crm/c_conta.php");
+require_once($dir."/../../bib/c_database_pdo.php");
+require_once($dir."/../util/c_api_response.php");
+
 //include_once("class.phpmailer.php");
 
 //Class C_LANCAMENTO
@@ -85,6 +88,9 @@ class c_lancamento extends c_user
         //conta para remessa ou retorno
         public $contaIntBancaria = NULL;
         public $idInsert = NULL;
+        
+        //tarifa do sicredi (ocorrencia 28)
+        public $lancTarifa = ["ocorrencia" => null, "total" => 0, "doctos" => "", "dataCreditoDb" => null];
 
 
         //construtor
@@ -734,7 +740,8 @@ class c_lancamento extends c_user
                 $sql  = "UPDATE fin_lancamento ";
                 $sql .= "SET  ";
                 $sql .= "COBRANCASTATUS = 'R', ";
-                $sql .= "NOSSONUMERO = " . $nn . ", ";
+                // Grava o nosso número como string (p/ formatos como Sicredi AA/BXXXXX-D)
+                $sql .= "NOSSONUMERO = '" . $nn . "', ";
                 $sql .= "REMESSANUM = " . $nr . ", ";
                 $sql .= "REMESSADATA = '" . $data . "', ";
                 $sql .= "REMESSAARQ = '" . $arq . "' ";
@@ -783,11 +790,14 @@ class c_lancamento extends c_user
          * @param string $arq -  nome do arquivo de retorno
          * @description atualiza dados de retorno no lancamento a receber.
          */
-        public function atualizaRetorno($lanc, $arq)
+        public function atualizaRetorno($lanc, $arq, $banco = null)
         {
                 try {
                         $transaction = new c_banco();
                         $transaction->inicioTransacao($transaction->id_connection);
+                        
+                        // Inicializa variável de tarifa do Sicredi
+                        $this->lancTarifa = ["ocorrencia" => null, "total" => 0, "doctos" => "", "dataCreditoDb" => null];
 
                         // ATUALIZA FINANCEIRO PELO ARQUIVO DE RETORNO..
                         for ($i = 0; $i < count($lanc); $i++):
@@ -867,38 +877,86 @@ class c_lancamento extends c_user
                                                 $sql .= "COBRANCASTATUS = 'N', ";
                                                 $sql .= "RETORNOCOD = '17', ";
                                                 break;
+                                        case '28': //TARIFA 748 (Sicredi) - não altera o lançamento original
+                                                $this->lancTarifa["ocorrencia"] = 28;
+                                                $this->lancTarifa["total"] += $lanc[$i]["valorPago"];
+                                                $this->lancTarifa["doctos"] .= "ID:" . $lanc[$i]["idTituloBanco"] . " -";
+                                                $this->lancTarifa["dataCreditoDb"] = $lanc[$i]["dataCredito"];
+                                                break;
                                         default: //outros
                                                 $sql .= "SITPGTO = 'N', ";
                                                 $sql .= "COBRANCASTATUS = 'O', ";
                                                 $sql .= "RETORNOCOD = '" . $lanc[$i]['numOcorrencia'] . "' , ";
                                 endswitch;
-                                $sql .= "RETORNOARQ = '" . $arq . "', ";
-                                $sql .= "userchange = " . $this->m_userid . ", ";
-                                $sql .= "datechange = '" . date("Y-m-d H:i:s") . "' ";
-                                $sql .= "WHERE id = " . $lanc[$i]['id'] . ";";
 
-                                if ($lanc[$i]['id'] != '0'):
-                                        if (($lanc[$i]['sitant'] == 'B') or ($lanc[$i]['sitant'] == 'C')):
-                                                $teste = $lanc[$i]['nf'];
-                                                $testesitant = $lanc[$i]['sitant'];
-                                        endif;
-                                        if (($lanc[$i]['sitant'] != 'B') and ($lanc[$i]['sitant'] != 'C')): // altera situação somente se for <> de baixado
+                                //SE FOR TIPO TARIFA DO SICREDI (28) NÃO EXECUTA UPDATE NO LANÇAMENTO ORIGINAL
+                                if ($lanc[$i]['numOcorrencia'] !== '28') {
+                                        $sql .= "RETORNOARQ = '" . $arq . "', ";
+                                        $sql .= "userchange = " . $this->m_userid . ", ";
+                                        $sql .= "datechange = '" . date("Y-m-d H:i:s") . "' ";
+                                        $sql .= "WHERE id = " . $lanc[$i]['id'] . ";";
+
+                                        if ($lanc[$i]['id'] != '0'):
+                                                if (($lanc[$i]['sitant'] == 'B') or ($lanc[$i]['sitant'] == 'C')):
+                                                        $teste = $lanc[$i]['nf'];
+                                                        $testesitant = $lanc[$i]['sitant'];
+                                                endif;
+                                                if (($lanc[$i]['sitant'] != 'B') and ($lanc[$i]['sitant'] != 'C')): // altera situação somente se for <> de baixado
+                                                        $contaBanco = new c_banco();
+                                                        $res_contaBanco = $contaBanco->exec_sql($sql, $transaction->id_connection);
+                                                        $contaBanco->close_connection();
+                                                endif;
+
+                                                // SALVA historico T-RETORNO M-REMESSA
+                                                $sql  = "INSERT INTO fin_lancamento_cob (ID_LANCAMENTO, RETORNOCOD, RETORNODATA, REMESSAARQ, TIPOENVIO) VALUES (";
+                                                $sql .= $lanc[$i]['id'] . ", " . $lanc[$i]['numOcorrencia'] . ", '" . c_date::convertDateBd($lanc[$i]['dataOcorrenciaBD']) . "', '" . $arq . "','T') ";
+
                                                 $contaBanco = new c_banco();
                                                 $res_contaBanco = $contaBanco->exec_sql($sql, $transaction->id_connection);
                                                 $contaBanco->close_connection();
                                         endif;
+                                } else {
+                                        // Para ocorrência 28, apenas registra no histórico sem alterar o lançamento
+                                        if ($lanc[$i]['id'] != '0'):
+                                                $sql_hist  = "INSERT INTO fin_lancamento_cob (ID_LANCAMENTO, RETORNOCOD, RETORNODATA, REMESSAARQ, TIPOENVIO) VALUES (";
+                                                $sql_hist .= $lanc[$i]['id'] . ", " . $lanc[$i]['numOcorrencia'] . ", '" . c_date::convertDateBd($lanc[$i]['dataOcorrenciaBD']) . "', '" . $arq . "','T') ";
 
-                                        // SALVA historico T-RETORNO M-REMESSA
-                                        $sql  = "INSERT INTO fin_lancamento_cob (ID_LANCAMENTO, RETORNOCOD, RETORNODATA, REMESSAARQ, TIPOENVIO) VALUES (";
-                                        $sql .= $lanc[$i]['id'] . ", " . $lanc[$i]['numOcorrencia'] . ", '" . c_date::convertDateBd($lanc[$i]['dataOcorrenciaBD']) . "', '" . $arq . "','T') ";
-
-                                        $contaBanco = new c_banco();
-                                        $res_contaBanco = $contaBanco->exec_sql($sql, $transaction->id_connection);
-                                        $contaBanco->close_connection();
-
-                                endif;
+                                                $contaBanco = new c_banco();
+                                                $res_contaBanco = $contaBanco->exec_sql($sql_hist, $transaction->id_connection);
+                                                $contaBanco->close_connection();
+                                        endif;
+                                }
 
                         endfor;
+                        
+                        // INSERE A TARIFA TOTAL DO BANCO 748 (SICREDI) E OCORRENCIA TIPO 28 -TARIFA
+                        if ($this->lancTarifa["ocorrencia"] == '28' and $banco == '748') {
+                                $this->setPessoa(5662);
+                                $this->setDocto(0);
+                                $this->setTipolancamento('P');
+                                $this->setModopgto('B');
+                                $this->setTipodocto('T');
+                                $this->setSitdocto('N');
+                                $this->setConta(16);
+                                $this->setCentroCusto(10000000);
+                                $this->setGenero('4.13');
+                                $this->setSitpgto('A');
+                                $this->setOriginal($this->lancTarifa["total"], true);
+                                $this->setTotal($this->lancTarifa["total"], true);
+                                // Verificar se a string termina com "-"
+                                if (substr($this->lancTarifa["doctos"], -1) === "-") {
+                                        // Remover o caractere "-" do final da string
+                                        $this->lancTarifa["doctos"] = substr($this->lancTarifa["doctos"], 0, -1);
+                                }
+                                $this->setObs($this->lancTarifa["doctos"]);
+                                $this->setLancamento(date('d/m/Y'));
+                                $this->setEmissao(date('d/m/Y'));
+                                $this->setVencimento(date('d/m/Y'));
+                                $this->setMovimento(date('d/m/Y'));
+                                $this->setMoeda(0);
+                                $this->setOrigem('BAN');
+                                $result = $this->incluiLancamento();
+                        }
                         // commit transação
                         $transaction->commit($transaction->id_connection);
                         return true;
@@ -914,13 +972,16 @@ class c_lancamento extends c_user
          * @param int $nf - numero da nf a ser atualizada no lancamento
          * @description altera o lançamento financeiro com numero de pedido para o numero da nf gerada
          */
-        public function alteraParcelaPedidoNf($pedido, $nf, $conn = null)
+        public function alteraParcelaPedidoNf($pedido, $nf, $conn = null, $origemFin = null)
         {
 
                 $sql  = "UPDATE fin_lancamento ";
                 $sql .= "SET  ";
                 $sql .= "DOCTO = '" . $nf . "', ";
                 $sql .= "SERIE = 'NFS' ";
+                if ($origemFin) {
+                        $sql .= ", ORIGEM = '" . $origemFin . "' ";
+                }
                 $sql .= "WHERE  (ORIGEM='PED') AND (NUMLCTO = " . $pedido . ");";
 
                 $contaBanco = new c_banco();
@@ -929,6 +990,80 @@ class c_lancamento extends c_user
                 return is_array($contaBanco->resultado);
         } //fim gravaNossoNumero
 
+        /**
+         * Após NF autorizada: aplica crédito nas parcelas do pedido (ORIGINAL inalterado).
+         * Quitação total: DESCONTO = ORIGINAL, TOTAL = 0, SITPGTO = 'B' (no financeiro; pedido pode usar outro código ex.: 9).
+         * Parcial: rateio proporcional ao TOTAL de cada parcela; última absorve centavos de arredondamento; SITPGTO só vira 'B' se zerar.
+         */
+        public function aplicaCreditoNasParcelasPedidoNf($numPedido, $idPessoa, $valorCreditoInformado, $conn = null)
+        {
+                $cred = doubleval($valorCreditoInformado);
+                $sql = "SELECT ID, ORIGINAL, TOTAL, OBS, SITPGTO FROM FIN_LANCAMENTO "
+                        . "WHERE NUMLCTO = " . intval($numPedido) . " AND ORIGEM = 'PED' AND PESSOA = " . intval($idPessoa) . " "
+                        . "AND (SITPGTO IS NULL OR SITPGTO <> 'B') AND TOTAL > 0 "
+                        . "ORDER BY PARCELA";
+                $banco = new c_banco();
+                $banco->exec_sql($sql, $conn);
+                $open = $banco->resultado;
+                $banco->close_connection();
+                if (empty($open)) {
+                        return true;
+                }
+
+                $soma = array_sum(array_map('doubleval', array_column($open, 'TOTAL')));
+                if ($soma <= 0) {
+                        return true;
+                }
+
+                $aplicar = min($cred, $soma);
+                $msgBaixa = "Baixa integral por uso de saldo de crédito do cliente na emissão da NF-e.";
+                $msgRateio = "Desconto de R$ " . number_format($aplicar, 2, ',', '.') . " (saldo de crédito) rateado na emissão da NF-e.";
+
+                $bx = new c_banco();
+                if ($aplicar + 0.01 >= $soma) {
+                        foreach ($open as $r) {
+                                $obs = str_replace("'", "''", trim($r['OBS']) . ' | ' . $msgBaixa);
+                                $bx->exec_sql(
+                                        "UPDATE FIN_LANCAMENTO SET DESCONTO = ORIGINAL, TOTAL = 0, SITPGTO = 'B', OBS = '" . $obs . "' WHERE ID = " . intval($r['ID']),
+                                        $conn
+                                );
+                        }
+                        $bx->close_connection();
+                        return true;
+                }
+
+                $n = count($open);
+                $accProp = 0;
+                foreach ($open as $i => $r) {
+                        $tot = doubleval($r['TOTAL']);
+                        $orig = doubleval($r['ORIGINAL']);
+                        $share = ($i === $n - 1)
+                                ? round($aplicar - $accProp, 2)
+                                : round($tot / $soma * $aplicar, 2);
+                        $share = min(max(0, $share), $tot);
+                        if ($i < $n - 1) {
+                                $accProp += $share;
+                        }
+                        $novoTot = round($tot - $share, 2);
+                        if ($novoTot <= 0.005) {
+                                $novoTot = 0;
+                                $novoDesc = $orig;
+                                $sitSql = ", SITPGTO = 'B'";
+                                $msgObs = $msgBaixa;
+                        } else {
+                                $novoDesc = round($orig - $novoTot, 2);
+                                $sitSql = '';
+                                $msgObs = $msgRateio;
+                        }
+                        $obs = str_replace("'", "''", trim($r['OBS']) . ' | ' . $msgObs);
+                        $sqlU = "UPDATE FIN_LANCAMENTO SET DESCONTO = " . number_format($novoDesc, 2, '.', '')
+                                . ", TOTAL = " . number_format($novoTot, 2, '.', '')
+                                . $sitSql . ", OBS = '" . $obs . "' WHERE ID = " . intval($r['ID']);
+                        $bx->exec_sql($sqlU, $conn);
+                }
+                $bx->close_connection();
+                return true;
+        }
 
         /**
          * @name addParcelasNf
@@ -993,7 +1128,7 @@ class c_lancamento extends c_user
                 $sql  = "SELECT * ";
                 $sql .= "FROM FIN_LANCAMENTO ";
                 $sql .= "WHERE (pessoa = " . $this->getPessoa() . ") and (docto = " . $this->getDocto() . ") and ";
-                $sql .= "(vencimento = '" . $this->getVencimento('B') . "')";
+                $sql .= "(vencimento = '" . $this->getVencimento('B') . "') and (sitpgto <> 'C')";
                 // $sql .= "(serie = '".$this->getSerie()."') and (parcela = '".$this->getParcela()."')";
                 //ECHO $sql;
 
@@ -1148,7 +1283,7 @@ class c_lancamento extends c_user
                 $sql .= "(select count(F.DOCTO) from FIN_LANCAMENTO F WHERE F.DOCTO = L.DOCTO AND F.PESSOA=L.PESSOA AND F.SITPGTO <> 'C')  as totalparcelas ";
                 $sql .= "FROM FIN_LANCAMENTO L ";
                 $sql .= "LEFT JOIN FIN_CLIENTE P ON P.CLIENTE=L.PESSOA ";
-                $sql .= "LEFT JOIN FIN_GENERO G ON G.GENERO=L.GENERO ";
+                $sql .= "LEFT JOIN (SELECT genero, MIN(descricao) AS descricao FROM FIN_GENERO GROUP BY genero) G ON G.GENERO=L.GENERO ";
                 $sql .= "WHERE (L.id = " . $this->getId() . ") ";
                 // ECHO $sql;
                 $banco = new c_banco();
@@ -1173,15 +1308,15 @@ class c_lancamento extends c_user
                 $dataFim = c_date::convertDateTxt($data[1]);
 
                 $sql  = "SELECT a.*, c.nomereduzido, c.nome, c.cidade, s.padrao as situacaopgto, g.descricao as descgenero, ";
-                $sql .= "c.pessoa, c.pessoa as TIPOPESSOA, c.cnpjcpf, c.endereco,c.numero, C.CEP, c.bairro, c.uf ";
+                $sql .= "c.pessoa, c.pessoa as TIPOPESSOA, c.cnpjcpf, CONCAT(IFNULL(c.tipoend,''),' ',IFNULL(c.tituloend,''),' ',IFNULL(c.endereco,''),',',IFNULL(c.numero,'')) as endereco, C.CEP, c.bairro, c.uf ";
                 $sql .= "FROM FIN_LANCAMENTO a ";
                 $sql .= "inner join fin_cliente c on c.cliente = a.pessoa ";
-                $sql .= "inner join fin_genero g on g.genero = a.genero ";
+                $sql .= "inner join (SELECT genero, MIN(descricao) AS descricao FROM fin_genero GROUP BY genero) g on g.genero = a.genero ";
                 $sql .= "inner join amb_ddm s on ((s.alias='FIN_MENU') and (s.campo='SituacaoPgto') and (s.tipo = a.sitpgto)) ";
 
                 if (array_sum($data) > 0) {
                         $sql .= "WHERE (SITPGTO='A') and (MODOPGTO='B')  and (TIPODOCTO='B')  and (A.TIPOLANCAMENTO='R') AND (SITDOCTO='N') AND ";
-                        $sql .= "(REMESSANUM is null) and ";
+                        $sql .= "((REMESSANUM is null) or (REMESSANUM =0)) and ";
                         //$sql .= "(REMESSANUM > 0) and ";
                         $sql .= "(a.emissao >= '" . $dataIni . "') and (a.emissao <= '" . $dataFim . "') ";
 
@@ -1192,11 +1327,36 @@ class c_lancamento extends c_user
                                 $sql .= " AND (a.conta = " . $par[2] . ") ";
                         }
                 }
+                
+                $sql .= " ORDER BY a.lancamento ASC ";
+                
                 $banco = new c_banco();
                 $banco->exec_sql($sql);
                 $banco->close_connection();
                 return $banco->resultado;
         } //fim selectRemessaBancaria
+
+        /**
+         * @name selectRemessaDoDia
+         * @description arquivos de remessa gerados hoje para a conta
+         */
+        public function selectRemessaDoDia($contaId)
+        {
+                if (empty($contaId)) {
+                        return [];
+                }
+
+                $sql  = "SELECT DISTINCT REMESSAARQ FROM FIN_LANCAMENTO ";
+                $sql .= "WHERE CONTA = " . (int) $contaId . " ";
+                $sql .= "AND DATE(REMESSADATA) = CURDATE() ";
+                $sql .= "AND REMESSAARQ IS NOT NULL AND REMESSAARQ <> '' ";
+                $sql .= "AND REMESSAARQ NOT LIKE 'API_%' ";
+
+                $banco = new c_banco();
+                $banco->exec_sql($sql);
+                $banco->close_connection();
+                return $banco->resultado ?? [];
+        } //fim selectRemessaDoDia
 
 
         /**
@@ -1285,7 +1445,7 @@ class c_lancamento extends c_user
                         }
                         $this->setVencimento($diatemp . "/" . $mes . "/" . $ano);
                         $this->setMovimento($diatemp . "/" . $mes . "/" . $ano);
-                        $this->setParcela($this->getParcela() + 1);
+                        $this->setParcela((int) $this->getParcela() + 1);
                         // $this->setSitdocto("V");
                         $this->setOriginal($original, false);
                         $this->setMulta($multa, false);
@@ -1334,6 +1494,69 @@ class c_lancamento extends c_user
                 return $banco->resultado;
         } //fim select_lancamento_geral
 
+        /**
+         * Parcelas do pedido para impressão/relatório, com nome do tipo de documento.
+         * @param int $idPedido
+         * @param resource|null $conn
+         * @return array{fin: array|string, parcelas: array|string, totalParc: int}
+         */
+        static public function select_parcelas_pedido_relatorio($idPedido, $conn = null)
+        {
+                $vazio = array('fin' => '', 'parcelas' => '', 'totalParc' => 0);
+                $idPedido = (int) $idPedido;
+                if ($idPedido <= 0) {
+                        return $vazio;
+                }
+
+                $sql  = "SELECT L.PARCELA, L.VENCIMENTO, L.TOTAL AS VALOR, L.CONTA, L.TIPODOCTO, L.SITPGTO, L.OBS, ";
+                $sql .= "COALESCE(TD.PADRAO, L.TIPODOCTO) AS TIPODOCTO_NOME ";
+                $sql .= "FROM FIN_LANCAMENTO L ";
+                $sql .= "LEFT JOIN AMB_DDM TD ON TD.TIPO = L.TIPODOCTO AND TD.ALIAS = 'FIN_MENU' AND TD.CAMPO = 'TipoDoctoPgto' ";
+                $sql .= "WHERE L.ORIGEM = 'PED' AND L.NUMLCTO = '" . $idPedido . "' AND L.SITPGTO <> 'C' ";
+                $sql .= "ORDER BY L.PARCELA";
+
+                $banco = new c_banco;
+                $banco->exec_sql($sql, $conn);
+                $banco->close_connection();
+
+                if (!is_array($banco->resultado) || count($banco->resultado) === 0) {
+                        return $vazio;
+                }
+
+                return array(
+                        'fin' => $banco->resultado,
+                        'parcelas' => $banco->resultado,
+                        'totalParc' => count($banco->resultado),
+                );
+        }
+
+        /**
+         * Cancela parcelas financeiras em aberto do pedido (ORIGEM=PED).
+         * Não altera parcelas baixadas (SITPGTO='B') nem já canceladas (SITPGTO='C').
+         *
+         * @param int $idPedido ID do pedido (NUMLCTO)
+         * @param int|null $userId usuário da alteração
+         * @param resource|null $conn conexão da transação
+         * @return bool
+         */
+        static public function cancelaLancamentosAbertosPedido($idPedido, $userId = null, $conn = null)
+        {
+
+                $sql = "UPDATE FIN_LANCAMENTO SET SITPGTO = 'C'";
+                if ($userId !== null && $userId !== '') {
+                        $sql .= ", USERCHANGE = " . (int) $userId;
+                        $sql .= ", DATECHANGE = CURRENT_TIMESTAMP()";
+                }
+                $sql .= " WHERE ORIGEM = 'PED'";
+                $sql .= " AND NUMLCTO = '" . $idPedido . "'";
+                $sql .= " AND (SITPGTO IS NULL OR SITPGTO NOT IN ('B', 'C'))";
+
+                $banco = new c_banco;
+                $banco->exec_sql($sql, $conn);
+                $banco->close_connection();
+                return true;
+        }
+
         public function select_lancamento_doc_tipodocto($origem, $doc, $conn = null)
         {
                 $sql  = "SELECT Sum(TOTAL) AS VALOR, ";
@@ -1367,7 +1590,7 @@ class c_lancamento extends c_user
 
                 //echo "letra: ".$letra;
                 $sqlGenero = "SELECT g.genero, g.descricao, sum(a.total) as total FROM FIN_LANCAMENTO a ";
-                $sqlGenero .= "inner join fin_genero g on g.genero = a.genero ";
+                $sqlGenero .= "inner join (SELECT genero, MIN(descricao) AS descricao FROM fin_genero GROUP BY genero) g on g.genero = a.genero ";
                 // $sqlCentrocusto = "SELECT r.Centrocusto, r.descricao,  sum(a.total) as total FROM FIN_LANCAMENTO a ";
                 // $sqlCentrocusto .= "inner join fin_Centrocusto r on r.Centrocusto = a.Centrocusto ";
                 if ($total == 3) {
@@ -1386,7 +1609,7 @@ class c_lancamento extends c_user
                         $sqln .= "inner join fin_centro_custo r on a.centrocusto = r.centrocusto ";
                 }
                 $sqln .= "inner join fin_cliente c on c.cliente = a.pessoa ";
-                $sqln .= "left join fin_genero g on g.genero = a.genero ";
+                $sqln .= "left join (SELECT genero, MIN(descricao) AS descricao FROM fin_genero GROUP BY genero) g on g.genero = a.genero ";
                 $sqln .= "left join fat_pedido p on (a.DOCTO = p.ID) ";
                 $sqln .= "inner join amb_ddm s on ((s.alias='FIN_MENU') and (s.campo='SituacaoPgto') and (s.tipo = a.sitpgto)) ";
                 $sqln .= "inner join amb_ddm t on ((t.alias='FIN_MENU') and (t.campo='TipoLanc') and (t.tipo = a.tipolancamento)) ";
@@ -1494,8 +1717,7 @@ class c_lancamento extends c_user
                                 if (($par[3] != 'nao') or ($par[2] != '') or ($par[4] != '0') or ($par[5] != '0') or ($par[$posConta] != '0')) {
                                         $sql .= " AND ";
                                 }
-                                $sql .= "(a.genero = " . $par[$posGenero];
-                                $sql .= ") ";
+                                $sql .= "(a.genero like '" . $par[$posGenero] . "%') ";
                         }
                 }
 
@@ -1572,33 +1794,40 @@ class c_lancamento extends c_user
                         $dateOrder = $par[3];
                 else
                         $dateOrder = 'VENCIMENTO';
-
                 //echo "letra: ".$letra;
                 $sqlGenero = "SELECT g.genero, g.descricao,  sum(a.total) as total FROM FIN_LANCAMENTO a ";
-                $sqlGenero .= "inner join fin_genero g on g.genero = a.genero ";
+                $sqlGenero .= "inner join (SELECT genero, MIN(descricao) AS descricao FROM fin_genero GROUP BY genero) g on g.genero = a.genero ";
                 // $sqlCentrocusto = "SELECT r.Centrocusto, r.descricao,  sum(a.total) as total FROM FIN_LANCAMENTO a ";
                 // $sqlCentrocusto .= "inner join fin_Centrocusto r on r.Centrocusto = a.Centrocusto ";
                 if ($total == 3) {
                         $sqln  = "SELECT X.CENTROCUSTO AS CC, Y.SALDO AS SALDOCC, (a.total * (x.percentual / 100)) as totalrateio, x.percentual, a.*, c.nomereduzido, c.nome, c.cidade, s.padrao as situacaopgto, r.descricao as filial, t.padrao as tipolancamento, g.descricao as descgenero, r.descricao as desccentrocusto, ";
-                        $sqln .= "c.pessoa, c.cnpjcpf, CONCAT(c.tipoend,' ',c.tituloend,' ',c.endereco,',',c.numero) as endereco, C.CEP, ";
+                        $sqln .= "c.pessoa, c.cnpjcpf, CONCAT(c.tipoend,' ',c.tituloend,' ',c.endereco,',',c.numero) as endereco, C.CEP, cb.banco as nBanco, cb.envia_boleto as envia_boleto, ";
                         $sqln .= "(SELECT COUNT(F.DOCTO) FROM FIN_LANCAMENTO F WHERE F.DOCTO = a.DOCTO AND F.PESSOA = a.PESSOA AND F.SITPGTO <> 'C') AS TOTALPARCELAS ";
                         $sqln .= "FROM FIN_LANCAMENTO a ";
                         $sqln .= "inner join fin_lancamento_rateio x on (a.id = x.id) and (x.percentual > 0) ";
                         $sqln .= "inner join fin_centro_custo r on x.centrocusto = r.centrocusto ";
                         $sqln .= "left join fin_centro_custo_saldo y on (y.centrocusto = x.centrocusto) and (y.data ='" . $dataIni . "') ";
-                } else {
-                        $sqln  = "SELECT a.*, a.pessoa as pessoaId, c.nomereduzido, c.nome, c.cidade, s.padrao as situacaopgto, r.descricao as filial, t.padrao as tipolancamento, g.descricao as descgenero, r.descricao as desccentrocusto, ";
+                }elseif ($total == 4) { // DRE rateando despesas por CC
+                        $sqlGeneroRaterio  = "SELECT g.genero, g.descricao, SUM((a.total * (x.percentual / 100))) as total ";
+                        $sqlGeneroRaterio .= "FROM FIN_LANCAMENTO a ";
+                        $sqlGeneroRaterio .= "inner join fin_lancamento_rateio x on (a.id = x.id) and (x.percentual > 0) ";
+                        $sqlGeneroRaterio .= "inner join (SELECT genero, MIN(descricao) AS descricao FROM fin_genero GROUP BY genero) g on g.genero = a.genero ";
+                        
+                       
+                }else {
+                        $sqln  = "SELECT a.*, a.pessoa as pessoaId, c.nomereduzido, c.nome, c.cidade, s.padrao as situacaopgto, r.descricao as filial, t.padrao as tipolancamento, g.descricao as descgenero, r.descricao as desccentrocusto, cb.banco as nBanco, cb.envia_boleto as envia_boleto,";
                         $sqln .= "c.pessoa, c.cnpjcpf, CONCAT(c.tipoend,' ',c.tituloend,' ',c.endereco,',',c.numero) as endereco, C.CEP, a." . $dateOrder . " AS DATEORDER, '" . $dateOrder . "' AS FIELDORDER, u_insert.nomereduzido AS NOMEREDUZIDO_INSERT, u_alter.nomereduzido AS NOMEREDUZIDOALTERACAO, ";
                         $sqln .= "(SELECT COUNT(F.DOCTO) FROM FIN_LANCAMENTO F WHERE F.DOCTO = a.DOCTO AND F.PESSOA = a.PESSOA AND F.SITPGTO <> 'C') AS TOTALPARCELAS ";
                         $sqln .= "FROM FIN_LANCAMENTO a ";
                         $sqln .= "inner join fin_centro_custo r on a.centrocusto = r.centrocusto ";
                 }
                 $sqln .= "inner join fin_cliente c on c.cliente = a.pessoa ";
-                $sqln .= "left join fin_genero g on g.genero = a.genero ";
+                $sqln .= "left join (SELECT genero, MIN(descricao) AS descricao FROM fin_genero GROUP BY genero) g on g.genero = a.genero ";
                 $sqln .= "inner join amb_ddm s on ((s.alias='FIN_MENU') and (s.campo='SituacaoPgto') and (s.tipo = a.sitpgto)) ";
                 $sqln .= "inner join amb_ddm t on ((t.alias='FIN_MENU') and (t.campo='TipoLanc') and (t.tipo = a.tipolancamento)) ";
                 $sqln .= "inner join amb_usuario u_insert on a.userinsert = u_insert.usuario ";
                 $sqln .= "LEFT JOIN amb_usuario u_alter ON a.userchange = u_alter.usuario ";
+                $sqln .= "LEFT JOIN fin_conta cb on cb.conta = a.conta ";
                 $sqln .= " ";
                 if (array_sum($par) > 0) {
                         $sql .= "WHERE ";
@@ -1635,7 +1864,7 @@ class c_lancamento extends c_user
                                         $sql .= " AND ";
                                 }
                                 $i = $posFilial + 1;
-                                if ($total == 3) {
+                                if (($total == 3) or ($total == 4)) {
                                         $sql .= "(x.centrocusto in (" . $par[$i];
                                 } else {
                                         $sql .= "(a.centrocusto in (" . $par[$i];
@@ -1703,8 +1932,7 @@ class c_lancamento extends c_user
                                 if (($par[3] != 'nao') or ($par[2] != '') or ($par[4] != '0') or ($par[5] != '0') or ($par[$posConta] != '0')) {
                                         $sql .= " AND ";
                                 }
-                                $sql .= "(a.genero = " . $par[$posGenero];
-                                $sql .= ") ";
+                                $sql .= "(a.genero like '" . $par[$posGenero] . "%') ";
                         }
                 }
 
@@ -1748,6 +1976,8 @@ class c_lancamento extends c_user
                                 $sqlBanco = $sqln . $sql .= "ORDER BY a.genero, " . $par[3];
                         else
                                 $sqlBanco = $sqln . $sql .= "ORDER BY a.genero, a.vencimento";
+                } elseif ($total == 4) {
+                        $sqlBanco = $sqlGeneroRaterio . $sql . "group by g.genero, g.descricao;";
                 } elseif ($total != 0) {
                         $sqlBanco = $sqlGenero . $sql . "group by g.genero, g.descricao;";
                 } else {
@@ -1907,29 +2137,41 @@ class c_lancamento extends c_user
                 if ($this->getRemessaNum() == '0' || $this->getRemessaNum() == '') {
                         $sql .= "null, null, null, null, null, null, '";
                 } else {
-                        $sql .= $this->getRemessaNum() . ", " . $this->getNossoNumero() . ", ";
-                        $sql .= $this->getRemessaData('B') . ", " . $this->getRemessaArq() . ", ";
-                        $sql .= $this->getRetornoArq() . ", " . $this->getRetornoCod() . ", '";
+                        $remessaData = c_date::convertDateBd($this->getRemessaData('B'), $this->m_banco);
+                        $remessaArq  = $this->getRemessaArq();       // ex: BIG
+                        $retornoArq  = $this->getRetornoArq();       // pode vir vazio
+                        $retornoCod  = $this->getRetornoCod();       // pode vir vazio
+
+                        // REMESSANUM é numérico, NOSSONUMERO pode ser alfanumérico (ex: Sicredi "AA/BXXXXX-D")
+                        $sql .= (int)$this->getRemessaNum() . ", " 
+                        . ($this->getNossoNumero() !== null && $this->getNossoNumero() !== '' ? "'" . $this->getNossoNumero() . "'" : "NULL") . ", "
+                        . ($remessaData ? "'" . $remessaData . "'" : "NULL") . ", "
+                        . ($remessaArq  ? "'" . $remessaArq  . "'" : "NULL") . ", "
+                        . ($retornoArq  ? "'" . $retornoArq  . "'" : "NULL") . ", "
+                        . ($retornoCod !== '' && $retornoCod !== null ? (int)$retornoCod : "NULL") . ", '";
+
                 }
                 $sql .= $this->getTipolancamento() . "'," . $this->m_userid . ",'" . date("Y-m-d H:i:s") . "'); ";
                 //    echo $this->getID.$sql;
 
-                // echo strtoupper($sql)."<BR>";
+                //echo strtoupper($sql)."<BR>";
                 $res_pessoa =  $banco->exec_sql($sql, $conn);
                 $this->idInsert = $banco->insertReg;
 
-                if ($banco->result):
+                if ($banco->result){
                         $lastReg = $banco->insertReg;
                         $banco->close_connection();
-                        if ($origem != 'FIN' or $_POST["submenu"] == 'addparcela') {
+                        if ($_POST["submenu"] == 'parcela'){
+                                $this->incluirRateioParcela($lastReg);
+                        }else if ($origem != 'FIN' or $_POST["submenu"] == 'addparcela') {
                                 $this->m_rateioCC = $cc . ' - 1 - 100';
                                 $this->incluirRateio($lastReg, $this->m_rateioCC, $conn);
                         }
                         return $lastReg;
-                else:
+                }else{
                         $banco->close_connection();
                         return 'Os dados do Lançamento ' . $this->getDocto() . ' não foram cadastrados!';
-                endif;
+                }
 
 
                 // 		if($res_pessoa > 0){
@@ -2008,7 +2250,8 @@ class c_lancamento extends c_user
                 } else {
                         $sql .= "REMESSANUM ='" . $this->getRemessaNum() . "', ";
 
-                        $sql .= "NOSSONUMERO ='" . $this->getRemessaNum() . "', ";
+                        // Corrige atribuição: usar o nosso número (pode ser formatado) em vez do número de remessa
+                        $sql .= "NOSSONUMERO ='" . $this->getNossoNumero() . "', ";
                         $sql .= "REMESSADATA ='" . $this->getRemessaData() . "', ";
                         $sql .= "REMESSAARQ ='" . $this->getRemessaArq() . "', ";
                         $sql .= "RETORNOARQ ='" . $this->getRetornoArq() . "', ";
@@ -2078,6 +2321,20 @@ class c_lancamento extends c_user
                 }
                 return '';
         } // fim incluirRateio
+
+        public function incluirRateioParcela($lastReg)
+        {
+                $sql = "INSERT INTO FIN_LANCAMENTO_RATEIO (ID, CENTROCUSTO, PERCENTUAL)
+                        SELECT 
+                        " . $lastReg . ",
+                        CENTROCUSTO,
+                        PERCENTUAL
+                        FROM FIN_LANCAMENTO_RATEIO
+                        WHERE ID = " . $this->getId() . ";";
+                $banco = new c_banco;
+                $banco->exec_sql($sql);
+                $banco->close_connection();
+        }
 
         public function select_rateio_id($tipoConsulta = NULL)
         {
@@ -2152,7 +2409,7 @@ class c_lancamento extends c_user
                 return $banco->resultado;
         }
 
-        public function deletarRateioCC()
+        public function deletarRateioCC($conn = null)
         {
 
                 $banco = new c_banco;
@@ -2488,6 +2745,236 @@ class c_lancamento extends c_user
                 return $banco->resultado;
         } //fim searchTotalReceiptPayment
 
+         /**
+         * @name valoresDuplicados
+         * @description retorna um array contendo valor duplicado
+         * @param array<int|string, int|string>|null $array com os valores
+         * @return array<int, int|string> valores que aparecem mais de uma vez
+         */
+        public function valoresDuplicados($array)
+        {
+                $lista = is_array($array) ? $array : [];
+                // Utilizamos o array_count_values para contar a frequência de cada valor no array
+                $contagemValores = array_count_values($lista);
+                $valoresDuplicados = [];
+
+                // Verificamos quais valores aparecem mais de uma vez
+                foreach ($contagemValores as $valor => $contagem) {
+                        if ($contagem > 1) {
+                                $valoresDuplicados[] = $valor;
+                        }
+                }
+                return $valoresDuplicados;
+        }
+
+        /**
+         * Soma títulos a receber em aberto do cliente (faturas em aberto).
+         *
+         * @param int $idPessoa FIN_LANCAMENTO.PESSOA
+         * @return float
+         */
+        public static function somaTotalReceberAbertoPorPessoa($idPessoa)
+        {
+                $id = intval($idPessoa);
+                if ($id <= 0) {
+                        return 0.0;
+                }
+                $sql = "SELECT COALESCE(SUM(TOTAL), 0) AS VALOR FROM FIN_LANCAMENTO "
+                        . "WHERE PESSOA = " . $id . " AND TIPOLANCAMENTO = 'R' "
+                        . "AND (SITPGTO IS NULL OR SITPGTO NOT IN ('B', 'C')) "
+                        . "AND TOTAL > 0";
+                $banco = new c_banco();
+                $banco->exec_sql($sql);
+                $row = $banco->resultado;
+                $banco->close_connection();
+                if (is_array($row) && isset($row[0]['VALOR'])) {
+                        return doubleval($row[0]['VALOR']);
+                }
+                return 0.0;
+        }
+
+        /**
+         * Parcelas em aberto já lançadas para o pedido (ORIGEM PED), para não duplicar na checagem de saldo.
+         *
+         * @param int $idPessoa
+         * @param int $idPedido FAT_PEDIDO.ID
+         * @return float
+         */
+        public static function somaTotalReceberAbertoPedidoOrigem($idPessoa, $idPedido)
+        {
+                $idP = intval($idPessoa);
+                $idPed = intval($idPedido);
+                if ($idP <= 0 || $idPed <= 0) {
+                        return 0.0;
+                }
+                $sql = "SELECT COALESCE(SUM(TOTAL), 0) AS VALOR FROM FIN_LANCAMENTO "
+                        . "WHERE PESSOA = " . $idP . " AND TIPOLANCAMENTO = 'R' "
+                        . "AND ORIGEM = 'PED' AND NUMLCTO = " . $idPed . " "
+                        . "AND (SITPGTO IS NULL OR SITPGTO NOT IN ('B', 'C')) "
+                        . "AND TOTAL > 0";
+                $banco = new c_banco();
+                $banco->exec_sql($sql);
+                $row = $banco->resultado;
+                $banco->close_connection();
+                if (is_array($row) && isset($row[0]['VALOR'])) {
+                        return doubleval($row[0]['VALOR']);
+                }
+                return 0.0;
+        }
+
+        /**
+         * Compromisso de crédito dos demais pedidos em aberto (situações 1, 2, 3 — farma; 5, 6 — pedido PS), excluindo o pedido informado.
+         * Situação 0 não entra. Para cada pedido: total menos títulos a receber em aberto já originados do próprio pedido (evita duplicar com FIN).
+         *
+         * @param int $idPessoa FIN_LANCAMENTO.PESSOA / FAT_PEDIDO.CLIENTE
+         * @param int $idPedidoExcluir FAT_PEDIDO.ID a ignorar (pedido atual)
+         * @return float
+         */
+        public static function somaCompromissoOutrosPedidosSituacoesCredito($idPessoa, $idPedidoExcluir)
+        {
+                $idP = intval($idPessoa);
+                $idEx = intval($idPedidoExcluir);
+                if ($idP <= 0) {
+                        return 0.0;
+                }
+                $filtroPedido = $idEx > 0 ? " AND fp.ID <> " . $idEx . " " : " ";
+                $sql = "SELECT COALESCE(SUM(CASE "
+                        . "WHEN fp.TOTAL > COALESCE(fin.VALOR, 0) THEN fp.TOTAL - COALESCE(fin.VALOR, 0) "
+                        . "ELSE 0 END), 0) AS VALOR "
+                        . "FROM FAT_PEDIDO fp "
+                        . "LEFT JOIN ( "
+                        . "SELECT NUMLCTO, COALESCE(SUM(TOTAL), 0) AS VALOR FROM FIN_LANCAMENTO "
+                        . "WHERE PESSOA = " . $idP . " AND TIPOLANCAMENTO = 'R' AND ORIGEM = 'PED' "
+                        . "AND (SITPGTO IS NULL OR SITPGTO NOT IN ('B', 'C')) AND TOTAL > 0 "
+                        . "GROUP BY NUMLCTO "
+                        . ") fin ON fin.NUMLCTO = fp.ID "
+                        . "WHERE fp.CLIENTE = " . $idP . $filtroPedido
+                        . "AND fp.SITUACAO IN (1, 2, 3, 5, 6)";
+                $banco = new c_banco();
+                $banco->exec_sql($sql);
+                $row = $banco->resultado;
+                $banco->close_connection();
+                if (is_array($row) && isset($row[0]['VALOR'])) {
+                        return doubleval($row[0]['VALOR']);
+                }
+                return 0.0;
+        }
+
+        /**
+         * Calcula uso do limite de crédito do cliente (pedido farma, pedido PS e demais módulos).
+         *
+         * @param int $idCliente FIN_CLIENTE.CLIENTE
+         * @param int $idPedidoExcluir FAT_PEDIDO.ID ignorado no compromisso de outros pedidos (0 = nenhum)
+         * @return array{limite_credito: float, financeiro_aberto: float, outros_pedidos: float, saldo_disponivel: float}
+         */
+        public static function calculaSaldoLimiteCreditoCliente($idCliente, $idPedidoExcluir = 0)
+        {
+                $idCli = (int) $idCliente;
+                $idPed = (int) $idPedidoExcluir;
+                if ($idCli <= 0) {
+                        return [
+                                'limite_credito' => 0.0,
+                                'financeiro_aberto' => 0.0,
+                                'outros_pedidos' => 0.0,
+                                'saldo_disponivel' => 0.0,
+                        ];
+                }
+                $contaLimite = new c_conta();
+                $contaLimite->setId($idCli);
+                $rowLimite = $contaLimite->select_conta();
+                $limiteCredito = (is_array($rowLimite) && isset($rowLimite[0]['LIMITECREDITO']))
+                        ? doubleval($rowLimite[0]['LIMITECREDITO']) : 0.0;
+                if ($limiteCredito <= 0) {
+                        return [
+                                'limite_credito' => 0.0,
+                                'financeiro_aberto' => 0.0,
+                                'outros_pedidos' => 0.0,
+                                'saldo_disponivel' => 0.0,
+                        ];
+                }
+                $abertoOutros = self::somaTotalReceberAbertoPorPessoa($idCli);
+                if ($idPed > 0) {
+                        $abertoOutros -= self::somaTotalReceberAbertoPedidoOrigem($idCli, $idPed);
+                }
+                $outrosPedidos = self::somaCompromissoOutrosPedidosSituacoesCredito($idCli, $idPed);
+                $usoCredito = $abertoOutros + $outrosPedidos;
+                return [
+                        'limite_credito' => $limiteCredito,
+                        'financeiro_aberto' => $abertoOutros,
+                        'outros_pedidos' => $outrosPedidos,
+                        'saldo_disponivel' => $limiteCredito - $usoCredito,
+                ];
+        }
+
+        /**
+         * Valida limite de crédito antes de liberar/confirmar pedido.
+         *
+         * @param int $idCliente
+         * @param int $idPedido
+         * @param float $valorPedido Total do pedido a comprometer
+         * @param string $acaoVerbo Texto da ação na mensagem (ex.: liberar, confirmar)
+         * @return array{ok: bool, mensagem: string, limite_credito: float, saldo_disponivel: float, valor_pedido: float}
+         */
+        public static function validaLimiteCreditoPedido($idCliente, $idPedido, $valorPedido, $acaoVerbo = 'liberar')
+        {
+                $idCli = (int) $idCliente;
+                $idPed = (int) $idPedido;
+                $valorPedido = doubleval($valorPedido);
+                $saldo = self::calculaSaldoLimiteCreditoCliente($idCli, $idPed);
+                if ($saldo['limite_credito'] <= 0) {
+                        return [
+                                'ok' => true,
+                                'mensagem' => '',
+                                'limite_credito' => 0.0,
+                                'saldo_disponivel' => 0.0,
+                                'valor_pedido' => $valorPedido,
+                        ];
+                }
+                $saldoDisp = $saldo['saldo_disponivel'];
+                if ($valorPedido <= $saldoDisp + 0.01) {
+                        return [
+                                'ok' => true,
+                                'mensagem' => '',
+                                'limite_credito' => $saldo['limite_credito'],
+                                'saldo_disponivel' => max(0, $saldoDisp),
+                                'valor_pedido' => $valorPedido,
+                        ];
+                }
+                $m = function ($v) {
+                        return number_format($v, 2, ',', '.');
+                };
+                $msg = 'Crédito insuficiente para ' . $acaoVerbo . ' o Pedido.' . "\n"
+                        . 'Limite R$ ' . $m($saldo['limite_credito']) . ' · Financeiro em aberto R$ ' . $m($saldo['financeiro_aberto'])
+                        . ' · Outros pedidos em aberto R$ ' . $m($saldo['outros_pedidos']) . "\n"
+                        . 'Saldo disponível R$ ' . $m(max(0, $saldoDisp)) . ' · Valor do pedido R$ ' . $m($valorPedido);
+                return [
+                        'ok' => false,
+                        'mensagem' => $msg,
+                        'limite_credito' => $saldo['limite_credito'],
+                        'saldo_disponivel' => max(0, $saldoDisp),
+                        'valor_pedido' => $valorPedido,
+                ];
+        }
+
+        /**
+         * Limite de crédito disponível para JSON (telas de pedido).
+         *
+         * @param int $idCliente
+         * @param int $idPedidoExcluir
+         * @return array
+         */
+        public static function limiteCreditoClienteParaJson($idCliente, $idPedidoExcluir = 0)
+        {
+                $saldo = self::calculaSaldoLimiteCreditoCliente((int) $idCliente, (int) $idPedidoExcluir);
+                $disp = max(0, $saldo['saldo_disponivel']);
+                return [
+                        'limite_credito' => $saldo['limite_credito'],
+                        'limite_credito_formatado' => number_format($saldo['limite_credito'], 2, ',', '.'),
+                        'saldo_limite_disponivel' => $disp,
+                        'saldo_limite_disponivel_formatado' => number_format($disp, 2, ',', '.'),
+                ];
+        }
+
         /**
          * Function to search for open and donwloaded invoices.
          * @name update_itemns_order
@@ -2562,4 +3049,653 @@ class c_lancamento extends c_user
 
                 return $latestFile ? $latestFile : false;
         }
+
+        /**
+         * @name param_letra
+         * @description monta parametros para o sql
+         * @param string $letra - parametros digitados no form para consulta sql
+         * @return array $sql - where para pesquisa sql na tabela lancamento
+         */
+        public function param_letra($letra)
+        {
+
+                $par = explode("|", $letra);
+                $dataIni = c_date::convertDateTxt($par[0]);
+                $dataFim = c_date::convertDateTxt($par[1]);
+                $sql = '';
+
+                if (array_sum($par) > 0) {
+                        $sql .= "WHERE ";
+                        if ($par[3] != 'nao') {
+                                $sql .= "(a." . $par[3] . " >= '" . $dataIni . "') and (a." . $par[3] . " <= '" . $dataFim . "') ";
+                        }
+
+                        if (($par[2] != '') and ($par[2] != 0)) {
+                                if ($par[3] != 'nao') {
+                                        $sql .= " AND ";
+                                }
+                                $sql .= "(a.pessoa = " . $par[2] . ") ";
+                        }
+
+                        // sit lancamento
+                        if ($par[4] != '0') {
+                                if (($par[3] != 'nao') or ($par[2] != '')) {
+                                        $sql .= " AND ";
+                                }
+                                $i = 5;
+                                $sql .= "(a.sitpgto in ('" . $par[$i] . "'";
+                                $i++;
+                                while ($i <= ($par[4] + 4)) {
+                                        $sql .= ",'" . $par[$i] . "' ";
+                                        $i++;
+                                }
+                                $sql .= ")) ";
+                        }
+
+                        // filial
+                        $posFilial = 5 + $par[4];
+                        if ($par[$posFilial] != '0') {
+                                if (($par[3] != 'nao') or ($par[2] != '') or ($par[4] != '0')) {
+                                        $sql .= " AND ";
+                                }
+                                $i = $posFilial + 1;
+                                if (isset($total) && $total == 3) {
+                                        $sql .= "(x.centrocusto in (" . $par[$i];
+                                } else {
+                                        $sql .= "(a.centrocusto in (" . $par[$i];
+                                }
+                                $i++;
+                                while ($i <= ($par[$posFilial] + $posFilial)) {
+                                        $sql .= "," . $par[$i];
+                                        $i++;
+                                }
+                                $sql .= ")) ";
+                        }
+
+                        // tipo lancamento
+                        $posTipoLanc = $posFilial + $par[$posFilial] + 1;
+                        if ($par[$posTipoLanc] != '0') {
+                                if (($par[3] != 'nao') or ($par[2] != '') or ($par[4] != '0') or ($par[$posFilial] != '0')) {
+                                        $sql .= " AND ";
+                                }
+                                $i = $posTipoLanc + 1;
+                                $sql .= "(a.tipolancamento in ('" . $par[$i] . "'";
+                                $i++;
+                                while ($i <= ($par[$posTipoLanc] + $posTipoLanc)) {
+                                        $sql .= ",'" . $par[$i] . "' ";
+                                        $i++;
+                                }
+                                $sql .= ")) ";
+                        }
+
+                        // situacao documento
+                        $posSitDocto = $posTipoLanc + $par[$posTipoLanc] + 1;
+                        if ($par[$posSitDocto] != '0') {
+                                if (($par[3] != 'nao') or ($par[2] != '') or ($par[4] != '0') or ($par[5] != '0') or ($par[$posTipoLanc] != '0')) {
+                                        $sql .= " AND ";
+                                }
+                                $i = $posSitDocto + 1;
+                                $sql .= "(a.sitdocto in ('" . $par[$i] . "'";
+                                $i++;
+                                while ($i <= ($par[$posSitDocto] + $posSitDocto)) {
+                                        $sql .= ",'" . $par[$i] . "' ";
+                                        $i++;
+                                }
+                                $sql .= ")) ";
+                        }
+
+                        // Conta
+                        $posConta = $posSitDocto + $par[$posSitDocto] + 1;
+                        if ($par[$posConta] != '0') {
+                                if (($par[3] != 'nao') or ($par[2] != '') or ($par[4] != '0') or ($par[5] != '0') or ($par[$posSitDocto] != '0')) {
+                                        $sql .= " AND ";
+                                }
+                                $i = $posConta + 1;
+                                $this->contaIntBancaria = $par[$i];
+                                $sql .= "(a.conta in (" . $par[$i];
+                                $i++;
+                                while ($i <= ($par[$posConta] + $posConta)) {
+                                        $sql .= "," . $par[$i] . " ";
+                                        $i++;
+                                }
+                                $sql .= ")) ";
+                        }
+
+                        // Genero
+                        $posGenero = $posConta + $par[$posConta] + 1;
+                        if (($par[$posGenero] != '') && ($par[$posGenero] != '0')) {
+                                if (($par[3] != 'nao') or ($par[2] != '') or ($par[4] != '0') or ($par[5] != '0') or ($par[$posConta] != '0')) {
+                                        $sql .= " AND ";
+                                }
+                                $sql .= "(a.genero like '" . $par[$posGenero];
+                                $sql .= "%') ";
+                        }
+
+                        //TIPO DOCUMENTO
+                        $posTipoDocto = $posGenero + 1;
+                        if ($par[$posTipoDocto] != '0') {
+                                if (($par[3] != 'nao') or ($par[2] != '') or ($par[4] != '0') or ($par[5] != '0') or ($par[$posGenero] != '0')) {
+                                        $sql .= " AND ";
+                                }
+                                $i = $posTipoDocto + 1;
+                                $sql .= "(a.tipodocto in ('" . $par[$i] . "'";
+                                $i++;
+                                while ($i <= ($par[$posTipoDocto] + $posTipoDocto)) {
+                                        $sql .= ",'" . $par[$i] . "' ";
+                                        $i++;
+                                }
+                                $sql .= ")) ";
+                        }
+                } // if par[0]
+
+                return $sql;
+        } // fim param_letra
+
+        /**
+         * @name select_lancamento_letra
+         * @description busca lancamento de acrodo com informacoes digitados no form
+         * @param string $letra - parametros digitados no form para consulta sql
+         *        int total = 0 resumo por genero e descricao
+         *            total = 1 classifica pela data escolhida  
+         *            total = 2 classifca por genero e data de emissao
+         *            total = 3 consulta centro custo rateio
+         * @return array $banco->resultado - resultado da pesquisa sql na tabela lancamento doc
+         */
+        public function select_lancamento_letra_admin($letra, $total = 0, $conta = 0)
+        {
+
+                $par = explode("|", $letra);
+                $dataIni = c_date::convertDateTxt($par[0]);
+                $dataFim = c_date::convertDateTxt($par[1]);
+
+
+                $sql = $this->param_letra($letra);
+
+                switch ($total) {
+                        case '1': //dre
+                                $sqlGenero = "SELECT g.genero, g.descricao,  sum(a.total) as total FROM FIN_LANCAMENTO a ";
+                                $sqlGenero .= "inner join (SELECT genero, MIN(descricao) AS descricao FROM fin_genero GROUP BY genero) g on g.genero = a.genero ";
+                                $sqlBanco = $sqlGenero . $sql . "group by g.genero, g.descricao;";
+                                break;
+                        case '2': // genero analitico
+                                $sqln  = "SELECT a.*, c.nomereduzido, c.nome, c.cidade, s.padrao as situacaopgto, r.descricao as filial, t.padrao as tipolancamento, g.descricao as descgenero, r.descricao as desccentrocusto, ";
+                                $sqln .= "c.pessoa, c.cnpjcpf, CONCAT(c.tipoend,' ',c.tituloend,' ',c.endereco,',',c.numero) as endereco, C.CEP ";
+                                $sqln .= "FROM FIN_LANCAMENTO a ";
+                                $sqln .= "inner join fin_centro_custo r on a.centrocusto = r.centrocusto ";
+                                $sqln .= "inner join fin_cliente c on c.cliente = a.pessoa ";
+                                $sqln .= "left join (SELECT genero, MIN(descricao) AS descricao FROM fin_genero GROUP BY genero) g on g.genero = a.genero ";
+                                $sqln .= "inner join amb_ddm s on ((s.alias='FIN_MENU') and (s.campo='SituacaoPgto') and (s.tipo = a.sitpgto)) ";
+                                $sqln .= "inner join amb_ddm t on ((t.alias='FIN_MENU') and (t.campo='TipoLanc') and (t.tipo = a.tipolancamento)) ";
+                                $sqln .= " ";
+
+                                $sqlBanco = $sqln . $sql .= "ORDER BY a.genero, a.emissao";
+                                break;
+                        case '3': // centro custo analitico
+                                $sqln  = "SELECT X.CENTROCUSTO AS CC, Y.SALDO AS SALDOCC, (a.total * (x.percentual / 100)) as totalrateio, x.percentual, a.*, c.nomereduzido, c.nome, c.cidade, s.padrao as situacaopgto, r.descricao as filial, t.padrao as tipolancamento, g.descricao as descgenero, r.descricao as desccentrocusto, ";
+                                $sqln .= "c.pessoa, c.cnpjcpf, CONCAT(c.tipoend,' ',c.tituloend,' ',c.endereco,',',c.numero) as endereco, C.CEP ";
+                                $sqln .= "FROM FIN_LANCAMENTO a ";
+                                $sqln .= "inner join fin_lancamento_rateio x on (a.id = x.id) and (x.percentual > 0) ";
+                                $sqln .= "inner join fin_centro_custo r on x.centrocusto = r.centrocusto ";
+                                $sqln .= "left join fin_centro_custo_saldo y on (y.centrocusto = x.centrocusto) and (y.data ='" . $dataIni . "') ";
+
+                                $sqlBanco = $sqln . $sql .= "ORDER BY x.centrocusto, a.genero, a.emissao";
+                                break;
+                        case '4': // DRE Anual
+                                $sqln  = "SELECT g.genero, g.descricao, ";
+                                $sqln  .= "sum(if(MONTH(a.PAGAMENTO)=1, a.total, 0)) as january, ";
+                                $sqln  .= "sum(if(MONTH(a.PAGAMENTO)=2, a.total, 0)) as february, ";
+                                $sqln  .= "sum(if(MONTH(a.PAGAMENTO)=3, a.total, 0)) as march, ";
+                                $sqln  .= "sum(if(MONTH(a.PAGAMENTO)=4, a.total, 0)) as april, ";
+                                $sqln  .= "sum(if(MONTH(a.PAGAMENTO)=5, a.total, 0)) as may, ";
+                                $sqln  .= "sum(if(MONTH(a.PAGAMENTO)=6, a.total, 0)) as june, ";
+                                $sqln  .= "sum(if(MONTH(a.PAGAMENTO)=7, a.total, 0)) as july, ";
+                                $sqln  .= "sum(if(MONTH(a.PAGAMENTO)=8, a.total, 0)) as august, ";
+                                $sqln  .= "sum(if(MONTH(a.PAGAMENTO)=9, a.total, 0)) as september, ";
+                                $sqln  .= "sum(if(MONTH(a.PAGAMENTO)=10, a.total, 0)) as october, ";
+                                $sqln  .= "sum(if(MONTH(a.PAGAMENTO)=11, a.total, 0)) as november, ";
+                                $sqln  .= "sum(if(MONTH(a.PAGAMENTO)=12, a.total, 0)) as december, ";
+                                $sqln  .= "sum(a.total) as total ";
+                                $sqln  .= "FROM FIN_LANCAMENTO a ";
+                                $sqln  .= "inner join (SELECT genero, MIN(descricao) AS descricao FROM FIN_GENERO GROUP BY genero) g on g.genero = a.genero ";
+                                $sqln  .= $sql;
+                                $sqln  .= "group by g.genero, g.descricao ";
+
+                                $sqlBanco = $sqln .= "ORDER BY a.genero, a.emissao";
+                                break;
+                        case '5': // centro custo analitico
+                                $sqln  = "SELECT X.CENTROCUSTO AS CC, R.DESCRICAO AS DESCCENTROCUSTO, A.GENERO, G.DESCRICAO AS DESCGENERO, ";
+                                $sqln .= "(A.TOTAL * (X.PERCENTUAL / 100)) AS TOTALRATEIO, X.PERCENTUAL, A.VENCIMENTO, A.EMISSAO, A.DOCTO, A.SERIE, A.PARCELA ";
+                                $sqln .= "FROM FIN_LANCAMENTO a ";
+                                $sqln .= "inner join fin_lancamento_rateio x on (a.id = x.id) and (x.percentual > 0) ";
+                                $sqln .= "inner join fin_centro_custo r on x.centrocusto = r.centrocusto ";
+                                $sqln .= "LEFT JOIN (SELECT genero, MIN(descricao) AS descricao FROM FIN_GENERO GROUP BY genero) G ON G.GENERO = A.GENERO ";
+                                $sqln .= "left join fin_centro_custo_saldo y on (y.centrocusto = x.centrocusto) and (y.data ='" . $dataIni . "') ";
+
+                                $sqlBanco = $sqln . $sql .= "ORDER BY x.centrocusto, a.genero, a.emissao";
+                                break;
+                        default:
+                                $sqln  = "SELECT a.*, c.nomereduzido, c.nome, c.cidade, s.padrao as situacaopgto, r.descricao as filial, t.padrao as tipolancamento, g.descricao as descgenero, r.descricao as desccentrocusto, ";
+                                $sqln .= "c.pessoa, c.cnpjcpf, CONCAT(c.tipoend,' ',c.tituloend,' ',c.endereco,',',c.numero) as endereco, C.CEP ";
+                                $sqln .= "FROM FIN_LANCAMENTO a ";
+                                $sqln .= "inner join fin_centro_custo r on a.centrocusto = r.centrocusto ";
+                                $sqln .= "inner join fin_cliente c on c.cliente = a.pessoa ";
+                                $sqln .= "left join (SELECT genero, MIN(descricao) AS descricao FROM fin_genero GROUP BY genero) g on g.genero = a.genero ";
+                                $sqln .= "inner join amb_ddm s on ((s.alias='FIN_MENU') and (s.campo='SituacaoPgto') and (s.tipo = a.sitpgto)) ";
+                                $sqln .= "inner join amb_ddm t on ((t.alias='FIN_MENU') and (t.campo='TipoLanc') and (t.tipo = a.tipolancamento)) ";
+                                $sqln .= " ";
+
+                                if ($par[3] != 'nao') {
+                                        $sqlBanco = $sqln . $sql .= "ORDER BY a." . $par[3];
+                                } else {
+                                        $sqlBanco = $sqln . $sql .= "ORDER BY a.pagamento";
+                                }
+                }
+
+                //ECHO                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          ($sqlBanco);
+
+                $banco = new c_banco;
+                $banco->exec_sql($sqlBanco);
+                $banco->close_connection();
+                return $banco->resultado;
+        } // fim select_lancamento_letra_admin
+
+        /**
+         * Function to get data for maintenance of charge on bank API.
+         * @name dadosManutencaoCobrancaApi
+         * @param INT id_lancamento
+         * @param STRING banco
+         * @return ARRAY data
+         */
+        public function dadosManutencaoCobrancaApi(int $id_lancamento, string $banco) {
+                try {
+                        // Obtém o usuário da sessão
+                        $session = json_decode($_SESSION['user_array'], true);
+                        if (!isset($session[0]) || $session[0] == '') {
+                                c_api_response::unauthorized('Não autorizado. Faça login para continuar.');
+                        }
+
+                        $data = null;
+
+                        // Validação de parâmetros
+                        if(!$id_lancamento) {
+                            c_api_response::validationError('ID do lançamento não informado');
+                        }
+                        if(!$banco) {
+                            c_api_response::validationError('Banco não informado');
+                        }
+
+                        // Busca dados da cobrança bancária API
+                        switch ($banco) {
+                            case '77':
+                                // Busca dados da cobrança bancária API Inter
+                                $data = $this->getDadosCobrancaBancoInter($id_lancamento);
+
+                                if($data['success'] === false) {
+                                    c_api_response::validationError('Dados da cobrança bancária API Inter não encontrados');
+                                }
+
+                                break;
+                            case '237':
+                                // Busca dados da cobrança bancária API Bradesco
+                                $data = $this->getDadosCobrancaBancoBradesco($id_lancamento);
+
+                                if($data['success'] === false) {
+                                    c_api_response::validationError('Dados da cobrança bancária API Bradesco não encontrados');
+                                }
+
+                                break;
+                            default:
+                                c_api_response::validationError('Banco não implementado: ' . $banco);
+                                break;
+                        }
+
+                        // Validação de dados
+                        if(!$data) {
+                            c_api_response::validationError('Dados da cobrança bancária API não encontrados');
+                        }
+
+                        // Monta resposta de sucesso
+                        c_api_response::success('Dados da cobrança bancária API buscados com sucesso', $data);
+
+                } catch (Exception $e) {
+
+                        // Monta resposta de erro
+                        $response = [
+                                'message' => $e->getMessage(),
+                                'file' => $e->getFile(),
+                                'line' => $e->getLine(),
+                        ];
+
+                        c_api_response::validationError('Erro ao buscar dados da cobrança bancária API ', [$e->getMessage()], $response);
+
+                }
+        }
+
+        /**
+         * Function to get data for maintenance of charge on bank API.
+         * @name getDadosCobrancaBradesco
+         * @param INT id_lancamento
+         * @return ARRAY data
+         */
+        public function getDadosCobrancaBancoInter(int $id_lancamento) {
+                try {
+                        $banco = new c_banco_pdo();
+                        $banco->prepare("
+                                SELECT 
+                                        FL.ID AS id_lancamento,
+                                        FCO.BANCO AS id_banco,
+                                        FAI.ID AS id_tabela_api,
+                                        FL.DOCTO AS interno_documento,
+                                        FL.PARCELA AS interno_parcela,
+                                        FL.SITPGTO AS interno_situacao,
+                                        FL.TOTAL AS interno_valor_total,
+                                        FC.NOME AS interno_nome_cliente,
+                                        FC.CNPJCPF AS interno_cnpj_cpf_cliente,
+                                        FCO.NOMEINTERNO AS interno_nome_banco,
+                                        FCO.NOMECONTABANCO AS interno_nome_conta_banco,
+                                        FCO.CONTACORRENTE AS interno_conta_corrente,
+                                        FCO.CONTA_CORRENTE_DIGITO AS interno_digito_conta_corrente,
+                                        FCO.AGENCIA AS interno_agencia,
+                                        CASE 
+                                                WHEN FAI.ID_LANCAMENTO IS NULL THEN 'N' 
+                                                WHEN FAI.ID_LANCAMENTO = 0 THEN 'N'
+                                                WHEN FAI.SITUACAO IN ('CANCELADO', 'EXPIRADO') THEN 'N' 
+                                                ELSE 'S' 
+                                        END AS cobranca_enviada,
+                                        FAI.BOLETO_NOSSO_NUMERO AS api_nosso_numero,
+                                        DATE_FORMAT(FAI.DATA_EMISSAO, '%d/%m/%Y') AS api_data_emissao,
+                                        DATE_FORMAT(FAI.DATA_VENCIMENTO, '%d/%m/%Y') AS api_data_vencimento,
+                                        NULL AS api_codigo_situacao_banco,
+                                        FAI.SITUACAO AS api_situacao_banco,
+                                        FAI.BOLETO_LINHA_DIGITAVEL AS api_linha_digitavel,
+                                        FAI.PIX_COPIA_E_COLA AS api_pix_copia_e_cola,
+                                        FAI.PAGADOR_NOME AS api_pagador_nome,
+                                        FAI.VALOR_NOMINAL AS api_valor_total,
+                                        FAI.CODIGO_SOLICITACAO AS api_codigo_solicitacao 
+                                FROM FIN_LANCAMENTO FL 
+                                LEFT JOIN FIN_CLIENTE FC ON FL.PESSOA = FC.CLIENTE
+                                LEFT JOIN FIN_CONTA FCO ON FCO.CONTA = FL.CONTA 
+                                LEFT JOIN FIN_API_INTER FAI 
+                                        ON FAI.ID = (
+                                                SELECT MAX(FAI2.ID)
+                                                FROM FIN_API_INTER FAI2
+                                                WHERE FAI2.ID_LANCAMENTO = FL.ID
+                                        ) 
+                                WHERE FL.ID = :id_lancamento"
+                        );
+                
+                
+                        $banco->bindValue(':id_lancamento', $id_lancamento, PDO::PARAM_INT);
+                
+                        //$query = $banco->queryString();
+                
+                        $banco->execute();
+                        
+                        $dados = $banco->fetch(PDO::FETCH_ASSOC);
+                        
+                        return $dados;
+                } catch (Exception $e) {
+                        return [
+                                'message' => $e->getMessage(),
+                                'success' => false,
+                        ];
+                }
+        }
+
+        /**
+         * Function to get data for maintenance of charge on bank API.
+         * @name getDadosCobrancaBancoBradesco
+         * @param INT id_lancamento
+         * @return ARRAY data
+         */
+        public function getDadosCobrancaBancoBradesco(int $id_lancamento) {
+                try {
+                        $banco = new c_banco_pdo();
+                        $banco->prepare("
+                                SELECT 
+                                        FL.ID AS id_lancamento,
+                                        FCO.BANCO AS id_banco,
+                                        FAI.ID AS id_tabela_api,
+                                        FL.DOCTO AS interno_documento,
+                                        FL.PARCELA AS interno_parcela,
+                                        FL.SITPGTO AS interno_situacao,
+                                        FL.TOTAL AS interno_valor_total,
+                                        FC.NOME AS interno_nome_cliente,
+                                        FC.CNPJCPF AS interno_cnpj_cpf_cliente,
+                                        FCO.NOMEINTERNO AS interno_nome_banco,
+                                        FCO.NOMECONTABANCO AS interno_nome_conta_banco,
+                                        FCO.CONTACORRENTE AS interno_conta_corrente,
+                                        FCO.CONTA_CORRENTE_DIGITO AS interno_digito_conta_corrente,
+                                        FCO.AGENCIA AS interno_agencia,
+                                        CASE 
+                                                WHEN FAI.ID_LANCAMENTO IS NULL THEN 'N' 
+                                                WHEN FAI.ID_LANCAMENTO = 0 THEN 'N'
+
+                                                -- 'N' = Não enviada ou Cancelada/Baixada (Pode gerar novo envio)
+                                                WHEN FAI.COD_STATUS_10 IN (
+                                                    '08', '10', '19', '20', '21', 
+                                                    '51', '52', '53', '54', '55', '57', 
+                                                    '59', '60', '63', '64', '68', '71', '98'
+                                                ) THEN 'N' 
+                                                
+                                                -- ELSE 'S' cobrirá os títulos Pendentes/Ativos e os Pagos/Liquidados
+                                                ELSE 'S' 
+                                        END AS cobranca_enviada,
+                                        FAI.NU_TITULO_GERADO AS api_nosso_numero,
+                                        FAI.DT_EMISSAO AS api_data_emissao,
+                                        FAI.DT_VENCIMENTO AS api_data_vencimento,
+                                        FAI.COD_STATUS_10 AS api_codigo_situacao_banco,
+                                        FAI.STATUS_10 AS api_situacao_banco,
+                                        FAI.LINHA_DIGITAVEL AS api_linha_digitavel,
+                                        NULL AS api_pix_copia_e_cola,
+                                        FAI.NOME_PAGADOR AS api_pagador_nome,
+                                        FAI.VL_TITULO AS api_valor_total
+                                FROM FIN_LANCAMENTO FL 
+                                LEFT JOIN FIN_CLIENTE FC ON FL.PESSOA = FC.CLIENTE
+                                LEFT JOIN FIN_CONTA FCO ON FCO.CONTA = FL.CONTA
+                                        LEFT JOIN FIN_API_BRADESCO FAI 
+                                        ON FAI.ID = (
+                                                SELECT MAX(FAI2.ID)
+                                                FROM FIN_API_BRADESCO FAI2
+                                                WHERE FAI2.ID_LANCAMENTO = FL.ID
+                                        ) 
+                                WHERE FL.ID = :id_lancamento"
+                        );
+                
+                
+                        $banco->bindValue(':id_lancamento', $id_lancamento, PDO::PARAM_INT);
+                
+                        //$query = $banco->queryString();
+                
+                        $banco->execute();
+                        
+                        $dados = $banco->fetch(PDO::FETCH_ASSOC);
+
+                        return $dados;
+                        
+                } catch (Exception $e) {
+                        return [
+                                'message' => $e->getMessage(),
+                                'success' => false,
+                        ];
+                }
+
+        }
+
+        /**
+         * @name selectLancamentosParaAtualizarJurosByLetra
+         * @description Monta e executa o SELECT dos lançamentos que precisam ter juros atualizados,
+         *              usando os filtros empacotados na `letra` (mesmo padrão do select_lancamento_letra).
+         *
+         * Fixos:
+         * - tipolancamento = 'R' (Recebimento)
+         * - sitpgto = 'A' (Aberto)
+         * - vencidos (vencimento < hoje)
+         *
+         * Filtros opcionais vindos da `letra`:
+         * - pessoa
+         * - centrocusto (filial)
+         * - conta
+         * - genero
+         * - dataReferencia + período (dataIni/dataFim), quando dataReferencia != 'nao'
+         *
+         * @param string $letra
+         * @return array
+         */
+        public function selectLancamentosParaAtualizarJurosByLetra($letra)
+        {
+
+                $par = explode('|', $letra) ?? [];
+
+                $dataIni = isset($par[0]) ? c_date::convertDateTxt($par[0]) : '';
+                $dataFim = isset($par[1]) ? c_date::convertDateTxt($par[1]) : '';
+                $pessoa  = isset($par[2]) ? (int)$par[2] : 0;
+                $dataRef = $par[3] ?? 'vencimento'; // lancamento|emissao|vencimento|pagamento|nao
+
+                // $$idx não é “o número 4” em si — é o ponto de partida (4) 
+                // e depois vai sendo incrementado para não confundir posições quando há tamanhos variáveis
+                // (sitCount, filialCount, tipoLancCount, etc.). 
+                $idx = 4;
+
+                $sitCount = isset($par[$idx]) ? (int)$par[$idx] : 0;
+                $idx++;
+                $idx += max(0, $sitCount);
+
+                $filialCount = isset($par[$idx]) ? (int)$par[$idx] : 0;
+                $idx++;
+                $filiais = [];
+                for ($i = 0; $i < $filialCount; $i++, $idx++) {
+                        if (!isset($par[$idx])) break;
+                        $v = (int)$par[$idx];
+                        if ($v > 0) $filiais[] = $v;
+                }
+
+                $tipoLancCount = isset($par[$idx]) ? (int)$par[$idx] : 0;
+                $idx++;
+                $idx += max(0, $tipoLancCount);
+
+                $sitDoctoCount = isset($par[$idx]) ? (int)$par[$idx] : 0;
+                $idx++;
+                $idx += max(0, $sitDoctoCount);
+
+                $contaCount = isset($par[$idx]) ? (int)$par[$idx] : 0;
+                $idx++;
+                $contas = [];
+                for ($i = 0; $i < $contaCount; $i++, $idx++) {
+                        if (!isset($par[$idx])) break;
+                        $v = (int)$par[$idx];
+                        if ($v > 0) $contas[] = $v;
+                }
+
+                $genero = isset($par[$idx]) ? (int)$par[$idx] : 0;
+                $idx++;
+
+                $tipoDocto = isset($par[$idx]) ? $par[$idx] : 'B';
+                $idx++;
+
+
+                // Fixos pedidos
+                $where[] = "a.TIPOLANCAMENTO = 'R'";
+                $where[] = "a.SITPGTO = 'A'";
+                $where[] = "a.VENCIMENTO < '" . date('Y-m-d') . "'";
+
+                // Período por data referência (se não for "nao")
+                if ($dataRef !== 'nao' && $dataIni !== '' && $dataFim !== '') {
+                        $campoData = strtoupper($dataRef);
+                        // Segurança básica: só permite campos conhecidos
+                        if (in_array($campoData, ['LANCAMENTO', 'EMISSAO', 'VENCIMENTO', 'PAGAMENTO'], true)) {
+                                $where[] = "a.{$campoData} BETWEEN '{$dataIni}' AND '{$dataFim}'";
+                        }
+                }
+
+                // Pessoa
+                if ($pessoa > 0) {
+                        $where[] = "a.PESSOA = {$pessoa}";
+                }
+
+                // Centro de custo (filial)
+                if (!empty($filiais)) {
+                        $where[] = "a.CENTROCUSTO IN (" . implode(',', $filiais) . ")";
+                }
+
+                // Conta
+                if (!empty($contas)) {
+                        $where[] = "a.CONTA IN (" . implode(',', $contas) . ")";
+                }
+
+                // Gênero
+                if ($genero > 0) {
+                        $where[] = "a.GENERO = {$genero}";
+                }
+
+                // Tipo de documento
+                if ($tipoDocto !== '0') {
+                        $where[] = "a.TIPODOCTO = '{$tipoDocto}'";
+                }
+
+                $sql  = "SELECT a.ID ";
+                $sql .= "FROM FIN_LANCAMENTO a ";
+                $sql .= "WHERE " . implode(' AND ', $where) . " ";
+                $sql .= "ORDER BY a.VENCIMENTO ASC, a.ID ASC";
+
+                $banco = new c_banco();
+                $banco->exec_sql($sql);
+                $banco->close_connection();
+                return $banco->resultado ?? [];
+        }
+
+        /**
+         * @name atualizaJuros
+         * @description Recalcula multa/juros e total do lançamento vencido (boleto a receber aberto)
+         *              baseado nos percentuais da conta bancária (fin_conta).
+         *
+         * Regras:
+         * - MULTA: percentual aplicado uma vez sobre o ORIGINAL quando vencido
+         * - JUROS: percentual ao mês, proporcional aos dias de atraso (juros/30 * dias)
+         * - TOTAL: ORIGINAL + MULTA + JUROS - ADIANTAMENTO - DESCONTO
+         *
+         * @param int $idLancamento
+         * @return bool true se atualizou; false caso não aplicável/erro
+         */
+        public function atualizaJuros($idLancamento)
+        {
+                $sql  = "SELECT F.ID, F.VENCIMENTO, F.ORIGINAL, F.DESCONTO, C.MULTA, C.JUROS, F.CONTA ";
+                $sql .= "FROM FIN_LANCAMENTO F ";
+                $sql .= "LEFT JOIN FIN_CONTA C ON C.CONTA = F.CONTA ";
+                $sql .= "WHERE F.ID = " . $idLancamento;
+
+                $banco = new c_banco();
+                $banco->exec_sql($sql);
+                $banco->close_connection();
+                $lanc = $banco->resultado[0] ?? null;
+
+                $dateTools = new c_date();
+                $diasAtraso = (int)$dateTools->DataDif($lanc['VENCIMENTO'], date('Y-m-d'), 'd');
+                if ($diasAtraso < 0) $diasAtraso = 0;
+
+                $percMulta = ($lanc['MULTA'] ?? 0);
+                $percJuros = ($lanc['JUROS'] ?? 0);
+
+                $original = ($lanc['ORIGINAL'] ?? 0);
+                $desc = ($lanc['DESCONTO'] ?? 0);
+
+                $vlMulta = ($original * $percMulta) / 100.0;
+                $vlJuros = ($original * $percJuros * ($diasAtraso / 30.0)) / 100.0;
+
+                $total = ($original + $vlMulta + $vlJuros) - $desc;
+
+                // Atualiza no lançamento
+                $sql  = "UPDATE FIN_LANCAMENTO SET ";
+                $sql .= "MULTA = " . $vlMulta . ", ";
+                $sql .= "JUROS = " . $vlJuros . ", ";
+                $sql .= "TOTAL = " . $total . " ";
+                $sql .= "WHERE ID = " . $idLancamento;
+
+                $up = new c_banco();
+                $up->exec_sql($sql);
+                $up->close_connection();
+
+                return true;
+        }
+
 } //END OF THE CLASS

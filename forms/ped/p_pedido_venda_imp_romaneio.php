@@ -563,13 +563,8 @@ Class p_pedido_venda_imprime extends c_pedidoVenda {
             $descCondPgto = $descPgto[0]['DESCRICAO'];
         endif;
         
-        if ($lanc[0]['SITUACAO'] == 9):
-            // Busca lancamentos FINANCEIRO
-            $fin = c_lancamento::select_lancamento_doc('PED', $lanc[0]['PEDIDO']);
-        else:
-            // Calcula lancamentos de acordo com condição pagamento.
-            //$fin = c_pedidoVendaNf::calculaParcelasNfe($descCondPgto, $lanc[0]['TOTAL']);
-        endif;
+        // Busca lançamentos financeiros do pedido (ORIGEM=PED, NUMLCTO=ID)
+        $parcelasRel = c_lancamento::select_parcelas_pedido_relatorio($lanc[0]['ID']);
 
         //AJUSTA QUEBRA DE LINHA
         $lanc[0]['OBS'] = nl2br($lanc[0]['OBS']);
@@ -579,7 +574,9 @@ Class p_pedido_venda_imprime extends c_pedidoVenda {
         $this->smarty->assign('empresa', $empresa);
         $this->smarty->assign('pedido', $lanc);
         $this->smarty->assign('pedidoItem', $lancItem);
-        $this->smarty->assign('fin', $fin);
+        $this->smarty->assign('fin', $parcelasRel['fin']);
+        $this->smarty->assign('parcelas', $parcelasRel['parcelas']);
+        $this->smarty->assign('totalParc', $parcelasRel['totalParc']);
 
         switch ($this->m_letra) {
             case 'cliente':
@@ -618,19 +615,16 @@ Class p_pedido_venda_imprime extends c_pedidoVenda {
                 $descCondPgto = $descPgto[0]['DESCRICAO'];
             endif;
             
-            if ($lanc[0]['SITUACAO'] == 9):
-                // Busca lancamentos FINANCEIRO
-                $fin = c_lancamento::select_lancamento_doc('PED', $lanc[0]['PEDIDO']);
-            else:
-                // Calcula lancamentos de acordo com condição pagamento.
-                //$fin = c_pedidoVendaNf::calculaParcelasNfe($descCondPgto, $lanc[0]['TOTAL']);
-            endif;
+            // Busca lançamentos financeiros do pedido (ORIGEM=PED, NUMLCTO=ID)
+            $parcelasRel = c_lancamento::select_parcelas_pedido_relatorio($lanc[0]['ID']);
             $this->smarty->assign('prazoEntrega', $lanc[0]['PRAZOENTREGA']);
             $this->smarty->assign('descCondPgto', $descCondPgto);
             $this->smarty->assign('empresa', $empresa);
             $this->smarty->assign('pedido', $lanc);
             $this->smarty->assign('pedidoItem', $lancItem);
-            $this->smarty->assign('fin', $fin);
+            $this->smarty->assign('fin', $parcelasRel['fin']);
+            $this->smarty->assign('parcelas', $parcelasRel['parcelas']);
+            $this->smarty->assign('totalParc', $parcelasRel['totalParc']);
 
             $urlImg = "https://admsistema.com.br/".ADMcliente."/images/logo.png";
 

@@ -179,6 +179,18 @@
                         </div>
                     </div>
 
+                    <div class="col-md-3 col-lg-2 divRelatorios">
+                        <div class="panel panel-info btn panelPrincipal" role="button" data-toggle="modal"
+                            data-target="#modalParametros" onclick="javascript:controlInputs('dre_anual')" data-relatorio-nome="DRE Anual">
+                            <div class="panel-heading">
+                                <h3 class="panel-title"><i class="fa fa-calendar-check-o"></i> DRE Anual</h3>
+                            </div>
+                            <div class="panel-body panelText">
+                                Relatório DRE por ano
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
             </div>

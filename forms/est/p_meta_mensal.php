@@ -11,6 +11,7 @@ Class p_meta_mensal extends c_meta_mensal {
 
     private $m_submenu = NULL;
     private $m_letra = NULL;
+    public $m_param = NULL;
     public $smarty = NULL;
 
     
@@ -36,6 +37,8 @@ Class p_meta_mensal extends c_meta_mensal {
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
+
 
         // dados para exportacao e relatorios
         $this->smarty->assign('titulo', "Classe");
@@ -52,6 +55,7 @@ Class p_meta_mensal extends c_meta_mensal {
         $this->setMetaId(isset($parmPost['metaid']) ? $parmPost['metaid'] : '');
         $this->setMeta(isset($parmPost['meta']) ? $parmPost['meta'] : '0');
         $this->setVendedor(isset($parmPost['vendedor']) ? $parmPost['vendedor'] : '');
+        $this->m_param = (isset($parmPost['param']) ? $parmPost['param'] : '');
     }
 
     function controle() {
@@ -74,19 +78,41 @@ Class p_meta_mensal extends c_meta_mensal {
                     $result = true;
                     $identificador = $this->incluir_meta_mensal($transaction->id_connection);
                     $transaction->commit($transaction->id_connection);
-                                            
+
+                    $msgPedido = "Meta adicionada com sucesso!";
+                    echo "<script src='https://unpkg.com/sweetalert/dist/sweetalert.min.js'></script> ";
+                    echo "<style>.swal-modal{width: 510px !important;}.swal-title{font-size: 21px;}</style> ";
+                    echo "<script>swal({text: '',title: `$msgPedido`,icon: 'success',button: 'Ok',});</script>";
                     $this->mostrarMetaMensal('');
                 }
                 break;
             case 'exclui':
-                {
-                    $this->excluir_meta_mensal();
-                    $this->mostrarMetaMensal('Registro excluido.');
+                $result = $this->excluir_meta_mensal(); 
+                if($result == ''){
+                    $msg = "Excluído com sucesso";
+                    $icon = "success";
+                }else{
+                    $msg = "Não foi possível excluir a meta, entre em contato com o suporte!";
+                    $icon = "error";
                 }
+                echo "<script src='https://unpkg.com/sweetalert/dist/sweetalert.min.js'></script> ";
+                echo "<style>.swal-modal{width: 510px !important;}.swal-title{font-size: 21px;}</style> ";
+                echo "<script>swal({text: '',title: `$msg`,icon:`$icon`,button: 'Ok'});</script>";
+                $this->mostrarMetaMensal('');
                 break;
             case 'altera':
-                $this->alterar_meta_mensal();               
-                $this->mostrarMetaMensal('Registro salvo.');
+                $result = $this->alterar_meta_mensal();
+                if($result == ''){
+                    $msg = "Alterado com sucesso";
+                    $icon = "success";
+                }else{
+                    $msg = "Não foi possível alterar a meta, entre em contato com o suporte!";
+                    $icon = "error";
+                }
+                echo "<script src='https://unpkg.com/sweetalert/dist/sweetalert.min.js'></script> ";
+                echo "<style>.swal-modal{width: 510px !important;}.swal-title{font-size: 21px;}</style> ";
+                echo "<script>swal({text: '',title: `$msg`,icon:`$icon`,button: 'Ok'});</script>";           
+                $this->mostrarMetaMensal('');
                 break;
             case 'cadastrarVendedor':
                 {
@@ -111,9 +137,20 @@ Class p_meta_mensal extends c_meta_mensal {
                 }
                 break;
             case 'alteraVendedor':
-                $this->alterar_meta_mensal_vendedor();
+                $result = $this->alterar_meta_mensal_vendedor();
+                if($result == ""){
+                    $msg = "Meta vendedor cadastrada!";
+                    $icon = 'success';
+                }else{
+                    $msg = "Ocorreu um erro ao alterar meta vendedor!";
+                    $icon = 'error';
+                }
                 $this->setId($this->getMetaId());
-                $this->buscar_meta_mensal();               
+                $this->buscar_meta_mensal();
+
+                echo "<script src='https://unpkg.com/sweetalert/dist/sweetalert.min.js'></script> ";
+                echo "<style>.swal-modal{width: 510px !important;}.swal-title{font-size: 21px;}</style> ";
+                echo "<script>swal({text: '',title: `$msg`,icon:`$icon`,button: 'Ok'});</script>";          
                 $this->desenharCadastroMetaMensal();
                 break;
             case 'excluiVendedor':
@@ -151,7 +188,7 @@ Class p_meta_mensal extends c_meta_mensal {
 
         // COMBOBOX VENDEDOR
         $vendedor = $this->getVendedor();
-        $sql = "SELECT USUARIO AS ID, NOME AS DESCRICAO FROM AMB_USUARIO WHERE TIPO = 'V'";
+        $sql = "SELECT USUARIO AS ID, NOME AS DESCRICAO FROM AMB_USUARIO WHERE TIPO IN ('V', 'G') AND SITUACAO = 'A';";
         $this->comboSql($sql, $vendedor, $vendedor, $vendedor_ids, $vendedor_names);
         $this->smarty->assign('vendedor_id', $vendedor);
         $this->smarty->assign('vendedor_ids',   $vendedor_ids);

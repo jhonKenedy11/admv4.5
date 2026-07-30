@@ -68,7 +68,7 @@ class c_conta extends c_user
     private $consumidorFinal     = NULL; //CHAR(1)
     private $regimeEspecialSTMTAliq = NULL;
     private $regimeEspecialSTAliq   = NULL;
-
+    private $geraBoletoAutomatico = NULL; //CHAR(1)
 
     function __construct()
     {
@@ -324,6 +324,11 @@ class c_conta extends c_user
         return $this->regimeEspecialSTAliq;
     }
 
+    function getGeraBoletoAutomatico()
+    {
+        return $this->geraBoletoAutomatico;
+    }
+
     function setId($id)
     {
         $this->id = $id;
@@ -549,7 +554,10 @@ class c_conta extends c_user
     {
         $this->regimeEspecialSTAliq = $regimeEspecialSTAliq;
     }
-
+    function setGeraBoletoAutomatico($geraBoletoAutomatico)
+    {
+        $this->geraBoletoAutomatico = $geraBoletoAutomatico;
+    }
     function setStatus($status)
     {
         $this->status = $status;
@@ -652,6 +660,85 @@ class c_conta extends c_user
         return $this->id_obra;
     }
 
+    public function setAjaxIdCredito($id_credito)
+    {
+        $this->ajax_id_credito = $id_credito;
+    }
+    public function getAjaxIdCredito()
+    {
+        return $this->ajax_id_credito;
+    }
+    public function setAjaxPedido($pedido)
+    {
+        $this->ajax_pedido = $pedido;
+    }
+    public function getAjaxPedido()
+    {
+        return $this->ajax_pedido;
+    }
+    public function setAjaxNritem($nritem)
+    {
+        $this->ajax_nritem = $nritem;
+    }
+    public function getAjaxNritem()
+    {
+        return $this->ajax_nritem;
+    }
+    public function setAjaxQuantidade($quantidade)
+    {
+        $this->ajax_quantidade = $quantidade;
+    }
+    public function getAjaxQuantidade()
+    {
+        return $this->ajax_quantidade;
+    }
+    public function setAjaxUnitario($unitario){
+        $this->ajax_unitario = $unitario;
+    }
+    public function getAjaxUnitario()
+    {
+        return $this->ajax_unitario;
+    }
+    public function setAjaxValor($valor)
+    {
+        $this->ajax_valor = $valor;
+    }
+    public function getAjaxValor()
+    {
+        return $this->ajax_valor;
+    }
+    public function setAjaxUtilizado($utilizado)
+    {
+        $this->ajax_utilizado = $utilizado;
+    }
+    public function getAjaxUtilizado()
+    {
+        return $this->ajax_utilizado;
+    }
+    public function setAjaxEmissao($emissao)
+    {
+        $this->ajax_emissao = $emissao;
+    }
+    public function getAjaxEmissao()
+    {
+        return $this->ajax_emissao;
+    }
+    public function setAjaxPedidoUtilizado($pedidoutilizado)
+    {
+        $this->ajax_pedidoutilizado = $pedidoutilizado;
+    }
+    public function getAjaxPedidoUtilizado()
+    {
+        return $this->ajax_pedidoutilizado;
+    }
+    public function setAjaxClienteId($cliente_id)
+    {
+        $this->ajax_cliente_id = $cliente_id;
+    }
+    public function getAjaxClienteId()
+    {
+        return $this->ajax_cliente_id;
+    }
     //############### FIM SETS E GETS ###############
 
     /**
@@ -767,6 +854,7 @@ class c_conta extends c_user
         $this->setConsumidorFinal($conta[0]['CONSUMIDORFINAL']);
         $this->setRegimeEspecialSTMTAliq($conta[0]['REGIMEESPECIALSTMTALIQ']);
         $this->setRegimeEspecialSTAliq($conta[0]['REGIMEESPECIALSTALIQ']);
+        $this->setGeraBoletoAutomatico($conta[0]['GERA_BOLETO_AUTOMATICO']);
     } // busca_conta
 
     /**
@@ -778,7 +866,7 @@ class c_conta extends c_user
     {
 
         $sql = "SELECT A.BLOQUEADO ";
-        $sql .= "FROM fin_cliente C";
+        $sql .= "FROM fin_cliente C ";
         $sql .= "LEFT JOIN FIN_CLASSE A ON (A.CLASSE=C.CLASSE) ";
         $sql .= "WHERE (CLIENTE = " . $id . "); ";
 
@@ -817,11 +905,15 @@ class c_conta extends c_user
      * @param INT getCnpj Chave primaria da tabela
      * @return INT Id do registro
      */
-    public function existeContaCnpjCpf($cnpj, $arr = false)
+    public static function existeContaCnpjCpf($cnpj, $arr = false)
     {
+        $cnpj = preg_replace('/\D/', '', (string) $cnpj);
+        if ($cnpj === '') {
+            return false;
+        }
         $sql = "SELECT CLIENTE ";
         $sql .= "FROM fin_cliente ";
-        $sql .= "WHERE CNPJCPF = '" . $cnpj[0] . "'; ";
+        $sql .= "WHERE CNPJCPF = '" . $cnpj . "'; ";
         //echo strtoupper($sql);
         $banco = new c_banco;
         $banco->exec_sql($sql);
@@ -897,7 +989,7 @@ class c_conta extends c_user
 
     /**
      * 
-     * @param Array $letra conteudo= [0]nome | [1]Classe | [2]TipoPessoa(F/J) | [3]UF | [4]Vendedor | [5]Cidade | [6]Atividade
+     * @param Array $letra conteudo= [0]nome | [1]Classe | [2]TipoPessoa(F/J) | [3]UF | [4]Vendedor | [5]Cidade | [6]Atividade | [7]CNPJCPF | [8]Obs/Referencia/Transversal | [9]ID
      * @param String $total Caso tenha algum valor, o select tera um GROUP BY
      * @return Array todas as colunas da tabela Cliente
      */
@@ -905,6 +997,11 @@ class c_conta extends c_user
     {
 
         $par = explode("|", $letra);
+
+        // Quando o ID for informado, desconsidera todos os outros filtros
+        if (isset($par[9]) && trim($par[9]) != '') {
+            return "WHERE c.CLIENTE = '" . intval($par[9]) . "' ";
+        }
 
         $isWhere = false;
 
@@ -1100,38 +1197,38 @@ class c_conta extends c_user
         }
         if ($this->getTipo() != "") {
             $sqlField .= "TIPOEND, ";
-            $sqlValue .= " '" . $this->getTipo() . "', ";
+            $sqlValue .= " " . $banco->quote($this->getTipo()) . ", ";
         }
         if ($this->getTitulo() != "") {
             $sqlField .= "TITULOEND, ";
-            $sqlValue .= " '" . $this->getTitulo() . "', ";
+            $sqlValue .= " " . $banco->quote($this->getTitulo()) . ", ";
         }
         if ($this->getEndereco() != "") {
             $sqlField .= "ENDERECO, ";
-            $sqlValue .= " '" . $this->getEndereco() . "', ";
+            $sqlValue .= " " . $banco->quote($this->getEndereco()) . ", ";
         }
         if ($this->getNumero() != "") {
             $sqlField .= "NUMERO, ";
-            $sqlValue .= " '" . $this->getNumero() . "', ";
+            $sqlValue .= " " . $banco->quote($this->getNumero()) . ", ";
         }
         if ($this->getComplemento() != "") {
             $sqlField .= "COMPLEMENTO, ";
-            $sqlValue .= " '" . $this->getComplemento() . "', ";
+            $sqlValue .= " " . $banco->quote($this->getComplemento()) . ", ";
         }
         if ($this->getBairro() != "") {
             $sqlField .= "BAIRRO, ";
-            $sqlValue .= " '" . $this->getBairro() . "', ";
+            $sqlValue .= " " . $banco->quote($this->getBairro()) . ", ";
         }
         if ($this->getCidade() != "") {
             $sqlField .= "CIDADE, ";
-            $sqlValue .= " '" . $this->getCidade() . "', ";
+            $sqlValue .= " " . $banco->quote($this->getCidade()) . ", ";
         }
         if ($this->getCodMunicipio() != "") {
             $sqlField .= "CODMUNICIPIO, ";
-            $sqlValue .= " '" . $this->getCodMunicipio() . "', ";
+            $sqlValue .= " " . $banco->quote($this->getCodMunicipio()) . ", ";
         } else {
             $sqlField .= "CODMUNICIPIO, ";
-            $sqlValue .= " '0', ";
+            $sqlValue .= " " . $banco->quote('0') . ", ";
         }
 
         $sql .= "NOME,
@@ -1153,52 +1250,53 @@ class c_conta extends c_user
                     ATIVIDADE,
                     CENTROCUSTO,
                     REPRESENTANTE, EMAILNFE, USERLOGIN, PASSWORD, LIMITECREDITO, USERINSERT, DATEINSERT, obs, transversal1, transversal2, referencia,
-                    REGIMEESPECIALST, REGIMEESPECIALSTMSG, REGIMEESPECIALSTMT, CONTRIBUINTEICMS, CONSUMIDORFINAL, REGIMEESPECIALSTMTALIQ, REGIMEESPECIALSTALIQ)";
+                    REGIMEESPECIALST, REGIMEESPECIALSTMSG, REGIMEESPECIALSTMT, CONTRIBUINTEICMS, CONSUMIDORFINAL, REGIMEESPECIALSTMTALIQ, REGIMEESPECIALSTALIQ, GERA_BOLETO_AUTOMATICO)";
 
         if ($banco->gerenciadorDB == 'interbase') {
-            $sql .= "VALUES (" . $this->getId() . ", '";
+            $sql .= "VALUES (" . $this->getId() . ", ";
         } else {
-            $sql .= "VALUES ('";
+            $sql .= "VALUES (";
         }
 
-        $sql .= $this->getNome() . "', '"
-            . $this->getNomeReduzido() . "', '"
-            . $this->getPessoa() . "', '"
-            . $this->getCnpjCpf() . "', ";
-        $sql .=  $this->getDatanascimento() == '' ? "NULL, '" : "'" . $this->getDataNascimento('B') . "', '";
-        $sql .= $this->getIeRg() . "', '"
-            . $this->getIm() . "', ";
+        $sql .= $banco->quote($this->getNome()) . ", "
+            . $banco->quote($this->getNomeReduzido()) . ", "
+            . $banco->quote($this->getPessoa()) . ", "
+            . $banco->quote($this->getCnpjCpf()) . ", ";
+        $sql .= $this->getDatanascimento() == '' ? "NULL, " : $banco->quote($this->getDataNascimento('B')) . ", ";
+        $sql .= $banco->quote($this->getIeRg()) . ", "
+            . $banco->quote($this->getIm()) . ", ";
 
         $sql .= $sqlValue;
 
-        $sql .= "'" . $this->getSuframa() . "', '"
-            . $this->getEstado() . "', '"
-            . $this->getFone() . "', '"
-            . $this->getContato() . "', '"
-            . $this->getCelular() . "', '"
-            . $this->getEmail() . "', '"
-            . $this->getHomePage() . "', '"
-            . $this->getClasse() . "', '"
-            . $this->getAtividade() . "', "
-            . $this->getCentroCusto() . ", '"
-            . $this->getRepresentante() . "', '"
-            . $this->getEmailNfe() . "', '"
-            . $this->getUserLogin() . "', '"
-            . $this->getSenhaLogin() . "', "
+        $sql .= $banco->quote($this->getSuframa()) . ", "
+            . $banco->quote($this->getEstado()) . ", "
+            . $banco->quote($this->getFone()) . ", "
+            . $banco->quote($this->getContato()) . ", "
+            . $banco->quote($this->getCelular()) . ", "
+            . $banco->quote($this->getEmail()) . ", "
+            . $banco->quote($this->getHomePage()) . ", "
+            . $banco->quote($this->getClasse()) . ", "
+            . $banco->quote($this->getAtividade()) . ", "
+            . $this->getCentroCusto() . ", "
+            . $banco->quote($this->getRepresentante()) . ", "
+            . $banco->quote($this->getEmailNfe()) . ", "
+            . $banco->quote($this->getUserLogin()) . ", "
+            . $banco->quote($this->getSenhaLogin()) . ", "
             . $this->getLimiteCredito('B') . ", "
-            . $this->m_userid . ", '"
-            . date("Y-m-d H:i:s") . "', '"
-            . $this->getObs() . "', '"
-            . $this->getTransversal1() . "', '"
-            . $this->getTransversal2() . "', '"
-            . $this->getReferencia() . "', '"
-            . $this->getRegimeEspecialST() . "', '"
-            . $this->getRegimeEspecialSTMSG() . "', '"
-            . $this->getRegimeEspecialSTMT() . "', '"
-            . $this->getContribuinteICMS() . "', '"
-            . $this->getConsumidorFinal() . "', "
+            . $this->m_userid . ", "
+            . $banco->quote(date("Y-m-d H:i:s")) . ", "
+            . $banco->quote($this->getObs()) . ", "
+            . $banco->quote($this->getTransversal1()) . ", "
+            . $banco->quote($this->getTransversal2()) . ", "
+            . $banco->quote($this->getReferencia()) . ", "
+            . $banco->quote($this->getRegimeEspecialST()) . ", "
+            . $banco->quote($this->getRegimeEspecialSTMSG()) . ", "
+            . $banco->quote($this->getRegimeEspecialSTMT()) . ", "
+            . $banco->quote($this->getContribuinteICMS()) . ", "
+            . $banco->quote($this->getConsumidorFinal()) . ", "
             . $this->getRegimeEspecialSTMTAliq() . ", "
-            . $this->getRegimeEspecialSTAliq() . "); ";
+            . $this->getRegimeEspecialSTAliq() . ", "
+            . $banco->quote($this->getGeraBoletoAutomatico()) . "); ";
         //echo strtoupper($sql)."<BR>";
 
 
@@ -1236,55 +1334,57 @@ class c_conta extends c_user
     public function alteraConta()
     {
 
+        $banco = new c_banco;
+
         $sql = "UPDATE fin_cliente ";
-        $sql .= "SET  nome = '" . $this->getNome() . "', ";
-        $sql .= "NOMEREDUZIDO = '" . $this->getNomeReduzido() . "', ";
-        $sql .= "PESSOA = '" . $this->getPessoa() . "', ";
-        $sql .= "CNPJCPF = '" . $this->getCnpjCpf() . "', ";
-        $sql .=  $this->getDatanascimento() == '' ? "DATANASCIMENTO = NULL, " :
-            "DATANASCIMENTO = '" . $this->getDataNascimento('B') . "', ";
-        $sql .= "INSCESTRG = '" . $this->getIeRg() . "', ";
-        $sql .= "INSCMUNICIPAL = '" . $this->getIm() . "', ";
-        $sql .= "CEP = " . $this->getCep() . ", ";
-        $sql .= "TIPOEND = '" . $this->getTipo() . "', ";
-        $sql .= "TITULOEND = '" . $this->getTitulo() . "', ";
-        $sql .= "ENDERECO = '" . $this->getEndereco() . "', ";
-        $sql .= "NUMERO = '" . $this->getNumero() . "', ";
-        $sql .= "COMPLEMENTO = '" . $this->getComplemento() . "', ";
-        $sql .= "BAIRRO = '" . $this->getBairro() . "', ";
-        $sql .= "CIDADE = '" . $this->getCidade() . "', ";
-        $sql .= "CODMUNICIPIO = '" . $this->getCodMunicipio() . "', ";
-        $sql .= "SUFRAMA = '" . $this->getSuframa() . "', ";
-        $sql .= "UF = '" . $this->getEstado() . "', ";
-        $sql .= "FONE = '" . $this->getFone() . "', ";
-        $sql .= "FONECONTATO = '" . $this->getContato() . "', ";
-        $sql .= "CELULAR = '" . $this->getCelular() . "', ";
-        $sql .= "EMAIL = '" . $this->getEmail() . "', ";
-        $sql .= "HOMEPAGE = '" . $this->getHomePage() . "', ";
-        $sql .= "CLASSE = '" . $this->getClasse() . "', ";
-        $sql .= "ATIVIDADE = '" . $this->getAtividade() . "', ";
+        $sql .= "SET  nome = " . $banco->quote($this->getNome()) . ", ";
+        $sql .= "NOMEREDUZIDO = " . $banco->quote($this->getNomeReduzido()) . ", ";
+        $sql .= "PESSOA = " . $banco->quote($this->getPessoa()) . ", ";
+        $sql .= "CNPJCPF = " . $banco->quote($this->getCnpjCpf()) . ", ";
+        $sql .= $this->getDatanascimento() == '' ? "DATANASCIMENTO = NULL, " :
+            "DATANASCIMENTO = " . $banco->quote($this->getDataNascimento('B')) . ", ";
+        $sql .= "INSCESTRG = " . $banco->quote($this->getIeRg()) . ", ";
+        $sql .= "INSCMUNICIPAL = " . $banco->quote($this->getIm()) . ", ";
+        $sql .= "CEP = " . $banco->quote($this->getCep()) . ", ";
+        $sql .= "TIPOEND = " . $banco->quote($this->getTipo()) . ", ";
+        $sql .= "TITULOEND = " . $banco->quote($this->getTitulo()) . ", ";
+        $sql .= "ENDERECO = " . $banco->quote($this->getEndereco()) . ", ";
+        $sql .= "NUMERO = " . $banco->quote($this->getNumero()) . ", ";
+        $sql .= "COMPLEMENTO = " . $banco->quote($this->getComplemento()) . ", ";
+        $sql .= "BAIRRO = " . $banco->quote($this->getBairro()) . ", ";
+        $sql .= "CIDADE = " . $banco->quote($this->getCidade()) . ", ";
+        $sql .= "CODMUNICIPIO = " . $banco->quote($this->getCodMunicipio()) . ", ";
+        $sql .= "SUFRAMA = " . $banco->quote($this->getSuframa()) . ", ";
+        $sql .= "UF = " . $banco->quote($this->getEstado()) . ", ";
+        $sql .= "FONE = " . $banco->quote($this->getFone()) . ", ";
+        $sql .= "FONECONTATO = " . $banco->quote($this->getContato()) . ", ";
+        $sql .= "CELULAR = " . $banco->quote($this->getCelular()) . ", ";
+        $sql .= "EMAIL = " . $banco->quote($this->getEmail()) . ", ";
+        $sql .= "HOMEPAGE = " . $banco->quote($this->getHomePage()) . ", ";
+        $sql .= "CLASSE = " . $banco->quote($this->getClasse()) . ", ";
+        $sql .= "ATIVIDADE = " . $banco->quote($this->getAtividade()) . ", ";
         $sql .= "CENTROCUSTO = " . $this->getCentroCusto() . ", ";
         $sql .= "REPRESENTANTE = " . $this->getRepresentante() . ", ";
-        $sql .= "EMAILNFE = '" . $this->getEmailNfe() . "', ";
-        $sql .= "USERLOGIN = '" . $this->getUserLogin() . "', ";
-        $sql .= "PASSWORD = '" . $this->getSenhaLogin() . "', ";
+        $sql .= "EMAILNFE = " . $banco->quote($this->getEmailNfe()) . ", ";
+        $sql .= "USERLOGIN = " . $banco->quote($this->getUserLogin()) . ", ";
+        $sql .= "PASSWORD = " . $banco->quote($this->getSenhaLogin()) . ", ";
         $sql .= "LIMITECREDITO = " . $this->getLimiteCredito('B') . ", ";
-        $sql .= "OBS = '" . $this->getObs() . "', ";
-        $sql .= "TRANSVERSAL1 = '" . $this->getTransversal1() . "', ";
-        $sql .= "TRANSVERSAL2 = '" . $this->getTransversal2() . "', ";
-        $sql .= "REFERENCIA = '" . $this->getReferencia() . "', ";
-        $sql .= "REGIMEESPECIALST = '" . $this->getRegimeEspecialST() . "', ";
-        $sql .= "REGIMEESPECIALSTMSG = '" . $this->getRegimeEspecialSTMsg() . "', ";
-        $sql .= "REGIMEESPECIALSTMT = '" . $this->getRegimeEspecialSTMT() . "', ";
-        $sql .= "CONTRIBUINTEICMS = '" . $this->getContribuinteICMS() . "', ";
-        $sql .= "CONSUMIDORFINAL = '" . $this->getConsumidorfinal() . "', ";
-        $sql .= "REGIMEESPECIALSTMTALIQ = '" . $this->getRegimeEspecialSTMTAliq() . "', ";
-        $sql .= "REGIMEESPECIALSTALIQ = '" . $this->getRegimeEspecialSTAliq() . "', ";
+        $sql .= "OBS = " . $banco->quote($this->getObs()) . ", ";
+        $sql .= "TRANSVERSAL1 = " . $banco->quote($this->getTransversal1()) . ", ";
+        $sql .= "TRANSVERSAL2 = " . $banco->quote($this->getTransversal2()) . ", ";
+        $sql .= "REFERENCIA = " . $banco->quote($this->getReferencia()) . ", ";
+        $sql .= "REGIMEESPECIALST = " . $banco->quote($this->getRegimeEspecialST()) . ", ";
+        $sql .= "REGIMEESPECIALSTMSG = " . $banco->quote($this->getRegimeEspecialSTMsg()) . ", ";
+        $sql .= "REGIMEESPECIALSTMT = " . $banco->quote($this->getRegimeEspecialSTMT()) . ", ";
+        $sql .= "CONTRIBUINTEICMS = " . $banco->quote($this->getContribuinteICMS()) . ", ";
+        $sql .= "CONSUMIDORFINAL = " . $banco->quote($this->getConsumidorfinal()) . ", ";
+        $sql .= "REGIMEESPECIALSTMTALIQ = " . $banco->quote($this->getRegimeEspecialSTMTAliq()) . ", ";
+        $sql .= "REGIMEESPECIALSTALIQ = " . $banco->quote($this->getRegimeEspecialSTAliq()) . ", ";
+        $sql .= "GERA_BOLETO_AUTOMATICO = " . $banco->quote($this->getGeraBoletoAutomatico()) . ", ";
         $sql .= "userchange = " . $this->m_userid . ", ";
-        $sql .= "datechange = '" . date("Y-m-d H:i:s") . "' ";
+        $sql .= "datechange = " . $banco->quote(date("Y-m-d H:i:s")) . " ";
         $sql .= "WHERE cliente = " . $this->getId() . ";";
         //ECHO strtoupper($sql);
-        $banco = new c_banco;
         $banco->exec_sql($sql);
         $status = $banco->result;
         $banco->close_connection();
@@ -1431,9 +1531,9 @@ class c_conta extends c_user
 
     public static function updateCodMunicipio($cliente, $ibge)
     {
-        $sql = "UPDATE FROM FIN_CLIENTE SET ";
+        $sql = "UPDATE FIN_CLIENTE SET ";
         $sql .= "CODMUNICIPIO = '" . $ibge . "' ";
-        $sql .= "WHERE CLIENTE '" . $cliente . "';";
+        $sql .= "WHERE CLIENTE = '" . $cliente . "';";
         //echo strtoupper($sql);
         $banco = new c_banco;
         $banco->exec_sql($sql);
@@ -1447,7 +1547,7 @@ class c_conta extends c_user
      */
     public function contaAll($param)
     {
-        $sql = "SELECT * ";
+        $sql = "SELECT cliente, nome, nomereduzido, cidade, uf, fonearea, fone, email ";
         $sql .= "FROM fin_cliente ";
         if ($param != "") {
             $sql .= "WHERE " . $param . " ORDER BY uf, cidade, nome;";
@@ -1562,6 +1662,127 @@ class c_conta extends c_user
 
         $banco->close_connection();
         return $obras;
+    }
+
+    
+    /**
+     * Retorna os créditos do cliente ordenados por emissão/ID.
+     *
+     * @param int $clienteId
+     * @return array
+     */
+    public function selectCreditos($clienteId)
+    {
+        $banco = new c_banco;
+        $sql = "SELECT ID, CLIENTE, PEDIDO, NRITEM, QUANTIDADE, UNITARIO, VALOR, UTILIZADO, EMISSAO, PEDIDOUTILIZADO ";
+        $sql .= "FROM FIN_CLIENTE_CREDITO ";
+        $sql .= "WHERE CLIENTE = " . $clienteId . " ";
+        $sql .= "ORDER BY EMISSAO DESC, ID DESC";
+        $result = $banco->exec_sql($sql);
+        $creditos = array();
+        if ($result) {
+            foreach ($banco->resultado as $row) {
+                $creditos[] = $row;
+            }
+        }
+        $banco->close_connection();
+        return $creditos;
+    }
+
+    /**
+     * Soma o saldo de créditos do cliente (VALOR - UTILIZADO).
+     *
+     * @param int $clienteId
+     * @return float
+     */
+    public function selectSaldoCreditoCliente($clienteId)
+    {
+        $clienteId = (int) $clienteId;
+        if ($clienteId <= 0) {
+            return 0.0;
+        }
+        $banco = new c_banco;
+        $sql = "SELECT COALESCE(SUM(COALESCE(VALOR, 0) - COALESCE(UTILIZADO, 0)), 0) AS SALDO ";
+        $sql .= "FROM FIN_CLIENTE_CREDITO WHERE CLIENTE = " . $clienteId;
+        $result = $banco->exec_sql($sql);
+        $saldo = 0.0;
+        if ($result && isset($banco->resultado[0]['SALDO'])) {
+            $saldo = (float) $banco->resultado[0]['SALDO'];
+        }
+        $banco->close_connection();
+        return $saldo;
+    }
+
+    /**
+     * Insere novo crédito para cliente.
+     *
+     * @param array $dados
+     * @return bool
+     */
+    public function incluiCredito(array $dados)
+    {
+        $banco = new c_banco;
+        $sql = "INSERT INTO FIN_CLIENTE_CREDITO (CLIENTE, PEDIDO, NRITEM, QUANTIDADE, UNITARIO, VALOR, UTILIZADO, EMISSAO, PEDIDOUTILIZADO, USERINSERT) VALUES (";
+        $sql .= (int)$dados['cliente'] . ", ";
+        $sql .= (int)$dados['pedido'] . ", ";
+        $sql .= (int)$dados['nritem'] . ", ";
+        $sql .= (float)$dados['quantidade'] . ", ";
+        $sql .= (float)$dados['unitario'] . ", ";
+        $sql .= (float)$dados['valor'] . ", ";
+        $sql .= (float)$dados['utilizado'] . ", ";
+        $sql .= ($dados['emissao'] === null ? "NULL" : "'" . $dados['emissao'] . "'") . ", ";
+        $sql .= ($dados['pedidoutilizado'] === '' ? "NULL" : "'" . $dados['pedidoutilizado'] . "'") . ", ";
+        $sql .= (int)$this->m_userid . ")";
+        $banco->exec_sql($sql);
+        $status = $banco->result;
+        $banco->close_connection();
+        return $status;
+    }
+
+    /**
+     * Atualiza crédito existente.
+     *
+     * @param int $id
+     * @param array $dados
+     * @return bool
+     */
+    public function alteraCredito($id, array $dados)
+    {
+        $banco = new c_banco;
+        $sql = "UPDATE FIN_CLIENTE_CREDITO SET ";
+        $sql .= "PEDIDO = " . (int)$dados['pedido'] . ", ";
+        $sql .= "NRITEM = " . (int)$dados['nritem'] . ", ";
+        $sql .= "QUANTIDADE = " . (float)$dados['quantidade'] . ", ";
+        $sql .= "UNITARIO = " . (float)$dados['unitario'] . ", ";
+        $sql .= "VALOR = " . (float)$dados['valor'] . ", ";
+        $sql .= "UTILIZADO = " . (float)$dados['utilizado'] . ", ";
+        $sql .= "EMISSAO = " . ($dados['emissao'] === null ? "NULL" : "'" . $dados['emissao'] . "'") . ", ";
+        $sql .= "PEDIDOUTILIZADO = " . ($dados['pedidoutilizado'] === '' ? "NULL" : "'" . $dados['pedidoutilizado'] . "'") . ", ";
+        $sql .= "USERUPDATE = " . (int)$this->m_userid . ", ";
+        $sql .= "DATEUPDATE = '" . date("Y-m-d H:i:s") . "' ";
+        $sql .= "WHERE ID = " . (int)$id . " AND CLIENTE = " . (int)$dados['cliente'];
+        $banco->exec_sql($sql);
+        $status = $banco->result;
+        $banco->close_connection();
+        return $status;
+    }
+
+    /**
+     * Exclui crédito por id/cliente.
+     *
+     * @param int $id
+     * @param int $clienteId
+     * @return bool
+     */
+    public function excluiCredito($id, $clienteId)
+    {
+        $banco = new c_banco;
+        $sql = "DELETE FROM FIN_CLIENTE_CREDITO ";
+        $sql .= "WHERE ID = " . (int)$id . " AND CLIENTE = " . (int)$clienteId;
+        $banco->exec_sql($sql);
+        $status = $banco->result;
+        $banco->close_connection();
+        return $status;
     }
 
 
@@ -1770,6 +1991,7 @@ class c_conta extends c_user
         $sql .= " COMPLEMENTO =  '" . $this->getComplemento() . "',";
         $sql .= " BAIRRO = '" . $this->getBairro() . "',";
         $sql .= " CIDADE = '" . $this->getCidade() . "',";
+        $sql .= " CODMUNICIPIO = '" . $this->getCodMunicipio() . "',";
         $sql .= " UF = '" . $this->getEstado() . "',";
         $sql .= " CEP =  " . $cep . ",";
         $sql .= " FONEAREA =  '" . $this->getFoneArea() . "',";
@@ -1803,7 +2025,7 @@ class c_conta extends c_user
 
         $sql = "INSERT INTO FIN_CLIENTE_ENDERECO (";
         $sql .= "CLIENTE, DESCRICAO, TIPOEND, TITULOEND, ENDERECO, NUMERO, COMPLEMENTO, ";
-        $sql .= "BAIRRO, CIDADE, UF, CEP, FONEAREA, FONE, FONECONTATO, `STATUS`) VALUES(";
+        $sql .= "BAIRRO, CIDADE, CODMUNICIPIO, UF, CEP, FONEAREA, FONE, FONECONTATO, `STATUS`) VALUES(";
 
         $sql .= $this->getId() . ",";
         $sql .= "'" . $this->getObs() . "',";
@@ -1814,6 +2036,7 @@ class c_conta extends c_user
         $sql .= " '" . $this->getComplemento() . "',";
         $sql .= "'" . $this->getBairro() . "',";
         $sql .= "'" . $this->getCidade() . "',";
+        $sql .= "'" . $this->getCodMunicipio() . "',";
         $sql .= "'" . $this->getEstado() . "',";
         $sql .= " " . $cep . ",";
         $sql .= " '" . $this->getFoneArea() . "',";

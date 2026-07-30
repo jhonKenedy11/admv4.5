@@ -1,17 +1,12 @@
 <script type="text/javascript" src="{$pathJs}/est/s_tabela_preco.js"> </script>
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <div class="right_col" role="main">      
   <div class="">
-
-    <div class="page-title">
-      <div class="title_left">
-        <h3>Tabela Preço</h3>
-      </div>
-    </div>
     <div class="clearfix"></div>
 
     <form id="lancamento" data-parsley-validate class="form-horizontal form-label-left" NAME="lancamento"  ACTION="{$SCRIPT_NAME}" METHOD="post">
-        <input name=mod                 type=hidden value="crm">   
-        <input name=form                type=hidden value="banco">   
+        <input name=mod                 type=hidden value="est">   
+        <input name=form                type=hidden value="tabela_preco">   
         <input name=submenu             type=hidden value={$subMenu}>
         <input name=letra               type=hidden value={$letra}>
         <input name=id                  type=hidden value={$id}>
@@ -22,9 +17,9 @@
             <div class="x_title">
               <h2>
                   {if $subMenu eq "cadastrar"}
-                      Cadastro 
+                      Tabela de Preço - Cadastro 
                   {else}
-                      Altera&ccedil;&atilde;o 
+                      Tabela de Preço - Altera&ccedil;&atilde;o 
                   {/if} 
                   {if $mensagem neq ''}
                       {if $tipoMsg eq 'sucesso'}
@@ -54,13 +49,6 @@
                 </li>
                 <li><button type="button" class="btn btn-danger"  onClick="javascript:submitVoltar();">
                         <span class="glyphicon glyphicon-export" aria-hidden="true"></span><span> Cancelar</span></button>
-                </li>
-                <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a>
-                </li>
-                <li class="dropdown">
-                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"><i class="fa fa-wrench"></i></a>
-                </li>
-                <li><a class="close-link"><i class="fa fa-close"></i></a>
                 </li>
                 </ul>
                 <div class="clearfix"></div>                
@@ -110,6 +98,22 @@
               </div>
 
               <div class="form-group">
+                  <label class="control-label col-md-3 col-sm-3 col-xs-3" for="pessoa">Pessoa</label>
+                  <div class="col-md-6 col-sm-6 col-xs-12">
+                      <input type="hidden" id="pessoa" name="pessoa" value={$pessoa|default:""}>
+                      <div class="input-group">
+                          <input type="text" class="form-control" readonly id="nomePessoa" name="nomePessoa" placeholder="Pessoa" value={$nomePessoa|default:""}>
+                          <span class="input-group-btn">
+                              <button type="button" class="btn btn-primary" style="height:34px;"
+                                    onClick="javascript:abrir('{$pathCliente}/index.php?mod=crm&form=contas&opcao=pesquisar');">
+                                  <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+                              </button>
+                          </span>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="form-group">
                   <label class="control-label col-md-3 col-sm-3 col-xs-3" for="margem">% Calculo<span class="required">*</span>
                   </label>           
                   <div class="col-md-6 col-sm-6 col-xs-12">
@@ -130,15 +134,47 @@
 {include file="template/form.inc"}  
 
 <script>
-$('#validade').daterangepicker({
-    singleDatePicker: true,
-    calender_style: "picker_1",
-    locale: {
-        format: 'DD/MM/YYYY',
-        daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
-        monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+$(function() {
+    var dataValidadeValue = $('#validade').val();
+    var daterangepickerOptions = {
+        singleDatePicker: true,
+        calender_style: "picker_1",
+        parentEl: 'body',
+        opens: 'center', // left | right | center
+        drops: 'up',     // força abrir acima do input
+        autoUpdateInput: false,
+        locale: {
+            format: 'DD/MM/YYYY',
+            daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
+            monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+            cancelLabel: 'Limpar'
+        }
+    };
+
+    if (dataValidadeValue && dataValidadeValue.trim() !== '') {
+        daterangepickerOptions.startDate = dataValidadeValue;
+        daterangepickerOptions.autoUpdateInput = true;
     }
-    
+
+    $('#validade').daterangepicker(daterangepickerOptions);
+
+    $('#validade').on('apply.daterangepicker', function(ev, picker) {
+        $(this).val(picker.startDate.format('DD/MM/YYYY'));
+    });
+
+    $('#validade').on('cancel.daterangepicker', function(ev, picker) {
+        $(this).val('');
+    });
 });
 </script>
+<script src="https://cdn.rawgit.com/plentz/jquery-maskmoney/master/dist/jquery.maskMoney.min.js"></script>
+{literal}
+<script>
+    $(document).ready(function() {
+        $("input.dinheiro").maskMoney({decimal: ",", thousands: ".", allowNegative: true, precision:
+{/literal}{$casasDecimais|default:2}{literal}
+        });
+    });
+</script>
+{/literal}
                     

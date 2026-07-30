@@ -120,6 +120,19 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <div class="divRelatorios">
+                        <div class="panel panel-info btn panelPrincipal" role="button" data-toggle="modal"
+                            data-target="#modalParametros" onclick="controlInputs('relatorio_obras')"
+                            data-relatorio-nome="Relatório obras">
+                            <div class="panel-heading">
+                                <h3 class="panel-title">Relatório obras</h3>
+                            </div>
+                            <div class="panel-body panelText">
+                                Relatório de obras cadastradas
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </form>

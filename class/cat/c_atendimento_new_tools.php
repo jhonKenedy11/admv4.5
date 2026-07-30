@@ -177,6 +177,7 @@ public function incluiPecasAtendimentoControle($arrPeca, $idAtendimento){
         $this->setPercDescontoPecas($peca[8]);
         $descontoPecas = $this->getDescontoPecas('B');
         $this->setTotalPecas($peca[10]);
+        $this->setNfEntradaPecas($peca[15]);
         
         $this->incluiPecas();
         
@@ -236,6 +237,7 @@ public function alteraPecasAtendimentoControle($arrPeca){
         $this->setDescontoPecas($m_item[9]);
         $this->setPercDescontoPecas($m_item[8]);
         $this->setTotalPecas($m_item[10]);
+        $this->setNfEntradaPecas($m_item[15]);
 
         $this->setIdPecas($m_item[13]);
         

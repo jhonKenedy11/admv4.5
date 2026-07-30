@@ -147,6 +147,15 @@
 
                     </div>
 
+                    <div class="row" id="grupo_container" style="display: none;">
+                        <div class="form-group col-md-12 col-sm-12 col-xs-12">
+                            <label for="idGrupo">Grupo</label>
+                            <select class="form-control" id="idGrupo" name="idGrupo" disabled>
+                                {html_options values=$grupo_ids output=$grupo_names selected=$grupo_id}
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="row">
                         <div class="form-group col-md-12 col-sm-12 col-xs-12" id="obra_container">
                             <label for="obra">Obra</label>
@@ -207,11 +216,12 @@
             }
 
         },
-        //funcao para recuperar o valor digirado        
+        // função para atualizar o campo de período quando o usuário aplica o filtro
         function(start, end, label) {
-            f = document.lancamento;
-            f.dataIni.value = start.format('DD/MM/YYYY');
-            f.dataFim.value = end.format('DD/MM/YYYY');
+            var campoPeriodo = document.getElementById('data_consulta');
+            if (campoPeriodo) {
+                campoPeriodo.value = start.format('DD/MM/YYYY') + ' - ' + end.format('DD/MM/YYYY');
+            }
         });
 
     $(document).ready(function() {

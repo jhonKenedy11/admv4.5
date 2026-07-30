@@ -7,11 +7,59 @@
 <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 
 
+<!-- CSS para combo de gêneros -->
+<style>
+    /* Hover nas opções com bordas coloridas */
+    .select2-results__option--highlighted[aria-selected] span[style*="border-left"] {
+        background-color: rgba(0,0,0,0.05);
+    }
+    .select2-selection--single {
+        border-radius: 5px !important;
+        height: 34px !important;
+    }
+    
+    /* Estilo para linhas de observação expansíveis */
+    tr[id^="row-obs-"] {
+        background-color: #f8f9fa !important;
+        border-left: 3px solid #17a2b8 !important;
+    }
+    
+    tr[id^="row-obs-"] td {
+        background-color: #f8f9fa !important;
+    }
+    
+    tr[id^="row-obs-"] textarea {
+        border: 1px solid #ced4da;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    
+    tr[id^="row-obs-"] textarea:focus {
+        border-color: #17a2b8;
+        box-shadow: 0 0 0 0.2rem rgba(23, 162, 184, 0.25);
+    }
+    .stepContainer {
+        height: auto !important;
+        min-height: 400px;
+        overflow: visible !important;
+    }
 
-<!-- Configuracao de estilos extra para o smart wizard 
-cliente/custom.css
-/** jQuery Smart Wizard  **/ 
--->
+    /* Garantir que os steps internos também se ajustem */
+    .stepContainer .content {
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    /* Ajustar a tabela de parcelas para não quebrar o layout */
+    #tabela-parcelas {
+        margin-bottom: 20px;
+    }
+
+    /* Garantir que as linhas de observação apareçam corretamente */
+    .table-responsive {
+        overflow-x: auto;
+        overflow-y: visible;
+    }
+</style>
 
 <!-- Modal Serviços -->
 <div class="modal fade" id="modalServicos" tabindex="-1" role="dialog" aria-labelledby="modalServicosLabel" data-backdrop="static">
@@ -307,22 +355,26 @@ cliente/custom.css
                                 <!-- Estado -->
                                 <div class="form-group row">
                                     <label class="col-form-label col-md-2 col-sm-2 label-align text-danger">Estado *</label>
-                                    <div class="col-md-4 col-sm-4">
-                                        <select class="form-control input-sm" name="estado" id="estado" required>
+                                    <div class="col-md-3 col-sm-3">
+                                        <select class="form-control" name="estado" id="estado" style="font-size: 13px; height: 37px !important;" required>
                                             <option value="">Selecione um estado...</option>
                                         </select>
                                     </div>
-                                </div>
-
-                                <!-- Local da Prestação -->
-                                <div class="form-group row">
+                                    
                                     <label class="col-form-label col-md-2 col-sm-2 label-align text-danger">Local da Prestação *</label>
-                                    <div class="col-md-10 col-sm-10">
+                                    <div class="col-md-5 col-sm-5">
                                         <select class="form-control select2 input-sm" name="local_prestacao" id="local_prestacao" required>
                                             <option value="">Digite para buscar cidades...</option>
                                         </select>
                                     </div>
                                 </div>
+
+                                <p style="height: 0.02px;"></p>
+
+                                {* <!-- Local da Prestação -->
+                                <div class="form-group row">
+
+                                </div> *}
 
                                 <!-- Lista de Serviço -->
                                 <div class="form-group row">
@@ -372,14 +424,16 @@ cliente/custom.css
 
                                 <!-- Base de Cálculo e Impostos -->
                                 <div class="form-group row">
+                                    
+                                    <div class="col-md-2 col-sm-2">
+                                        <label>Tributa Mun. Prestador</label>
+                                        <input type="text" class="form-control text-center input-sm" name="tributa_municipio_prestador" id="tributa_municipio_prestador" value="N" readonly>
+                                    </div>
 
-
-                                    <div class="col-md-4 col-sm-4">
+                                    <div class="col-md-2 col-sm-2">
                                         <label>Base de Cálculo</label>
                                         <input type="text" class="form-control text-right input-sm" name="base_calculo" id="base_calculo" value="0,00" readonly>
                                     </div>
-
-                                    <div class="col-md-1 col-sm-1 offset-md-1 offset-sm-1"></div>
 
                                     <div class="col-md-2 col-sm-2">
                                         <label> Alíquota </label>
@@ -400,13 +454,16 @@ cliente/custom.css
 
                                         <input type="text" class="form-control text-right input-sm" name="issrf" id="issrf" value="0,00" readonly>
                                     </div>
+
+                                    <div class="col-md-1 col-sm-1 offset-md-1 offset-sm-1"></div>
+
                                 </div>
 
                                 <!-- Descrição -->
                                 <div class="form-group row">
 
                                     <div class="col-md-12 col-sm-12">
-                                        <label class="text-danger">Descrição * <small id="caracteres-restantes">(200 caracteres restantes)</small></label>
+                                        <label class="text-danger">Descrição * <small id="caracteres-restantes">(1000 caracteres restantes)</small></label>
                                         <textarea class="form-control" name="descricao" id="descricao" rows="4" placeholder="Digite a descrição do serviço..." required onkeyup="validarDescricao(this)"></textarea>
                                     </div>
 
@@ -452,8 +509,11 @@ cliente/custom.css
                                 </h3>
                             </div>
                             <div class="panel-body">
+
                                     <!-- Primeira linha -->
                                     <div class="col-md-12">
+
+                                        <div class="col-md-1 col-sm-1 offset-md-1 ofzfset-sm-1"></div>
 
                                         <div class="col-md-2">
                                             <div class="form-group mb-3">
@@ -526,22 +586,17 @@ cliente/custom.css
                                             </div>
                                         </div>
 
-                                        <div class="col-md-2">
-                                            <div class="form-group mb-3">
-                                                <label for="valor_total_aliquota" class="form-label small">Alíquota</label>
-                                                <input type="text" class="form-control text-right input-sm" name="valor_total_aliquota" id="valor_total_aliquota" readonly>
-                                            </div>
-                                        </div>
-
                                     </div>
 
                                     <!-- Segunda linha -->
                                     <div class="col-md-12">
 
+                                        <div class="col-md-1 col-sm-1 offset-md-1 offset-sm-1"></div>
+
                                         <div class="col-md-2">
                                             <div class="form-group mb-3">
-                                                <label for="valor_total_servicos" class="form-label small">Valor Total</label>
-                                                <input type="text" class="form-control text-right input-sm" name="valor_total" id="valor_total_servicos" readonly>
+                                                <label for="valor_total_base_calculo" class="form-label small">Valor Base de Cálculo</label>
+                                                <input type="text" class="form-control text-right input-sm" name="valor_total_base_calculo" id="valor_total_base_calculo" readonly>
                                             </div>
                                         </div>
 
@@ -562,22 +617,39 @@ cliente/custom.css
 
                                         <div class="col-md-2">
                                             <div class="form-group mb-3">
-                                                <label for="valor_total_base_calculo" class="form-label small">Valor Base de Cálculo</label>
-                                                <input type="text" class="form-control text-right input-sm" name="valor_total_base_calculo" id="valor_total_base_calculo" readonly>
+                                                <label for="valor_total_aliquota" class="form-label small">Alíquota</label>
+                                                <input type="text" class="form-control text-right input-sm" name="valor_total_aliquota" id="valor_total_aliquota" readonly>
                                             </div>
                                         </div>
 
-                                        <div class="col-md-4 col-sm-4">
-                                            <label class="form-label small">Parcelas</label>
-                                            <select class="form-control input-sm" name="parcelas" id="parcelas"></select>
+                                        <div class="col-md-2">
+                                            <div class="form-group mb-3">
+                                                <label for="valor_total_servicos" class="form-label small">Valor Total</label>
+                                                <input type="text" class="form-control text-right input-sm" name="valor_total" id="valor_total_servicos" readonly>
+                                            </div>
                                         </div>
-                                        
 
                                     </div>
 
                                     <!-- Terceira linha -->
                                     <div class="col-md-12">
 
+                                        <div class="col-md-1 col-sm-1 offset-md-1 offset-sm-1"></div>
+
+                                        <div class="col-md-5 col-sm-5">
+                                            <label class="form-label small">Genero</label>
+                                            <select class="form-control input-sm" name="genero" id="genero"></select>
+                                        </div>
+
+                                        <div class="col-md-5 col-sm-5">
+                                            <label class="form-label small">Parcelas</label>
+                                            <select class="form-control" name="parcelas" id="parcelas" style="font-size: 13px; height: 37px !important;"></select>
+                                        </div>
+
+                                    </div>
+
+                                    <!-- Quarta linha -->
+                                    <div class="col-md-12">
 
                                         <div class="col-md-12">
                                             <div class="form-group mb-3">
@@ -587,7 +659,6 @@ cliente/custom.css
                                     
                                     </div>
                                     
-
                                 </div>
                             </div>
                         </div>
@@ -641,50 +712,15 @@ cliente/custom.css
                     <i class="fa fa-times"></i> Fechar
                 </button>
 
-                <button type="button" class="btn btn-success pull-right" id="btnEmitirNFS">
+                <button type="button" class="btn btn-success btn-sm pull-right" id="btnEmitirNFS">
                     <i class="fa fa-check"></i> Emitir NFS-e
                 </button>
-                {* <button type="button" class="btn btn-info btn-sm" id="btnVisualizar">
+                <button type="button" class="btn btn-info btn-sm" id="btnVisualizar">
                     <i class="fa fa-eye"></i> Visualizar
                 </button>
-                <button type="button" class="btn btn-warning btn-sm" id="btnLimpar">
+                {* <button type="button" class="btn btn-warning btn-sm" id="btnLimpar">
                     <i class="fa fa-eraser"></i> Limpar
                 </button> *}
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de Observação de Parcela -->
-<div class="modal fade" id="modalObservacaoParcela" tabindex="-1" role="dialog" aria-labelledby="modalObservacaoParcelaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-md" role="document">
-        <div class="modal-content">
-            <div class="modal-header bg-info text-white">
-                <h5 class="modal-title" id="modalObsParcelaTitulo">
-                    <i class="fa fa-comment"></i> Observação da Parcela
-                </h5>
-                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Fechar">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="modalObsParcelaNumero">
-                <div class="form-group">
-                    <label for="modalObsParcelaTexto">
-                        <i class="fa fa-pencil"></i> Digite a observação:
-                    </label>
-                    <textarea class="form-control" id="modalObsParcelaTexto" rows="5" 
-                              placeholder="Digite aqui a observação para esta parcela..." 
-                              maxlength="500"></textarea>
-                    <small class="form-text text-muted">
-                        Limite de 500 caracteres
-                    </small>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">
-                    <i class="fa fa-times"></i> Fechar
-                </button>
             </div>
         </div>
     </div>

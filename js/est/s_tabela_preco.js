@@ -1,17 +1,24 @@
 function submitConfirmar() {
-    debugger;
-    f = document.lancamento;
+    var f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'tabela_preco';
-    if (confirm('Deseja realmente ' + f.submenu.value + ' este item') == true) {
-        if (f.submenu.value == "cadastrar") {
-            f.submenu.value = 'inclui';
+    Swal.fire({
+        title: 'Confirmação',
+        text: 'Deseja realmente ' + f.submenu.value + ' este item?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não'
+    }).then(function (result) {
+        if (result.isConfirmed) {
+            if (f.submenu.value == "cadastrar") {
+                f.submenu.value = 'inclui';
+            } else {
+                f.submenu.value = 'altera';
+            }
+            f.submit();
         }
-        else {
-            f.submenu.value = 'altera';
-        }
-        f.submit();
-    } //  
+    });
 } // submitConfirmar
 
 function submitVoltar() {
@@ -32,7 +39,6 @@ function submitCadastro() {
 } // submitCadastro
 
 function submitAlterar(id) {
-    debugger;
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'tabela_preco';
@@ -42,22 +48,34 @@ function submitAlterar(id) {
 } // submitAlterar
 
 function submitExcluir(id) {
-    if (confirm('Deseja realmente Excluir este item') == true) {
-        f = document.lancamento;
-        f.mod.value = 'est';
-        f.form.value = 'tabela_preco';
-        f.submenu.value = 'exclui';
-        f.id.value = id;
-        f.submit();
-    } // if
+    Swal.fire({
+        title: 'Confirmação',
+        text: 'Deseja realmente Excluir este item?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir',
+        cancelButtonText: 'Cancelar'
+    }).then(function (result) {
+        if (result.isConfirmed) {
+            var f = document.lancamento;
+            f.mod.value = 'est';
+            f.form.value = 'tabela_preco';
+            f.submenu.value = 'exclui';
+            f.id.value = id;
+            f.submit();
+        }
+    });
 } // submitExcluir
 
-function submitDetalhe(id) {
-    debugger;
+function submitDetalhe(id_tabela_preco) {
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'tabela_preco_item';
     f.submenu.value = '';
-    f.letra.value = id;
+    f.id_tabela_preco.value = id_tabela_preco;
     f.submit();
 } // submitExcluir
+
+function abrir(pag) {
+    window.open(pag, 'consulta', 'toolbar=no,location=no,menubar=no,width=750,height=650,scrollbars=yes');
+}

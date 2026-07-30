@@ -18,20 +18,28 @@ function submitVoltar(formulario) {
 } // fim submitVoltar
 
 function submitConfirmar(formulario) {
-     
+     debugger
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'nota_fiscal';
-    if (confirm('Deseja realmente ' + f.submenu.value + ' esta Nota Fiscal') == true) {
-        f.opcao.value = formulario;
-        if (f.submenu.value == "cadastrar") {
-            f.submenu.value = 'inclui';
+    swal.fire({
+        title: 'Deseja realmente ' + f.submenu.value + ' esta Nota Fiscal?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f.opcao.value = formulario;
+            if (f.submenu.value == "cadastrar") {
+                f.submenu.value = 'inclui';
+            }
+            else {
+                f.submenu.value = 'altera';
+            }
+            f.submit();
         }
-        else {
-            f.submenu.value = 'altera';
-        }
-        f.submit();
-    } // if
+    })
 } // fim submitConfirmar
 
 // ####################
@@ -145,16 +153,50 @@ function submitAlterar(id) {
     f.submit();
 }// submitAlterar
 
-function submitExcluir(id) {
-    if (confirm('Deseja realmente Excluir esta NFe e seus itens?') == true) {
-        f = document.lancamento;
-        f.mod.value = 'est';
-        f.form.value = 'nota_fiscal';
-        f.opcao.value = 'NotaFiscal';
-        f.submenu.value = 'exclui';
-        f.id.value = id;
-        f.submit();
-    } // if
+function submitExcluir(id, situacao) {
+    // Verifica se a situação está baixada (B) - impede exclusão
+    if (situacao === 'B') {
+        Swal.fire({
+            title: 'Exclusão não permitida',
+            text: 'Não é possível excluir uma nota fiscal que já foi baixada.',
+            icon: 'error',
+            confirmButtonText: 'Entendi'
+        });
+        return;
+    }
+    
+    Swal.fire({
+        title: 'Confirmar Exclusão',
+        text: 'Deseja realmente excluir esta NFe? Os itens e financeiros relacionados também serão excluídos (se não estiverem baixados).',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Mostra loader enquanto processa
+            Swal.fire({
+                title: 'Excluindo...',
+                text: 'Aguarde enquanto a nota fiscal é excluída.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            // Submete o formulário
+            f = document.lancamento;
+            f.mod.value = 'est';
+            f.form.value = 'nota_fiscal';
+            f.opcao.value = 'NotaFiscal';
+            f.submenu.value = 'exclui';
+            f.id.value = id;
+            f.submit();
+        }
+    });
 }// submitExcluir
 
 function abrir(pag) {
@@ -248,17 +290,66 @@ function consultaPrintPeriodo(form) {
     window.open('index.php?mod=est&form=' + form + '&opcao=imprimir&letra=' + g.letra.value, 'consulta', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes');
 }
 
-function printDanfe(id) {
-    // f = document.lancamento;
-    // f.mod.value = 'est';
-    // // f.form.value = 'nota_fiscal';
-    // f.form.value = 'nfephp_imprime_danfe';
-    // f.opcao.value = 'blank';
-    // f.submenu.value = 'danfe';
-    // f.id.value = id;
-    //f.submit();
+function consultaMovimentoEstoque(form) {
+    g = document.lancamento;
+ 
+    if (form === 'movimento_estoque' && g.id && g.id.value) {
+        // Abre tela de recebimento de produtos da nota fiscal
+        submitReceber(g.id.value);
+        return;
+    }
+    
+    // Caso contrário, abre o relatório de movimento de estoque
+    // Verifica se estamos na tela de cadastro (campos de filtro não existem)
+    // ou na tela de listagem (campos de filtro existem)
+    var letra = '';
+    
+    if (g.mfilial && g.mtipo && g.msituacao && g.dataIni && g.dataFim) {
+        // Tela de listagem - usa montaLetra()
+        montaLetra();
+        letra = g.letra.value;
+    } else {
+        // Tela de cadastro - monta letra básica com dados disponíveis
+        var dataIni = '';
+        var dataFim = '';
+        var filial = g.centroCusto ? g.centroCusto.value : '';
+        
+        // Se não tiver data, usa período padrão (mês atual)
+        var hoje = new Date();
+        var primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+        var ultimoDia = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+        
+        dataIni = ('0' + primeiroDia.getDate()).slice(-2) + '/' + ('0' + (primeiroDia.getMonth() + 1)).slice(-2) + '/' + primeiroDia.getFullYear();
+        dataFim = ('0' + ultimoDia.getDate()).slice(-2) + '/' + ('0' + (ultimoDia.getMonth() + 1)).slice(-2) + '/' + ultimoDia.getFullYear();
+        
+        // Monta letra no formato: mfilial|mtipo|msituacao|dataIni|dataFim|numNf|serieNf|pessoa|idNatop|finalidadeEmissao|modFrete|genero|transportador|modeloNf
+        // O relatório usa apenas m_par[0] (dataIni) e m_par[1] (dataFim), então os outros campos podem ficar vazios
+        letra = (filial || '') + '|||' + dataIni + '|' + dataFim + '||||||||';
+    }
+    
+    g.mod.value = 'est';
+    g.form.value = form;
+    g.submenu.value = 'imprime';
+    window.open('index.php?mod=est&form=' + form + '&opcao=imprimir&letra=' + encodeURIComponent(letra), 'consulta', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes');
+}
 
+function printDanfe(id) {
     window.open('index.php?mod=est&origem=imprimeDanfe&opcao=imprimir&form=nfephp_imprime_danfe&id='+id, 'DANFE', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes');
+}    // f = document.lancamento;
+// f.mod.value = 'est';
+// // f.form.value = 'nota_fiscal';
+// f.form.value = 'nfephp_imprime_danfe';
+// f.opcao.value = 'blank';
+// f.submenu.value = 'danfe';
+// f.id.value = id;
+//f.submit();
+
+
+function abrirNotaFiscalBoletoBancario(id) {
+    window.open(
+        'index.php?mod=est&opcao=imprimir&form=nota_fiscal_boleto_bancario&id=' + encodeURIComponent(id),
+        '_blank'
+    );
 }
 function geraDanfe(id) {
     f = document.lancamento;
@@ -289,7 +380,13 @@ function cancelaNFE(id) {
     f.id.value = id;
 
     if ((f.justificativa.value == '') || (f.justificativa.value.length < 15)) {
-        alert('Digite a justificativa do cancelamento com pelo menos 15 caracteres');
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Digite a justificativa do cancelamento com pelo menos 15 caracteres',
+            icon: 'warning',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#ffc107'
+        });
     }
     else
         if (confirm('Deseja realmente CANCELAR esta Nota Fiscal') == true) {
@@ -306,12 +403,107 @@ function cartaCNFE(id) {
     f.id.value = id;
 
     if ((f.carta.value == '') || (f.carta.value.length < 15)) {
-        alert('Digite o texto para correção com pelo menos 15 caracteres');
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Digite o texto para correção com pelo menos 15 caracteres',
+            icon: 'warning',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#ffc107'
+        });
     }
     else
         if (confirm('Deseja realmente ENVIAR A CARTA DE CORREÇÃO para esta Nota Fiscal') == true) {
             f.submit();
         }
+}
+
+function consultaEventosNFe(id) {
+    let params = {
+        'submenu': 'consultaEventosNFe',
+        'opcao': 'blank',
+        'mod': 'est',
+        'form': 'nota_fiscal',
+        'id': id
+    };
+
+    $.ajax({
+        type: "POST",
+        url: document.URL,
+        data: params,
+        dataType: "json",
+        success: function(response) {
+            if (response.status === 'success' && response.temCCe === true) {
+                var divEventos = $('#divEventosNFe');
+                var conteudoEventos = $('#conteudoEventos');
+                
+                if (divEventos.length > 0 && conteudoEventos.length > 0) {
+                    divEventos.show();
+                    
+                    let html = '<button type="button" class="btn btn-info btn-sm" onclick="visualizarCCe(' + id + ')" title="Visualizar DANFE CCe">';
+                    html += '<span class="glyphicon glyphicon-eye-open"></span> Visualizar CCe';
+                    html += '</button>';
+                    
+                    conteudoEventos.html(html);
+                }
+            }
+        },
+        error: function(xhr, status, error) {
+        }
+    });
+}
+
+function visualizarCCe(idNfe) {
+    $.ajax({
+        type: 'POST',
+        url: document.URL,
+        dataType: 'json',
+        data: {
+            submenu: 'visualizarCCe',
+            opcao: 'blank',
+            mod: 'est',
+            form: 'nota_fiscal',
+            id: idNfe
+        },
+        success: function (response) {
+            if (response.status === 'success' && response.url) {
+                window.open(
+                    response.url,
+                    'CartaCorrecao',
+                    'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes'
+                );
+            } else if (response.status === 'error' && response.message) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Carta de correção',
+                    text: response.message
+                });
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Carta de correção',
+                    text: 'Não foi possível obter o PDF da carta de correção.'
+                });
+            }
+        },
+        error: function (xhr) {
+            var msg = 'Falha ao gerar a visualização da carta de correção.';
+            if (xhr.responseText) {
+                try {
+                    var j = JSON.parse(xhr.responseText);
+                    if (j.message) {
+                        msg = j.message;
+                    }
+                } catch (e) {
+                    /* não é JSON */
+                }
+            }
+            Swal.fire({
+                icon: 'error',
+                title: 'Carta de correção',
+                text: msg
+            });
+        }
+    });
 }
 
 function inutilizaNFE() {
@@ -321,23 +513,53 @@ function inutilizaNFE() {
     f.opcao.value = '';
     f.submenu.value = 'inutilizaNFE';
     if (f.inutModelo.value == '') {
-        alert('Digite o Modelo');
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Digite o Modelo',
+            icon: 'warning',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#ffc107'
+        });
     }
     else
         if (f.inutSerie.value == '') {
-            alert('Digite a Serie');
+            Swal.fire({
+                title: 'Atenção!',
+                text: 'Digite a Serie',
+                icon: 'warning',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#ffc107'
+            });
         }
         else
             if (f.inutNumIni.value == '') {
-                alert('Digite o Numero Inicial');
+                Swal.fire({
+                    title: 'Atenção!',
+                    text: 'Digite o Numero Inicial',
+                    icon: 'warning',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#ffc107'
+                });
             }
             else
                 if (f.inutNumFim.value == '') {
-                    alert('Digite o Numero Inicial');
+                    Swal.fire({
+                        title: 'Atenção!',
+                        text: 'Digite o Numero Final',
+                        icon: 'warning',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#ffc107'
+                    });
                 }
                 else
                     if (f.inutJustificativa.value == '') {
-                        alert('Digite a justificativa');
+                        Swal.fire({
+                            title: 'Atenção!',
+                            text: 'Digite a justificativa',
+                            icon: 'warning',
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#ffc107'
+                        });
                     }
                     else
                         if (confirm('Deseja realmente INUTILIZAR este intervalo de Nota Fiscal') == true) {
@@ -370,15 +592,33 @@ function consultarXMLNFe() {
 function enviarEmailXmlDanfe() {
     f = document.lancamento;
     if(f.destinatario.value == ''){
-        alert('Preencher o campo Para');
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Preencher o campo Para',
+            icon: 'warning',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#ffc107'
+        });
         return false;
     }
     if(f.comCopiaPara.value == ''){
-        alert('Preencher o campo Assunto');
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Preencher o campo Assunto',
+            icon: 'warning',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#ffc107'
+        });
         return false;
     }
     if(f.emailCorpo.value == ''){
-        alert('Preencher o corpo do email.');
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Preencher o corpo do email.',
+            icon: 'warning',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#ffc107'
+        });
         return false;
     }
     f.mod.value = 'est';
@@ -582,7 +822,13 @@ function submitDevolucaoNf(){
                 if(novaPessoa === pessoa){   
                     notaFiscais = notaFiscais + "|" + nfId.trim();
                 }else{
-                    alert("Selecione a mesma Pessoa para fazer a Devolução de Nf.");
+                    Swal.fire({
+                        title: 'Atenção!',
+                        text: 'Selecione a mesma Pessoa para fazer a Devolução de Nf.',
+                        icon: 'warning',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#ffc107'
+                    });
                     return false;
                 }
                 count += 1
@@ -598,7 +844,13 @@ function submitDevolucaoNf(){
         f.submit();
        
     }else{
-        alert("Selecione mais de uma Nf para fazer a Devolução.");
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Selecione mais de uma Nf para fazer a Devolução.',
+            icon: 'warning',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#ffc107'
+        });
         return false;
     }
     
@@ -613,7 +865,13 @@ function qtdeDevolucao(id,value){
     qtde = parseFloat(qtde);
 
     if(qtde < qtdeDevolucao){
-        alert("A Quantidade de Devolução maior que a Qtde do Produto.");
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'A Quantidade de Devolução maior que a Qtde do Produto.',
+            icon: 'warning',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#ffc107'
+        });
         return false;
     }
     
@@ -642,7 +900,13 @@ function submitDevolucao(id){
         }
     }
     if(dadosNf == ""){
-        alert("Selecione o(s) Produtos Para devolução");
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Selecione o(s) Produtos Para devolução',
+            icon: 'warning',
+            confirmButtonText: 'OK',
+            confirmButtonColor: '#ffc107'
+        });
         return false;
     }
     f.nfProdutos.value = dadosNf;

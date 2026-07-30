@@ -96,40 +96,50 @@ function controle() {
         $this->smarty->assign('obs', $this->m_par[8]);
 
         //VERIFICA SE È MOVIMENTO CC OU REIMPRESSAO DE ROMANEIO
-        if($this->m_par[1] == 'reimpressao')
-            //Busca dados das nfs de entrada e saída
+        if (isset($this->m_par[1]) && $this->m_par[1] === 'reimpressao') {
             $notas = $this->selectNotas($this->m_par[0]);
-        else
-            $notas = $this->selectNotas($this->m_par[1]);
-
-        if (isset($notas[0]['OBS']) !== '' || isset($notas[0]['OBS']) !== null) {
-            $this->smarty->assign('obs', $notas[0]['OBS']);
+        } else {
+            $idDoc = !empty($this->m_par[1]) ? $this->m_par[1] : ($this->m_par[0] ?? 0);
+            $notas = $this->selectNotas($idDoc);
         }
-            
-        $this->smarty->assign('notaSaida',  $notas[0]['NUMERO']);
-        $this->smarty->assign('notaEntrada',  $notas[1]['NUMERO']);
+
+        if (empty($notas)) {
+            $this->smarty->assign('mensagem', 'Romaneio: notas fiscais não encontradas.');
+            $this->smarty->display('romaneio_mov_est_cc_imprime.tpl');
+            return;
+        }
+
+        $notaSaidaRow = $notas[0];
+        $notaEntradaRow = isset($notas[1]) ? $notas[1] : $notas[0];
+
+        if (!empty($notaSaidaRow['OBS'])) {
+            $this->smarty->assign('obs', $notaSaidaRow['OBS']);
+        }
+
+        $this->smarty->assign('notaSaida', $notaSaidaRow['NUMERO']);
+        $this->smarty->assign('notaEntrada', $notaEntradaRow['NUMERO']);
 
         //BUSCA DESCRIÇÂO CENTRO CUSTO SAÍDA
         $ccustoS = new c_banco;
         $ccustoS->setTab("FIN_CENTRO_CUSTO");
-        $desCCSaida = $ccustoS->getField("DESCRICAO", "CENTROCUSTO=".$notas[0]['CENTROCUSTO']);
+        $desCCSaida = $ccustoS->getField("DESCRICAO", "CENTROCUSTO=".$notaSaidaRow['CENTROCUSTO']);
         $ccustoS->close_connection();
         $this->smarty->assign('centroCustoSaida', $desCCSaida);
         
         //BUSCA DESCRIÇÂO CENTRO CUSTO ENTRADA
         $ccustoE = new c_banco;
         $ccustoE->setTab("FIN_CENTRO_CUSTO");
-        $desCCEntrada = $ccustoE->getField("DESCRICAO", "CENTROCUSTO=".$notas[1]['CENTROCUSTO']);
+        $desCCEntrada = $ccustoE->getField("DESCRICAO", "CENTROCUSTO=".$notaEntradaRow['CENTROCUSTO']);
         $ccustoE->close_connection();
         $this->smarty->assign('centroCustoEntrada', $desCCEntrada);
 
         //Dados Nota de Saida
-        $nfDados = $this->selectNotaSaida($notas[0]['NUMERO']);
+        $nfDados = $this->selectNotaSaida($notaSaidaRow['NUMERO']);
         $this->smarty->assign('pessoa',  $nfDados[0]['NOME']);
         $this->smarty->assign('genero',  $nfDados[0]['DESCRICAO']);
         
         //Busca dados Produto
-        $produto = $this->selectProdNf($notas[0]['NUMERO']);
+        $produto = $this->selectProdNf($notaSaidaRow['NUMERO']);
 
         $this->smarty->assign('codProduto',  $produto[0]['CODPRODUTO']);
         $this->smarty->assign('produto',  $produto[0]['DESCRICAO']);

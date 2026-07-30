@@ -4,8 +4,8 @@
         border-radius: 5px;
     }
 </style>
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <script type="text/javascript" src="{$pathJs}/ped/s_pedido_aprovacao.js"> </script>
-<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"> </script>
 <!-- page content -->
 <div class="right_col" role="main">
 
@@ -18,44 +18,7 @@
             <div class="col-md-12 col-xs-12">
                 <div class="x_panel">
                     <div class="x_title">
-                        <h2>Aprovação Cotação - Consulta
-                            <strong>
-                                {if $mensagem neq ''}
-                                    {if $tipoMsg eq 'sucesso'}
-                                        <div class="row">
-                                            <div class="col-lg-12 text-left">
-                                                <div>
-                                                    <div class="alert alert-success" role="alert">
-                                                        <button type="button" class="close" data-dismiss="alert"
-                                                            aria-label="Close">
-                                                            <span aria-hidden="true">&times;</span>
-                                                        </button>
-                                                        <strong>--Sucesso!</strong>&nbsp;{$mensagem}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    {elseif $tipoMsg eq 'alerta'}
-                                        <div class="row">
-                                            <div class="col-lg-12 text-left">
-                                                <div>
-                                                    <div class="alert alert-danger" role="alert">
-                                                        <button type="button" class="close" data-dismiss="alert"
-                                                            aria-label="Close">
-                                                            <span aria-hidden="true">&times;</span>
-                                                        </button>
-                                                        <strong>--Aviso!</strong>&nbsp;{$mensagem}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    {/if}
-                                {/if}
-                                <strong>
-
-                                </strong>
-                            </strong>
-                        </h2>
+                        <h2>Aprovação Cotação - Consulta</h2>
 
                         <ul class="nav navbar-right panel_toolbox">
                             <li><button type="button" class="btn btn-warning" onClick="javascript:submitLetra();">
@@ -179,7 +142,7 @@
                 <div class="x_panel">
                     <table id="datatable-buttons" class="table table-bordered jambo_table">
                         <thead>
-                            <tr style="background: #2A3F54; color: white;">
+                            <tr class="headings">
                                 <th>Cotação</th>
                                 <th>Situação</th>
                                 <th>Cliente</th>
@@ -188,7 +151,7 @@
                                 <th>Valor Desconto</th>
                                 <th>% Desconto</th>
                                 <th>Total</th>
-                                <th style="width: 120px;">Manuten&ccedil;&atilde;o</th>
+                                <th style="width: 90px;">Manuten&ccedil;&atilde;o</th>
 
                             </tr>
                         </thead>
@@ -198,7 +161,10 @@
                                 {assign var="total" value=$total+1}
 
                                 <tr>
-                                    <td name="idNF" id="{$lanc[i].ID}"> {$lanc[i].ID} </td>
+                                    <td name="idNF" id="{$lanc[i].ID}">
+                                        <a href="javascript:abrirPedidoAprovacao('{$lanc[i].ID}', '{$lanc[i].ESPECIE|default:''}', '{$lanc[i].IDNATOP|default:0}');"
+                                            title="Visualizar pedido">{$lanc[i].ID}</a>
+                                    </td>
                                     <td> {$lanc[i].PADRAO} </td>
                                     <td> {$lanc[i].NOME} </td>
                                     <td> {$lanc[i].EMISSAO|date_format:"%d/%m/%Y"} </td>
@@ -210,19 +176,13 @@
                                     </td>
                                     <td> {$lanc[i].TOTAL|number_format:2:",":"."} </td>
                                     <td>
-
-                                        <button type="button" title="Visualizar Itens" class="btn btn-info btn-xs"
-                                            onclick="javascript:abrir('index.php?mod=ped&form=pedido_venda_imp_romaneio&opcao=imprimir&parm={$lanc[i].ID}');"><span
-                                                class="glyphicon glyphicon-info-sign" aria-hidden="true"></span></button>
-                                        <button type="button" title="Aprovar" class="btn btn-success btn-xs"
+                                        <button type="button" title="Aprovar pedido" class="btn btn-success btn-xs"
                                             onclick="javascript:salvarPedidoAprovado('{$lanc[i].ID}');"><span
                                                 class="glyphicon glyphicon-ok" aria-hidden="true"></span></button>
-                                        <!--button type="button" title="Aprovar" class="btn btn-success btn-xs" onclick="javascript:submitCadastrarPedido('{$lanc[i].ID}','{$usrfatura}');"><span class="glyphicon glyphicon-ok" aria-hidden="true"></span></button-->
-                                        <button type="button" title="Desaprovar" class="btn btn-danger btn-xs"
+                                        <button type="button" title="Reprovar pedido" class="btn btn-danger btn-xs"
                                             data-toggle="modal" onclick="javascript:pedidoDesaprovado('{$lanc[i].ID}');"
                                             data-target="#modalVendaPerdida"><span class="glyphicon glyphicon-remove"
                                                 aria-hidden="true"></span></button>
-
                                     </td>
                                 </tr>
                             {/section}
@@ -245,7 +205,6 @@
 
 
 {include file="template/database.inc"}
-
 
 <script src="{$bootstrap}/select2-master/dist/js/select2.full.min.js"></script>
 

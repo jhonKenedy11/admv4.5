@@ -12,6 +12,7 @@
 $dir = dirname(__FILE__);
 include_once($dir . "/../../bib/c_user.php");
 include_once($dir . "/../../class/est/c_produto.php");
+include_once($dir . "/../../bib/c_database_pdo.php");
 
 //Class C_PRODUTO_ESTOQUE
 Class c_produto_estoque extends c_user {
@@ -287,46 +288,26 @@ Class c_produto_estoque extends c_user {
      * @return NUMBER quantidade
      * @utilizado select_quantidade_empresa, select_quantidade ( interno )
      */
-    public function produtoQtde($produto, $filial, $fracionado='S') {
-        // $sql = "SELECT status,";
-        // $sql .= "IF((P.UNIFRACIONADA = 'S'), ";
-        // $sql .= "((SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = '".$produto."') AND  (y.tipo='0') AND (y.centrocusto = ".$filial.")) - ";
-        // $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = '".$produto."') AND  (y.tipo='1') AND (y.centrocusto = ".$filial.")) - ";
-        // $sql .= "(SELECT COALESCE(sum(qtsolicitada),0) as quant FROM FAT_PEDIDO_ITEM s INNER JOIN FAT_PEDIDO t ON (s.id = t.id) WHERE (s.ITEMESTOQUE = '".$produto."') AND  (t.situacao = '6') AND (t.centrocustoentrega = ".$filial."))) "; //(t.situacao<>'9') AND (t.situacao <> '8') AND (t.ccusto = ".$filial."))) ";
-        // $sql .= ", count(E.CODPRODUTO)) AS 'Quantidade', C.DESCRICAO AS Ccusto ";
-        // //$sql .= "FROM EST_PRODUTO_ESTOQUE E ";
-        // //$sql .= "inner join EST_PRODUTO P ON (P.CODIGO = E.CODPRODUTO) ";
-        // $sql .= "FROM EST_PRODUTO P ";
-        // $sql .= "LEFT JOIN EST_PRODUTO_ESTOQUE E ON (P.CODIGO = E.CODPRODUTO) AND (E.centrocusto = ".$filial.") AND (E.status <> 9) AND (E.status <> 8) ";
-        // $sql .= "LEFT JOIN FIN_CENTRO_CUSTO C ON ($filial = C.CENTROCUSTO) "; 
-        // //$sql .= "WHERE (centrocusto = ".$filial.") AND (CODPRODUTO = ".$produto.") AND  (status <> 9) AND  (status <> 8)" ;
-        // $sql .= "WHERE (P.CODIGO = '".$produto."') ";
-        // $sql .= "GROUP BY status";
+    public static function produtoQtde($produto, $filial, $dataSaldo=null) {
 
-        $sql = "SELECT 0 AS status, (";
-        $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = '".$produto."') AND  (y.tipo='0') AND (y.centrocusto = ".$filial.")) - ";
-        $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = '".$produto."') AND  (y.tipo='1') AND (y.centrocusto = ".$filial.")) - ";
-        $sql .= "(SELECT COALESCE(sum(qtsolicitada),0) as quant FROM FAT_PEDIDO_ITEM s INNER JOIN FAT_PEDIDO t ON (s.id = t.id) WHERE (s.ITEMESTOQUE = '".$produto."') AND  (t.situacao = '6') AND (t.centrocustoentrega = ".$filial."))) ";
-        $sql .= " AS 'Quantidade', C.DESCRICAO AS Ccusto ";
+        $produto = intval($produto);
+        $filial = intval($filial);
+
+        $sql = "SELECT COALESCE(E.status, 0) AS status, ";
+        $sql .= "IF((P.UNIFRACIONADA = 'S'), ";
+        $sql .= "((SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = P.CODIGO) AND  (y.tipo='0') AND (y.centrocusto = ".$filial.")) - ";
+        $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = P.CODIGO) AND  (y.tipo='1') AND (y.centrocusto = ".$filial.")) - ";
+        $sql .= "(SELECT COALESCE(sum(qtsolicitada),0) as quant FROM FAT_PEDIDO_ITEM s INNER JOIN FAT_PEDIDO t ON (s.id = t.id) WHERE (s.ITEMESTOQUE = P.CODIGO) AND  (t.situacao<>'9') AND (t.situacao <> '8') AND (t.ccusto = ".$filial."))) ";
+        $sql .= ", count(E.CODPRODUTO)) AS 'Quantidade' ";
         $sql .= "FROM EST_PRODUTO P ";
-        $sql .= "LEFT JOIN FIN_CENTRO_CUSTO C ON (C.CENTROCUSTO = $filial) "; 
-        $sql .= "WHERE (P.CODIGO = '".$produto."') ";
-        $sql .= "GROUP BY status";
-
-        // $sql = "SELECT T.CODPRODUTO, ";
-        // $sql .= "SUM(QUANTIDADE) AS ENTRADA, ";
-        // $sql .= "SUM(IF((T.STATUS= 0), QUANTIDADE, 0)) AS ESTOQUE, ";
-        // $sql .= "SUM(IF((T.STATUS= 1), QUANTIDADE, 0)) AS RESERVA, ";
-        // $sql .= "SUM(IF((T.STATUS= 8), QUANTIDADE, 0)) AS PERDA, ";
-        // $sql .= "SUM(IF((T.STATUS= 9), QUANTIDADE, 0)) AS  SAIDA ";
-        // $sql .= "FROM EST_PRODUTO_ESTOQUE T ";
-        // $sql .= "WHERE T.CENTROCUSTO='".$filial."') and (T.CODPRODUTO = '".$produto."')";
-        // $sql .= "GROUP BY P.CODIGO ";
-
+        $sql .= "LEFT JOIN EST_PRODUTO_ESTOQUE E ON (E.CODPRODUTO = P.CODIGO AND E.centrocusto = ".$filial." AND E.status <> 9 AND E.status <> 8 AND E.status <> 6) ";
+        $sql .= "WHERE P.CODIGO = ".$produto." ";
+        $sql .= "GROUP BY COALESCE(E.status, 0)";
+        
         $banco = new c_banco();
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;        
+        return $banco->resultado; 
     }
 
     /**
@@ -337,14 +318,19 @@ Class c_produto_estoque extends c_user {
      * @return NUMBER quantidade total (disponível + reservado)
      */
     public function produtoQtdeInventario($produto, $filial, $dataSaldo=null){
-        $sql = "SELECT SUM(IF((P.UNIFRACIONADA = 'S'), ";
-        $sql .= "((SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = '".$produto."') AND  (y.tipo='0') AND (y.centrocusto = ".$filial.")) - ";
-        $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = '".$produto."') AND  (y.tipo='1') AND (y.centrocusto = ".$filial.")) - ";
-        $sql .= "(SELECT COALESCE(sum(qtsolicitada),0) as quant FROM FAT_PEDIDO_ITEM s INNER JOIN FAT_PEDIDO t ON (s.id = t.id) WHERE (s.ITEMESTOQUE = '".$produto."') AND  (t.situacao<>'9') AND (t.situacao <> '8') AND (t.ccusto = ".$filial."))) ";
-        $sql .= ", 1)) AS 'Quantidade' ";
-        $sql .= "FROM EST_PRODUTO_ESTOQUE E ";
-        $sql .= "inner join EST_PRODUTO P ON (P.CODIGO = E.CODPRODUTO) ";
-        $sql .= "WHERE (centrocusto = ".$filial.") AND (CODPRODUTO = '".$produto."') AND (status = 0)";
+        $produto = intval($produto);
+        $filial = intval($filial);
+
+        $sql = "SELECT COALESCE(E.status, 0) AS status, ";
+        $sql .= "IF((P.UNIFRACIONADA = 'S'), ";
+        $sql .= "((SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = P.CODIGO) AND  (y.tipo='0') AND (y.centrocusto = ".$filial.")) - ";
+        $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = P.CODIGO) AND  (y.tipo='1') AND (y.centrocusto = ".$filial.")) - ";
+        $sql .= "(SELECT COALESCE(sum(qtsolicitada),0) as quant FROM FAT_PEDIDO_ITEM s INNER JOIN FAT_PEDIDO t ON (s.id = t.id) WHERE (s.ITEMESTOQUE = P.CODIGO) AND  (t.situacao<>'9') AND (t.situacao <> '8') AND (t.ccusto = ".$filial."))) ";
+        $sql .= ", COUNT(E.CODPRODUTO)) AS 'Quantidade' ";
+        $sql .= "FROM EST_PRODUTO P ";
+        $sql .= "LEFT JOIN EST_PRODUTO_ESTOQUE E ON (E.CODPRODUTO = P.CODIGO AND E.centrocusto = ".$filial." AND E.status = 0) ";
+        $sql .= "WHERE P.CODIGO = ".$produto." ";
+        $sql .= "GROUP BY COALESCE(E.status, 0)";
 
         $banco = new c_banco();
         $banco->exec_sql($sql);
@@ -416,8 +402,6 @@ Class c_produto_estoque extends c_user {
 
             $sql .= "group by ITEMESTOQUE ";
 
-            //echo strtoupper($sql);
-
             $banco = new c_banco();
             $banco->exec_sql($sql);
             $banco->close_connection();
@@ -469,8 +453,8 @@ Class c_produto_estoque extends c_user {
         // consulta estoque
         for ($k = 0; $k < count($centroCusto); $k++) {
             $sql = "SELECT 0 AS status, (";
-            $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = '" . $produto . "') AND  (y.tipo='0') AND (Y.SITUACAO='B') AND (y.centrocusto = " . $centroCusto[$k]['CENTROCUSTO'] . ") and (emissao <'" . $dateInv . "')) - ";
-            $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = '" . $produto . "') AND  (y.tipo='1') AND (Y.SITUACAO='B') AND (y.ORIGEM<>'PED') AND (y.centrocusto = " . $centroCusto[$k]['CENTROCUSTO'] . ") and (emissao <'" . $dateInv . "')) - ";
+            $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = '" . $produto . "') AND (y.tipo='0') AND (y.situacao='B') AND (y.centrocusto = " . $centroCusto[$k]['CENTROCUSTO'] . ") and (emissao <'" . $dateInv . "')) - ";
+            $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = '" . $produto . "') AND (y.tipo='1') AND (y.situacao='B') AND (y.origem<>'PED') AND (y.centrocusto = " . $centroCusto[$k]['CENTROCUSTO'] . ") and (emissao <'" . $dateInv . "')) - ";
             $sql .= "(SELECT COALESCE(sum(qtsolicitada),0) as quant FROM FAT_PEDIDO_ITEM s INNER JOIN FAT_PEDIDO t ON (s.id = t.id) WHERE (s.ITEMESTOQUE = '" . $produto . "') AND  (t.situacao in ('6','9')) AND (DATAENTREGA IS NOT NULL) AND (t.centrocustoentrega = " . $centroCusto[$k]['CENTROCUSTO'] . ") and (emissao <'" . $dateInv . "'))) ";
             $sql .= " AS 'Quantidade', C.DESCRICAO AS Ccusto ";
             $sql .= "FROM EST_PRODUTO P ";
@@ -482,7 +466,7 @@ Class c_produto_estoque extends c_user {
             $sql .= "SELECT 1 AS status, SUM(QTSOLICITADA) AS QUANTIDADE, C.DESCRICAO AS Ccusto  FROM FAT_PEDIDO P ";
             $sql .= "inner join FAT_PEDIDO_ITEM I ON (I.ID=P.ID) ";
             $sql .= "LEFT JOIN FIN_CENTRO_CUSTO C ON (C.CENTROCUSTO = " . $centroCusto[$k]['CENTROCUSTO'] . ") ";
-            $sql .= "WHERE (I.ITEMESTOQUE = '" . $produto . "') AND (p.centrocustoentrega = " . $centroCusto[$k]['CENTROCUSTO'] . ") AND (P.SITUACAO in  ('6','9')) ";
+            $sql .= "WHERE (I.ITEMESTOQUE = '" . $produto . "') AND (P.CENTROCUSTOENTREGA = " . $centroCusto[$k]['CENTROCUSTO'] . ") AND (P.SITUACAO in ('6','9')) ";
             $sql .= "and DATAENTREGA is null ";
 
             $sql .= "UNION ";
@@ -490,7 +474,7 @@ Class c_produto_estoque extends c_user {
             $sql .= "SELECT 2 AS status, SUM(QTSOLICITADA) AS QUANTIDADE, C.DESCRICAO AS Ccusto  FROM FAT_PEDIDO P ";
             $sql .= "inner join FAT_PEDIDO_ITEM I ON (I.ID=P.ID) ";
             $sql .= "LEFT JOIN FIN_CENTRO_CUSTO C ON (C.CENTROCUSTO =" . $centroCusto[$k]['CENTROCUSTO'] . ") ";
-            $sql .= "WHERE (I.ITEMESTOQUE = '" . $produto . "') AND (p.centrocustoentrega = " . $centroCusto[$k]['CENTROCUSTO'] . ") AND (P.SITUACAO = '13') ";
+            $sql .= "WHERE (I.ITEMESTOQUE = '" . $produto . "') AND (P.CENTROCUSTOENTREGA = " . $centroCusto[$k]['CENTROCUSTO'] . ") AND (P.SITUACAO = '13') ";
 
             $sql .= "group by ITEMESTOQUE ";
 
@@ -566,20 +550,21 @@ Class c_produto_estoque extends c_user {
                 $where = "WHERE (P.DATAFORALINHA is null) AND (G.TIPO='V') ";
                 break;
             case 'S': // PESQUISA UNIFICADA PRODUTO QUANTIDADE, SOMENTE PRODUTOS COM QUANTIDADE DE ESTOQUE
-                $sql = "SELECT P.CODFABRICANTE, P.TIPOPROMOCAO, P.CODIGO, P.DESCRICAO, P.GRUPO, P.UNIDADE, P.UNIFRACIONADA, E.STATUS, P.QUANTLIMITE, P.VENDA, ";
+                $sql = "SELECT P.CODFABRICANTE, P.TIPOPROMOCAO, P.CODIGO, P.DESCRICAO, P.GRUPO, P.UNIDADE, P.UNIFRACIONADA, COALESCE(E.STATUS, 0) AS STATUS, P.QUANTLIMITE, P.VENDA, ";
                 $sql .= "IF((P.UNIFRACIONADA = 'S'), ";
-                $sql .= "((SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = E.CODPRODUTO) AND  (y.tipo='0') AND (y.centrocusto = ".$filial.")) - ";
-                $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = E.CODPRODUTO) AND  (y.tipo='1') AND (y.centrocusto = ".$filial.") AND (Y.ORIGEM<>'PED')) - ";
-                $sql .= "(SELECT COALESCE(sum(qtsolicitada),0) as quant FROM FAT_PEDIDO_ITEM s INNER JOIN FAT_PEDIDO t ON (s.id = t.id) WHERE (s.ITEMESTOQUE = E.CODPRODUTO) AND  (t.situacao<>'9') AND (t.centrocustoentrega = ".$filial."))) ";
+                $sql .= "((SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = P.CODIGO) AND  (y.tipo='0') AND (y.centrocusto = ".$filial.")) - ";
+                $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = P.CODIGO) AND  (y.tipo='1') AND (y.centrocusto = ".$filial.") AND (Y.ORIGEM<>'PED')) - ";
+                $sql .= "(SELECT COALESCE(sum(qtsolicitada),0) as quant FROM FAT_PEDIDO_ITEM s INNER JOIN FAT_PEDIDO t ON (s.id = t.id) WHERE (s.ITEMESTOQUE = P.CODIGO) AND  (t.situacao<>'9') AND (t.centrocustoentrega = ".$filial."))) ";
                 $sql .= ", count(E.CODPRODUTO)) AS 'Quantidade', ";
                 $sql .= "P.QUANTLIMITE, P.VENDA, ";
                 $sql .= "IF(((P.INICIOPROMOCAO <= CURDATE()) and (P.FIMPROMOCAO >= CURDATE())), P.PRECOPROMOCAO, 0) as PROMOCAO, COALESCE(P.CUSTOCOMPRA,0) AS CUSTOCOMPRA, P.PRECOMINIMO, P.ORIGEM, P.NCM, P.CEST, P.TRIBICMS, ";
-                $sql .= "N.ALIQPISMONOFASICA, N.ALIQCOFINSMONOFASICA, P.ANP, N.ALIQIPI ";
-                $sql .= "FROM EST_PRODUTO_ESTOQUE E ";
-                $sql .= "inner join EST_PRODUTO P ON (P.CODIGO = E.CODPRODUTO) ";
+                $sql .= "N.ALIQPISMONOFASICA, N.ALIQCOFINSMONOFASICA, P.ANP, N.ALIQIPI, IMG.PATH ";
+                $sql .= "FROM EST_PRODUTO P ";
+                $sql .= "LEFT JOIN EST_PRODUTO_ESTOQUE E ON (E.CODPRODUTO = P.CODIGO AND E.centrocusto = ".$filial." AND E.status = 0) ";
                 $sql .= "LEFT JOIN EST_NCM N ON (N.NCM = P.NCM) ";
                 $sql .= "LEFT JOIN EST_GRUPO G ON (G.GRUPO = P.GRUPO) ";
-                $where = "WHERE (DATAFORALINHA is null) and (status=0)  AND (G.TIPO='V') ";
+                $sql .= "LEFT JOIN AMB_GED IMG ON IMG.`TABLE` = 'EST_PRODUTO' AND IMG.TABLE_ID = P.CODIGO ";
+                $where = "WHERE (P.DATAFORALINHA is null) and (E.status=0)  AND (G.TIPO='V') ";
                 break;
             case 'N': // PESQUISA SEPARADA PRODUTO QUANTIDADE
                 $sql = "SELECT P.CODFABRICANTE, P.TIPOPROMOCAO, P.CODIGO, P.DESCRICAO, P.GRUPO, P.UNIDADE, P.UNIFRACIONADA, 0 as STATUS, 0 AS 'Quantidade', P.QUANTLIMITE, P.VENDA, ";
@@ -608,16 +593,17 @@ Class c_produto_estoque extends c_user {
                 $sql .= "GROUP BY E.CODPRODUTO)) AS 'Quantidade', P.QUANTLIMITE, P.VENDA, ";
                 $sql .= "IF(((P.INICIOPROMOCAO <= CURDATE()) and (P.FIMPROMOCAO >= CURDATE())), P.PRECOPROMOCAO, 0) as PROMOCAO, ";
                 $sql .= "COALESCE(P.CUSTOCOMPRA,0) AS CUSTOCOMPRA, P.PRECOMINIMO, P.ORIGEM, P.NCM, P.CEST, P.TRIBICMS, ";
-                $sql .= "N.ALIQPISMONOFASICA, N.ALIQCOFINSMONOFASICA, P.ANP, N.ALIQIPI, ";
+                $sql .= "N.ALIQPISMONOFASICA, N.ALIQCOFINSMONOFASICA, P.ANP, N.ALIQIPI, IMG.PATH ";
                 if (Count($par) > 5) {
-                    $sql1 .= " '". $par[5]."' AS CODIGONOTA ";                
-                } else {                    
-                    $sql1 .= "P.CODFABRICANTE AS CODIGONOTA ";
+                    $sql1 = ", '".$par[5]."' AS CODIGONOTA ";
+                } else {
+                    $sql1 = ", P.CODFABRICANTE AS CODIGONOTA ";
                 }
                 $sql .= $sql1;
                 $sql .= "FROM EST_PRODUTO P ";
                 $sql .= "LEFT JOIN EST_NCM N ON (N.NCM = P.NCM) ";
                 $sql .= "LEFT JOIN EST_GRUPO G ON (G.GRUPO = P.GRUPO) ";
+                $sql .= "LEFT JOIN AMB_GED IMG ON IMG.`TABLE` = 'EST_PRODUTO' AND IMG.TABLE_ID = P.CODIGO ";
                 $sql .= "LEFT JOIN EST_PRODUTO_EQUIVALENCIA E ON (E.IDPRODUTO = P.CODIGO) ";
                 $alias = 'P.';
                 $where = "WHERE (P.DATAFORALINHA is null) AND (G.TIPO='V') ";
@@ -678,7 +664,7 @@ Class c_produto_estoque extends c_user {
 //                endif;
 //            endif;
             if ($tipoConsulta=='S'):// PESQUISA UNIFICADA PRODUTO QUANTIDADE, SOMENTE PRODUTOS COM QUANTIDADE DE ESTOQUE
-                $where .= "GROUP BY E.CODPRODUTO";
+                $where .= "GROUP BY P.CODIGO";
             endif;
             $where .= " ORDER BY ".$alias."DESCRICAO";
         }
@@ -699,17 +685,17 @@ Class c_produto_estoque extends c_user {
 
         switch ($tipoConsulta){
             case 'S': // PESQUISA UNIFICADA PRODUTO QUANTIDADE, SOMENTE PRODUTOS COM QUANTIDADE DE ESTOQUE
-                $sql = "SELECT P.CODFABRICANTE, P.TIPOPROMOCAO, P.CODIGO, P.DESCRICAO, P.GRUPO, P.UNIDADE, P.UNIFRACIONADA, E.STATUS, P.QUANTLIMITE, P.VENDA, ";
+                $sql = "SELECT P.CODFABRICANTE, P.TIPOPROMOCAO, P.CODIGO, P.DESCRICAO, P.GRUPO, P.UNIDADE, P.UNIFRACIONADA, COALESCE(E.STATUS, 0) AS STATUS, P.QUANTLIMITE, P.VENDA, ";
                 $sql .= "IF((P.UNIFRACIONADA = 'S'), ";
-                $sql .= "((SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = E.CODPRODUTO) AND  (y.tipo='0') AND (y.centrocusto = ".$filial.")) - ";
-                $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = E.CODPRODUTO) AND  (y.tipo='1') AND (y.centrocusto = ".$filial.")) - ";
-                $sql .= "(SELECT COALESCE(sum(qtsolicitada),0) as quant FROM FAT_PEDIDO_ITEM s INNER JOIN FAT_PEDIDO t ON (s.id = t.id) WHERE (s.ITEMESTOQUE = E.CODPRODUTO) AND  (t.situacao<>'9') AND (t.ccusto = ".$filial."))) ";
+                $sql .= "((SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = P.CODIGO) AND  (y.tipo='0') AND (y.centrocusto = ".$filial.")) - ";
+                $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = P.CODIGO) AND  (y.tipo='1') AND (y.centrocusto = ".$filial.")) - ";
+                $sql .= "(SELECT COALESCE(sum(qtsolicitada),0) as quant FROM FAT_PEDIDO_ITEM s INNER JOIN FAT_PEDIDO t ON (s.id = t.id) WHERE (s.ITEMESTOQUE = P.CODIGO) AND  (t.situacao<>'9') AND (t.ccusto = ".$filial."))) ";
                 $sql .= ", count(E.CODPRODUTO)) AS 'Quantidade', ";
                 $sql .= "P.QUANTLIMITE, P.VENDA, ";
                 $sql .= "IF(((P.INICIOPROMOCAO <= CURDATE()) and (P.FIMPROMOCAO >= CURDATE())), P.PRECOPROMOCAO, 0) as PROMOCAO ";
-                $sql .= "FROM EST_PRODUTO_ESTOQUE E ";
-                $sql .= "inner join EST_PRODUTO P ON (P.CODIGO = E.CODPRODUTO) ";
-                $where = "WHERE (DATAFORALINHA is null) and (status=0) ";
+                $sql .= "FROM EST_PRODUTO P ";
+                $sql .= "LEFT JOIN EST_PRODUTO_ESTOQUE E ON (E.CODPRODUTO = P.CODIGO AND E.centrocusto = ".$filial." AND E.status = 0) ";
+                $where = "WHERE (P.DATAFORALINHA is null) and (E.status=0) ";
                 break;
             case 'N': // PESQUISA SEPARADA PRODUTO QUANTIDADE
                 $sql = "SELECT P.CODFABRICANTE, P.TIPOPROMOCAO, P.CODIGO, P.DESCRICAO, P.GRUPO, P.UNIDADE, P.UNIFRACIONADA, 0 as STATUS, 0 AS 'Quantidade', P.QUANTLIMITE, P.VENDA, ";
@@ -722,8 +708,9 @@ Class c_produto_estoque extends c_user {
                 $sql .= "(SELECT count(E.CODPRODUTO) AS 'Quantidade' ";
                 $sql .= "FROM EST_PRODUTO_ESTOQUE E WHERE (E.CODPRODUTO=P.CODIGO) AND (E.STATUS=0) ";
                 $sql .= "GROUP BY E.CODPRODUTO) AS 'Quantidade', P.QUANTLIMITE, P.VENDA, ";
-                $sql .= "IF(((P.INICIOPROMOCAO <= CURDATE()) and (P.FIMPROMOCAO >= CURDATE())), P.PRECOPROMOCAO, 0) as PROMOCAO ";
+                $sql .= "IF(((P.INICIOPROMOCAO <= CURDATE()) and (P.FIMPROMOCAO >= CURDATE())), P.PRECOPROMOCAO, 0) as PROMOCAO, IMG.PATH ";
                 $sql .= "FROM EST_PRODUTO P ";
+                $sql .= "LEFT JOIN AMB_GED IMG ON IMG.`TABLE` = 'EST_PRODUTO' AND IMG.TABLE_ID = P.CODIGO ";
                 $where = "WHERE (DATAFORALINHA is null) ";
                 break;
             default :
@@ -766,7 +753,7 @@ Class c_produto_estoque extends c_user {
             endswitch;
 
             if ($tipoConsulta=='S'):// PESQUISA UNIFICADA PRODUTO QUANTIDADE, SOMENTE PRODUTOS COM QUANTIDADE DE ESTOQUE
-                $where .= "GROUP BY E.CODPRODUTO";
+                $where .= "GROUP BY P.CODIGO";
             endif;
             $where .= " ORDER BY DESCRICAO";
         }
@@ -787,19 +774,19 @@ Class c_produto_estoque extends c_user {
 
         switch ($tipoConsulta){
             case 'S': // PESQUISA UNIFICADA PRODUTO QUANTIDADE, SOMENTE PRODUTOS COM QUANTIDADE DE ESTOQUE
-                $sql = "SELECT P.CODFABRICANTE, P.TIPOPROMOCAO, P.CODIGO, P.DESCRICAO, P.GRUPO, P.UNIDADE, P.UNIFRACIONADA, E.STATUS, P.QUANTLIMITE, P.VENDA, ";
+                $sql = "SELECT P.CODFABRICANTE, P.TIPOPROMOCAO, P.CODIGO, P.DESCRICAO, P.GRUPO, P.UNIDADE, P.UNIFRACIONADA, COALESCE(E.STATUS, 0) AS STATUS, P.QUANTLIMITE, P.VENDA, ";
                 $sql .= "IF((P.UNIFRACIONADA = 'S'), ";
-                $sql .= "((SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = E.CODPRODUTO) AND  (y.tipo='0') AND (y.centrocusto = ".$filial.")) - ";
-                $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = E.CODPRODUTO) AND  (y.tipo='1') AND (y.centrocusto = ".$filial.")) - ";
-                $sql .= "(SELECT COALESCE(sum(qtsolicitada),0) as quant FROM FAT_PEDIDO_ITEM s INNER JOIN FAT_PEDIDO t ON (s.id = t.id) WHERE (s.ITEMESTOQUE = E.CODPRODUTO) AND  (t.situacao<>'9') AND (t.centrocustoentrega = ".$filial."))) ";
+                $sql .= "((SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = P.CODIGO) AND  (y.tipo='0') AND (y.centrocusto = ".$filial.")) - ";
+                $sql .= "(SELECT COALESCE(sum(quant),0) as quant FROM est_nota_fiscal_produto x INNER JOIN est_nota_fiscal y ON (y.id = x.idnf) WHERE (x.codproduto = P.CODIGO) AND  (y.tipo='1') AND (y.centrocusto = ".$filial.")) - ";
+                $sql .= "(SELECT COALESCE(sum(qtsolicitada),0) as quant FROM FAT_PEDIDO_ITEM s INNER JOIN FAT_PEDIDO t ON (s.id = t.id) WHERE (s.ITEMESTOQUE = P.CODIGO) AND  (t.situacao<>'9') AND (t.centrocustoentrega = ".$filial."))) ";
                 $sql .= ", count(E.CODPRODUTO)) AS 'Quantidade', ";
                 $sql .= "P.QUANTLIMITE, P.VENDA, ";
                 $sql .= "IF(((P.INICIOPROMOCAO <= CURDATE()) and (P.FIMPROMOCAO >= CURDATE())), P.PRECOPROMOCAO, 0) as PROMOCAO, COALESCE(P.CUSTOCOMPRA,0) AS CUSTOCOMPRA, P.PRECOMINIMO, P.ORIGEM, P.NCM, P.CEST, P.TRIBICMS, ";
                 $sql .= "N.ALIQPISMONOFASICA, N.ALIQCOFINSMONOFASICA, P.ANP, N.ALIQIPI ";
-                $sql .= "FROM EST_PRODUTO_ESTOQUE E ";
-                $sql .= "inner join EST_PRODUTO P ON (P.CODIGO = E.CODPRODUTO) ";
+                $sql .= "FROM EST_PRODUTO P ";
+                $sql .= "LEFT JOIN EST_PRODUTO_ESTOQUE E ON (E.CODPRODUTO = P.CODIGO AND E.centrocusto = ".$filial." AND E.status = 0) ";
                 $sql .= "LEFT JOIN EST_NCM N ON (N.NCM = P.NCM) ";
-                $where = "WHERE (DATAFORALINHA is null) and (status=0) ";
+                $where = "WHERE (P.DATAFORALINHA is null) and (E.status=0) ";
                 $alias = 'P.';
                 break;
             case 'N': // PESQUISA SEPARADA PRODUTO QUANTIDADE
@@ -903,7 +890,7 @@ Class c_produto_estoque extends c_user {
             endswitch;
 
             if ($tipoConsulta=='S'):// PESQUISA UNIFICADA PRODUTO QUANTIDADE, SOMENTE PRODUTOS COM QUANTIDADE DE ESTOQUE
-                $where .= "GROUP BY E.CODPRODUTO";
+                $where .= "GROUP BY P.CODIGO";
             endif;
             $where .= " ORDER BY ".$alias."DESCRICAO";
         }
@@ -1011,7 +998,7 @@ Class c_produto_estoque extends c_user {
      * @utilizado produtoQtde ( interno )
      */
 
-    public function produtoBaixaEstorna($filial, $origem, $id, $produto, $qtde, $conn=null) {
+    public static function produtoBaixaEstorna($filial, $origem, $id, $produto, $qtde, $conn=null) {
 
         $sql = "update EST_PRODUTO_ESTOQUE ";
         $sql .= "set status=1, ";
@@ -1048,7 +1035,82 @@ Class c_produto_estoque extends c_user {
         $banco->exec_sql($sql, $conn);
         $banco->close_connection();
         return $banco->result;
-    }    
+    }
+
+    /**
+     * Baixa reserva (status 1 → 9) ao gerar financeiro do Pedido PS, sem NF ainda (idnfsaida permanece 0).
+     * Idempotente: não altera linhas que já não estão em reserva (status 1).
+     *
+     * @param int|string $filial
+     * @param int|string $idPedido
+     * @param int|string $produto código do produto (CODPRODUTO)
+     * @param resource|null $conn mysqli
+     */
+    public function produtoBaixaReservaFinanceiro($filial, $idPedido, $produto, $conn = null)
+    {
+        $sql = "UPDATE EST_PRODUTO_ESTOQUE SET status = 9, DATANFSAIDA = NOW() ";
+        $sql .= "WHERE (centrocusto = " . $filial . ") AND (CODPRODUTO = '" . $produto . "') ";
+        $sql .= "AND (status = 1) AND (IDPEDIDO = " . $idPedido . ")";
+
+        $banco = new c_banco();
+        $banco->exec_sql($sql, $conn);
+        $banco->close_connection();
+        return $banco->result;
+    }
+
+    /**
+     * Após baixa pelo financeiro (status 9 sem NF), vincula idnfsaida na emissão da NF (sem nova baixa).
+     *
+     * @param int|string $filial
+     * @param int|string $idPedido
+     * @param int|string $idNf
+     * @param int|string $produto
+     * @param resource|null $conn
+     */
+    public function vinculaNfBaixaFinanceiro($filial, $idPedido, $idNf, $produto, $conn = null)
+    {
+        $sql = "UPDATE EST_PRODUTO_ESTOQUE SET idnfsaida = " . $idNf . ", DATANFSAIDA = NOW() ";
+        $sql .= "WHERE (centrocusto = " . $filial . ") AND (CODPRODUTO = '" . $produto . "') ";
+        $sql .= "AND (IDPEDIDO = " . $idPedido . ") AND (status = 9) ";
+        $sql .= "AND (idnfsaida IS NULL OR idnfsaida = 0)";
+
+        $banco = new c_banco();
+        $banco->exec_sql($sql, $conn);
+        $banco->close_connection();
+        return $banco->result;
+    }
+
+    /**
+     * Indica se há linhas de estoque já baixadas pelo financeiro (aguardando vínculo com NF).
+     */
+    public function existeBaixaReservaFinanceiroSemNf($filial, $idPedido, $produto, $conn = null)
+    {
+        $sql = "SELECT 1 FROM EST_PRODUTO_ESTOQUE ";
+        $sql .= "WHERE (centrocusto = " . $filial . ") AND (CODPRODUTO = '" . $produto . "') ";
+        $sql .= "AND (IDPEDIDO = " . $idPedido . ") AND (status = 9) ";
+        $sql .= "AND (idnfsaida IS NULL OR idnfsaida = 0) LIMIT 1";
+
+        $banco = new c_banco();
+        $banco->exec_sql($sql, $conn);
+        $banco->close_connection();
+        return is_array($banco->resultado) && count($banco->resultado) > 0;
+    }
+
+    /**
+     * Pedido PS: existe baixa definitiva de estoque (status 9 com NF vinculada) — bloqueia estorno.
+     * Status 9 sem NF (baixa só pelo financeiro, ainda sem nota) não bloqueia; é revertido no estorno.
+     */
+    public static function pedidoPossuiEstoqueBaixadoPorPedido($filial, $idPedido, $conn = null)
+    {
+        $sql = "SELECT 1 FROM EST_PRODUTO_ESTOQUE ";
+        $sql .= "WHERE (centrocusto = " . $filial . ") AND (IDPEDIDO = " . $idPedido . ") AND (status = 9) ";
+        $sql .= "AND (idnfsaida IS NOT NULL AND idnfsaida > 0) LIMIT 1";
+
+        $banco = new c_banco();
+        $banco->exec_sql($sql, $conn);
+        $banco->close_connection();
+        return is_array($banco->resultado) && count($banco->resultado) > 0;
+    }
 
     /**
      * Funcao baixa quantidade do estoque por perda, buscando produtos com data de fabricação mais antigo.
@@ -1262,12 +1324,12 @@ Class c_produto_estoque extends c_user {
         $banco = new c_banco;
         $sql = "INSERT INTO EST_PRODUTO_ESTOQUE (";
         $sql .= "IDNFENTRADA, CODPRODUTO, CENTROCUSTO, STATUS, APLICADO, NS,  ";
-        $sql .= "FABLOTE, FABDATAVALIDADE, FABDATAFABRICACAO, LOCALIZACAO, OBS )";
+        $sql .= "FABLOTE, FABDATAVALIDADE, FABDATAFABRICACAO, LOCALIZACAO, OBS, DATANFENTRADA)";
         $sql .= "values ( ";
         $sql .= $this->getIdNfEntrada().", '".  $this->getCodProduto()."', ".  $this->getCentroCusto().", ";
         $sql .= $this->getStatus().", '".  $this->getAplicado()."', '".  $this->getNsEntrada()."', '";
         $sql .= $this->getFabLote()."', ".  ($this->getDataValidade('B') != '' ? "'".$this->getDataValidade('B')."'" : 'null' ) .", ".  ( $this->getDataFabricacao('B') != '' ? "'".$this->getDataFabricacao('B')."'" : 'null' ).", '";
-        $sql .= $this->getLocalizacao()."', '".  $this->getObs()."');";
+        $sql .= $this->getLocalizacao()."', '".  $this->getObs()."', '". date('Y-m-d h:m:s') ."');";
        // echo strtoupper($sql) . "<BR>";
         $resProduto = $banco->exec_sql($sql, $conn);
         $banco->close_connection();
@@ -1335,14 +1397,15 @@ Class c_produto_estoque extends c_user {
     * Function to search for the products of the specified order  
     * @name verify_itemns_order
     * @param VAHCHAR ID Order
+    * @param resource|null $conn conexão mysqli da transação (SELECT enxerga UPDATEs não commitados na mesma sessão)
     * @return ARRAY Bank details 
     */
-    public static function verify_itemns_order($idOrder)
+    public static function verify_itemns_order($idOrder, $conn = null)
     {
         $sql = "SELECT * FROM est_produto_estoque ";
         $sql .= "WHERE idpedido = ".$idOrder.";";
         $banco = new c_banco;
-        $banco->exec_sql($sql);
+        $banco->exec_sql($sql, $conn);
         $banco->close_connection();
         return $banco->resultado;
     }
@@ -1378,14 +1441,61 @@ Class c_produto_estoque extends c_user {
      * Function to search for the products of the specified order  and idProduct
      * @name verify_itemns_order_product
      * @param VARCHAR idOrder
+     * @param resource|null $conn conexão mysqli da transação
      * @return ARRAY Bank details 
      */
-    public static function verify_itemns_order_product($idOrder, $idProduct, $status)
+    public static function verify_itemns_order_product($idOrder, $idProduct, $status, $conn = null)
     {
         $sql = "SELECT * FROM est_produto_estoque ";
         $sql .= "WHERE idpedido = '" . $idOrder . "' and codproduto = '" . $idProduct . "' and status = '" . $status . "';";
         $banco = new c_banco;
-        $banco->exec_sql($sql);
+        $banco->exec_sql($sql, $conn);
+        $banco->close_connection();
+        return $banco->resultado;
+    }
+
+    /**
+     * Estorno / liberação total: devolve ao estoque disponível todas as linhas reservadas para o pedido (status 1 → 0).
+     * Equivale a aplicar produtoReservaExclui em todas as unidades daquele idpedido na filial.
+     *
+     * @param int|string $filial centrocusto (EST_PRODUTO_ESTOQUE.centrocusto)
+     * @param int $idPedido FAT_PEDIDO.ID
+     * @param resource|null $conn mysqli opcional
+     */
+    public static function liberaReservaPedido($filial, $idPedido, $conn = null)
+    {
+        $idPedido = (int) $idPedido;
+        $sql = "UPDATE EST_PRODUTO_ESTOQUE SET status = 0, DATAPEDIDO = NULL, idpedido = 0 ";
+        $sql .= "WHERE idpedido = " . $idPedido . " AND status = 1 AND centrocusto = " . $filial;
+        $banco = new c_banco();
+        $banco->exec_sql($sql, $conn);
+        $banco->close_connection();
+        return $banco->resultado;
+    }
+
+    /**
+     * Cancelamento de pedido: libera reserva (status 1) e estorna baixa financeira sem NF (status 9, sem idnfsaida).
+     *
+     * @param int|string $filial centrocusto (EST_PRODUTO_ESTOQUE.centrocusto)
+     * @param int $idPedido FAT_PEDIDO.ID
+     * @param resource|null $conn mysqli opcional
+     */
+    public static function liberaEstoquePedidoCancelamento($filial, $idPedido, $conn = null)
+    {
+        $idPedido = (int) $idPedido;
+        $filial = (int) $filial;
+
+        $sql = "UPDATE EST_PRODUTO_ESTOQUE SET status = 0, DATAPEDIDO = NULL, idpedido = 0 ";
+        $sql .= "WHERE idpedido = " . $idPedido . " AND status = 1 AND centrocusto = " . $filial;
+
+        $banco = new c_banco();
+        $banco->exec_sql($sql, $conn);
+
+        $sqlBaixa = "UPDATE EST_PRODUTO_ESTOQUE SET status = 0, DATAPEDIDO = NULL, idpedido = 0, idnfsaida = 0, DATANFSAIDA = NULL ";
+        $sqlBaixa .= "WHERE idpedido = " . $idPedido . " AND status = 9 AND centrocusto = " . $filial . " ";
+        $sqlBaixa .= "AND (idnfsaida IS NULL OR idnfsaida = 0)";
+
+        $banco->exec_sql($sqlBaixa, $conn);
         $banco->close_connection();
         return $banco->resultado;
     }

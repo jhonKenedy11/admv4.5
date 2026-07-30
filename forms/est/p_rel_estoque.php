@@ -123,7 +123,8 @@ class p_rel_estoque extends c_estoque_relatorio
         $this->smarty->assign('subMenu', $this->m_submenu);
         $this->smarty->assign('pathCliente', ADMhttpCliente);
         $this->smarty->assign("ADMhttpBib", ADMhttpBib);
-        
+        $this->smarty->assign('pathJs', ADMhttpBib . '/js');
+
         $this->smarty->assign('dataIni', $this->getDataIni());
         $this->smarty->assign('dataFim', $this->getDataFim());
         $this->smarty->assign('dataImp', date("d/m/Y H:i:s"));
@@ -131,72 +132,80 @@ class p_rel_estoque extends c_estoque_relatorio
 
         switch ($this->m_tipo_relatorio) {
             case 'movimentacao':
-                $resultado = $this->selectRelatorioMovimentacaoEstoque();
+                $resultado = $this->selectRelatorioMovimentacaoEstoque() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_movimentacao.tpl');
                 break;
             case 'curva_abc':   
-                $resultado = $this->selectCurvaAbc();
+                $resultado = $this->selectCurvaAbc() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_curva_abc.tpl');
                 break;
             case 'kardex_sintetico':
-                $resultado = $this->selectKardexSintetico();
+                $resultado = $this->selectKardexSintetico() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_kardex_sintetico.tpl');
                 break;
             case 'kardex_analitico':
-                $resultado = $this->selectKardexAnalitico();
+                $resultado = $this->selectKardexAnalitico() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_kardex_analitico.tpl');
                 break;
             case 'estoque_geral':
-                $resultado = $this->selectEstoqueGeral();
+                $resultado = $this->selectEstoqueGeral() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_geral.tpl');
                 break;
+            case 'bloco_h':
+                $resultado = $this->selectEstoqueBlocoH() ?? [];
+                $this->smarty->assign('resultado', $resultado);
+                $this->smarty->display('rel_estoque_bloco_h.tpl');
+                break;
             case 'estoque_localizacao':
-                $resultado = $this->selectEstoqueLocalizacao();
+                $resultado = $this->selectEstoqueLocalizacao() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_localizacao.tpl');
                 break;
             case 'compras':
-                $resultado = $this->selectRelatorioCompras();
+                $resultado = $this->selectRelatorioCompras() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_compras.tpl');
                 break;
             case 'compras_sugestoes':
-                $resultado = $this->selectRelatorioComprasSugestoes();
+                $resultado = $this->selectRelatorioComprasSugestoes() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_compras_sugestoes.tpl');
                 break;
             case 'compras_estoque_minimo':
-                $resultado = $this->selectRelatorioComprasSugestoes();
+                $resultado = $this->selectRelatorioComprasSugestoes() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_compras_estoque_minimo.tpl');
                 break;
             case 'movimento_cliente':
-                $resultado = $this->selectMovimentoEstoqueCliente();
+                $resultado = $this->selectMovimentoEstoqueCliente() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_movimento_cliente.tpl');
                 break;
             case 'consulta_preco':
-                $resultado = $this->selectConsultaProdutoPreco();
+                $resultado = $this->selectConsultaProdutoPreco() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_consulta_preco.tpl');
                 break;
             case 'tabela_precos':
-                $resultado = $this->selectTabelaPrecos();
+                $resultado = $this->selectTabelaPrecos() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_tabela_precos.tpl');
                 break;
             case 'notas_fiscais':
-                $resultado = $this->selectRelatorioNotasFiscais();
+                $resultado = $this->selectRelatorioNotasFiscais() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_notas_fiscais.tpl');
                 break;
+            case 'compra_encomenda':
+                header('Location: index.php?mod=ped&form=pedido_relatorios');
+                exit;
             default:
-                $resultado = $this->selectRelatorioMovimentacaoEstoque();
+                $resultado = $this->selectRelatorioMovimentacaoEstoque() ?? [];
                 $this->smarty->assign('resultado', $resultado);
                 $this->smarty->display('rel_estoque_movimentacao.tpl');
                 break;

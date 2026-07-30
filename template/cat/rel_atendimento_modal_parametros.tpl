@@ -127,15 +127,15 @@
                             <i class="glyphicon glyphicon-calendar fa fa-calendar"></i>
                             <div>
                                 <input type="text" name="data_consulta" id="data_consulta" class="form-control"
-                                    value="{$dataIni} - {$dataFim}">
+                                    value="{if $data_ini}{$data_ini} - {if $data_fim}{$data_fim}{else}{$dataFim}{/if}{else}{$dataIni} - {$dataFim}{/if}">
                             </div>
                         </div>
 
                         <!-- Nome -->
                         <div class="form-group form-group-col col-md-4" id="pedido-group">
                             <label>Contrato/Pedido</label>
-                            <input class="form-control" id="num_pedido" name="num_pedido" placeholder="Digite o numero."
-                                value={$num_pedido}>
+                            <input class="form-control" id="id_pedido" name="id_pedido" placeholder="Digite o numero."
+                                value={$id_pedido}>
                         </div>
 
                         <!-- OS -->
@@ -157,6 +157,14 @@
                                     </button>
                                 </span>
                             </div>
+                        </div>
+
+                        <!-- Ordenação -->
+                        <div class="form-group form-group-col col-md-4" id="ordenacao-group">
+                            <label>Ordenar por</label>
+                            <SELECT class="form-control" id="ordenacao" name="ordenacao">
+                                {html_options values=$ordenacao_ids output=$ordenacao_names selected=$ordenacao}
+                            </SELECT>
                         </div>
                     </div>
 
@@ -183,8 +191,8 @@
 
 <script type="text/javascript">
     $('input[name="data_consulta"]').daterangepicker({
-            startDate: moment("{$data_ini}", "DD/MM/YYYY"),
-            endDate: moment("{$data_fim}", "DD/MM/YYYY"),
+            startDate: moment("{if $data_ini}{$data_ini}{else}{$dataIni}{/if}", "DD/MM/YYYY"),
+            endDate: moment("{if $data_fim}{$data_fim}{else}{$dataFim}{/if}", "DD/MM/YYYY"),
             ranges: {
                 'Hoje': [moment(), moment()],
                 'Ontem': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],

@@ -138,7 +138,7 @@
             <div class="clearfix"></div>
             <div class="x_panel">
                   <div class="x_content">
-                        {if count($resultado) > 0}
+                        {if !empty($resultado)}
                               <div class="table-responsive">
                                     <table class="table table-striped" style="margin-bottom: 0;">
                                           <thead>

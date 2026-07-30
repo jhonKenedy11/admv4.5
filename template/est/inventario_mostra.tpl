@@ -155,7 +155,7 @@
                                             <button type="button" class="btn btn-warning btn-xs" onclick="javascript:submitAlterar('{$lanc[i].ID}');"><span class="glyphicon glyphicon-search" aria-hidden="true"></span></button>
                                         {else} 
                                             <button type="button" class="btn btn-primary btn-xs" onclick="javascript:submitAlterar('{$lanc[i].ID}');"><span class="glyphicon glyphicon-pencil" aria-hidden="true"></span></button>
-                                            <button type="button" class="btn btn-danger btn-xs" onclick="javascript:excluirInventario('{$lanc[i].ID}')">
+                                            <button type="button" class="btn btn-danger btn-xs" onclick="excluirInventario('{$lanc[i].ID}')">
                                                 <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
                                             </button>
                                         {/if}
@@ -257,8 +257,7 @@
     <script src="js/datepicker/daterangepicker.js"></script>
 
     <script type="text/javascript">
-    $('input[name="dataConsulta"]').daterangepicker(
-    {
+    $('input[name="dataConsulta"]').daterangepicker({
         startDate: moment("{$dataIni}", "DD/MM/YYYY"),
         endDate: moment("{$dataFim}", "DD/MM/YYYY"),
         ranges: {
@@ -280,12 +279,10 @@
             monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
             firstDay: 1
         }
-
-    }, 
-    //funcao para recuperar o valor digirado        
+    },
     function(start, end, label) {
         f = document.lancamento;
         f.dataIni.value = start.format('DD/MM/YYYY');
-        f.dataFim.value = end.format('DD/MM/YYYY');            
+        f.dataFim.value = end.format('DD/MM/YYYY');
     });
 </script>  

@@ -1,8 +1,10 @@
 <style>
-  .form-control,
-  .x_panel {
-    border-radius: 5px;
-  }
+.form-control, .x_panel, .select2-selection--multiple{
+  border-radius: 5px !important;
+}
+.right_col{
+  padding: 5px !important;
+}
 </style>
 <script type="text/javascript" src="{$pathJs}/fin/s_extrato.js"> </script>
 <!-- page content -->
@@ -16,38 +18,44 @@
       <div class="col-md-12 col-xs-12">
         <div class="x_panel">
           <div class="x_title">
-            <h2>Extrato Financeiro - Consulta</h2>
-            {include file="../bib/msg.tpl"}
+            <h2><b>Extrato Financeiro</b> - consulta
+                <strong>
+                    {if $mensagem neq ''}
+                            <div class="alert alert-success" role="alert">{$mensagem}</div>
+                    {/if}
+                </strong>
+            </h2>
             <ul class="nav navbar-right panel_toolbox">
               <li><button type="button" class="btn btn-warning" onClick="javascript:submitLetra();">
                   <span class="glyphicon glyphicon-zoom-in" aria-hidden="true"></span><span> Pesquisa</span>
+                </button>
+              </li>
+              <li>
+                <button type="button" class="btn btn-danger" onClick="javascript:clearFilters();">
+                  <span class="glyphicon glyphicon-erase" aria-hidden="true"></span><span> Limpar Filtros</span>
+                </button>
+              </li>
+              <li><button type="button" class="btn btn-primary" onClick="javascript:submitResumo();">
+                  <span class="glyphicon glyphicon-record" aria-hidden="true"></span><span> Resumo</span>
                 </button>
               </li>
               <li><button type="button" class="btn btn-primary" onClick="javascript:submitCadastro('');">
                   <span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span> Cadastro</span>
                 </button>
               </li>
-              <li><button type="button" class="btn btn-info" onClick="javascript:submitResumo();">
-                  <span class="glyphicon glyphicon-file" aria-hidden="true"></span><span> Resumo</span>
-                </button>
+              <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+              <li class="dropdown">
+                <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"><i class="fa fa-wrench"></i></a>
+                <ul class="dropdown-menu" role="menu">
+                  <li>
+                    <button type="button" class="btn btn-dark btn-xs"  onClick="javascript:extratoSaldoEmpresa();"><span> Saldo por Empresa</span></button>
+                  </li>
+                  <li>
+                    <button type="button" class="btn btn-dark btn-xs" onClick="javascript:extratoRelatorioDetalhado();"><span> Movimenta&ccedil;&atilde;o Detalhada</span></button>
+                  </li>
+                </ul>
               </li>
-
-              <li><button type="button" class="btn btn-danger" onClick="javascript:limparCampos();">
-                  <span class="glyphicon glyphicon-erase" aria-hidden="true"></span><span> Limpar Campos</span>
-                </button>
-              </li>
-
-              {* <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li> *}
-              {* <li class="dropdown">
-                            <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false"><i class="fa fa-wrench"></i></a>
-                            <ul class="dropdown-menu" role="menu">
-                              <li>
-                                  <button type="button" class="btn btn-dark btn-xs"  onClick="javascript:extratoSaldoEmpresa();"><span> Saldo por Empresa</span></button>
-                              </li>
-                            </ul>
-                        </li> *}
-              {* <li><a class="close-link"><i class="fa fa-close"></i></a>
-                        </li> *}
+              {* <li><a class="close-link"><i class="fa fa-close"></i></a></li> *}
             </ul>
             <div class="clearfix"></div>
           </div>
@@ -120,8 +128,7 @@
 
                 <div class="col-md-7 col-sm-12 col-xs-12">
                   <div class="input-group">
-                    <input type="text" class="form-control" id="nome" name="nome" placeholder="Conta" value="{$nome}"
-                      readonly>
+                    <input type="text" class="form-control" id="nome" name="nome" placeholder="Conta" value="{$nome}" readonly>
                     <span class="input-group-btn">
                       <button type="button" class="btn btn-primary"
                         onClick="javascript:abrir('{$pathCliente}/index.php?mod=crm&form=contas&opcao=pesquisar');">
@@ -145,7 +152,7 @@
       <!-- panel tabela dados -->
       <div class="col-md-12 col-xs-12">
         <div class="x_panel">
-          <div class="h3 col-md-7 col-sm-12 col-xs-12">
+          <div class="h3 col-md-12 col-sm-12 col-xs-12">
             <label>CLIENTE: </label>
             <label>Débito: {$totalPag|number_format:2:",":"."}</label> -
             <label>Crédito: {$totalRec|number_format:2:",":"."}</label> =
@@ -156,9 +163,11 @@
             <thead>
               <tr class="headings">
                 <th>Pessoa</th>
+                <th>CNPJ</th>
                 <th>Situa&ccedil;&atilde;o</th>
                 <th>Genero</th>
                 <th>Competência</th>
+                <th>Obs</th>
                 <th>Total</th>
                 <th class=" no-link last" style="width: 40px;">Manuten&ccedil;&atilde;o</th>
               </tr>
@@ -177,9 +186,11 @@
                   {/if}
 
                   <td> {$lanc[i].NOME} </td>
+                  <td> {$lanc[i].CNPJCPF} </td>
                   <td> {$lanc[i].SITUACAOLANCAMENTO} </td>
                   <td> {$lanc[i].DESCGENERO} </td>
                   <td> {$lanc[i].COMPETENCIA|date_format:"%e %b, %Y"} </td>
+                  <td> {$lanc[i].OBS} </td>
                   <td align=right>{$lanc[i].VALOR|number_format:2:",":"."} </td>
                   <td class=" last">
                     <button type="button" class="btn btn-primary btn-xs"
@@ -261,31 +272,52 @@
 </script>
 <!-- /Select2 -->
 
+<script type="text/javascript">
+  function clearFilters() {
+    // Define elements to clear
+    try {
+      // Set Situação Lançamento to 'A' (single selection)
+      if ($('#sitlanc').length) {
+        $('#sitlanc').val(['A']).trigger('change');
+      }
+
+      // Clear pessoa, genero and account fields (if present)
+      if ($('#pessoa').length) { $('#pessoa').val(''); }
+      if ($('#genero').length) { $('#genero').val(''); }
+      if ($('#nome').length) { $('#nome').val(''); }
+      if ($('#descgenero').length) { $('#descgenero').val(''); }
+
+      // Optionally focus the primary filter (dataConsulta) after clearing
+      if ($('input[name=\"dataConsulta\"]').length) { $('input[name=\"dataConsulta\"]').focus(); }
+    } catch (e) {
+      console.error('clearFilters error:', e);
+    }
+  }
+</script>
+
 <!-- daterangepicker -->
 <script type="text/javascript">
   $('input[name="dataConsulta"]').daterangepicker({
       startDate: moment("{$dataIni}", "DD/MM/YYYY"),
       endDate: moment("{$dataFim}", "DD/MM/YYYY"),
       ranges: {
-        'Hoje': [moment(), moment()],
-        'Ontem': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
-        'Últimos 7 Dias': [moment().subtract(6, 'days'), moment()],
-        'Últimos 30 Dias': [moment().subtract(29, 'days'), moment()],
-        'Este Mes': [moment().startOf('month'), moment().endOf('month')],
-        'Último Mes': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+         'Hoje': [moment(), moment()],
+         'Ontem': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+         'Últimos 7 Dias': [moment().subtract(6, 'days'), moment()],
+         'Últimos 30 Dias': [moment().subtract(29, 'days'), moment()],
+         'Este Mes': [moment().startOf('month'), moment().endOf('month')],
+         'Último Mes': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
       },
       locale: {
-        format: 'DD/MM/YYYY',
-        applyLabel: 'Confirma',
-        cancelLabel: 'Limpa',
-        fromLabel: 'Início',
-        toLabel: 'Fim',
-        customRangeLabel: 'Calendário',
-        daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
-        monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro',
-          'Outubro', 'Novembro', 'Dezembro'
-        ],
-        firstDay: 1
+          format: 'DD/MM/YYYY',
+          applyLabel: 'Confirma',
+          cancelLabel: 'Limpa',
+          fromLabel: 'Início',
+          toLabel: 'Fim',
+          customRangeLabel: 'Calendário',
+          daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
+          monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'],
+          firstDay: 1
       }
 
     },

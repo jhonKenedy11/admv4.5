@@ -15,6 +15,8 @@ include_once($dir . "/../../bib/c_date.php");
 include_once($dir . "/../../bib/c_tools.php");
 include_once($dir . "/../../class/crm/c_conta.php");
 include_once($dir . "/../../bib/c_date.php");
+include_once($dir . "/../util/c_api_response.php");
+include_once($dir . "/../../forms/blt/p_boleto_email.php");
 
 
 //Class C_NOTA_FISCAL
@@ -73,6 +75,7 @@ class c_nota_fiscal extends c_user
     private $nProt                  = NULL; // varchar(45)
     private $digVal                 = NULL; // varchar(45)
     private $verAplic               = NULL; // varchar(15)
+    private $param                  = NULL; // flag auxiliar (ex.: noFormat em TFF)
     private $descontoGeral          = NULL; // decimal(11,4)
 
     private $endereco               = NULL;
@@ -490,7 +493,7 @@ class c_nota_fiscal extends c_user
     {
         $this->totalnf = $totalnf;
         if ($format):
-            $this->totalnf = number_format($this->totalnf, 2, ',', '.');
+            $this->totalnf = number_format(c_tools::parseMoedaValor($this->totalnf), 2, ',', '.');
         endif;
     }
     public function getTotalnf($format = null)
@@ -498,10 +501,10 @@ class c_nota_fiscal extends c_user
         if (isset($this->totalnf)):
             switch ($format) {
                 case 'B':
-                    return c_tools::moedaBd($this->totalnf);
+                    return c_tools::parseMoedaValor($this->totalnf);
                     break;
                 case 'F':
-                    return number_format((float) $this->totalnf, 2, ',', '.');
+                    return number_format(c_tools::parseMoedaValor($this->totalnf), 2, ',', '.');
                     break;
                 default:
                     return $this->totalnf;
@@ -525,7 +528,7 @@ class c_nota_fiscal extends c_user
     {
         $this->frete = $frete;
         if ($format):
-            $this->frete = number_format($this->frete, 2, ',', '.');
+            $this->frete = number_format(c_tools::parseMoedaValor($this->frete), 2, ',', '.');
         endif;
     }
     public function getFrete($format = null)
@@ -533,10 +536,10 @@ class c_nota_fiscal extends c_user
         if (isset($this->frete)):
             switch ($format) {
                 case 'B':
-                    return c_tools::moedaBd($this->frete);
+                    return c_tools::parseMoedaValor($this->frete);
                     break;
                 case 'F':
-                    return number_format((float) $this->frete, 2, ',', '.');
+                    return number_format(c_tools::parseMoedaValor($this->frete), 2, ',', '.');
                     break;
                 default:
                     return $this->frete;
@@ -549,7 +552,7 @@ class c_nota_fiscal extends c_user
     {
         $this->despAcessorias = $despAcessorias;
         if ($format):
-            $this->despAcessorias = number_format($this->despAcessorias, 2, ',', '.');
+            $this->despAcessorias = number_format(c_tools::parseMoedaValor($this->despAcessorias), 2, ',', '.');
         endif;
     }
     public function getDespAcessorias($format = null)
@@ -557,10 +560,10 @@ class c_nota_fiscal extends c_user
         if (isset($this->despAcessorias)):
             switch ($format) {
                 case 'B':
-                    return c_tools::moedaBd($this->despAcessorias);
+                    return c_tools::parseMoedaValor($this->despAcessorias);
                     break;
                 case 'F':
-                    return number_format((float) $this->despAcessorias, 2, ',', '.');
+                    return number_format(c_tools::parseMoedaValor($this->despAcessorias), 2, ',', '.');
                     break;
                 default:
                     return $this->despAcessorias;
@@ -574,7 +577,7 @@ class c_nota_fiscal extends c_user
     {
         $this->seguro = $seguro;
         if ($format):
-            $this->seguro = number_format($this->seguro, 2, ',', '.');
+            $this->seguro = number_format(c_tools::parseMoedaValor($this->seguro), 2, ',', '.');
         endif;
     }
     public function getSeguro($format = null)
@@ -582,10 +585,10 @@ class c_nota_fiscal extends c_user
         if (isset($this->seguro)):
             switch ($format) {
                 case 'B':
-                    return c_tools::moedaBd($this->seguro);
+                    return c_tools::parseMoedaValor($this->seguro);
                     break;
                 case 'F':
-                    return number_format((float) $this->seguro, 2, ',', '.');
+                    return number_format(c_tools::parseMoedaValor($this->seguro), 2, ',', '.');
                     break;
                 default:
                     return $this->seguro;
@@ -695,11 +698,16 @@ class c_nota_fiscal extends c_user
         return $this->verAplic;
     }
 
+    public function setParam($param)
+    {
+        $this->param = $param;
+    }
+
     public function setDescontoGeral($descontoGeral, $format = false)
     {
         $this->descontoGeral = $descontoGeral;
         if ($format):
-            $this->descontoGeral = number_format($this->descontoGeral, 2, ',', '.');
+            $this->descontoGeral = number_format(c_tools::parseMoedaValor($this->descontoGeral), 2, ',', '.');
         endif;
     }
     public function getDescontoGeral($format = null)
@@ -707,10 +715,10 @@ class c_nota_fiscal extends c_user
         if (isset($this->descontoGeral)):
             switch ($format) {
                 case 'B':
-                    return c_tools::moedaBd($this->descontoGeral);
+                    return c_tools::parseMoedaValor($this->descontoGeral);
                     break;
                 case 'F':
-                    return number_format((float) $this->descontoGeral, 2, ',', '.');
+                    return number_format(c_tools::parseMoedaValor($this->descontoGeral), 2, ',', '.');
                     break;
                 default:
                     return $this->descontoGeral;
@@ -785,6 +793,7 @@ class c_nota_fiscal extends c_user
         $this->setOrigem($notaFiscal[0]['ORIGEM']);
         $this->setDoc($notaFiscal[0]['DOC']);
         $this->setCentroCusto($notaFiscal[0]['CENTROCUSTO']);
+        $this->setVendaPresencial($notaFiscal[0]['VENDAPRESENCIAL'] ?? 'N');
     }
 
     //---------------------------------------------------------------
@@ -870,7 +879,13 @@ class c_nota_fiscal extends c_user
 
         $sql = "SELECT * ";
         $sql .= "FROM est_nota_fiscal ";
-        $sql .= "WHERE (CENTROCUSTO=" . $cc . ") and (TIPO=1) AND (MODELO=" . $modelo . ") AND (SERIE=" . $serie . ") AND (numero=" . $num . ")";
+        $sql .= "WHERE (CENTROCUSTO=" . $cc . ") ";
+        $sql .= "AND ((TIPO=1) ";
+        $sql .= "OR (TIPO=0 AND ORIGEM='NFE' AND FINALIDADEEMISSAO IN (3, 4) ";
+        $sql .= "AND CHNFE IS NOT NULL AND CHNFE<>'' ";
+        $sql .= "AND SUBSTR(CHNFE,4,14)=(SELECT CNPJ FROM AMB_EMPRESA WHERE CENTROCUSTO=" . $cc . " LIMIT 1))) ";
+        $sql .= "AND (MODELO=" . $modelo . ") AND (SERIE=" . $serie . ") AND (numero=" . $num . ") ";
+        $sql .= "AND (SITUACAO IN ('B', 'C'))";
         // echo strtoupper($sql);
 
         $banco = new c_banco();
@@ -891,8 +906,12 @@ class c_nota_fiscal extends c_user
         $numNf = 0;
         $numAtArray = null;
 
-        $sql = "SELECT MAX(NUMERO) AS ULTIMANF FROM EST_NOTA_FISCAL WHERE (substr(CENTROCUSTO,1,2)=" . substr($cc, 0, 2) . ") and (TIPO=1) AND (MODELO=" . $modelo . ") AND (SERIE=" . $serie . ") and (SITUACAO<>'I')";
-        //ECHO $sql;
+        $sql = "SELECT MAX(NUMERO) AS ULTIMANF FROM EST_NOTA_FISCAL WHERE (substr(CENTROCUSTO,1,2)=" . substr($cc, 0, 2) . ") ";
+        $sql .= "AND ((TIPO=1) ";
+        $sql .= "OR (TIPO=0 AND ORIGEM='NFE' AND FINALIDADEEMISSAO IN (3, 4) ";
+        $sql .= "AND CHNFE IS NOT NULL AND CHNFE<>'' ";
+        $sql .= "AND SUBSTR(CHNFE,4,14)=(SELECT CNPJ FROM AMB_EMPRESA WHERE CENTROCUSTO=" . $cc . " LIMIT 1))) ";
+        $sql .= "AND (MODELO=" . $modelo . ") AND (SERIE=" . $serie . ") AND (SITUACAO IN ('B', 'C'))";
 
         $banco = new c_banco();
         $banco->exec_sql($sql, $conn);
@@ -903,7 +922,7 @@ class c_nota_fiscal extends c_user
             $numNf = intval($numAtArray[0]['ULTIMANF']);
             do {
                 $numNf = $numNf + 1;
-                $result = $this->existeNotaFiscalEmp($modelo, $serie, $numNf, $cc, $conn);
+                $result = $this->existeNotaFiscalEmp($modelo, $serie, $numNf, $cc, false, $conn);
             } while ($result == TRUE);
             return $numNf;
         else:
@@ -916,9 +935,10 @@ class c_nota_fiscal extends c_user
     public function select_nota_fiscal($conn = null)
     {
 
-        $sql = "SELECT DISTINCT * ";
-        $sql .= "FROM est_nota_fiscal ";
-        $sql .= "WHERE (ID = " . $this->getId() . ") ";
+        $sql = "SELECT DISTINCT en.*, fc.gera_boleto_automatico as gera_boleto_automatico ";
+        $sql .= "FROM est_nota_fiscal en ";
+        $sql .= "INNER JOIN fin_cliente fc ON fc.cliente = en.pessoa ";
+        $sql .= "WHERE (en.ID = " . $this->getId() . ") ";
 
         // echo strtoupper($sql);
         $banco = new c_banco();
@@ -1010,7 +1030,7 @@ class c_nota_fiscal extends c_user
         $sql = "SELECT DISTINCT n.*, c.nomereduzido, g.descricao as descgenero, r.descricao as filial, s.padrao as situacaoNota, t.padrao as tipoNota ";
         $sql .= "FROM est_nota_fiscal n ";
         $sql .= "inner join fin_genero g on g.genero = n.genero ";
-        $sql .= "inner join fin_cliente c on c.cliente = n.pessoa ";
+        $sql .= "left join fin_cliente c on c.cliente = n.pessoa ";
         $sql .= "inner join fin_centro_custo r on n.centrocusto = r.centrocusto ";
         $sql .= "inner join amb_ddm s on ((s.alias='EST_MENU') and (s.campo='SituacaoNota') and (s.tipo = n.situacao)) ";
         $sql .= "inner join amb_ddm t on ((t.alias='EST_MENU') and (t.campo='TipoNotaFiscal') and (t.tipo = n.tipo)) ";
@@ -1036,7 +1056,9 @@ class c_nota_fiscal extends c_user
         $dataIni = c_date::convertDateTxt($par[3]);
         $dataFim = c_date::convertDateTxt($par[4]);
 
-        $sql = "SELECT DISTINCT n.*, c.nomereduzido, g.descricao as descgenero, r.descricao as filial, s.padrao as situacaoNota, t.padrao as tipoNota ";
+        $sql = "SELECT DISTINCT n.*, c.nomereduzido, g.descricao as descgenero, r.descricao as filial, s.padrao as situacaoNota, t.padrao as tipoNota, ";
+        $sql .= "(SELECT GROUP_CONCAT(l.id SEPARATOR ',') FROM fin_lancamento l WHERE l.pessoa = n.pessoa AND l.docto = n.numero AND l.serie = 'NFS' AND l.tipodocto = 'B' AND l.sitpgto = 'A') as idLancamento, ";
+        $sql .= "(SELECT l.tipodocto FROM fin_lancamento l WHERE l.pessoa = n.pessoa AND l.docto = n.numero AND l.serie = 'NFS' AND l.tipodocto = 'B' AND l.sitpgto = 'A' LIMIT 1) as tipoDoctoLancamento ";
         if ($joinNfProduto == true) {
             $sql .= " , u.nome as nomeUsuario, p.descricao as nomeProduto, p.unidade, p.quant ";
         }
@@ -1045,11 +1067,11 @@ class c_nota_fiscal extends c_user
             $sql .= "left join est_nota_fiscal_produto p on (n.id = p.idnf) ";
             $sql .= "left join amb_usuario u on (n.userinsert = u.usuario) ";
         }
-        $sql .= "inner join fin_genero g on g.genero = n.genero ";
-        $sql .= "inner join fin_cliente c on c.cliente = n.pessoa ";
+        $sql .= "left join fin_genero g on g.genero = n.genero ";
+        $sql .= "left join fin_cliente c on c.cliente = n.pessoa ";
         $sql .= "inner join fin_centro_custo r on n.centrocusto = r.centrocusto ";
-        $sql .= "inner join amb_ddm s on ((s.alias='EST_MENU') and (s.campo='SituacaoNota') and (s.tipo = n.situacao)) ";
-        $sql .= "inner join amb_ddm t on ((t.alias='EST_MENU') and (t.campo='TipoNotaFiscal') and (t.tipo = n.tipo)) ";
+        $sql .= "left join amb_ddm s on ((s.alias='EST_MENU') and (s.campo='SituacaoNota') and (s.tipo = n.situacao)) ";
+        $sql .= "left join amb_ddm t on ((t.alias='EST_MENU') and (t.campo='TipoNotaFiscal') and (t.tipo = n.tipo)) ";
 
         if ($par[5] != "") {
             $cond =  strpos($sql, 'where') === false ? 'where' : 'and';
@@ -1102,6 +1124,10 @@ class c_nota_fiscal extends c_user
                 $sql .= empty($par[14]) ? '' : " $cond (P.CODPRODUTO = '" . $par[14] . "') ";
             }
         }
+
+        // Exclui prévias do manifesto fiscal SEFAZ (situações NP, OR, DO, CO)
+        $cond = strpos($sql, 'where') === false ? 'where' : 'and';
+        $sql .= " $cond (N.SITUACAO NOT IN ('NP','OR','DO','CO')) ";
 
         $sql .= "ORDER BY n.centrocusto, n.serie, n.numero ";
         //echo strtoupper($sql);
@@ -1339,6 +1365,38 @@ class c_nota_fiscal extends c_user
         return $numEvento;
     }
 
+    /**
+     * Atualiza apenas a data de emissão da nota fiscal no banco.
+     * Usar quando for necessário regravar somente a coluna emissao sem alterar outros campos.
+     *
+     * @param resource|null $conn Conexão opcional
+     * @return string '' quando ok ou mensagem de erro
+     */
+    public function alteraEmissaoOnly($conn = null)
+    {
+        $sql = "UPDATE est_nota_fiscal SET ";
+        $sql .= "emissao = '" . $this->getEmissao('B') . "', ";
+        $sql .= "userchange = " . $this->m_userid . ", ";
+        $sql .= "datechange = current_timestamp() ";
+        $sql .= "WHERE id = " . $this->getId() . ";";
+
+        $banco = new c_banco;
+
+        if (!isset($conn)):
+            $conn = $banco->id_connection;
+        endif;
+
+        $res_nf = $banco->exec_sql($sql, $conn);
+
+        $banco->close_connection();
+
+        if ($res_nf > 0) {
+            return '';
+        } else {
+            return 'A emissão da Nota Fiscal ' . $this->getId() . ' não foi alterada!';
+        }
+    }
+
 
     /**
      * Funcao para alterar dados autorização NFe
@@ -1364,7 +1422,7 @@ class c_nota_fiscal extends c_user
         $sql .= "cSTAT, ";
         $sql .= "XML, ";
         $sql .= "USERINSERT, ";
-        $sql .= "DATEINSERT)  value ( '";
+        $sql .= "DATEINSERT) VALUES ( '";
 
         if ($param == 'recibo') {
             $sql .= $msg["ID"] . "', '";
@@ -1393,9 +1451,19 @@ class c_nota_fiscal extends c_user
             $sql .= $justificativa . "', '";
             $sql .= $msg->retEvento->infEvento->nProt . "', '";
             $sql .= $msg->retEvento->infEvento->verAplic . "', '";
-            $sql .= $msg->retEvento->infEvento->cStat . "', ";
-
-            //$sql .= $msg->retEvento->infEvento->cStat."', "; XML
+            $sql .= $msg->retEvento->infEvento->cStat . "', '";
+            
+            // Obtém o XML do evento se disponível e escapa corretamente
+            $xmlEvento = '';
+            if (isset($msg->retEvento->infEvento->XML) && !empty($msg->retEvento->infEvento->XML)) {
+                // Garante que a conexão esteja disponível para escape
+                if (!isset($conn)) {
+                    $banco_temp = new c_banco;
+                    $conn = $banco_temp->id_connection;
+                }
+                $xmlEvento = mysqli_real_escape_string($conn, $msg->retEvento->infEvento->XML);
+            }
+            $sql .= $xmlEvento . "', ";
 
             $sql .= $this->m_userid . ",'" . date("Y-m-d H:i:s") . "' );";
         }
@@ -1479,7 +1547,11 @@ class c_nota_fiscal extends c_user
         $sql .= $this->getVolMarca() . "', ";
         $sql .= $this->getVolPesoLiq() . ", ";
         $sql .= $this->getVolPesoBruto() . ", ";
-        $sql .= $this->getTotalnf('B') . ", '";
+        if ($this->param === 'noFormat') {
+            $sql .= $this->getTotalnf('') . ", '";
+        } else {
+            $sql .= $this->getTotalnf('B') . ", '";
+        }
         $sql .= $this->getOrigem() . "', '";
         $sql .= $this->getDoc() . "', '";
         $sql .= $this->getObs() . "', '";
@@ -1518,6 +1590,9 @@ class c_nota_fiscal extends c_user
         ALTER TABLE `admsis_requemaq`.`EST_NOTA_FISCAL` 
         ADD COLUMN `VENDAPRESENCIAL` CHAR(1) NULL DEFAULT 'N' AFTER `DESCONTOGERAL`*/
         $banco = new c_banco;
+        if (!isset($conn)) {
+            $conn = $banco->id_connection;
+        }
         if ($banco->gerenciadorDB == 'interbase') {
             $this->setId($banco->geraID("EST_GEN_ID_NF"));
             $sql = "INSERT INTO EST_NOTA_FISCAL (ID,";
@@ -1528,7 +1603,7 @@ class c_nota_fiscal extends c_user
         $sql .= "MODELO, SERIE, NUMERO, PESSOA, CPFNOTA, EMISSAO, IDNATOP, NATOPERACAO, TIPO, SITUACAO, FORMAPGTO, CONDPGTO, "
             . "DATASAIDAENTRADA, FORMAEMISSAO, FINALIDADEEMISSAO, NFEREFERENCIADA, CENTROCUSTO, GENERO, "
             . "MODFRETE, TRANSPORTADOR, PLACAVEICULO, CODANTT, UF, VOLUME, VOLESPECIE, VOLMARCA, VOLPESOLIQ, VOLPESOBRUTO, "
-            . "TOTALNF, ORIGEM, DOC, OBS, FRETE, DESPACESSORIAS, SEGURO, DHRECBTO, NPROT, DIGVAL, VERAPLIC, VENDAPRESENCIAL, 
+            . "TOTALNF, ORIGEM, DOC, OBS, FRETE, DESPACESSORIAS, SEGURO, DESCONTOGERAL, DHRECBTO, NPROT, DIGVAL, VERAPLIC, VENDAPRESENCIAL, 
                     CHNFE, CONTRATO, USERINSERT, DATEINSERT) ";
 
         if ($banco->gerenciadorDB == 'interbase') {
@@ -1576,10 +1651,11 @@ class c_nota_fiscal extends c_user
         $sql .= $this->getTotalnf('B') . ", '";
         $sql .= $this->getOrigem() . "', '";
         $sql .= $this->getDoc() . "', '";
-        $sql .= $this->getObs() . "', '";
+        $sql .= $banco->escape($this->getObs(), $conn) . "', '";
         $sql .= $this->getFrete('B') . "', '";
         $sql .= $this->getDespAcessorias('B') . "', '";
         $sql .= $this->getSeguro('B') . "', '";
+        $sql .= $this->getDescontoGeral('B') . "', '";
         $sql .= $this->getDhRecbto() . "', '";
         $sql .= $this->getNProt() . "', '";
         $sql .= $this->getDigVal() . "', '";
@@ -1588,11 +1664,6 @@ class c_nota_fiscal extends c_user
         $sql .= $this->getChNFe() . "', '";
 
         $sql .= $this->getContrato() . "'," . $this->m_userid . ",'" . date("Y-m-d H:i:s") . "' );";
-
-
-        if (!isset($conn)):
-            $conn = $banco->id_connection;
-        endif;
 
         //echo strtoupper($sql)."<BR>";
         $res_nf = $banco->exec_sql($sql, $conn);
@@ -1637,13 +1708,9 @@ class c_nota_fiscal extends c_user
         $banco = new c_banco;
 
 
-        if (!isset($conn)):
-            $conn = $banco->id_connection;
-        endif;
+        $conexaoAtiva = ($conn !== null) ? $conn : $banco->id_connection;
 
-        $res_nf = $banco->exec_sql($sql, $conn);
-
-        $banco->close_connection();
+        $res_nf = $banco->exec_sql($sql, $conexaoAtiva);
 
         if ($res_nf > 0) {
             return '';
@@ -2233,7 +2300,7 @@ class c_nota_fiscal extends c_user
     }
 
     //---------------------------------------------------------------
-    public function select_xml_nota_fiscal($id = null)
+    public static function select_xml_nota_fiscal($id = null)
     {
         $sql = "SELECT DISTINCT * ";
         $sql .= "FROM est_nota_fiscal_xml ";
@@ -2244,6 +2311,44 @@ class c_nota_fiscal extends c_user
         $banco->exec_sql($sql);
         $banco->close_connection();
         return $banco->resultado;
+    }
+
+    /**
+     * Remove aspas problemáticas dentro de xProd no XML da NF-e.
+     */
+    public static function processarXmlNfe($xml)
+    {
+        $padrao = '/<xProd>(.*?)<\/xProd>/s';
+        return preg_replace_callback($padrao, function ($correspondencias) {
+            $textoSemAspas = str_replace(['"', "'"], '', $correspondencias[1]);
+            return '<xProd>' . $textoSemAspas . '</xProd>';
+        }, $xml);
+    }
+
+    /**
+     * Grava XML da NF-e (substitui resumo anterior, se houver).
+     */
+    public static function gravarXmlNota($idNota, $xml)
+    {
+        $xmlnf = self::select_xml_nota_fiscal($idNota);
+        if (!empty($xmlnf[0]['XMLCONSULTA']) && stripos($xmlnf[0]['XMLCONSULTA'], '<infNFe') !== false) {
+            return true;
+        }
+
+        $xmlProcessado = self::processarXmlNfe($xml);
+        if (empty($xmlProcessado)) {
+            return false;
+        }
+
+        $banco = new c_banco();
+        $conn = $banco->id_connection;
+        $banco->exec_sql('DELETE FROM est_nota_fiscal_xml WHERE IDNF = ' . (int) $idNota);
+        $sql = "INSERT INTO EST_NOTA_FISCAL_XML (IDNF, XMLCONSULTA) VALUE ('";
+        $sql .= (int) $idNota . "', '";
+        $sql .= $banco->escape($xmlProcessado, $conn) . "');";
+        $banco->exec_sql_lower_case($sql);
+        $banco->close_connection();
+        return (bool) $banco->result;
     }
 
     //============================================================  
@@ -2269,7 +2374,7 @@ class c_nota_fiscal extends c_user
      * @param int $num, $client
      * @return array - array with the record containing all columns
      */
-    public function existNotaNumClient($num, $serie, $client)
+    public static function existNotaNumClient($num, $serie, $client)
     {
 
         $sql = "SELECT * ";
@@ -2682,6 +2787,94 @@ class c_nota_fiscal extends c_user
 
         return $data;
     }
+    /**
+     * Atualiza situação da OS para 2 (Em atendimento)
+     * @return bool true se sucesso, false caso contrário
+     */
+    public function atualizaSituacaoOS()
+    {
+        $sql = "SELECT OS FROM FAT_PEDIDO WHERE ID = " . $this->getDoc();
+        $banco = new c_banco();
+        $banco->exec_sql($sql);
+        $resultado = $banco->resultado;
+        
+        if (!empty($resultado) && !empty($resultado[0]['OS']) && $resultado[0]['OS'] != '0') {
+            $idOS = $resultado[0]['OS'];
+            
+            // Atualiza situação da OS para 2 (Em atendimento)
+            $sqlUpdate = "UPDATE CAT_ATENDIMENTO SET CAT_SITUACAO_ID = 2 WHERE ID = " . $idOS;
+            $banco->exec_sql($sqlUpdate);
+            $banco->close_connection();
+            
+            return true;
+        }
+        
+        $banco->close_connection();
+        return false;
+    }
+    /**
+     * Envia nota fiscal e boleto por email
+     * @param int $id_nota_fiscal ID da nota fiscal
+     * @param string $numero_nota_fiscal Número da nota fiscal
+     * @param string $numero_pedido Número do pedido
+     * @param int $pessoa ID da pessoa/cliente
+     * @return void
+     */
+    function enviaNotaBoleto(int $id_nota_fiscal, string $numero_nota_fiscal, string $numero_pedido, int $pessoa): void {
+
+        try {
+
+            if(!$this->sessaoValida()){
+                c_api_response::failure('Sessão inválida', [ 'Sessão inválida' ]);
+                return;
+            }
+
+            // declaração de variáveis  
+            $resultado = null;
+            $response = array();
+
+            // Cria instância da classe p_boleto_email
+            $obj_email = new p_boleto_email();
+
+            // Envia nota fiscal e boleto por email
+            $resultado = $obj_email->sendDocumentsEmail(
+                $id_nota_fiscal,
+                $numero_nota_fiscal,
+                $pessoa,
+                $numero_pedido
+
+            );
+
+            // verifica se o email foi enviado com sucesso
+            if (!$resultado['success']) {
+
+                // envia resposta de erro
+                $erros = $resultado['erro'] ?? $resultado['errors'] ?? [$resultado['mensagem'] ?? 'Erro no envio de email'];
+                c_api_response::validationError($resultado['mensagem'] ?? 'Erro no envio de email', $erros, null);
+            }
+
+            // envia resposta de sucesso
+            c_api_response::success($resultado['mensagem'] ?? 'Email enviado com sucesso', $response);
+
+        } catch (Exception $e) {
+            // cria array de resposta
+            // envia resposta de erro
+            c_api_response::failure('Erro ao enviar email', [ $e->getMessage() ]);
+        }
+    }
+
+    /**
+     * Verifica se a sessão do usuário é válida.
+     */
+    private function sessaoValida(): bool
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $session = json_decode($_SESSION['user_array'] ?? '[]', true);
+        return isset($session[0]) && $session[0] !== '';
+    }
+
 }
 
 //	END OF THE CLASS

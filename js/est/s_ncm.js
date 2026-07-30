@@ -1,28 +1,45 @@
 function submitConfirmar() {
-    debugger;
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'ncm';
     if (f.ncm.value == "") {
-        alert('Digite o número da Ncm.');
+        swal.fire({
+            title: 'Atenção',
+            text: 'Digite o número da Ncm.',
+            icon: 'warning',
+            timer: 1500
+        });
         f.ncm.focus();        
     } else if (f.descricao.value == "") {
-        alert('Digite a descrição da Ncm.');
+        swal.fire({
+            title: 'Atenção',
+            text: 'Digite a descrição da Ncm.',
+            icon: 'warning',
+            timer: 1500
+        });
         f.descricao.focus();
-    } else {
-        if (confirm('Deseja realmente ' + f.submenu.value + ' este item') == true) {
-            if (f.submenu.value == "cadastrar") {
-                f.submenu.value = 'inclui';
-            } else {
-                f.submenu.value = 'altera';
-            }
-            f.submit();
-        } //  
+    }else {
+    swal.fire({
+        title: 'Atenção',
+        text: 'Deseja realmente ' + f.submenu.value + ' este item',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, confirmar!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+        if (f.submenu.value == "cadastrar") {
+            f.submenu.value = 'inclui';
+        } else {
+            f.submenu.value = 'altera';
+        }
+        f.submit();
+        }
+    });
     }
+}// submitConfirmar
 
-} // submitConfirmar
-
-function submitVoltar() {
+function submitVoltar(formulario) {
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'ncm';
@@ -31,7 +48,6 @@ function submitVoltar() {
 } // fim submitVoltar
 
 function submitCadastro(formulario) {
-    debugger;
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'ncm';
@@ -41,23 +57,41 @@ function submitCadastro(formulario) {
 } // submitCadastro
 
 function submitAlterar(id) {
-    debugger;
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'ncm';
     f.submenu.value = 'alterar';
     f.id.value = id;
-    f.submit();
+    swal.fire({
+        title: 'Atenção',
+        text: 'Deseja realmente alterar este Ncm',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, alterar!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f.submit();
+        }
+    });
 } // submitAlterar
 
 function submitExcluir(id) {
-    debugger;
-    if (confirm('Deseja realmente Excluir este item') == true) {
+    swal.fire({
+        title: 'Atenção',
+        text: 'Deseja realmente Excluir este Ncm',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
         f = document.lancamento;
         f.mod.value = 'est';
         f.form.value = 'ncm';
         f.submenu.value = 'exclui';
         f.id.value = id;
         f.submit();
-    } // if
+        }
+    });
 } // submitExcluir

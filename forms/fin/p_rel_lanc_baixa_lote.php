@@ -125,11 +125,19 @@ function select_titulos_a_baixar($letra, $titulos){
 
     }
 
-    $sql = "SELECT a.*, c.NOME, 'BAIXADO' as SituacaoPAG, '".$banco."' as contaBancaria, '".$dataMov."' as DataMovimento FROM FIN_LANCAMENTO a ";
-    $sql .= "inner join fin_cliente c on c.cliente = a.pessoa ";
-    $sql .= "left join fin_genero g on g.genero = a.genero ";
-    $sql .= "inner join amb_ddm t on ((t.alias='FIN_MENU') and (t.campo='TipoLanc') and (t.tipo = a.tipolancamento)) ";
-    $sql .= " WHERE ID in (".$ids.")";
+    $sql = "SELECT a.*, c.NOME, ";
+    $sql .= "CASE WHEN a.SITPGTO = 'B' THEN 'BAIXADO' ELSE a.SITPGTO END as SituacaoPAG, ";
+    $sql .= "'".$banco."' as contaBancaria, ";
+    $sql .= "'".$dataMov."' as DataMovimento ";
+    $sql .= "FROM FIN_LANCAMENTO a ";
+    $sql .= "INNER JOIN fin_cliente c ON c.cliente = a.pessoa ";
+    $sql .= "LEFT JOIN fin_genero g ON g.genero = a.genero ";
+    $sql .= "INNER JOIN amb_ddm t ON ((t.alias='FIN_MENU') AND (t.campo='TipoLanc') AND (t.tipo = a.tipolancamento)) ";
+    $sql .= "WHERE a.ID IN (".$ids.") ";
+    $sql .= "AND a.SITPGTO = 'B' "; 
+    $sql .= "AND a.pagamento = '".$dataMov."' "; 
+    $sql .= "AND a.conta = ".$par[1];  
+    
     $banco = new c_banco;
     $banco->exec_sql($sql);
     $banco->close_connection();

@@ -56,14 +56,15 @@ function __construct(){
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
 
           // dados para exportacao e relatorios
-        if($this->m_opcao !== 'pesquisar'){
+        //if($this->m_opcao !== 'pesquisar'){
           $this->smarty->assign('titulo', "Servico");
           $this->smarty->assign('colVis', "[ 0, 1 ]"); 
           $this->smarty->assign('disableSort', "[ 2 ]"); 
           $this->smarty->assign('numLine', "25");  
-        }
+       // }
         
 
         // metodo SET dos dados do FORM para o TABLE
@@ -175,6 +176,7 @@ function mostraServico($mensagem){
       break;  
       default:
       $this->smarty->display('servico_mostra.tpl');
+      break;
       
     }     
 	

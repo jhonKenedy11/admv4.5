@@ -1,13 +1,26 @@
 function submitCadastraLancamentoFin(id) {
-    debugger;
 
     f = document.lancamento;
     if(f.serieDocto.value == ''){
-        alert("Preencher o campo Serie Documento.");
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Preencher o campo Serie Documento.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, confirmar!',
+            cancelButtonText: 'Cancelar'
+        });
         return false;
     }
     if(f.numDocto.value == ''){ 
-        alert("Preencher o campo Numero Documento.");
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Preencher o campo Numero Documento.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, confirmar!',
+            cancelButtonText: 'Cancelar'
+        });
         return false;
     }
 
@@ -26,13 +39,28 @@ function submitCadastraLancamentoFin(id) {
     totalLanc = parseFloat(f.total.value.replace(".","").replace(",","."));
 
     if(vlrAcumulado > totalLanc ){
-        alert("O total dos valores das parcelas difere do valor total do Lançamento.");
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'O total dos valores das parcelas difere do valor total do Lançamento.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, confirmar!',
+            cancelButtonText: 'Cancelar'
+        });
         return false;
     }
 
-    if (confirm('Deseja realmente INCLUIR este FATURAMENTO ?') == true) {
-        f.mod.value = 'cat';
-        f.form.value = 'atendimento_nf';
+    Swal.fire({
+        title: 'Tem certeza?',
+        text: 'Deseja realmente incluir este faturamento?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, incluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f.mod.value = 'cat';
+            f.form.value = 'atendimento_nf';
         // PARCELAS 
         var rows = document
             .getElementById("datatable-buttons-1")
@@ -81,34 +109,58 @@ function submitCadastraLancamentoFin(id) {
         f.id.value = id;
         f.submenu.value = 'lancAtendimentoFinanceiro';
         f.submit();
-    }else{
-        return false
-    }
-
-    
+        }
+    });
 } // submitCadastraLancamentoFin
 
 function submitCadastraNf(id) {
-    debugger;
-
     f = document.lancamento;
     if(f.serieDoctoNf.value == ''){
-        alert("Preencher o campo Serie Documento Nf.");
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Preencher o campo Serie Documento Nf.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, confirmar!',
+            cancelButtonText: 'Cancelar'
+        });
         return false;
     }
     if(f.numDoctoNf.value == ''){ 
-        alert("Preencher o campo Numero Documento Nf.");
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Preencher o campo Numero Documento Nf.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, confirmar!',
+            cancelButtonText: 'Cancelar'
+        });
         return false;
     }
 
     if(f.modeloDocto.value == ''){ 
-        alert("Preencher o campo Modelo Docto NF.");
+        Swal.fire({
+            title: 'Atenção!',
+            text: 'Preencher o campo Modelo Docto NF.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, confirmar!',
+            cancelButtonText: 'Cancelar'
+        });
         return false;
     }    
 
-    if (confirm('Deseja realmente INCLUIR este FATURAMENTO ?') == true) {
-        f.mod.value = 'cat';
-        f.form.value = 'atendimento_nf';
+    Swal.fire({
+        title: 'Tem certeza?',
+        text: 'Deseja realmente incluir este faturamento?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, incluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f.mod.value = 'cat';
+            f.form.value = 'atendimento_nf';
         
         f.dadosNf.value = ""
         f.dadosNf.value = f.id.value + "|" 
@@ -131,15 +183,11 @@ function submitCadastraNf(id) {
         f.submenu.value = 'lancAtendimentoNf';
         
         f.submit();
-    }else{
-        return false
-    }
-
-    
+        }
+    });
 } // submitCadastraNf
 
 function submitAtual(id) {
-    debugger;
 
     f = document.lancamento;
     f.mod.value = 'cat';
@@ -168,7 +216,6 @@ function submitVoltarCadAtendimentoNf(idOs) {
 } // fim submitVoltar
 
 function submitLetra() {
-    debugger;
     f = document.lancamento;
     f.letra.value = '';
     f.submenu.value = 'pesquisa';

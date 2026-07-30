@@ -37,8 +37,10 @@ public function alteraSituacaoLancAgrupado($pedidoAgrupado, $idGerado, $conn=nul
             $sql  = "UPDATE fin_lancamento ";
             $sql .= "SET " ;
             $sql .= "SITPGTO = 'G', " ;
-            $sql .= "AGRUPAMENTO = ".$idGerado;
-            $sql .= " WHERE (ID = ".$arrPedido[$i].");";
+            $sql .= "AGRUPAMENTO = ".$idGerado.", ";
+            $sql .= "USERCHANGE = ".$this->m_userid.", ";
+            $sql .= "DATECHANGE = '".date("Y-m-d H:i:s")."'";
+            $sql .= " WHERE (ID = ".$arrPedido[$i]."); ";
 
             $banco->exec_sql($sql, $conn);
         }                      

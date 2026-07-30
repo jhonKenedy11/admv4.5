@@ -18,6 +18,7 @@ private $validade     = NULL;
 private $centrocusto  = NULL; 
 private $precobase    = NULL;  
 private $margem       = NULL; 
+private $pessoa       = NULL;
 
 /**
 * METODOS DE SETS E GETS
@@ -37,6 +38,14 @@ public function setNome($nome){
 
 public function getNome(){
 	return $this->nome;
+}
+
+public function setPessoa($pessoa){
+    $this->pessoa = $pessoa;
+}
+
+public function getPessoa(){
+    return $this->pessoa;
 }
 
 public function setValidade($validade) {$this->validade = $validade;}
@@ -111,6 +120,13 @@ public function getMargem($format = null) {
 		endif;
 }
 
+public function getPessoaNome() {
+	return $this->pessoaNome;
+}
+
+public function setPessoaNome($pessoaNome){
+	$this->pessoaNome = $pessoaNome;
+}
 //############### FIM SETS E GETS ###############
 
 public function buscar_tabela_preco() {
@@ -121,7 +137,50 @@ public function buscar_tabela_preco() {
 	$this->setCentroCusto($tabela[0]['CCUSTO']);
 	$this->setPrecoBase($tabela[0]['PRECOBASE']);
 	$this->setMargem($tabela[0]['MARGEM']);
+	$this->setPessoa($tabela[0]['PESSOA']);
+    if (isset($tabela[0]['PESSOA'])) {
+		$sql = "SELECT NOME FROM FIN_CLIENTE WHERE CLIENTE = '" . $tabela[0]['PESSOA'] . "';";
+		$banco = new c_banco;
+		$banco->exec_sql($sql);
+		$banco->close_connection();
+		$res = $banco->resultado;
+		if (is_array($res) && count($res) > 0) {
+			$this->setPessoaNome($res[0]['NOME']);
+		}
+    }
+	
 } 
+
+public function comboPrecoBase() {
+	$consulta = new c_banco();
+	$sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='EST_MENU') and (campo='PRECOBASE')";
+	$consulta->exec_sql($sql);
+	$consulta->close_connection();
+	$result = $consulta->resultado;
+	$precoBase_ids[0] = '';
+	$precoBase_names[0] = 'Selecione.';
+	for ($i = 0; $i < count($result); $i++) {
+		$precoBase_ids[$i+1] = $result[$i]['ID'];
+		$precoBase_names[$i+1] = $result[$i]['DESCRICAO'];
+	}
+	return array($precoBase_ids, $precoBase_names);
+}
+
+public function comboCentroCusto() {
+	$consulta = new c_banco();
+	$sql = "select centrocusto as id, descricao from fin_centro_custo where ativo = 'S' order by centrocusto";
+	$consulta->exec_sql($sql);
+	$consulta->close_connection();
+	$result = $consulta->resultado;
+	$centroCusto_ids[0] = '';
+	$centroCusto_names[0] = 'Selecione.';
+	for ($i = 0; $i < count($result); $i++) {
+		$centroCusto_ids[$i+1] = $result[$i]['ID'];
+		$centroCusto_names[$i+1] = $result[$i]['DESCRICAO'];
+	}
+	return array($centroCusto_ids, $centroCusto_names);
+}
+
 
 public function existe_tabela_preco() {
 	 $sql = "SELECT * ";
@@ -160,8 +219,8 @@ public function select_tabela_preco_geral() {
 
 public function incluir_tabela_preco($conn=null) {
 
-	$sql = "INSERT INTO EST_TABELA_PRECO (NOME, VALIDADE, CCUSTO, PRECOBASE, MARGEM) ";
-	$sql .= "VALUES ('".$this->getNome()."', '".$this->getValidade('B')."', '".$this->getCentroCusto()."', '".$this->getPrecoBase()."', '".$this->getMargem('B'). "'); ";
+	$sql = "INSERT INTO EST_TABELA_PRECO (NOME, VALIDADE, CCUSTO, PRECOBASE, MARGEM, PESSOA, USERINSERT, DATEINSERT) ";
+	$sql .= "VALUES ('".$this->getNome()."', '".$this->getValidade('B')."', '".$this->getCentroCusto()."', '".$this->getPrecoBase()."', '".$this->getMargem('B'). "', '".$this->getPessoa()."', '".$this->m_userid."', '".date("Y-m-d H:i:s")."'); ";
 	
 	$banco = new c_banco;
 	$res = $banco->exec_sql($sql,$conn);
@@ -184,7 +243,10 @@ public function alterar_tabela_preco() {
 	$sql .= " VALIDADE = '" . $this->getValidade('B') . "', ";
 	$sql .= " CCUSTO = '" . $this->getCentroCusto() . "', ";
 	$sql .= " PRECOBASE = '" . $this->getPrecoBase('B') . "', ";
-	$sql .= " MARGEM = '" . $this->getMargem('B') . "' ";
+	$sql .= " MARGEM = '" . $this->getMargem('B') . "', ";
+    $sql .= " PESSOA = '" . $this->getPessoa() . "', ";
+    $sql .= " USERCHANGE = '" . $this->m_userid . "', ";
+    $sql .= " DATECHANGE = '" . date("Y-m-d H:i:s") . "' ";
 	$sql .= "WHERE (ID = '" . $this->getID() . "'); ";
 
 	$banco = new c_banco;

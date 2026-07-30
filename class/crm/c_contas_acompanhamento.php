@@ -230,6 +230,14 @@ Class c_contas_acompanhamento extends c_user {
             return null;
         }
     }
+
+    public function setIdAcomp($idAcomp) {
+        $this->idAcomp = $idAcomp;
+    }
+
+    public function getIdAcomp() {
+        return $this->idAcomp;
+    }
     //############### FIM SETS E GETS ###############
     
 
@@ -423,10 +431,14 @@ Class c_contas_acompanhamento extends c_user {
             $sql .= $this->getUsrIC() . "', ";
         }
                 //. $this->getUsrIC() . "', ";
+        $statusIns = trim((string)($this->getStatus() ?? ''));
+        if ($statusIns === '' || !in_array($statusIns, ['1', '2', '3'], true)) {
+            $statusIns = '1';
+        }
         if($this->getDateInsert() == ''){
-            $sql .= "NOW(), 1);";
+            $sql .= "NOW(), '" . $statusIns . "');";
         }else{
-            $sql .= "'". $this->getDateInsert('') . "', 1); ";
+            $sql .= "'". $this->getDateInsert('') . "', '" . $statusIns . "'); ";
         }
         //echo strtoupper($sql);
         $banco = new c_banco;
@@ -461,6 +473,11 @@ Class c_contas_acompanhamento extends c_user {
         }
 
         $sql .= "resultado = '" . $this->getResultContato() . "', ";
+        if ($this->getIdPedido() == '') {
+            $sql .= "pedido_id = null, ";
+        } else {
+            $sql .= "pedido_id = '" . $this->getIdPedido() . "', ";
+        }
         $sql .= "usrvendedor = " . $this->getVendedorAcomp() . ", ";
         $sql .= "ligardia = ";
         //proximo ctt
@@ -594,6 +611,20 @@ Class c_contas_acompanhamento extends c_user {
 
         return $events;
         
+    }
+
+    /**
+     * Busca um acompanhamento por ID (com nome do cliente em FIN_CLIENTE).
+     * @return array|false resultado em linhas (como c_banco->resultado) ou false se ID inválido
+     */
+    function selectAcompanhamentoId() {
+        $sql = "SELECT FA.*, FC.NOME AS NOME_CLIENTE FROM FIN_CLIENTE_ACOMP FA "
+            . "INNER JOIN FIN_CLIENTE FC ON FC.CLIENTE = FA.PESSOA "
+            . "WHERE FA.ID = " . $this->getIdAcomp();
+        $consulta = new c_banco();
+        $consulta->exec_sql($sql);
+        $consulta->close_connection();
+        return $consulta->resultado;
     }
 
 }//	END OF THE CLASS

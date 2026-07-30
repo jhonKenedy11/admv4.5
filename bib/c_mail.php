@@ -196,10 +196,11 @@ class admMail{
         //$mail = new PHPMailer\PHPMailer\PHPMailer(false);
         try {
             //Server settings
-            $mail->SMTPDebug = 0;                                 // 2 - Enable verbose debug output
+            $mail->SMTPDebug = false;                               // 2 - Enable verbose debug output
             $mail->isSMTP();                                      // Set mailer to use SMTP
             $mail->Host = $host;                                  // Specify main and backup SMTP servers - 'smtp1.example.com;smtp2.example.com'
             $mail->CharSet = "UTF-8";
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
             $mail->SMTPAuth = true;                               // Enable SMTP authentication
             $mail->Username = $remetente;                         // SMTP username
             $mail->Password = $senha;                             // SMTP password
@@ -247,9 +248,11 @@ class admMail{
             $mail->Body    = $mensagem;
             $mail->AltBody = $assunto;
             $result = $mail->send();
-            return $result;
+
+            return ['success' => $result, 'message' => 'Email enviado com sucesso!'];
+
         } catch (Exception $e) {
-            return 'Email Nfe não enviado. Mailer Error: '. $mail->ErrorInfo;
+            return ['success' => false, 'message' => 'Email Nfe não enviado. Mailer Error: '. $mail->ErrorInfo];
         }
     
     }

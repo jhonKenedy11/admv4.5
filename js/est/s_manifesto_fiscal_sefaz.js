@@ -1,15 +1,106 @@
-function toggleInput() {
-    debugger
-    var inputContainer = document.getElementById("textInputContainer");
+function submitOperacaoNaoRealizada(idNf) {
+    Swal.fire({
+        title: 'Operação não realizada',
+        input: 'textarea',
+        inputPlaceholder: 'Justificativa (mínimo 15 caracteres)',
+        inputAttributes: { rows: 3 },
+        showCancelButton: true,
+        confirmButtonText: 'Enviar',
+        cancelButtonText: 'Cancelar',
+        inputValidator: function (value) {
+            if (!value || value.trim().length < 15) {
+                return 'Informe uma justificativa com no mínimo 15 caracteres.';
+            }
+        }
+    }).then(function (result) {
+        if (result.isConfirmed) {
+            submitEnviaEvento(idNf, 'naorealizada', result.value.trim(), true);
+        }
+    });
+}
 
-
-    if (inputContainer.style.display === "none") {
-        inputContainer.style.display = "block";
-    } else if (inputContainer.style.display === '') {
-        inputContainer.style.display = "block";
-    } else {
-        inputContainer.style.display = "none";
+function submitEnviaEvento(idNf, typeEvent, param = '', skipConfirm = false) {
+    var textQuestion = '';
+    if (typeEvent == 'confirma') {
+        textQuestion = 'confirmação da operação';
+    } else if (typeEvent == 'desconhecimento') {
+        textQuestion = 'desconhecimento da operação';
+    } else if (typeEvent == 'naorealizada') {
+        textQuestion = 'operação não realizada';
+        if (param.trim().length < 15) {
+            Swal.fire({
+                title: 'Atenção',
+                text: 'Informe uma justificativa com no mínimo 15 caracteres.',
+                icon: 'warning'
+            });
+            return false;
+        }
     }
+
+    function enviarEvento() {
+        var formData = new FormData();
+        formData.append('idNf', idNf);
+        formData.append('typeEvent', typeEvent);
+        formData.append('param', param);
+        formData.append('mod', 'est');
+        formData.append('form', 'manifesto_fiscal_sefaz');
+        formData.append('submenu', 'eventoManifestoNotaFiscal');
+        formData.append('opcao', 'blank');
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', document.URL, true);
+        xhr.responseType = 'json';
+
+        xhr.onload = function () {
+            if (xhr.status !== 200) {
+                Swal.fire({ icon: 'error', title: 'Erro', text: 'Falha ao comunicar com o servidor.' });
+                return;
+            }
+
+            var response = xhr.response;
+            if (typeof response === 'string') {
+                try { response = JSON.parse(response); } catch (e) { response = null; }
+            }
+
+            if (!response || typeof response !== 'object') {
+                Swal.fire({ icon: 'error', title: 'Erro', text: 'Resposta inválida do servidor.' });
+                return;
+            }
+
+            if (!response.success) {
+                Swal.fire({ icon: 'error', title: 'Atenção', text: response.message || 'Não foi possível enviar o evento.' });
+                return;
+            }
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Sucesso',
+                text: response.message || 'Evento registrado com sucesso.'
+            }).then(function () {
+                location.reload();
+            });
+        };
+
+        xhr.send(formData);
+    }
+
+    if (skipConfirm) {
+        enviarEvento();
+        return;
+    }
+
+    Swal.fire({
+        title: 'Atenção!',
+        text: 'Deseja enviar o evento de ' + textQuestion + '?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Continuar',
+        cancelButtonText: 'Cancelar'
+    }).then(function (result) {
+        if (result.isConfirmed) {
+            enviarEvento();
+        }
+    });
 }
 
 function submitVoltar(formulario) {
@@ -20,62 +111,6 @@ function submitVoltar(formulario) {
     f.submit();
 } // fim submitVoltar
 
-function submitEnviaEvento(idNf ,typeEvent, param='') {
-    if(typeEvent == 'confirma'){
-        textQuestion = 'confirmação da operação';
-    }else if(typeEvent == 'desconhecimento'){
-        textQuestion = 'desconhecimento da operação';
-    }else if(typeEvent == 'naorealizada'){
-        textQuestion = 'operação não realizada';
-    }
-
-    Swal.fire({
-        title: "Atenção!",
-        text: `Deseja enviar o evento de ${textQuestion}?`,
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: "Continuar",
-        cancelButtonText: "Cancelar"
-    }).then((result) => {
-        if (result.isConfirmed) {
-            var url = document.URL;
-            // Create a FormData object to hold your data
-            var formData = new FormData();
-            // Add your data parameters to the FormData object
-            formData.append('idNf', idNf);
-            formData.append('typeEvent', typeEvent);
-            formData.append('param', param);
-            formData.append('mod', 'est');
-            formData.append('form', 'manifesto_fiscal_sefaz');
-            formData.append('submenu', 'eventoManifestoNotaFiscal');
-            formData.append('opcao', 'blank');
-            // ... add more parameters as needed
-    
-            // Create the XMLHttpRequest
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', url, true);
-            xhr.responseType = 'json';
-    
-            xhr.onload = function () {
-                if (xhr.status === 200) {
-                    // Process the response data here if needed
-                    location.reload();
-                } else {
-                    // Handle error if the request fails
-                    console.error('Erro ao enviar o evento de ' + textQuestion + ': ', xhr.status);
-                }
-            }
-    
-            // Send the FormData object with the request
-            xhr.send(formData);
-    
-        } else {
-            return false;
-        }
-    });
-    
-}
-
 // ####################
 
 function montaLetra() {
@@ -84,7 +119,7 @@ function montaLetra() {
 }// submitLetra
 
 function submitLetra() {
-    debugger;
+    
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'manifesto_fiscal_sefaz';
@@ -131,65 +166,124 @@ function limpaDadosForm() {
    f.submenu.value = '';
 }
 
-function submitConsultaDocumentosSefaz(){
-    debugger
-    // Cria o HTML personalizado com o ícone animado
-    var loadingIconHtml = '<div class="lds-ring"><div></div><div></div><div></div><div></div></div>';
+function manifestoDistNfeUrl(submenu) {
+    return document.URL + '?mod=est&form=manifesto_fiscal_sefaz&submenu=' + submenu + '&opcao=blank';
+}
 
-    // Mostra a mensagem de carregamento usando SweetAlert2 com o ícone animado
-    var loadingMessage = Swal.fire({
-        html: loadingIconHtml + '<p><b>Consultando notas fiscais...</b></p>',
+function manifestoDistNfeHtmlProgresso(textoPrincipal, detalhe) {
+    return '<div class="lds-ring"><div></div><div></div><div></div><div></div></div>'
+        + '<p><b>' + textoPrincipal + '</b></p>'
+        + '<p id="manifesto-dist-progress-detail" style="margin-top:8px;font-size:0.95em;">' + (detalhe || '') + '</p>';
+}
+
+function manifestoDistNfeAtualizaProgresso(atual, total, ultNSU, maxNSU) {
+    var el = document.getElementById('manifesto-dist-progress-detail');
+    if (!el) return;
+    var linha = 'Conectando à Receita Federal...';
+    if (total && parseInt(total, 10) > 0) {
+        linha = 'Lote ' + atual + ' de ' + total;
+        if (ultNSU && maxNSU) linha += ' (NSU ' + ultNSU + ' / ' + maxNSU + ')';
+    }
+    el.textContent = linha;
+}
+
+function manifestoDistNfeTrataRespostaFinal(response) {
+    var cStat = response.cStat;
+    if (cStat === 'true' || cStat === true) {
+        var texto = response.message || 'Notas baixadas!';
+        Swal.fire({
+            icon: 'success',
+            title: 'Sucesso',
+            text: texto,
+            showConfirmButton: true
+        }).then(function () { location.reload(); });
+        return;
+    }
+    var bloqueio = cStat === '405' || cStat === '656';
+    Swal.fire({
+        icon: bloqueio ? 'error' : (cStat === 'atencao' ? 'warning' : 'error'),
+        title: 'Atenção',
+        text: response.message || (bloqueio ? '' : 'Não foi possível concluir a consulta na Receita Federal.'),
+        customClass: bloqueio ? 'tamanho-personalizado-minutos' : 'tamanho-personalizado-erro'
+    });
+}
+
+function manifestoDistNfeExtraiErroAjax(xhr) {
+    var msg = 'Falha ao consultar notas na Receita Federal.';
+    if (!xhr) return msg;
+    if (xhr.statusText === 'timeout') {
+        return 'Tempo esgotado ao consultar a Receita Federal. Aguarde e tente novamente.';
+    }
+    var raw = (xhr.responseText || '').trim();
+    if (!raw) {
+        return msg + (xhr.status ? ' (HTTP ' + xhr.status + ')' : '');
+    }
+    try {
+        var j = JSON.parse(raw);
+        if (j && j.message) return j.message;
+        if (j && j.cStat) return 'Retorno SEFAZ cStat ' + j.cStat + (j.message ? ': ' + j.message : '');
+    } catch (e) { /* corpo não é JSON */ }
+    var limpo = raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (limpo.length > 280) limpo = limpo.substring(0, 280) + '...';
+    return limpo || msg;
+}
+
+function manifestoDistNfeConsultarProximoLote(delayMs) {
+    setTimeout(function () {
+        $.ajax({
+            type: 'POST',
+            url: manifestoDistNfeUrl('consultarDocumentosSefazLote'),
+            dataType: 'json',
+            timeout: 300000,
+            success: function (response) {
+                if (!response || typeof response !== 'object') {
+                    Swal.fire({ icon: 'error', title: 'Erro', text: 'Resposta inválida do servidor.' });
+                    return;
+                }
+                if (response.cStat === 'progress') {
+                    manifestoDistNfeAtualizaProgresso(response.atual, response.total, response.ultNSU, response.maxNSU);
+                    manifestoDistNfeConsultarProximoLote(2000);
+                    return;
+                }
+                Swal.close();
+                manifestoDistNfeTrataRespostaFinal(response);
+            },
+            error: function (xhr) {
+                Swal.fire({ icon: 'error', title: 'Erro', text: manifestoDistNfeExtraiErroAjax(xhr) });
+            }
+        });
+    }, delayMs || 0);
+}
+
+function submitConsultaDocumentosSefaz() {
+    Swal.fire({
+        html: manifestoDistNfeHtmlProgresso('Consultando notas fiscais...', 'Conectando à Receita Federal...'),
         allowOutsideClick: false,
         showConfirmButton: false,
-        didOpen: () => {
-            debugger
-
+        didOpen: function () {
             $.ajax({
-                type: "POST",
-                url: document.URL + "?mod=est&form=manifesto_fiscal_sefaz&submenu=consultarDocumentosSefaz&opcao=blank",
-                dataType: "json",
-                success: function (response) {
-                    debugger
-                    if (response['cStat'] == 'true'){
-                        
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Sucesso',
-                            text: 'Notas baixadas!',
-                            showConfirmButton: false
-                        });
-
-                        setTimeout(() => {
-                            swal.close(); // Fecha o alerta de carregamento
-                            // Aqui você pode exibir outro alerta ou executar outras ações após o carregamento
-                        }, 3000); // Tempo em milissegundos (3 segundos no exemplo)
-
-                    } else if (response['cStat'] == '405'){ //1 hora para consulta
-
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Atenção',
-                            text: response['message'],
-                            showConfirmButton: false,
-                            customClass: 'tamanho-personalizado-minutos',
-                            // footer: '<a href="">teste de direcionamento</a>'
-                        });
-
-                    } else {
-
-                        Swal.close();
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'Atenção',
-                            text: response['message'],
-                            customClass: 'tamanho-personalizado-erro'
-                        });
+                type: 'POST',
+                url: manifestoDistNfeUrl('consultarDocumentosSefazPreparar'),
+                dataType: 'json',
+                timeout: 60000,
+                success: function (prep) {
+                    if (!prep || typeof prep !== 'object') {
+                        Swal.fire({ icon: 'error', title: 'Erro', text: 'Resposta inválida ao iniciar consulta.' });
+                        return;
                     }
-                }//END success
-                
-            });// END didOpen         
-        }//END didOpen
-    });//END loadingMessage
+                    if (prep.cStat !== 'ready') {
+                        Swal.close();
+                        manifestoDistNfeTrataRespostaFinal(prep);
+                        return;
+                    }
+                    manifestoDistNfeConsultarProximoLote(0);
+                },
+                error: function (xhr) {
+                    Swal.fire({ icon: 'error', title: 'Erro', text: manifestoDistNfeExtraiErroAjax(xhr) });
+                }
+            });
+        }
+    });
 }
 
 function atualizaTabelaNotaFiscal(response) {
@@ -208,7 +302,7 @@ function atualizaTabelaNotaFiscal(response) {
                 var rows = "";
                 tabela.find("tbody td").remove();
                 _.each(data, function (item) {
-                    debugger
+                    
                     //soma os valores das nfs
                     totalmdfe = parseFloat(item.TOTALSEMFORMAT) + parseFloat(totalmdfe);
 
@@ -246,7 +340,6 @@ function submitMostraNota() {
         var dados = {
             'idMdf': f.id.value
         }
-        //ajax responsavel por enviar dados ao form
         $.ajax({
             type: "POST",
             url: document.URL + "?mod=est&form=manifesto_fiscal&submenu=addNotaFiscal&opcao=blank",
@@ -263,257 +356,154 @@ function submitMostraNota() {
 }
 
 
-// function responseSubmitDownloadXml(response, status, xhr, fileName) {
-//     debugger
-//     var contentType = xhr.getResponseHeader('Content-Type');
-
-//     if (contentType == "application/json") {
-
-//         switch (response.code) {
-//             case 401:
-
-//                 Swal.fire({
-//                     title: "Atenção",
-//                     text: 'Chave de acesso não localizada para a consulta!',
-//                     icon: "error",
-//                     confirmButtonText: "OK",
-//                     dangerMode: true
-//                 });
-//                 break;
-//             case 100: // Download e inserção no banco 
-
-//                 Swal.fire({
-//                     title: "Atenção!",
-//                     text: "Download do xml realizado, deseja realizar a entrada no sistema?",
-//                     icon: "warning",
-//                     showCancelButton: true,
-//                     confirmButtonText: "Entrada Xml",
-//                     cancelButtonText: "Cancelar"
-//                 }).then((result) => {
-//                     debugger
-//                     if (result.isConfirmed) {
-//                         var url = document.URL + "?mod=est&form=nota_xml_importa&submenu=entradaManifesto&idNf=" + response.id_nota;
-//                         window.open(url, '_blank');
-//                     } else {
-//                         location.reload();
-//                         return false;
-//                     }
-//                 });
-
-//                 break;
-//         }
-//     } else {
-//         Swal.fire({
-//             title: "Atenção",
-//             text: 'Erro no processo, entre em contato com o suporte!',
-//             icon: "error",
-//             confirmButtonText: "OK",
-//             dangerMode: true
-//         });
-//         $('.swal-modal').css("width", "610px");
-//     }
-// }
-
-
 function submitDownloadXmlExiste(id) {
 
     $.ajax({
         type: "POST",
         url: document.URL + "?mod=est&form=manifesto_fiscal_sefaz&submenu=downloadXml&opcao=blank&idNf=" + id,
         success: function(response, status, xhr) {
-            debugger
-            var jsonStringSemEspacos = response.trim();
-            var response = JSON.parse(jsonStringSemEspacos);
-
-            var contentType = xhr.getResponseHeader('Content-Type');
-
-            //if(contentType == "application/json"){
-                if(typeof response !== 'object'){
-                    //response = JSON.parse(response);
+            var responseData;
+            
+            if (typeof response === 'object' && response !== null) {
+                responseData = response;
+            } else if (typeof response === 'string') {
+                try {
+                    // Tenta fazer parse do JSON se for string
+                    var jsonStringSemEspacos = response.trim();
+                    responseData = JSON.parse(jsonStringSemEspacos);
+                } catch (e) {
+                    // Se não for JSON válido, mostra erro genérico
+                    var respostaTexto = response.length > 200 ? response.substring(0, 200) + '...' : response;
+                    
                     Swal.fire({
-                        title: "Atenção",
-                        text: response,
+                        title: "Erro",
+                        html: '<p>Erro ao processar resposta do servidor.</p><p>Resposta recebida: <strong>' + 
+                              respostaTexto + '</strong></p>',
                         icon: "error",
                         confirmButtonText: "OK",
-                        dangerMode: true
+                        width: '600px'
                     });
+                    console.error('Erro ao fazer parse do JSON:', e);
+                    console.error('Resposta recebida:', response);
+                    return;
                 }
+            } else {
+                // Tipo de resposta não esperado
+                Swal.fire({
+                    title: "Erro",
+                    html: '<p>Resposta inválida do servidor.</p><p>Tipo recebido: ' + typeof response + '</p>',
+                    icon: "error",
+                    confirmButtonText: "OK",
+                    width: '500px'
+                });
+                console.error('Tipo de resposta não esperado:', typeof response, response);
+                return;
+            }
+
+            // Verifica se é um objeto válido
+            if (typeof responseData !== 'object' || responseData === null) {
+                Swal.fire({
+                    title: "Erro",
+                    text: 'Resposta inválida do servidor',
+                    icon: "error",
+                    confirmButtonText: "OK"
+                });
+                return;
+            }
                 
-                switch (response.code) {
-                    case 405: // Donwload sefaz no fulfilled
-                        Swal.fire({
-                            title: "Atenção",
-                            text: 'Download não realizado, entre em contato com o suporte!',
-                            icon: "error",
-                            confirmButtonText: "OK",
-                            dangerMode: true
-                        });
+            switch (responseData.code) {
+                case 406: // Resumo retornado (resNFe)
+                    var mensagem = responseData.message || 'A SEFAZ retornou apenas um resumo da nota fiscal (resNFe), não o XML completo.';
+                    var htmlContent = '<p style="margin-bottom: 10px;">' + mensagem + '</p>';
+                    
+                    if (responseData.chave_acesso) {
+                        htmlContent += '<p style="margin: 8px 0;"><strong>Chave:</strong></p>';
+                        htmlContent += '<p style="word-break: break-all; background-color: #f5f5f5; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 11px; margin-bottom: 8px;">' + 
+                                      responseData.chave_acesso + '</p>';
+                        htmlContent += '<p style="margin: 8px 0;"><a href="https://chaves.fsist.com.br/" target="_blank" style="color: #007bff; text-decoration: underline; font-size: 12px;">Consultar no FSIST</a></p>';
+                    }
+                    
+                    Swal.fire({
+                        title: "Resumo Retornado",
+                        html: htmlContent,
+                        icon: "info",
+                        confirmButtonText: "OK",
+                        width: '500px'
+                    });
                     break;
-                    case 404: // Key not found in database
-                        Swal.fire({
-                            title: "Atenção",
-                            text: 'Chave de acesso não localizada para a consulta!',
-                            icon: "error",
-                            confirmButtonText: "OK",
-                            dangerMode: true
-                        });
+                    
+                case 405: // Download sefaz no fulfilled
+                    
+                    var mensagem = responseData.message || 'Não foi possível realizar o download do XML na SEFAZ.';
+                    var htmlContent = '<p>' + mensagem + '</p>';
+                    
+                    if (responseData.chave_acesso) {
+                        htmlContent += '<hr><p><strong>Chave de Acesso:</strong></p>';
+                        htmlContent += '<p style="word-break: break-all; background-color: #f5f5f5; padding: 10px; border-radius: 5px; font-family: monospace;">' + 
+                                      responseData.chave_acesso + '</p>';
+                        htmlContent += '<p><strong>Consultar no FSIST:</strong></p>';
+                        htmlContent += '<p><a href="https://chaves.fsist.com.br/" target="_blank" style="color: #007bff; text-decoration: underline;">';
+                        htmlContent += 'https://chaves.fsist.com.br/</a></p>';
+                        htmlContent += '<p><small>Cole a chave de acesso acima no site do FSIST para consultar a nota fiscal completa.</small></p>';
+                    }
+                    
+                    Swal.fire({
+                        title: "Atenção",
+                        html: htmlContent,
+                        icon: "warning",
+                        confirmButtonText: "OK",
+                        width: '700px'
+                    });
                     break;
-                    case 100: // Download accomplished
-                        var blob = new Blob([response.xml], { type: 'application/xml' });
-                        var url = URL.createObjectURL(blob);
-
-                        var a = document.createElement('a');
-                        a.href = url;
-                        a.download = response.fileName + '.xml';
-                        a.style.display = 'none';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
+                    
+                case 404: // Key not found in database
+                    var mensagem404 = responseData.message || 'Chave de acesso não localizada para a consulta!';
+                    Swal.fire({
+                        title: "Atenção",
+                        text: mensagem404,
+                        icon: "error",
+                        confirmButtonText: "OK"
+                    });
                     break;
-                }
+                    
+                case 100: // Download accomplished
+                    var blob = new Blob([responseData.xml], { type: 'application/xml' });
+                    var url = URL.createObjectURL(blob);
 
-            // }else{
-            //     Swal.fire({
-            //         title: "Atenção",
-            //         text: 'Erro no processo, entre em contato com o suporte!',
-            //         icon: "error",
-            //         confirmButtonText: "OK",
-            //         dangerMode: true
-            //     });
-            //     return false;
-            // }
-        }
-    });
-
-    // Swal.fire({
-    //     title: "Atenção",
-    //     text: 'XML não localizado, entre em contato com o suporte!',
-    //     icon: "error",
-    //     confirmButtonText: "OK",
-    //     dangerMode: true
-    // }).then((result) => {
-    //     if (result.isConfirmed) {
-    //         Swal.getPopup().querySelector('.swal2-modal').style.width = "610px";
-    //     }
-    // });
-
-    // Swal.fire({
-    //     title: "Atenção!",
-    //     text: "Download do xml realizado, o que deseja realizar?",
-    //     icon: "warning",
-    //     showCancelButton: true,
-    //     confirmButtonText: "Entrada Xml no sistema",
-    //     cancelButtonText: "Fazer o download local",
-    //     reverseButtons: true
-    // }).then((result) => {
-    //     debugger;
-    //     if (result.isConfirmed) {
-    //         var url = document.URL + "?mod=est&form=nota_xml_importa&submenu=entradaManifesto&idNf=" + id;
-    //         window.open(url, '_blank');
-    //     } else if (result.dismiss === Swal.DismissReason.cancel) {
-    //         var blob = new Blob([xmlString], { type: 'application/xml' });
-    //         var url = URL.createObjectURL(blob);
-
-    //         var a = document.createElement('a');
-    //         a.href = url;
-    //         a.download = fileName + '.xml';
-    //         a.style.display = 'none';
-    //         document.body.appendChild(a);
-    //         a.click();
-    //         document.body.removeChild(a);
-    //     }
-    // });
-}
-
-function submitCienciaEmissao(id){
-    debugger
-
-    swal({
-        title: "Atenção!",
-        text: "Confirma a ciência da emissão?",
-        icon: "warning",
-        buttons: ["Cancelar", "Continuar"],
-    })
-    .then((yes) => {
-        debugger
-        if (yes) {
-
-            $.ajax({
-                type: "POST",
-                url: document.URL + "?mod=est&form=manifesto_fiscal_sefaz&submenu=cienciaEmissao&opcao=blank",
-                dataType: "json",
-                success: [responseCienciaEmissao]
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = responseData.fileName + '.xml';
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    
+                    // Libera a URL do objeto após o download
+                    setTimeout(function() {
+                        URL.revokeObjectURL(url);
+                    }, 100);
+                    break;
+                    
+                default:
+                    Swal.fire({
+                        title: "Atenção",
+                        text: responseData.message || 'Erro desconhecido no processo',
+                        icon: "error",
+                        confirmButtonText: "OK"
+                    });
+            }
+        },
+        error: function(xhr, status, error) {
+            Swal.fire({
+                title: "Erro",
+                html: '<p>Erro ao comunicar com o servidor.</p><p><strong>Status:</strong> ' + status + '</p><p><strong>Erro:</strong> ' + error + '</p>',
+                icon: "error",
+                confirmButtonText: "OK",
+                width: '500px'
             });
-
-
-        } else {
-            return false;
+            console.error('Erro na requisição AJAX:', error);
         }
     });
+
 }
-
-function responseCienciaEmissao(response) {
-    debugger
-    if (response['codStatus'] == 135) { //cancelamento realizado
-        swal({
-            title: "MDFe cancelado!",
-            text: response['msg'],
-            icon: "success",
-            button: "OK",
-        });
-        $('.swal-modal').css("width", "610px");
-        $('#justificativa').val('');
-    } else if (response['codStatus'] == 630) { //erro de preenchimento de xml
-        swal({
-            title: "Atenção!",
-            text: 'Cancelamento não realizado "' + response['msg'] + '"',
-            icon: "warning",
-            button: "OK",
-        });
-        $('.swal-modal').css("width", "722px");
-        $('.swal-text').css("max-width", "calc(100% - 136px");
-    } else { //default
-        swal({
-            title: "Atenção!",
-            text: 'Cancelamento não realizado "' + response['msg'] + '"',
-            icon: "warning",
-            button: "OK",
-        });
-        $('.swal-modal').css("width", "610px");
-    }
-}
-
-
-// function responseCancelaMdfe(response){
-//     debugger
-//     if(response['codStatus'] == 135){ //cancelamento realizado
-//         swal({
-//             title: "MDFe cancelado!",
-//             text: response['msg'],
-//             icon: "success",
-//             button: "OK",
-//         });
-//         $('.swal-modal').css("width", "610px");
-//         $('#justificativa').val('');
-//     }else if(response['codStatus'] == 630){ //erro de preenchimento de xml
-//         swal({
-//             title: "Atenção!",
-//             text: 'Cancelamento não realizado "'+response['msg']+'"',
-//             icon: "warning",
-//             button: "OK",
-//         });
-//         $('.swal-modal').css("width", "722px");
-//         $('.swal-text').css("max-width", "calc(100% - 136px");
-//     }else{ //defaulttypeEvent
-//         swal({
-//             title: "Atenção!",
-//             text: 'Cancelamento não realizado "'+response['msg']+'"',
-//             icon: "warning",
-//             button: "OK",
-//         });
-//         $('.swal-modal').css("width", "610px");
-//     }
-// }
-
-
 

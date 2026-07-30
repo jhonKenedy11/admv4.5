@@ -1,4 +1,5 @@
 <script type="text/javascript" src="{$pathJs}/est/s_pesquisa_produto_pedido_ps.js"> </script>
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 
 <div class="right_col" role="main">      
 
@@ -81,11 +82,11 @@
 
 
         <!-- panel tabela dados -->  
-         <div class="col-md-12 col-xs-12">
+        <div class="col-md-12 col-xs-12">
             <div class="x_panel">
                 <table id="datatable-buttons1" class="table table-bordered jambo_table">
                     <thead>
-                        <tr style="background: #2A3F54; color: white;">
+                    <tr class="headings">
                             <th>C&oacute;digo</th>
                             <th>C&oacute;digo Fabricante</th>
                             <th>C&oacute;d. Nota</th>

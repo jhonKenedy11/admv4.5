@@ -15,7 +15,10 @@ include_once($dir . "/../../bib/c_date.php");
 include_once($dir . "/../../bib/c_tools.php");
 include_once($dir . "/../../class/crm/c_conta.php");
 include_once($dir . "/../../class/est/c_produto.php");
+include_once($dir . "/../../class/est/c_produto_estoque.php");
+include_once($dir . "/../../class/ped/c_pedido_venda_farma.php");
 include_once($dir . "/../../class/ped/c_pedido_venda_nf.php");
+include_once($dir . "/../../class/fin/c_lancamento.php");
 
 
 
@@ -55,12 +58,14 @@ class c_pedido_ps extends c_user
     private $centroCusto        = NULL;
     private $centroCustoEntrega = NULL;
     private $situacao           = NULL;
+    private $serie              = NULL;
     private $especie            = NULL;
     private $catEquipamentoId   = NULL;
     private $idNatop            = NULL;
     private $prazoEntregaOs     = NULL;
     private $responsavelTecnico = NULL;
     private $enderecoEntrega = NULL;
+    private $usrAprovacao       = NULL;
 
     //FAT_PEDIDO_ITEM
 
@@ -79,7 +84,10 @@ class c_pedido_ps extends c_user
     private $percDescontoProduto  = NULL;
     private $acrescimoProduto       = NULL;
     private $valorTotalProduto    = NULL;
-    private $obra                  = NULL; 
+    private $numeroOc               = NULL; // Número da ordem de compra
+    private $nItemPed               = NULL; // Número do item da ordem de compra
+    private $dataEntregaPeca        = ''; // Data de entrega da peça
+    private $obra                  = NULL;
 
 
     //FAT_PEDIDO_SERVICO
@@ -141,10 +149,10 @@ class c_pedido_ps extends c_user
     }
     function getObra()
     {
-        if ($this->obra == '' || $this->obra == NULL){
-           
+        if ($this->obra == '' || $this->obra == NULL) {
+
             return 'NULL';
-        }else {
+        } else {
             return $this->obra;
         }
     }
@@ -156,7 +164,7 @@ class c_pedido_ps extends c_user
 
     function getResponsavelTecnico()
     {
-        if ($this->responsavelTecnico == '' || $this->responsavelTecnico == NULL){
+        if ($this->responsavelTecnico == '' || $this->responsavelTecnico == NULL) {
             return 'NULL';
         } else {
             return $this->responsavelTecnico;
@@ -169,7 +177,7 @@ class c_pedido_ps extends c_user
     }
     function getEnderecoEntrega()
     {
-        if ($this->enderecoEntrega == '' || $this->enderecoEntrega == NULL){
+        if ($this->enderecoEntrega == '' || $this->enderecoEntrega == NULL) {
             return 'NULL';
         } else {
             return $this->enderecoEntrega;
@@ -508,9 +516,9 @@ class c_pedido_ps extends c_user
     {
         if (!empty($this->valorFrete)) {
             if ($format == 'F') {
-                return number_format($this->valorFrete, 2, ',', '.');
+                return number_format(c_tools::parseMoedaValor($this->valorFrete), 2, ',', '.');
             } else {
-                return c_tools::moedaBd($this->valorFrete);
+                return c_tools::parseMoedaValor($this->valorFrete);
             }
         } else {
             return 0;
@@ -529,9 +537,9 @@ class c_pedido_ps extends c_user
     {
         if (!empty($this->valorDespAcessorias)) {
             if ($format == 'F') {
-                return number_format($this->valorDespAcessorias, 2, ',', '.');
+                return number_format(c_tools::parseMoedaValor($this->valorDespAcessorias), 2, ',', '.');
             } else {
-                return c_tools::moedaBd($this->valorDespAcessorias);
+                return c_tools::parseMoedaValor($this->valorDespAcessorias);
             }
         } else {
             return 0;
@@ -552,7 +560,20 @@ class c_pedido_ps extends c_user
             if ($format == 'F') {
                 return number_format($this->valorDesconto, 2, ',', '.');
             } else {
-                return c_tools::moedaBd($this->valorDesconto);
+                // Pode vir como "355,94" (BR), "355.94" (float/string) ou numérico.
+                $v = $this->valorDesconto;
+                if (is_numeric($v)) {
+                    return round((float) $v, 2);
+                }
+                $s = trim((string) $v);
+                if ($s === '') {
+                    return 0;
+                }
+                if (strpos($s, ',') !== false) {
+                    return round((float) c_tools::moedaBd($s), 2);
+                }
+                // Se não tem vírgula, assume decimal com ponto (não remove ponto como milhar)
+                return round((float) str_replace(' ', '', $s), 2);
             }
         } else {
             return 0;
@@ -643,6 +664,19 @@ class c_pedido_ps extends c_user
         return $this->situacao;
     }
 
+    function setSerie($serie)
+    {
+        if (empty($serie)) {
+            $serie = NULL;
+        } else {
+            $this->serie = $serie;
+        }
+    }
+    function getSerie()
+    {
+        return $this->serie;
+    }
+
     function setEspecie($especie)
     {
         $this->especie = $especie;
@@ -706,6 +740,43 @@ class c_pedido_ps extends c_user
     function getCodFabricante()
     {
         return $this->codFabricante;
+    }
+
+    function setNumeroOc($numeroOc)
+    {
+        $this->numeroOc = $numeroOc;
+    }
+    function getNumeroOc()
+    {
+        if (empty($this->numeroOc))
+            return '';
+        else
+            return $this->numeroOc;
+    }
+
+    function setNItemPed($nItemPed)
+    {
+        $this->nItemPed = $nItemPed;
+    }
+    function getNItemPed()
+    {
+        if (empty($this->nItemPed))
+            return '';
+        else
+            return $this->nItemPed;
+    }
+
+    function setDataEntregaPeca($dataEntregaPeca)
+    {
+        $this->dataEntregaPeca = $dataEntregaPeca;
+    }
+    function getDataEntregaPeca()
+    {
+        if (empty($this->dataEntregaPeca)) {
+            return 'NULL';
+        } else {
+            return "'" . c_date::convertDateTxt($this->dataEntregaPeca) . "'";
+        }
     }
 
     function setCodProdutoNota($codProdutoNota)
@@ -895,10 +966,27 @@ class c_pedido_ps extends c_user
         if (isset($this->desconto)):
             switch ($format) {
                 case 'B':
-                    return c_tools::moedaBd($this->desconto);
+                    // Pode vir como "355,94" (BR), "355.94" (float/string) ou numérico.
+                    $v = $this->desconto;
+                    if (is_numeric($v)) {
+                        return round((float) $v, 2);
+                    }
+                    $s = trim((string) $v);
+                    if ($s === '') {
+                        return 0;
+                    }
+                    if (strpos($s, ',') !== false) {
+                        return round((float) c_tools::moedaBd($s), 2);
+                    }
+                    // Se não tem vírgula, assume decimal com ponto (não remove ponto como milhar)
+                    return round((float) str_replace(' ', '', $s), 2);
                     break;
                 case 'F':
-                    return number_format($this->desconto, 2, ',', '.');
+                    $v = $this->desconto;
+                    if (is_numeric($v)) {
+                        return number_format((float) $v, 2, ',', '.');
+                    }
+                    return number_format((float) c_tools::moedaBd($v), 2, ',', '.');
                     break;
                 default:
                     return $this->desconto;
@@ -906,6 +994,25 @@ class c_pedido_ps extends c_user
         else:
             return 0;
         endif;
+    }
+
+    public function getUsrAprovacao()
+    {
+        if ($this->usrAprovacao === null || $this->usrAprovacao === '' || $this->usrAprovacao === 'NULL') {
+            return null;
+        }
+        return $this->usrAprovacao;
+    }
+
+    public function setUsrAprovacao($usrAprovacao)
+    {
+        $this->usrAprovacao = $usrAprovacao;
+    }
+
+    public function possuiUsrAprovacaoValido(): bool
+    {
+        $usr = $this->getUsrAprovacao();
+        return $usr !== null && $usr !== '' && $usr !== 'NULL' && (int) $usr !== 0;
     }
 
     //===============FIM_PEDIDO_ITEM=========================
@@ -1083,6 +1190,60 @@ class c_pedido_ps extends c_user
     {
         return $this->catServicoId;
     }
+    function setDataIni($dataIni)
+    {
+        $this->dataIni = $dataIni;
+    }
+    function getDataIni()
+    {
+        return $this->dataIni;
+    }
+    function setDataFim($dataFim)
+    {
+        $this->dataFim = $dataFim;
+    }
+    function getDataFim()
+    {
+        return $this->dataFim;
+    }
+    public function setPercentualAplicar($percentual)
+    {
+        $this->percentualAplicar = $percentual;
+    }
+
+    public function getPercentualAplicar()
+    {
+        return $this->percentualAplicar;
+    }
+
+
+    public function setMarkupProduto($markupProduto)
+    {
+        $this->m_markupProduto = $markupProduto;
+    }
+
+    public function getMarkupProduto($format = NULL)
+    {
+        if (!empty($this->m_markupProduto)) {
+            if ($format == 'F') {
+                return number_format($this->m_markupProduto, 2, ',', '.');
+            } else {
+                return c_tools::moedaBd($this->m_markupProduto);
+            }
+        } else {
+            return 0;
+        }
+    }
+
+    public function setMarkup($markup)
+    {
+        $this->m_markup = $markup;
+    }
+
+    public function getMarkup()
+    {
+        return $this->m_markup;
+    }
 
     //===============FIM-SERVICO=========================
 
@@ -1109,11 +1270,15 @@ class c_pedido_ps extends c_user
         $this->setValorFrete($atendimento[0]['FRETE']);
         $this->setValorDespAcessorias($atendimento[0]['DESPACESSORIAS']);
         $this->setValorDesconto($atendimento[0]['DESCONTO']);
+        $this->setDesconto($atendimento[0]['DESCONTO']);
         $this->setValorTotal($atendimento[0]['TOTAL']);
         $this->setCondPgto($atendimento[0]['CONDPG']);
-        $this->setCentroCusto($atendimento[0]['CENTROCUSTO']);
+        $this->setCentroCusto($atendimento[0]['CCUSTO'] ?? $atendimento[0]['CENTROCUSTO'] ?? null);
+        $this->setCentroCustoEntrega($atendimento[0]['CENTROCUSTOENTREGA'] ?? null);
         $this->setSituacao($atendimento[0]['SITUACAO']);
+        $this->setSerie($atendimento[0]['SERIE']);
         $this->setEspecie($atendimento[0]['ESPECIE']);
+        $this->setIdNatop($atendimento[0]['IDNATOP'] ?? null);
 
         $this->setObra($atendimento[0]['OBRA_ID']);
         $this->setResponsavelTecnico($atendimento[0]['RESP_TECNICO']);
@@ -1127,6 +1292,7 @@ class c_pedido_ps extends c_user
         $this->setObsOs($atendimento[0]['OBSOS']);
         $this->setObsServicos($atendimento[0]['OBSSERVICO']);
         $this->setOs($atendimento[0]['OS']);
+        $this->setUsrAprovacao($atendimento[0]['USRAPROVACAO'] ?? null);
     }
 
 
@@ -1265,9 +1431,12 @@ class c_pedido_ps extends c_user
 
     public function select_pedido_todos_itens_id($conn = null)
     {
-        $sql = "SELECT PI.* FROM ";
-        $sql .= "FAT_PEDIDO_ITEM as PI ";
-        $sql .= "WHERE (PI.ID = '" . $this->getIdPedidoItem() . "') ";
+        
+        $sql = "SELECT PI.*, P.UNIDADE AS UNIDADE FROM ";
+        $sql .= "FAT_PEDIDO_ITEM AS PI ";
+        $sql .= "LEFT JOIN EST_PRODUTO P ON (P.CODIGO = PI.ITEMESTOQUE) ";
+        $sql .= "WHERE (PI.ID = '" . $this->getId() . "') AND (PI.MOTIVO = 0) ";
+        $sql .= "ORDER BY PI.NRITEM ASC";
         $banco = new c_banco;
         $banco->exec_sql($sql, $conn);
         $banco->close_connection();
@@ -1399,19 +1568,64 @@ class c_pedido_ps extends c_user
 
     //===============================   Produto ===================================
     /**
+     * Retorna o percentual de comissão (faturamento) a aplicar no item.
+     * Regra: o percentual do grupo do produto (EST_GRUPO.COMISSAOVENDAS) tem
+     * prioridade; quando 0 ou NULL, ignora o grupo e usa o percentual do vendedor
+     * (AMB_USUARIO.COMISSAOFATURA) vinculado ao pedido pelo campo USRFATURA.
+     * @name percComissaoFaturaItem
+     * @param string $codProduto código do produto (EST_PRODUTO.CODIGO / ITEMESTOQUE)
+     * @param int $idPedido id do pedido (FAT_PEDIDO.ID)
+     * @return float percentual de comissão (0 quando não houver regra)
+     */
+    public function percComissaoFaturaItem($codProduto, $idPedido)
+    {
+        $sql  = "SELECT ";
+        $sql .= "(SELECT G.COMISSAOVENDAS FROM EST_PRODUTO P INNER JOIN EST_GRUPO G ON (G.GRUPO = P.GRUPO) WHERE (P.CODIGO = '" . $codProduto . "')) AS COMGRUPO, ";
+        $sql .= "(SELECT U.COMISSAOFATURA FROM FAT_PEDIDO FP INNER JOIN AMB_USUARIO U ON (U.USUARIO = FP.USRFATURA) WHERE (FP.ID = '" . $idPedido . "')) AS COMVENDEDOR ";
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        $res = $banco->resultado;
+
+        $comGrupo    = isset($res[0]['COMGRUPO']) ? (float) $res[0]['COMGRUPO'] : 0;
+        $comVendedor = isset($res[0]['COMVENDEDOR']) ? (float) $res[0]['COMVENDEDOR'] : 0;
+
+        return $comGrupo > 0 ? $comGrupo : $comVendedor;
+    }
+
+    /**
+     * Zera a comissão (percentual e base) dos itens do pedido. Usado no cancelamento
+     * do pedido, para que os itens deixem de gerar comissão na apuração.
+     * @name zeraComissaoItens
+     * @param int $idPedido id do pedido (FAT_PEDIDO.ID)
+     * @param mixed $conn conexão (quando dentro de transação)
+     * @return void
+     */
+    public function zeraComissaoItens($idPedido, $conn = null)
+    {
+        $sql = "UPDATE FAT_PEDIDO_ITEM SET COMISSAO = 0, BASECOMISSAO = 0 ";
+        $sql .= "WHERE (ID = '" . $idPedido . "') ";
+        $banco = new c_banco;
+        $banco->exec_sql($sql, $conn);
+        $banco->close_connection();
+    }
+
+    /**
      * Funcao para inclusão do registro no banco de dados
      * @name IncluiPedidoItem
      * @return string vazio se ocorrer com sucesso
      */
     public function incluiProduto($conn = null)
     {
+        $percComissao = $this->percComissaoFaturaItem($this->getCodProduto(), $this->getIdPedidoItem());
+
         $banco = new c_banco;
         // "apssou inclui item<br>";
 
         $sql = "INSERT INTO FAT_PEDIDO_ITEM (";
 
         $sql .= "ID, ITEMESTOQUE, ITEMFABRICANTE, NRITEM, QTSOLICITADA, UNITARIO, DESCRICAO  , DESCONTO, PERCDESCONTO, ";
-        $sql .= " CODIGONOTA, TOTAL) ";
+        $sql .= " CODIGONOTA, NUMEROOC, NITEMPED, DATAENTREGAPECA, MARKUP, TOTAL, COMISSAO, BASECOMISSAO) ";
 
         if ($banco->gerenciadorDB == 'interbase') {
             $sql .= "VALUES (" . $this->getId() . ", '";
@@ -1427,7 +1641,13 @@ class c_pedido_ps extends c_user
             . $this->getDescricaoProduto() . "', "
             . $this->getDescontoProduto() . ", "
             . $this->getPercDescontoProduto() . ", '"
-            . $this->getCodProdutoNota() . "', "
+            . $this->getCodProdutoNota() . "', '"
+            . $this->getNumeroOc() . "', '"
+            . $this->getNItemPed() . "', "
+            . $this->getDataEntregaPeca() . ", "
+            . $this->getMarkupProduto('B') . ", "
+            . $this->getTotalProduto('B') . ", "
+            . $percComissao . ", "
             . $this->getTotalProduto('B') . " ); ";
 
         $res_pedidoVenda = $banco->exec_sql($sql);
@@ -1464,6 +1684,7 @@ class c_pedido_ps extends c_user
      */
     public function alteraProduto($conn = null)
     {
+        $percComissao = $this->percComissaoFaturaItem($this->getCodProduto(), $this->getIdPedidoItem());
 
         $sql = "UPDATE FAT_PEDIDO_ITEM SET ";
         $sql .= "ITEMFABRICANTE = '" . $this->getCodFabricante() . "', ";
@@ -1474,7 +1695,13 @@ class c_pedido_ps extends c_user
         $sql .= "DESCONTO       = "  . $this->getDescontoProduto('B') . ", ";
         $sql .= "PERCDESCONTO   = "  . $this->getPercDescontoProduto('B') . ", ";
         $sql .= "CODIGONOTA     = '" . $this->getCodProdutoNota() . "', ";
-        $sql .= "TOTAL          = "  . $this->getTotalProduto('B') . " ";
+        $sql .= "NUMEROOC       = '" . $this->getNumeroOc() . "', ";
+        $sql .= "NITEMPED       = '" . $this->getNItemPed() . "', ";
+        $sql .= "MARKUP         = "  . $this->getMarkupProduto('B') . ", ";
+        $sql .= "DATAENTREGAPECA = " . $this->getDataEntregaPeca() . ", ";
+        $sql .= "TOTAL          = "  . $this->getTotalProduto('B') . ", ";
+        $sql .= "COMISSAO       = "  . $percComissao . ", ";
+        $sql .= "BASECOMISSAO   = "  . $this->getTotalProduto('B') . " ";
 
         $sql .= "WHERE (ID = '" . $this->getIdPedidoItem() . "' AND NRITEM = '" . $this->getNrItem() . "' ) ";
 
@@ -1482,7 +1709,6 @@ class c_pedido_ps extends c_user
         $res_pedidoVenda = $banco->exec_sql($sql, $conn);
 
         $banco->close_connection();
-
         $msg = '';
         if ($banco->row <= 0):
             $msg = 'Item não Alterado!!!';
@@ -1504,10 +1730,10 @@ class c_pedido_ps extends c_user
         $sql = "INSERT INTO FAT_PEDIDO_ITEM (";
 
         $sql .= "id, nritem, itemestoque, itemfabricante, qtsolicitada, qtatendida, unitario, desconto, percdesconto, total, ";
-        $sql .= "grupoestoque, descricao, precopromocao, qtconferida, vlrtabela, usrfatura, custo, despesas, lucrobruto, margemliquida, markup, codigonota) ";
+        $sql .= "grupoestoque, descricao, precopromocao, qtconferida, vlrtabela, usrfatura, custo, despesas, lucrobruto, margemliquida, markup, codigonota, comissao, basecomissao) ";
         $sql .= "SELECT " . $idNovo . " as ID, 
                  NRITEM, ITEMESTOQUE, ITEMFABRICANTE, QTSOLICITADA, QTATENDIDA, UNITARIO, DESCONTO, PERCDESCONTO, TOTAL, 
-                 GRUPOESTOQUE, DESCRICAO, PRECOPROMOCAO, QTCONFERIDA, VLRTABELA, USRFATURA, CUSTO, DESPESAS, LUCROBRUTO, MARGEMLIQUIDA, MARKUP, CODIGONOTA ";
+                 GRUPOESTOQUE, DESCRICAO, PRECOPROMOCAO, QTCONFERIDA, VLRTABELA, USRFATURA, CUSTO, DESPESAS, LUCROBRUTO, MARGEMLIQUIDA, MARKUP, CODIGONOTA, COMISSAO, BASECOMISSAO ";
         $sql .= "  ";
         $sql .= "FROM FAT_PEDIDO_ITEM ";
         $sql .= "WHERE ID = '" . $idAntigo . "'";
@@ -1622,14 +1848,15 @@ class c_pedido_ps extends c_user
         return $banco->resultado;
     }
 
-    public function updateField($field, $valor, $tabela)
+    public function updateField($field, $valor, $tabela, $conn = null)
     {
         $sql = "UPDATE  " . $tabela;
         $sql .= " SET " . $field . " = '" . $valor . "' ";
         $sql .= "WHERE (id = '" . $this->getId() . "');";
 
         $banco = new c_banco;
-        $banco->exec_sql($sql);
+        $execConn = ($conn !== null) ? $conn : $banco->id_connection;
+        $banco->exec_sql($sql, $execConn);
         $banco->close_connection();
     }
 
@@ -1717,6 +1944,27 @@ class c_pedido_ps extends c_user
         return $banco->resultado;
     }
 
+    /**
+     * Última cotação em aberto (SITUACAO = 5) do cliente — link do dashboard CRM (param = cliente).
+     * @param int $idCliente
+     * @return int ID do pedido ou 0
+     */
+    public function selectIdUltimaCotacaoAbertaCliente($idCliente)
+    {
+        $idCliente = (int) $idCliente;
+        if ($idCliente <= 0) {
+            return 0;
+        }
+        $sql = "SELECT ID FROM FAT_PEDIDO WHERE CLIENTE = " . $idCliente . " AND SITUACAO = 5 ORDER BY EMISSAO DESC, ID DESC LIMIT 1";
+        $banco = new c_banco();
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        if (empty($banco->resultado[0]['ID'])) {
+            return 0;
+        }
+        return (int) $banco->resultado[0]['ID'];
+    }
+
 
     /**
      * Calcula o total do pedido atraves do id
@@ -1756,7 +2004,7 @@ class c_pedido_ps extends c_user
      * @param STRING vendedores vendedores selecionados para filtrar a busca
      * @return ARRAY com os atendimentos selecionados.
      */
-    public function select_pedido_letra($letra, $situacoes, $vendedores = '', $condPag = '')
+    public function select_pedido_letra($letra, $situacoes, $vendedores = '', $condPag = '', $motivos = null)
     {
         /*
          * [0] = data inicio
@@ -1801,7 +2049,7 @@ class c_pedido_ps extends c_user
             }
             $cond =  strpos($sql, 'where') === false ? 'where' : 'and';
             $sql .= empty($sit) ? '' : " $cond (a.SITUACAO IN (" . $sit . ")) ";
-            
+
             // Filtro de vendedor
             if (!empty($vendedores)) {
                 $parVend = explode("|", $vendedores);
@@ -1833,9 +2081,25 @@ class c_pedido_ps extends c_user
                 $cond =  strpos($sql, 'where') === false ? 'where' : 'and';
                 $sql .= empty($condPag) ? '' : " $cond (a.CONDPG IN (" . $condPag . ")) ";
             }
+
+            if (!empty($motivos)) {
+                $motivoStr = str_replace('|', ',', $motivos);
+                $motivoArray = explode(',', $motivoStr);
+                $motivoCondition = [];
+                foreach ($motivoArray as $motivo) {
+                    $motivo = trim($motivo);
+                    if ($motivo !== '') {
+                        $motivoCondition[] = "'" . addslashes($motivo) . "'";
+                    }
+                }
+                if (!empty($motivoCondition)) {
+                    $cond = strpos($sql, 'where') === false ? 'where' : 'and';
+                    $sql .= " $cond (a.id IN (SELECT DISTINCT ID FROM FAT_PEDIDO_ITEM WHERE motivo IN (" . implode(',', $motivoCondition) . "))) ";
+                }
+            }
         }
 
-        $sql .= "ORDER BY A.ID";
+        $sql .= " ORDER BY A.EMISSAO DESC, A.ID DESC";
 
         $banco = new c_banco;
         $banco->exec_sql($sql);
@@ -1892,7 +2156,7 @@ class c_pedido_ps extends c_user
         // $banco->sqlStrtoupper = false;
 
         $sql = "INSERT INTO FAT_PEDIDO (";
-        $sql .= "CLIENTE, CONTATO, USRFATURA,  TOTALPRODUTOS, VALORSERVICOS, FRETE, DESPACESSORIAS, DESCONTO, EMISSAO,  PRAZOENTREGA,  OBS, CONDPG, OBRA_ID, RESP_TECNICO, SITUACAO, ESPECIE, CCUSTO, CENTROCUSTOENTREGA, IDNATOP, ENDERECOENTREGA, USERINSERT, DATEINSERT )";
+        $sql .= "CLIENTE, CONTATO, USRFATURA,  TOTALPRODUTOS, VALORSERVICOS, FRETE, DESPACESSORIAS, DESCONTO, EMISSAO,  PRAZOENTREGA,  OBS, CONDPG, OBRA_ID, RESP_TECNICO, SITUACAO, ESPECIE, SERIE, CCUSTO, CENTROCUSTOENTREGA, IDNATOP, ENDERECOENTREGA, USERINSERT, DATEINSERT )";
 
         $sql .= "VALUES ('";
         $sql .=   $this->getCliente() . "','"
@@ -1910,7 +2174,8 @@ class c_pedido_ps extends c_user
             . $this->getObra() . ", "
             . $this->getResponsavelTecnico() . ", '"
             . $this->getSituacao() . "', '"
-            . $this->getEspecie() . "', "
+            . $this->getEspecie() . "', '"
+            . $this->getSerie() . "', "
             . $this->getCentroCusto() . ", "
             . $this->getCentroCustoEntrega() . ", "
             . $this->getIdNatop() . ", "
@@ -1954,17 +2219,19 @@ class c_pedido_ps extends c_user
         $sql .= "Desconto = '" . $this->getValorDesconto('B') . "', ";
         $sql .= "OBRA_ID = " . $this->getObra() . ", ";
         $sql .= "RESP_TECNICO = " . $this->getResponsavelTecnico() . ", ";
-        $sql .= "ENDERECOENTREGA = " . $this->getEnderecoEntrega() . " ";
+        $sql .= "ENDERECOENTREGA = " . $this->getEnderecoEntrega() . ", ";
+        $sql .= "SERIE = '" . $this->getSerie() . "' ";
         $sql .= "WHERE id = " . $this->getId() . ";";
 
         $banco = new c_banco;
-        $result = $banco->exec_sql($sql);
+        $execConn = ($conn !== null) ? $conn : $banco->id_connection;
+        $result = $banco->exec_sql($sql, $execConn);
         $banco->close_connection();
 
         if ($result > 0) {
-            return '';
+            return true;
         } else {
-            return 'Atendimento ' . $this->getId() . ' n&atilde;o foi alterado!';
+            return 'Pedido ' . $this->getId() . ' não foi alterado!';
         }
     }
 
@@ -2066,7 +2333,7 @@ class c_pedido_ps extends c_user
                  TAXAFIN,CONDPG,ENTRADACONDPG,VENCIMENTO1,DESCONTO,TOTAL,MOEDA,CONTADEPOSITO,ESPECIE,SERIE,'" . $horaEmissao . "' as HORAEMISSAO,
                  TAXAENTREGA,TOTALRECEBIDO,GENERO,CCUSTO,TIPOENTREGA,TABELAPRECO,IPI, ";
         $sql .= "TRANSPORTADORA,TABELAVENDA,USRPEDIDO,DTULTPEDIDOCLIENTE,PERCDESCONTO,DESCONTONF,STATUS,TOTALPRODUTOS,
-                 FRETE,DTVALIDADE,PRAZOENTREGA,OBS,OS,PROTOCOLOPARCEIRO,CUSTOTOTAL,CREDITO,DESPESATOTAL,
+                 FRETE,DTVALIDADE,PRAZOENTREGA,OBS,0 AS OS,PROTOCOLOPARCEIRO,CUSTOTOTAL,CREDITO,DESPESATOTAL,
                  LUCROBRUTO,MARGEMLIQUIDA,MARKUP,DESCONTOGERAL,DESPACESSORIAS,PLACAVEICULO,VOLPESOLIQ,VOLPESOBRUTO,
                  CENTROCUSTOENTREGA,VOLMARCA,VOLESPECIE,VOLUME,MODFRETE, VALORSERVICOS, ";
         $sql .= $this->m_userid . " as USERINSERT, '" . date("Y-m-d H:i:s") . "' as DATEINSERT ";
@@ -2114,7 +2381,7 @@ class c_pedido_ps extends c_user
      * <b> É responsavel por calcular rateio dos descontos</b>
      * @name calculoImpostos
      * @param vazio
-     * @return atualiza desconto
+     * @return float|null Total do pedido gravado (produtos - desconto + frete + despesas) ou null se sem ID
      */
     function calculaImpostos($desconto = false)
     {
@@ -2130,12 +2397,11 @@ class c_pedido_ps extends c_user
                 $banco->close_connection();
             }
 
-            $totalNF = $this->select_totalPedido(); // Total do pedido_item 
             $descontoNF = $this->select_totais('DESCONTO'); // Totais desconto pedido_item
-            $total = $totalNF;
-            $despAcessorias = $this->getValorDespAcessorias('B'); // despesas acessorias do pedido
-            $frete = $this->getValorFrete('B');          // frete do pedido
-            $descontoGeral = $this->getDesconto('B');  // desconto digitado no pedido form
+            $totalProdutosComDesconto = 0; // Total dos produtos após aplicar desconto
+            $despAcessorias = round((float) $this->getValorDespAcessorias('B'), 2); // despesas acessorias do pedido
+            $frete = round((float) $this->getValorFrete('B'), 2);          // frete do pedido
+            $descontoGeral = round((float) $this->getDesconto('B'), 2);  // desconto digitado no pedido form
 
             $despAcessoriasDist = 0;
             $freteDist = 0;
@@ -2146,11 +2412,24 @@ class c_pedido_ps extends c_user
             $lucrobruto = null;
             $totalNF = 0;
 
-            $arrItemPedido = $this->select_pedido_item_id();
+            $arrItemPedido = $this->select_pedido_item_id() ?? [];
 
             $totalDescontoItem = $descontoNF;
             $this->setDesconto($descontoGeral);
+            $this->setValorDesconto($descontoGeral);
 
+            // Primeiro, calcula o total SEM desconto (QTSOLICITADA * UNITARIO) de todos os itens
+            $total = 0;
+            for ($i = 0; $i < count($arrItemPedido); $i++) {
+                $arrItemPedido[$i]['TOTAL'] = round(
+                    (float) $arrItemPedido[$i]['QTSOLICITADA'] * (float) $arrItemPedido[$i]['UNITARIO'],
+                    2
+                );
+                $total += $arrItemPedido[$i]['TOTAL'];
+            }
+            $total = round($total, 2);
+
+            // Agora processa cada item para aplicar o desconto
             for ($i = 0; $i < count($arrItemPedido); $i++) {
                 $sqlFields = '';
                 $custototal += $arrItemPedido[$i]['CUSTO'];
@@ -2158,7 +2437,6 @@ class c_pedido_ps extends c_user
                 $margemliquida += $arrItemPedido[$i]['MARGEMLIQUIDA'];
                 $markup += $arrItemPedido[$i]['MARKUP'];
 
-                $arrItemPedido[$i]['TOTAL'] = $arrItemPedido[$i]['QTSOLICITADA'] * $arrItemPedido[$i]['UNITARIO'];
                 $totalNF += $arrItemPedido[$i]['TOTAL'];
 
                 //if ($totalDescontoItem == 0){
@@ -2172,13 +2450,19 @@ class c_pedido_ps extends c_user
                         } else if ($descontoGeralDist < $descontoGeral) {
                             $vlrDescontoGeral = $vlrDescontoGeral + ($descontoGeral - $descontoGeralDist);
                         }
+                        $vlrDescontoGeral = round($vlrDescontoGeral, 2);
                     }
-                    $percDescontoItem = (($vlrDescontoGeral * 100) / $arrItemPedido[$i]['TOTAL']);
-                    $percDescontoItem = round($percDescontoItem, 2);
-                    $sqlFields .= 'percdesconto = ' . $percDescontoItem . ', desconto = ' . $vlrDescontoGeral;
-                    //$sqlFields .= ', Total = '.$arrItemPedido[$i]['TOTAL'].' - desconto ';   
+                    $percDescontoItem = $arrItemPedido[$i]['TOTAL'] > 0
+                        ? round(($vlrDescontoGeral * 100) / $arrItemPedido[$i]['TOTAL'], 2)
+                        : 0;
+                    $novoTotalItem = round($arrItemPedido[$i]['TOTAL'] - $vlrDescontoGeral, 2);
+                    $totalProdutosComDesconto += $novoTotalItem; // Soma o total do item com desconto aplicado
+                    $sqlFields .= 'percdesconto = ' . $percDescontoItem . ', desconto = ' . $vlrDescontoGeral . ', total = ' . $novoTotalItem;
                 } else {
-                    $sqlFields .= ' percdesconto = 0, desconto = 0 ';
+                    // Quando não há desconto, o total volta a ser quantidade * unitário
+                    $totalItemSemDesconto = round($arrItemPedido[$i]['TOTAL'], 2);
+                    $totalProdutosComDesconto += $totalItemSemDesconto; // Soma o total do item sem desconto
+                    $sqlFields .= ' percdesconto = 0, desconto = 0, total = ' . $totalItemSemDesconto;
                 }
 
                 //}
@@ -2264,8 +2548,16 @@ class c_pedido_ps extends c_user
                 $sqlField .= ', desconto = 0 ';
             }
 
-            //$totalPedido = ($total +$frete + $despAcessorias) - $descontoGeral;
-            $totalPedido = ($totalNF + $frete + $despAcessorias) - $descontoGeral;
+            // TOTALPRODUTOS deve ser o valor FIXO sem desconto (soma de QTSOLICITADA * UNITARIO)
+            // O desconto é aplicado apenas no cálculo do TOTAL final
+            if ($sqlField <> "") {
+                $sqlField .= ', totalprodutos = ' . $total;
+            } else {
+                $sqlField = ' totalprodutos = ' . $total;
+            }
+
+            // Total = Produtos (sem desconto) - Desconto + Frete + Despesas Acessórias
+            $totalPedido = round(($total - $descontoGeral) + $frete + $despAcessorias, 2);
             if ($sqlField <> "") {
                 $sqlField .= ', total = ' . $totalPedido;
             } else {
@@ -2274,6 +2566,8 @@ class c_pedido_ps extends c_user
 
             $sqlField .= ", obs = '" . $this->getObs() . "'" . ", prazoentrega = '" . $this->getPrazoEntrega('B') . "'";
 
+            $this->setDesconto($descontoGeral);
+            $this->setValorDesconto($descontoGeral);
 
             $lucrobruto = $totalPedido - $custototal;
             $margemliquida = $lucrobruto;
@@ -2289,7 +2583,11 @@ class c_pedido_ps extends c_user
             $sql = 'UPDATE FAT_PEDIDO SET ' . $sqlField . $sqlFieldTotais . ' WHERE ID = ' . $this->getId();
             $banco->exec_sql($sql);
             $banco->close_connection();
+
+            return $totalPedido;
         }
+
+        return null;
     }
 
     /* Calcula o total do pedido atraves do id
@@ -2343,6 +2641,92 @@ class c_pedido_ps extends c_user
         endif;
     }
 
+    public function verificarPedidoItem($nritem)
+    {
+        $sql = "SELECT * FROM ";
+        $sql .= "fat_pedido_item ";
+        $sql .= "WHERE (id = '" . $this->getId() . "') and (nritem = '" . $nritem . "');";
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        $msg = '';
+        if ($banco->result->num_rows <= 0):
+            $msg = 'Item não localizado!!!';
+        endif;
+        return $msg;
+    }
+
+    public function atualizarMotivoItem($motivo, $nritem = NULL)
+    {
+        $sql = "UPDATE FAT_PEDIDO_ITEM SET MOTIVO = '" . $motivo . "' ";
+        $sql .= "WHERE (ID = '" . $this->getId() . "') ";
+
+        if ($nritem > 0) {
+            $sql .= " and (nritem = '" . $nritem . "');";
+        }
+
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+    }
+
+    public function atualizarObsPerda($texto = '')
+    {
+        $textoEsc = addslashes($texto);
+        $sql = "UPDATE FAT_PEDIDO SET OBS = '" . $textoEsc . "', ";
+        $sql .= "USERCHANGE = " . $this->m_userid . ", ";
+        $sql .= "DATECHANGE = CURRENT_TIMESTAMP() ";
+        $sql .= "WHERE (ID = '" . $this->getId() . "');";
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+    }
+
+    public function atualizarTotal($total)
+    {
+        $sql = "UPDATE FAT_PEDIDO SET TOTAL = '" . $total . "' ";
+        $sql .= "WHERE (ID = '" . $this->getId() . "');";
+
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+    }
+
+    public function atualizarFieldPedido($situacaoEmitirNf = '', $condPg = '', $obs = '', $genero = '', $idnatop = '', $entrega = '')
+    {
+        $sql = "UPDATE FAT_PEDIDO ";
+        $sql .= "SET PEDIDO = '" . $this->getId() . "' ";
+        if ($situacaoEmitirNf != '') {
+            $sql .= ",SITUACAO = " . $situacaoEmitirNf . " ";
+        }
+        if ($obs != '') {
+            $sql .= ",OBS = '" . $obs . "' ";
+        }
+        if ($condPg != '') {
+            $sql .= ",CONDPG = '" . $condPg . "'  ";
+        }
+        if ($idnatop != '') {
+            $sql .= ",IDNATOP = '" . $idnatop . "'  ";
+        }
+        if ($genero != '') {
+            $sql .= ",GENERO = '" . $genero . "'  ";
+        }
+        if ($entrega != '') {
+            $sql .= ",DATAENTREGA = '" . $entrega . "'  ";
+        } else {
+            if ($situacaoEmitirNf != '9') {
+                $sql .= ",EMISSAO = '" . date("Y-m-d") . "'  ";
+                $sql .= ",HORAEMISSAO = '" . date("H:i:s") . "'  ";
+            }
+        }
+
+        $sql .= "WHERE (id = '" . $this->getId() . "');";
+
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+    }
+
     /* Funcao de consulta ao banco de dados de acordo com o id da table fat_pedido_item
      * @name select_pedido_item_id
      * @param INT ID Chave primaria da table fat_pedido
@@ -2364,8 +2748,8 @@ class c_pedido_ps extends c_user
                 $sql  = "SELECT I.ITEMESTOQUE, I.QTSOLICITADA, I.TOTAL, I.PERCDESCONTO, ";
                 $sql .= "CASE WHEN P.Unifracionada = 'S' THEN I.QTSOLICITADA ";
                 $sql .= "ELSE E.QUANTIDADE END as QUANTIDADE, ";
-                $sql .= "I.DESCRICAO, I.UNITARIO, E.FABLOTE, E.FABDATAFABRICACAO, ";
-                $sql .= "E.FABDATAVALIDADE, P.unidade, P.unifracionada, p.origem, ";
+                $sql .= "I.DESCRICAO, I.UNITARIO, I.MARKUP, I.DATAENTREGAPECA, E.FABLOTE, E.FABDATAFABRICACAO, ";
+                $sql .= "E.FABDATAVALIDADE, P.unidade, P.unifracionada, P.CUSTOCOMPRA, P.UNIDADE, p.origem, ";
                 $sql .= "p.TRIBICMS, p.ncm, p.cest, p.codigobarras, p.CODPRODUTOANVISA, p.PESO, p.localizacao, P.CODFABRICANTE,";
                 $sql .= "I.DESCONTO, I.FRETE, I.CODIGONOTA, I.DESPACESSORIAS, I.NRITEM, I.ITEMFABRICANTE, I.NUMEROOC FROM ";
                 $sql .= "FAT_PEDIDO_ITEM I ";
@@ -2399,8 +2783,8 @@ class c_pedido_ps extends c_user
                 $sql .= "p.ncm, p.cest, p.codigobarras, I.DESCONTO, p.PRECOMINIMO, I.NUMEROOC FROM ";
                 $sql .= "fat_pedido_item i ";
                 $sql .= "LEFT JOIN EST_PRODUTO P ON (P.CODIGO=I.ITEMESTOQUE)  ";
-                $sql .= "LEFT JOIN EST_GRUPO G ON (G.GRUPO=P.GRUPO)  ";
-                $sql .= "WHERE (i.id = '" . $this->getId() . "')  and ( i.motivo = 0)";
+                $sql .= "WHERE (i.id = '" . $this->getId() . "')  and ( i.motivo = 0) ";
+                $sql .= "ORDER BY I.NRITEM ASC";
         }
 
         //echo strtoupper($sql)."<BR>";
@@ -2428,6 +2812,26 @@ class c_pedido_ps extends c_user
         return $banco->resultado;
     }
 
+    public function comboCondPgto()
+    {
+        $sql = "SELECT ID, DESCRICAO FROM FAT_COND_PGTO ORDER BY ID";
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        $result = $banco->resultado;
+
+        $condPgto_ids = array('');
+        $condPgto_names = array('Selecione uma condição de pagamento');
+
+        for ($i = 0; $i < count($result); $i++) {
+            $condPgto_ids[] = $result[$i]['ID'];
+            $condPgto_names[] = $result[$i]['DESCRICAO'];
+        }
+
+        $this->smarty->assign('condPgto_ids', $condPgto_ids);
+        $this->smarty->assign('condPgto_names', $condPgto_names);
+        $this->smarty->assign('condPgto_id', $this->getCondPgto());
+    }
 
     /**
      * Popula o combo de obras com base no cliente selecionado.
@@ -2441,7 +2845,27 @@ class c_pedido_ps extends c_user
         $consulta->close_connection();
         $result = $consulta->resultado;
 
-        return $result; // Retorna o array diretamente
+        return is_array($result) ? $result : [];
+    }
+
+    /**
+     * Saldo total de créditos do cliente (FIN_CLIENTE_CREDITO) para JSON em telas do pedido.
+     *
+     * @param mixed $cliente_id
+     * @param int $idPedidoExcluir
+     * @return array{saldo_credito: float, saldo_credito_formatado: string}
+     */
+    public function saldoCreditoClienteParaJson($cliente_id, $idPedidoExcluir = 0)
+    {
+        $cid = (int) $cliente_id;
+        $obj = new c_conta();
+        $saldo = $cid > 0 ? $obj->selectSaldoCreditoCliente($cid) : 0.0;
+        $bloqueado = $cid > 0 && strtoupper((string) $obj->contaBloqueada($cid)) === 'S';
+        return array_merge([
+            'saldo_credito' => $saldo,
+            'saldo_credito_formatado' => number_format($saldo, 2, ',', '.'),
+            'cliente_bloqueado' => $bloqueado,
+        ], c_lancamento::limiteCreditoClienteParaJson($cid, (int) $idPedidoExcluir));
     }
 
     /**
@@ -2457,7 +2881,7 @@ class c_pedido_ps extends c_user
         $consulta->close_connection();
         $result = $consulta->resultado;
 
-        return $result;
+        return is_array($result) ? $result : [];
     }
 
     /**
@@ -2475,11 +2899,22 @@ class c_pedido_ps extends c_user
                 WHERE CLIENTE = " . $clienteId . " 
                 AND STATUS = 'A'
                 ORDER BY ENDENTREGAPADRAO DESC, ENDERECO_ENTREGA";
-        
+
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        
+
+        return $banco->resultado;
+    }
+    public function busca_representante_cliente($cliente_id)
+    {
+        $sql = "SELECT c.REPRESENTANTE, u.NOME 
+                FROM FIN_CLIENTE c 
+                LEFT JOIN AMB_USUARIO u ON u.USUARIO = c.REPRESENTANTE 
+                WHERE c.CLIENTE = " . intval($cliente_id);
+        $banco = new c_banco();
+        $banco->exec_sql($sql);
+        $banco->close_connection();
         return $banco->resultado;
     }
 
@@ -2498,7 +2933,8 @@ class c_pedido_ps extends c_user
                 E.BAIRRO,
                 E.CIDADE,
                 E.UF,
-                E.CEP
+                E.CEP,
+                E.CODMUNICIPIO
             FROM FAT_PEDIDO P
             LEFT JOIN FIN_CLIENTE_ENDERECO E ON (E.ID = P.ENDERECOENTREGA)
             WHERE P.ID = " . $idPedido . " ";
@@ -2507,7 +2943,7 @@ class c_pedido_ps extends c_user
         $banco->close_connection();
         if (empty($banco->resultado)) {
             return null;
-        }else{
+        } else {
             return $banco->resultado;
         }
     }
@@ -2517,82 +2953,84 @@ class c_pedido_ps extends c_user
      * @param int $idPedido
      * @return array ['pedido' => ..., 'itens' => [...]]
      */
-    public function getRelatorioImpostosPedido($idPedido) {
-        try{
-             if (!$idPedido) {
-                 throw new Exception('ID do pedido não informado.');
-             }
- 
-             $pedido = $this->select_pedido_id($idPedido);
- 
-             if(!isset($pedido[0])){
-                 throw new Exception('Pedido nao localizado!');
-             }
- 
-             $this->setIdPedidoItem($idPedido);
-             $itens = $this->select_pedido_todos_itens_id();
- 
-             
-             $pessoa = new c_conta();
-             $pessoa->setId($pedido[0]['CLIENTE']);
-             $cliente = $pessoa->select_conta();
-             
- 
-             foreach ($itens as $item) {
-                 $this->setCodProduto($item['ITEMESTOQUE']);
-                 $dadosProduto = $this->select_atendimento_Produto_produto();
-                 if (is_array($dadosProduto[0])) {
-                     $item = array_merge($item, $dadosProduto[0]);
-                 }
-                 
-                 $dadosItem = [
-                     'despAcessorias'   => $item['DESPACESSORIAS'] ?? 0,
-                     'tribIcms'         => $item['TRIBICMS'] ?? '',
-                     'item_estoque'     => $item['ITEMESTOQUE'] ?? 0,
-                     'desconto'         => $item['DESCONTO'] ?? 0,
-                     'produto_valor'    => $item['UNITARIO'] ?? 0,
-                     'total'            => $item['TOTAL'] ?? 0,
-                     'frete'            => $item['FRETE'] ?? 0,
-                     'origem'           => $item['ORIGEM'] ?? '',
-                     'ncm'              => $item['NCM'] ?? '',
-                     'cest'             => $item['CEST'] ?? '',
-                     'quantidade'       => $item['QTSOLICITADA'] ?? 0,
-                 ];
-                 
-                 $calcImpostos = new c_pedidoVendaNf();
-                 $impostos = $calcImpostos->calculaImpostosNfe(
-                     $dadosItem,
-                     $pedido[0]['IDNATOP'],
-                     $cliente[0]['UF'],
-                     $cliente[0]['PESSOA'],
-                     $this->m_empresacentrocusto,
-                     true
-                 );
-                 
-                 $item['impostos'] = isset($impostos['valores']) ? $impostos['valores'] : array();
-                 $impostosItens[] = $item;
-             }
- 
-             // popula novos dados do pedido
-             $dados_pedido = array(
-                 'PEDIDO' => $pedido[0]['PEDIDO'],
-                 'EMISSAO' => $pedido[0]['EMISSAO']
-             );
-             
-             return [
-                 'status' => true,
-                 'pedido' => $dados_pedido,
-                 'itens' => $impostosItens
-             ];
- 
-         } catch (Exception $e) {
-             return [
-                 'status' => false,
-                 'erro' => $e->getMessage()];
-         }
+    public function getRelatorioImpostosPedido($idPedido)
+    {
+        try {
+            if (!$idPedido) {
+                throw new Exception('ID do pedido não informado.');
+            }
+
+            $pedido = $this->select_pedido_id($idPedido);
+
+            if (!isset($pedido[0])) {
+                throw new Exception('Pedido nao localizado!');
+            }
+
+            $this->setIdPedidoItem($idPedido);
+            $itens = $this->select_pedido_todos_itens_id();
+
+
+            $pessoa = new c_conta();
+            $pessoa->setId($pedido[0]['CLIENTE']);
+            $cliente = $pessoa->select_conta();
+
+
+            foreach ($itens as $item) {
+                $this->setCodProduto($item['ITEMESTOQUE']);
+                $dadosProduto = $this->select_atendimento_Produto_produto();
+                if (is_array($dadosProduto[0])) {
+                    $item = array_merge($item, $dadosProduto[0]);
+                }
+
+                $dadosItem = [
+                    'despAcessorias'   => $item['DESPACESSORIAS'] ?? 0,
+                    'tribIcms'         => $item['TRIBICMS'] ?? '',
+                    'item_estoque'     => $item['ITEMESTOQUE'] ?? 0,
+                    'desconto'         => $item['DESCONTO'] ?? 0,
+                    'produto_valor'    => $item['UNITARIO'] ?? 0,
+                    'total'            => $item['TOTAL'] ?? 0,
+                    'frete'            => $item['FRETE'] ?? 0,
+                    'origem'           => $item['ORIGEM'] ?? '',
+                    'ncm'              => $item['NCM'] ?? '',
+                    'cest'             => $item['CEST'] ?? '',
+                    'quantidade'       => $item['QTSOLICITADA'] ?? 0,
+                ];
+
+                $calcImpostos = new c_pedidoVendaNf();
+                $impostos = $calcImpostos->calculaImpostosNfe(
+                    $dadosItem,
+                    $pedido[0]['IDNATOP'],
+                    $cliente[0]['UF'],
+                    $cliente[0]['PESSOA'],
+                    $this->m_empresacentrocusto,
+                    true
+                );
+
+                $item['impostos'] = isset($impostos['valores']) ? $impostos['valores'] : array();
+                $impostosItens[] = $item;
+            }
+
+            // popula novos dados do pedido
+            $dados_pedido = array(
+                'PEDIDO' => $pedido[0]['PEDIDO'],
+                'EMISSAO' => $pedido[0]['EMISSAO']
+            );
+
+            return [
+                'status' => true,
+                'pedido' => $dados_pedido,
+                'itens' => $impostosItens
+            ];
+        } catch (Exception $e) {
+            return [
+                'status' => false,
+                'erro' => $e->getMessage()
+            ];
+        }
     }
 
-    public function prosseguirComDesconto(){
+    public function prosseguirComDesconto()
+    {
         $sql = "SELECT SITUACAO FROM FAT_PEDIDO WHERE ID = " . $this->getId() . " ";
         $banco = new c_banco;
         $banco->exec_sql($sql);
@@ -2600,4 +3038,594 @@ class c_pedido_ps extends c_user
         return $banco->resultado;
     }
 
+    public function getFatParametrosFilial(): array
+    {
+        $defaults = [
+            'encomenda' => 'N',
+            'fluxoPedido' => 'S',
+            'faturaPedido' => 'N',
+            'sitAberto' => null,
+            'sitBaixado' => null,
+            'sitEmitirNf' => null,
+            'aprovacao' => 'N',
+            'descontoMaximo' => 0.0,
+            'tipoDesconto' => null,
+        ];
+        $filial = (int) $this->m_empresacentrocusto;
+        try {
+            $banco = new c_banco_pdo();
+            $sql = 'SELECT ENCOMENDA, FLUXOPEDIDO, FATURAPEDIDO, SITABERTO, SITBAIXADO, SITEMITIRNF,
+                           APROVACAO, DESCONTOMAXIMO, TIPODESCONTO
+                    FROM FAT_PARAMETRO WHERE FILIAL = :filial';
+            $banco->prepare($sql);
+            $banco->bindValue(':filial', $filial);
+            $banco->execute();
+            $row = $banco->fetch();
+            if (is_array($row)) {
+                $u = array_change_key_case($row, CASE_UPPER);
+                return [
+                    'encomenda' => (string) ($u['ENCOMENDA'] ?? $defaults['encomenda']),
+                    'fluxoPedido' => (string) ($u['FLUXOPEDIDO'] ?? $defaults['fluxoPedido']),
+                    'faturaPedido' => (string) ($u['FATURAPEDIDO'] ?? $defaults['faturaPedido']),
+                    'sitAberto' => $u['SITABERTO'] ?? $defaults['sitAberto'],
+                    'sitBaixado' => $u['SITBAIXADO'] ?? $defaults['sitBaixado'],
+                    'sitEmitirNf' => $u['SITEMITIRNF'] ?? $defaults['sitEmitirNf'],
+                    'aprovacao' => strtoupper((string) ($u['APROVACAO'] ?? $defaults['aprovacao'])),
+                    'descontoMaximo' => (float) ($u['DESCONTOMAXIMO'] ?? $defaults['descontoMaximo']),
+                    'tipoDesconto' => $u['TIPODESCONTO'] ?? $defaults['tipoDesconto'],
+                ];
+            }
+        } catch (Exception $e) {
+            error_log('[c_pedido_ps] getFatParametrosFilial: ' . $e->getMessage());
+        }
+        return $defaults;
+    }
+
+    /**
+     * Percentual de desconto geral sobre o total (mesma fórmula Telhas).
+     */
+    public function calcularPercentualDescontoPedido(): float
+    {
+        $total = (float) $this->select_totalPedido()
+            + (float) $this->getValorFrete('B')
+            + (float) $this->getValorDespAcessorias('B');
+        $desconto = (float) $this->getDesconto('B');
+        if ($desconto <= 0 || $total <= 0) {
+            return 0.0;
+        }
+        return round(($desconto / $total) * 100, 4);
+    }
+
+    /**
+     * Atualiza situação de aprovação gerencial (10 = enviar; 6|13 = registrar aprovação).
+     */
+    public function alteraSituacaoAprovacaoPedido(int $situacao, ?int $usrAprovacao = null, $conn = null): bool
+    {
+        if ($situacao === 10) {
+            $setClause = 'SITUACAO = 10, USRAPROVACAO = NULL, DATAAPROVACAO = NULL';
+            $sitLocal = 10;
+            $usrLocal = null;
+        } else {
+            $sitLocal = in_array($situacao, [6, 13], true) ? $situacao : 6;
+            $setClause = 'SITUACAO = ' . $sitLocal
+                . ', USRAPROVACAO = ' . (int) $usrAprovacao
+                . ', DATAAPROVACAO = CURRENT_TIMESTAMP()';
+            $usrLocal = (int) $usrAprovacao;
+        }
+
+        $sql = 'UPDATE FAT_PEDIDO SET '
+            . $setClause
+            . ', USERCHANGE = ' . (int) $this->m_userid
+            . ', DATECHANGE = CURRENT_TIMESTAMP() '
+            . 'WHERE ID = ' . (int) $this->getId();
+        $banco = new c_banco();
+        $execConn = ($conn !== null) ? $conn : $banco->id_connection;
+        $banco->exec_sql($sql, $execConn);
+        $banco->close_connection();
+        $this->setSituacao($sitLocal);
+        $this->setUsrAprovacao($usrLocal);
+        return true;
+    }
+
+    /**
+     * Reserva estoque, recalcula total e dispara financeiro após confirmação ou aprovação.
+     *
+     * @return array{ok:bool,erro:string,res:mixed,gerouFinanceiro:bool}
+     */
+    public function pedidoPsFinalizarPosConfirmacao(int $situacaoDb, int $situacaoNova): array
+    {
+        $parametros = new c_banco();
+        $parametros->setTab('EST_PARAMETRO');
+        $controlaEstoque = $parametros->getField('CONTROLAESTOQUE', 'FILIAL=' . $this->m_empresacentrocusto);
+        $parametros->close_connection();
+        $precisaTransacaoReserva = in_array((int) $situacaoNova, [6, 13], true)
+            && (int) $situacaoDb !== (int) $situacaoNova
+            && $controlaEstoque === 'S';
+        $res = true;
+
+        if ($precisaTransacaoReserva) {
+            $transaction = new c_banco();
+            $transaction->inicioTransacao($transaction->id_connection);
+            try {
+                $res = $this->alteraPedido($transaction->id_connection);
+                if (is_string($res)) {
+                    throw new Exception($res);
+                }
+                $msgReserva = $this->pedidoPsExecutarReservaEstoqueFarma($transaction->id_connection, $situacaoDb);
+                if ($msgReserva !== '') {
+                    throw new Exception($msgReserva);
+                }
+                $transaction->commit($transaction->id_connection);
+            } catch (Exception $e) {
+                $transaction->rollback($transaction->id_connection);
+                return ['ok' => false, 'erro' => $e->getMessage(), 'res' => null, 'gerouFinanceiro' => false];
+            }
+        } else {
+            $res = $this->alteraPedido();
+            if (is_string($res)) {
+                return ['ok' => false, 'erro' => $res, 'res' => $res, 'gerouFinanceiro' => false];
+            }
+        }
+
+        $totalPedidoCalc = $this->calculaImpostos();
+        if ($totalPedidoCalc !== null) {
+            $this->setValorTotal(round((float) $totalPedidoCalc, 2, PHP_ROUND_HALF_EVEN), true);
+        }
+        $result = $this->getValorTotal();
+        $this->updateField('TOTAL', $result, 'FAT_PEDIDO');
+        if ($this->getOs() != '0') {
+            $this->atualizaOsPedido();
+        }
+
+        $paramFat = new c_banco();
+        $paramFat->setTab('FAT_PARAMETRO');
+        $faturaPedido = $paramFat->getField('FATURAPEDIDO', 'FILIAL=' . $this->m_empresacentrocusto);
+        $paramFat->close_connection();
+
+        $disparaFinanceiro = in_array((int) $situacaoNova, [6, 13], true) && $faturaPedido === 'S';
+        if (!$disparaFinanceiro) {
+            $cond_pagamento = $this->getCondPgto();
+            $busca_cond_pgto = new c_banco();
+            $busca_cond_pgto->setTab('FAT_COND_PGTO');
+            $array_cond_pgto = $busca_cond_pgto->getRecord('ID=' . $cond_pagamento);
+            $busca_cond_pgto->close_connection();
+            $situacao_lcto = isset($array_cond_pgto[0]['SITUACAOLCTO']) ? $array_cond_pgto[0]['SITUACAOLCTO'] : '';
+            $disparaFinanceiro = ($situacao_lcto == 'E');
+        }
+
+        if ($disparaFinanceiro) {
+            $objContaBloq = new c_conta();
+            if (strtoupper((string) $objContaBloq->contaBloqueada((int) $this->getCliente())) === 'S') {
+                return [
+                    'ok' => false,
+                    'erro' => 'Cliente bloqueado. Verifique com o financeiro.',
+                    'res' => $res,
+                    'gerouFinanceiro' => false,
+                ];
+            }
+            $dir = dirname(__FILE__);
+            require_once($dir . '/../../forms/ped/p_pedido_venda_nf_pecas_novo.php');
+            $objeto_pedido_nf_pecas_novo = new p_pedido_venda_nf_pecas_novo($this->getId(), 'financeiro');
+            $objeto_pedido_nf_pecas_novo->t_origem = 'pedido_ps';
+            $objeto_pedido_nf_pecas_novo->controle();
+            return ['ok' => true, 'erro' => '', 'res' => $res, 'gerouFinanceiro' => true];
+        }
+
+        return ['ok' => true, 'erro' => '', 'res' => $res, 'gerouFinanceiro' => false];
+    }
+
+    /**
+     * Valida estoque para encomenda / confirmação (ajax e ferramentas do Pedido PS).
+     * Respeita FAT_PARAMETRO.ENCOMENDA na mensagem quando há falta parcial.
+     *
+     * @return array{ok:bool,estoqueOk:bool,temFinanceiro:bool,encomendaAtiva:bool,titulo:string,mensagem:string,itens:array}
+     */
+    public function validarEncomendaPedido(int $idPedido, int $ccEntrega): array
+    {
+        $idAnterior = $this->getId();
+        $this->setId($idPedido);
+
+        $est = new c_produto_estoque();
+        $itens = [];
+        $estoqueOk = true;
+
+        foreach ((array) $this->select_pedido_item_id() as $row) {
+            if (isset($row['MOTIVO']) && (int) $row['MOTIVO'] === 8) {
+                continue;
+            }
+
+            $cod = $row['ITEMESTOQUE'];
+            $solicitado = (float) ($row['QTSOLICITADA'] ?? 0);
+            $atendida = (float) ($row['QTATENDIDA'] ?? 0);
+            $pendente = max(0, $solicitado - $atendida);
+            $uniFrac = strtoupper((string) ($row['UNIFRACIONADA'] ?? $row['unifracionada'] ?? 'N'));
+            $dados = $this->pedidoPsDadosEstoqueItem($est, $cod, $ccEntrega, $uniFrac);
+            $r = $est->produtoQtdeCC($cod, $ccEntrega)[0] ?? [];
+            $disponivel = $dados['disponivel'];
+            $qtdFalta = max(0, $pendente - $disponivel);
+            $itemOk = ($pendente <= $disponivel);
+            $qtdReservar = $dados['controlePeca'] ? min($pendente, $disponivel) : 0;
+
+            if (!$itemOk) {
+                $estoqueOk = false;
+            }
+
+            $itens[] = [
+                'codigo' => $cod,
+                'descricao' => $row['DESCRICAO'] ?? '',
+                'solicitado' => $solicitado,
+                'disponivel' => $disponivel,
+                'qtdFalta' => $qtdFalta,
+                'reservar' => $qtdReservar,
+                'estoque' => (float) ($r['ESTOQUE'] ?? 0),
+                'reserva' => (float) ($r['RESERVA'] ?? 0),
+                'peca' => $dados['controlePeca'],
+                'ok' => $itemOk,
+            ];
+        }
+
+        if ($idAnterior !== null && $idAnterior !== '') {
+            $this->setId($idAnterior);
+        }
+
+        $encomendaAtiva = strtoupper((string) ($this->getFatParametrosFilial()['encomenda'] ?? 'N')) === 'S';
+        $temFinanceiro = (new c_produto())->select_lancamento($idPedido) !== null;
+
+        if ($estoqueOk) {
+            $titulo = 'Estoque disponível';
+            $mensagem = 'Todos os itens têm saldo suficiente. Pode confirmar como pedido.';
+        } elseif ($encomendaAtiva) {
+            $titulo = 'Estoque parcial — encomenda';
+            $mensagem = 'A <strong>quantidade disponível</strong> será reservada para este pedido. '
+                . 'Apenas a <strong>quantidade em falta</strong> entra em encomenda. Após entrada de NF, valide o pedido '
+                . 'ou consulte o relatório de compra por encomenda.';
+        } else {
+            $titulo = 'Estoque insuficiente';
+            $mensagem = 'Não há saldo suficiente para confirmar o pedido. '
+                . 'Ajuste as quantidades ou aguarde entrada de estoque.';
+        }
+
+        if (!$temFinanceiro) {
+            $mensagem .= ' O pedido ainda não possui financeiro (ORIGEM PED) — necessário para a liberação definitiva.';
+        }
+
+        return [
+            'ok' => $estoqueOk,
+            'estoqueOk' => $estoqueOk,
+            'temFinanceiro' => $temFinanceiro,
+            'encomendaAtiva' => $encomendaAtiva,
+            'titulo' => $titulo,
+            'mensagem' => $mensagem,
+            'itens' => $itens,
+        ];
+    }
+
+    /**
+     * Valida estoque do Pedido PS (contábil + peças físicas em EST_PRODUTO_ESTOQUE).
+     *
+     * @return string|null mensagem de inconsistência ou null se OK
+     */
+    public function validaEstoquePedidoPs(int $idPedido, int $cce): ?string
+    {
+        $paramEst = new c_banco();
+        $paramEst->setTab('EST_PARAMETRO');
+        $controla = $paramEst->getField('CONTROLAESTOQUE', 'FILIAL=' . $this->m_empresacentrocusto);
+        $paramEst->close_connection();
+        if ($controla !== 'S') {
+            return null;
+        }
+
+        $idAnterior = $this->getId();
+        $this->setId($idPedido);
+        $est = new c_produto_estoque();
+        $msg = null;
+
+        foreach ((array) $this->select_pedido_item_id() as $row) {
+            if (isset($row['MOTIVO']) && (int) $row['MOTIVO'] === 8) {
+                continue;
+            }
+
+            $cod = $row['ITEMESTOQUE'] ?? '';
+            if ($cod === '') {
+                continue;
+            }
+
+            $uniFrac = strtoupper((string) ($row['UNIFRACIONADA'] ?? $row['unifracionada'] ?? 'N'));
+            $dados = $this->pedidoPsDadosEstoqueItem($est, $cod, $cce, $uniFrac);
+            $solicitado = (float) ($row['QTSOLICITADA'] ?? 0);
+            $pendente = max(0, $solicitado - (float) ($row['QTATENDIDA'] ?? 0));
+            $contabil = $dados['disponivelContabil'];
+            $disponivel = $dados['disponivel'];
+
+            if ($pendente > $disponivel) {
+                $msg .= 'Item ' . $cod . ' -> ' . ($row['DESCRICAO'] ?? '')
+                    . ' com quantidade indisponível — pendente: ' . $pendente
+                    . ', disponível: ' . $disponivel
+                    . ' (estoque: ' . $contabil . ', reserva: ' . ($dados['reservaContabil'] ?? 0);
+                if ($dados['controlePeca'] && $dados['disponivelFisico'] !== null) {
+                    $msg .= ', peças físicas: ' . $dados['disponivelFisico'];
+                }
+                $msg .= ')<BR>';
+            }
+        }
+
+        if ($idAnterior !== null && $idAnterior !== '') {
+            $this->setId($idAnterior);
+        }
+
+        return ($msg === null || $msg === '') ? null : $msg;
+    }
+
+    /**
+     * Saldo do item no CC de entrega: contábil (produtoQtdeCC) e, para peça com controle, limitado às unidades físicas livres.
+     *
+     * @return array{controlePeca:bool,disponivel:float,disponivelContabil:float,disponivelFisico:?int,reservaContabil:float}
+     */
+    private function pedidoPsDadosEstoqueItem(c_produto_estoque $est, $cod, int $cce, $unifracionada = 'N'): array
+    {
+        $row = $est->produtoQtdeCC($cod, (string) $cce)[0] ?? [];
+        $contabil = max(0, (float) ($row['DISPONIVEL'] ?? 0));
+        $reserva = (float) ($row['RESERVA'] ?? 0);
+        $controlePeca = strtoupper((string) $unifracionada) !== 'S';
+        $disponivel = $contabil;
+        $fisico = null;
+
+        if ($controlePeca) {
+            $paramEst = new c_banco();
+            $paramEst->setTab('EST_PARAMETRO');
+            $controla = $paramEst->getField('CONTROLAESTOQUE', 'FILIAL=' . $cce);
+            $paramEst->close_connection();
+
+            if ($controla === 'S') {
+                $banco = new c_banco();
+                $sql = 'SELECT COUNT(*) AS QTD FROM EST_PRODUTO_ESTOQUE '
+                    . 'WHERE centrocusto = ' . $cce . " AND codproduto = '" . $cod . "' AND status = 0";
+                $banco->exec_sql($sql);
+                $banco->close_connection();
+                $fisico = (int) ($banco->resultado[0]['QTD'] ?? 0);
+                // Peça controlada: saldo operacional = unidades físicas livres (alinhado à reserva PS).
+                // Se contábil estiver zerado/defasado, não bloqueia quando há peça livre no depósito.
+                $disponivel = $fisico;
+                if ($contabil > 0) {
+                    $disponivel = min($contabil, $fisico);
+                }
+            }
+        }
+
+        return [
+            'controlePeca' => $controlePeca,
+            'disponivel' => $disponivel,
+            'disponivelContabil' => $contabil,
+            'disponivelFisico' => $fisico,
+            'reservaContabil' => $reserva,
+        ];
+    }
+
+    /**
+     * Reserva estoque do pedido PS na transação: zera reserva anterior do pedido, aplica UNIFRACIONADA N, confere quantidade.
+     *
+     * @param resource $conn mysqli
+     * @return string vazio se OK ou mensagem curta de erro
+     */
+    public function pedidoPsExecutarReservaEstoqueFarma($conn, $situacaoDb = 0)
+    {
+        $cce = (int) ($this->getCentroCustoEntrega() ?: $this->m_empresacentrocusto);
+        $idPedido = (int) $this->getId();
+        $parcial = ((int) $this->getSituacao() === 13);
+
+        if ((int) $situacaoDb !== 13) {
+            c_produto_estoque::liberaReservaPedido($cce, $idPedido, $conn);
+            $bancoZera = new c_banco();
+            $bancoZera->exec_sql('UPDATE FAT_PEDIDO_ITEM SET QTATENDIDA = 0 WHERE ID = ' . $idPedido, $conn);
+            $bancoZera->close_connection();
+        }
+
+        $est = new c_produto_estoque();
+        $qtAtendidaPorItem = [];
+        $reiniciaAtendida = ((int) $situacaoDb !== 13);
+
+        foreach ((array) $this->select_pedido_item_id() as $row) {
+            if (isset($row['MOTIVO']) && (int) $row['MOTIVO'] === 8) {
+                continue;
+            }
+
+            $cod = $row['ITEMESTOQUE'] ?? $row['itemestoque'] ?? '';
+            if ($cod === '') {
+                continue;
+            }
+
+            $nritem = (int) ($row['NRITEM'] ?? 0);
+            $uniFrac = strtoupper((string) ($row['UNIFRACIONADA'] ?? $row['unifracionada'] ?? 'N'));
+            $dadosEstoque = $this->pedidoPsDadosEstoqueItem($est, $cod, $cce, $uniFrac);
+            $ped = (float) ($row['QTSOLICITADA'] ?? $row['qtsolicitada'] ?? 0);
+            $atendida = $reiniciaAtendida ? 0 : (float) ($row['QTATENDIDA'] ?? 0);
+            $pendente = max(0, $ped - $atendida);
+
+            if (!$dadosEstoque['controlePeca']) {
+                if (!$parcial && $pendente > $dadosEstoque['disponivel']) {
+                    return $cod . ': pendente ' . $pendente . ', disponível ' . $dadosEstoque['disponivel'] . '.';
+                }
+                $qtAtendidaPorItem[$nritem] = $atendida;
+                continue;
+            }
+
+            $qtdReservar = (int) min($pendente, $dadosEstoque['disponivel']);
+            if ($qtdReservar > 0) {
+                $est->produtoReserva($cce, 'PED', $idPedido, $cod, $qtdReservar, $conn);
+            }
+
+            $novaAtendida = $atendida + $qtdReservar;
+            $qtAtendidaPorItem[$nritem] = $novaAtendida;
+
+            if ($novaAtendida > $atendida) {
+                $sqlUpd = 'UPDATE FAT_PEDIDO_ITEM SET QTATENDIDA = ' . $novaAtendida
+                    . ' WHERE ID = ' . $idPedido . ' AND NRITEM = ' . $nritem;
+                $bancoUpd = new c_banco();
+                $bancoUpd->exec_sql($sqlUpd, $conn);
+                $bancoUpd->close_connection();
+            }
+
+            if (!$parcial && $qtdReservar < $pendente) {
+                return $cod . ': pendente ' . $pendente . ', disponível ' . $dadosEstoque['disponivel'] . '.';
+            }
+        }
+
+        foreach ((array) $this->select_pedido_item_id() as $item) {
+            if (isset($item['MOTIVO']) && (int) $item['MOTIVO'] === 8) {
+                continue;
+            }
+
+            $cod = $item['ITEMESTOQUE'] ?? $item['itemestoque'] ?? '';
+            if ($cod === '') {
+                continue;
+            }
+
+            $nritem = (int) ($item['NRITEM'] ?? 0);
+            $uniFrac = strtoupper((string) ($item['UNIFRACIONADA'] ?? $item['unifracionada'] ?? 'N'));
+            $dadosEstoque = $this->pedidoPsDadosEstoqueItem($est, $cod, $cce, $uniFrac);
+            $ped = (float) ($item['QTSOLICITADA'] ?? $item['qtsolicitada'] ?? 0);
+            $atendida = (float) ($qtAtendidaPorItem[$nritem] ?? $item['QTATENDIDA'] ?? 0);
+            $pendente = max(0, $ped - $atendida);
+
+            if (!$dadosEstoque['controlePeca']) {
+                if (!$parcial && $pendente > $dadosEstoque['disponivel']) {
+                    return $cod . ': pendente ' . $pendente . ', disponível ' . $dadosEstoque['disponivel'] . '.';
+                }
+                continue;
+            }
+
+            $qtdPeca = (int) $atendida;
+            if ($qtdPeca <= 0) {
+                continue;
+            }
+
+            $res = c_produto_estoque::verify_itemns_order_product($idPedido, $cod, 1, $conn);
+            $ok = is_array($res) ? count($res) : 0;
+            if ($ok < $qtdPeca) {
+                return $cod . ': reservado ' . $qtdPeca . ', disponível ' . $ok . '.';
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Cancelamento: devolve ao estoque disponível reservas e baixas financeiras sem NF.
+     *
+     * @param resource|null $conn mysqli
+     * @return string vazio se OK
+     */
+    public function pedidoPsLiberarEstoqueCancelamento($conn = null)
+    {
+        $p = new c_banco();
+        $p->setTab("EST_PARAMETRO");
+        $ctrl = $p->getField("CONTROLAESTOQUE", "FILIAL=" . $this->m_empresacentrocusto);
+        $p->close_connection();
+        if ($ctrl !== 'S') {
+            return '';
+        }
+
+        c_produto_estoque::liberaEstoquePedidoCancelamento(
+            $this->m_empresacentrocusto,
+            (int) $this->getId(),
+            $conn
+        );
+
+        return '';
+    }
+
+    /**
+     * NF do pedido com parcela/lançamento financeiro baixado (SITPGTO = 'B').
+     * Usado para não permitir Baixado (9) → Emitir NF (3) quando o faturamento já foi quitado.
+     *
+     * @param int $idPedido
+     * @return bool
+     */
+    public function pedidoPossuiNotaComFinanceiroBaixado($idPedido)
+    {
+        $idPedido = (int) $idPedido;
+        if ($idPedido <= 0) {
+            return false;
+        }
+        // NF do pedido com financeiro quitado: vínculo por NUMLCTO (PED) ou ORIGEM NFE/NFC na NF.
+        $sql = "
+            SELECT 1
+            FROM EST_NOTA_FISCAL n
+            WHERE n.DOC = {$idPedido}
+              AND n.ORIGEM = 'PED'
+              AND EXISTS (
+                SELECT 1
+                FROM FIN_LANCAMENTO f
+                WHERE f.SITPGTO = 'B'
+                  AND (
+                    (f.ORIGEM = 'PED' AND f.NUMLCTO = {$idPedido})
+                    OR (
+                        f.ORIGEM IN ('NFE', 'NFC')
+                        AND (
+                            f.NUMLCTO = n.ID
+                            OR f.DOCTO = n.NUMERO
+                            OR f.DOCTO = CAST(n.ID AS CHAR)
+                        )
+                    )
+                  )
+              )
+            LIMIT 1
+        ";
+
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+
+        return !empty($banco->resultado);
+    }
+
+    /**
+     * Verifica se o pedido tem nota fiscal ou financeiro baixado relacionado.
+     * @param int $idPedido
+     * @return bool true se não tem bloqueio, false se tem bloqueio
+     */
+    public function verificaFinanceiroNota($idPedido)
+    {
+        $idPedido = (int) $idPedido;
+        if ($idPedido <= 0) {
+            return true;
+        }
+
+        $sql = "
+            SELECT 1
+            FROM EST_NOTA_FISCAL n
+            WHERE n.DOC = {$idPedido}
+              AND n.ORIGEM = 'PED'
+
+            UNION
+
+            SELECT 1
+            FROM FIN_LANCAMENTO f
+            WHERE f.ORIGEM = 'PED'
+              AND f.NUMLCTO = {$idPedido}
+              AND f.SITPGTO = 'B'
+
+            UNION
+
+            SELECT 1
+            FROM FIN_LANCAMENTO f
+            INNER JOIN EST_NOTA_FISCAL n
+                ON n.DOC = {$idPedido}
+               AND n.ORIGEM = 'PED'
+            WHERE f.SITPGTO = 'B'
+              AND f.ORIGEM IN ('NFE', 'NFC')
+              AND (
+                    f.NUMLCTO = n.ID
+                 OR f.DOCTO = n.NUMERO
+                 OR f.DOCTO = CAST(n.ID AS CHAR)
+              )
+        ";
+
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        $temBloqueio = $banco->resultado;
+
+        return empty($temBloqueio);
+    }
 } //END OF THE CLASS

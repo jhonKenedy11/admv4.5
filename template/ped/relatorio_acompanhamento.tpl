@@ -472,14 +472,22 @@
                                     {assign var="total_contratado" value=0}
                                     {assign var="total_executado" value=0}
                                     {assign var="total_valor" value=0}
+                                    {assign var="servicos_ja_somados" value=[]}
 
                                     {foreach $lanc as $servico}
-                                          {assign var="saldo" value=$servico.QUANTIDADE - $servico.QUANTIDADE_EXECUTADA}
-                                          {assign var="percentual" value=($servico.QUANTIDADE_EXECUTADA * 100) / $servico.QUANTIDADE_CONTRATADA}
-                                          {* Cálculo igual ao relatório de medição: QUANTIDADE_EXECUTADA * VALUNITARIO *}
+                                          {assign var="saldo" value=$servico.QUANTIDADE_CONTRATADA - $servico.QUANTIDADE_EXECUTADA}
+                                          {* Cálculo do percentual com proteção contra divisão por zero *}
+                                          {if $servico.QUANTIDADE_CONTRATADA > 0}
+                                                {assign var="percentual" value=($servico.QUANTIDADE_EXECUTADA * 100) / $servico.QUANTIDADE_CONTRATADA}
+                                          {else}
+                                                {assign var="percentual" value=0}
+                                          {/if}
                                           {assign var="valor_total_item" value=$servico.QUANTIDADE_EXECUTADA * $servico.VALUNITARIO}
-
-                                          {assign var="total_contratado" value=$total_contratado + $servico.QUANTIDADE}
+                                          {* Soma quantidade contratada apenas uma vez por serviço único do pedido (usando FAT_PEDIDO_SERVICO_ID) *}
+                                          {if $servico.FAT_PEDIDO_SERVICO_ID && !in_array($servico.FAT_PEDIDO_SERVICO_ID, $servicos_ja_somados)}
+                                                {assign var="total_contratado" value=$total_contratado + $servico.QUANTIDADE_CONTRATADA}
+                                                {assign var="servicos_ja_somados" value=$servicos_ja_somados|@array_merge:[$servico.FAT_PEDIDO_SERVICO_ID]}
+                                          {/if}
                                           {assign var="total_executado" value=$total_executado + $servico.QUANTIDADE_EXECUTADA}
                                           {assign var="total_valor" value=$total_valor + $valor_total_item}
 
@@ -504,7 +512,7 @@
                                           <div class="div-table-cell" style="text-align: right;"><strong>{$total_contratado|number_format:2:",":"."}</strong></div>
                                           <div class="div-table-cell" style="text-align: right;"><strong>{$total_executado|number_format:2:",":"."}</strong></div>
                                           <div class="div-table-cell" style="text-align: right;"><strong>{($total_contratado - $total_executado)|number_format:2:",":"."}</strong></div>
-                                          <div class="div-table-cell" style="text-align: right;"><strong>{($total_executado * 100 / $total_contratado)|number_format:1:",":"."}%</strong></div>
+                                          <div class="div-table-cell" style="text-align: right;"><strong>{if $total_contratado > 0}{($total_executado * 100 / $total_contratado)|number_format:1:",":"."}%{else}0,0%{/if}</strong></div>
                                           <div class="div-table-cell" style="text-align: right;"><strong></strong></div>
                                           <div class="div-table-cell" style="text-align: right;"><strong>R$ {$total_valor|number_format:2:",":"."}</strong></div>
                                     </div>
@@ -519,19 +527,23 @@
                         <h2>Resumo Financeiro</h2>
                         <div class="table-responsive">
                               <div class="div-table">
-                                    {* Calcular valor total se todos os serviços fossem executados 100% *}
                                     {assign var="valor_total_servicos" value=0}
+                                    {assign var="servicos_valor_ja_somados" value=[]}
                                     {foreach $lanc as $servico}
-                                          {assign var="valor_total_servico" value=$servico.QUANTIDADE * $servico.VALUNITARIO}
-                                          {assign var="valor_total_servicos" value=$valor_total_servicos + $valor_total_servico}
+                                          {if $servico.FAT_PEDIDO_SERVICO_ID && !in_array($servico.FAT_PEDIDO_SERVICO_ID, $servicos_valor_ja_somados)}
+                                                {assign var="valor_total_servico" value=$servico.QUANTIDADE_CONTRATADA * $servico.VALUNITARIO}
+                                                {assign var="valor_total_servicos" value=$valor_total_servicos + $valor_total_servico}
+                                                {assign var="servicos_valor_ja_somados" value=$servicos_valor_ja_somados|@array_merge:[$servico.FAT_PEDIDO_SERVICO_ID]}
+                                          {/if}
                                     {/foreach}
                                     
-                                    {* Valor executado é o total calculado na tabela de serviços executados *}
                                     {assign var="valor_executado" value=$total_valor}
-                                    {* Saldo a executar é a diferença entre total dos serviços e executado *}
                                     {assign var="saldo_executar" value=$valor_total_servicos - $valor_executado}
-                                    {* Percentual executado igual ao da tabela de serviços executados *}
-                                    {assign var="percentual_execucao" value=($total_executado * 100) / $total_contratado}
+                                    {if $total_contratado > 0}
+                                          {assign var="percentual_execucao" value=($total_executado * 100) / $total_contratado}
+                                    {else}
+                                          {assign var="percentual_execucao" value=0}
+                                    {/if}
                                     
                                     <div class="div-table-row total-row">
                                           <div class="div-table-cell" style="width: 70%">Valor Total dos Serviços:</div>

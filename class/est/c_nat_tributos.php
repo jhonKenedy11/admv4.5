@@ -426,7 +426,7 @@ public function selectTributos(){
    	$sql .= "FROM est_nat_op_tributo T ";
    	$sql .= "INNER JOIN est_nat_op N ON (N.ID=T.IDNATOP) ";
     $sql .= "inner join amb_ddm d on ((N.tipo=d.tipo) and (d.alias='FAT_MENU') and (d.campo='TipoNatOp')) ";
-   	$sql .= "WHERE (T.IDNATOP = ".$this->getIdNatop().") and (CENTROCUSTO = ".$this->m_empresacentrocusto.") ";
+   	$sql .= "WHERE (T.IDNATOP = ".$this->getIdNatop().") and (T.CENTROCUSTO = '".$this->m_empresacentrocusto."') ";
    	$sql .= "ORDER BY UF,PESSOA,ORIGEM,TRIBICMS";
    
    	//echo $sql;
@@ -532,6 +532,7 @@ public function alteraTributos(){
     $sql .= "CFOP          = '".$this->getCfop()."', ";
     $sql .= "ORIGEM        = '".$this->getOrigem()."', ";
     $sql .= "NCM           = '".$this->getNcm()."', ";
+    $sql .= "CEST          = '".$this->getCest()."', ";
     $sql .= "MODBC         = '".$this->getModBc()."', ";
     $sql .= "MODBCST       = '".$this->getModBcSt()."', ";
     $sql .= "MVAST         = ".$this->getMvaSt('B').", ";
@@ -678,6 +679,24 @@ public function alteraTributosGeral($where){
 	}
 
 }  
+
+
+public function getEstNatOp($id){
+
+    $banco = new c_banco_pdo();
+
+    $banco->prepare("SELECT IR, IR_PERCENTUAL FROM EST_NAT_OP WHERE ID = :id");
+
+    $banco->bindValue(":id", $id, PDO::PARAM_INT);
+
+    $banco->execute();
+
+    if($banco->rowCount() > 0) {
+        return $banco->fetch();
+    } else {
+        return null;
+    }
+}
 
 }	//	END OF THE CLASS
 ?>

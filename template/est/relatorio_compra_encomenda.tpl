@@ -28,38 +28,46 @@
                               <section class="content invoice">
                                     <div class="row small">
                                           <div class="col-xs-12 table">
-                                                <table class="table table-striped" >
-                                                      <thead>
-                                                            <tr>
-                                                                  <th></th>
-                                                                  <th>C&Oacute;DIGO</th>
-                                                                  <th>DESCRI&Ccedil;&Atilde;O</th>
-                                                                  <th>GRUPO</th>
-                                                                  <th>ESTOQUE</th>
-                                                                  <th>RESERVA</th>
-                                                                  <th>ENCOMENDA</th>
-                                                                  <th>COMPRA</th>
-                                                            </tr>
-                                                      </thead>
-                                                      <tbody>
-                                                            {section name=i loop=$pedido}                                                    
+                                                {foreach $pedidos as $ped}
+                                                <div class="pedido-bloco" style="margin-bottom:15px;border:1px solid #ccc;">
+                                                      <div class="pedido-cabecalho" style="background:#2a3f54;color:#fff;padding:6px 10px;font-weight:bold;">
+                                                            Pedido {$ped.PEDIDO} &mdash; {$ped.CLIENTE}
+                                                            {if $ped.PRAZOENTREGA neq ''} | Prazo: {$ped.PRAZOENTREGA}{/if}
+                                                      </div>
+                                                      <table class="table table-striped" style="margin-bottom:0;">
+                                                            <thead>
                                                                   <tr>
-                                                                        <td> {$pedido[i].NRITEM}&ensp;- </td>
-                                                                        <td> {$pedido[i].CODIGO} </td>
-                                                                        <td> {$pedido[i].DESCRICAO} </td>
-                                                                        <td> {$pedido[i].NOMEGRUPO} </td>
-                                                                        <td> {$pedido[i].ESTOQUE|number_format:2:",":"."}</td>
-                                                                        <td> {$pedido[i].RESERVA|number_format:2:",":"."}</td>
-                                                                        <td> {$pedido[i].ENCOMENDA|number_format:2:",":"."}</td>
-                                                                        <td> {$pedido[i].COMPRA|number_format:2:",":"."}</td>
-                                                                        
-                                                                  </tr >                                                           
-                                                                  <p>                                                                    
-                                                            {/section} 
-                                                            
-                                                      </tbody>
-                                                </table>
-                                                
+                                                                        <th></th>
+                                                                        <th>C&Oacute;DIGO</th>
+                                                                        <th>DESCRI&Ccedil;&Atilde;O</th>
+                                                                        <th>GRUPO</th>
+                                                                        <th>SOLIC.</th>
+                                                                        <th>DISP.</th>
+                                                                        <th>FALTA</th>
+                                                                  </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                  {foreach $ped.ITENS as $item}
+                                                                  <tr>
+                                                                        <td>{$item.NRITEM}</td>
+                                                                        <td>{$item.CODIGO}</td>
+                                                                        <td>{$item.DESCRICAO}</td>
+                                                                        <td>{$item.NOMEGRUPO}</td>
+                                                                        <td>{$item.QTSOLICITADA|number_format:2:",":"."}</td>
+                                                                        <td>{$item.DISPONIVEL|number_format:2:",":"."}</td>
+                                                                        <td>{$item.QTD_FALTA|number_format:2:",":"."}</td>
+                                                                  </tr>
+                                                                  {/foreach}
+                                                                  <tr style="font-weight:bold;background:#f5f5f5;">
+                                                                        <td colspan="6" style="text-align:right;">Total em falta</td>
+                                                                        <td>{$ped.TOTAL_FALTA|number_format:2:",":"."}</td>
+                                                                  </tr>
+                                                            </tbody>
+                                                      </table>
+                                                </div>
+                                                {foreachelse}
+                                                <p>Nenhum registro localizado.</p>
+                                                {/foreach}
                                           </div>
                                     </div>
                               </section>

@@ -3,20 +3,31 @@ function submitConfirmar() {
     f.mod.value = 'est';
     f.form.value = 'grupo';
     if (f.descricao.value.trim() === "") {
-        alert('Digite a descrição do grupo.');
+        swal.fire({
+            title: 'Atenção',
+            text: 'Digite a descrição do Grupo.',
+            icon: 'warning',
+            timer: 1500
+        });
         f.descricao.focus();
-        return;
     }
-    if (confirm('Deseja realmente ' + f.submenu.value + ' este item') == true) {
-        if (f.submenu.value == "cadastrar") {
-            f.submenu.value = 'inclui';
-        } else {
-            f.submenu.value = 'altera';
+    swal.fire({
+        title: 'Atenção',
+        text: 'Deseja realmente ' + f.submenu.value + ' este Grupo',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, confirmar!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            if (f.submenu.value == "cadastrar") {
+                f.submenu.value = 'inclui';
+            } else {
+                f.submenu.value = 'altera';
+            }
+            f.submit();
         }
-        f.submit();
-    } //  
-    
-
+    });
 } // submitConfirmar
 
 function submitVoltar() {
@@ -39,21 +50,41 @@ function submitCadastro(grupo, nivel) {
 } // submitCadastro
 
 function submitAlterar(grupo_id) {
-    f = document.lancamento;
-    f.mod.value = 'est';
-    f.form.value = 'grupo';
-    f.submenu.value = 'alterar';
-    f.id.value = grupo_id;
-    f.submit();
+    swal.fire({
+        title: 'Atenção',
+        text: 'Deseja realmente alterar este Grupo',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, alterar!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.lancamento;
+            f.mod.value = 'est';
+            f.form.value = 'grupo';
+            f.submenu.value = 'alterar';
+            f.id.value = grupo_id;
+            f.submit();
+        }
+    });
 } // submitAlterar
 
 function submitExcluir(grupo_id) {
-    if (confirm('Deseja realmente Excluir este item') == true) {
+    swal.fire({
+        title: 'Atenção',
+        text: 'Deseja realmente excluir este Grupo',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
         f = document.lancamento;
         f.mod.value = 'est';
         f.form.value = 'grupo';
         f.submenu.value = 'exclui';
         f.id.value = grupo_id;
         f.submit();
-    } // if
+        }
+    });
 } // submitExcluir

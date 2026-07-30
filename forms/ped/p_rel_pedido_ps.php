@@ -151,18 +151,18 @@ Class p_rel_pedido_ps extends c_pedido_ps {
             $descCondPgto = $descPgto[0]['DESCRICAO'];
         endif;
         
-        if ($lanc[0]['SITUACAO'] == 9):
-            // Busca lancamentos FINANCEIRO
-            $fin = c_lancamento::select_lancamento_doc('PED', $lanc[0]['PEDIDO']);
-        else:
-        endif;
+        // Busca lançamentos financeiros do pedido (ORIGEM=PED, NUMLCTO=ID)
+        $parcelasRel = c_lancamento::select_parcelas_pedido_relatorio($lanc[0]['ID']);
+
         $this->smarty->assign('prazoEntrega', $lanc[0]['PRAZOENTREGA']);
         $this->smarty->assign('descCondPgto', $descCondPgto);
         $this->smarty->assign('empresa', $empresa);
         $this->smarty->assign('pedido', $lanc);
         $this->smarty->assign('pedidoItem', $lancItem);
         $this->smarty->assign('pedidoServicos', $lancServicos);
-        $this->smarty->assign('fin', $fin);
+        $this->smarty->assign('fin', $parcelasRel['fin']);
+        $this->smarty->assign('parcelas', $parcelasRel['parcelas']);
+        $this->smarty->assign('totalParc', $parcelasRel['totalParc']);
         $this->smarty->assign('m_empresa', $empresa[0]["NOMEFANTASIA"]);
 
         $this->smarty->display('relatorio_pedido_ps.tpl');

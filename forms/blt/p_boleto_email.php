@@ -161,12 +161,13 @@ Class p_boleto_email extends c_boleto {
      * @param string $numero_nota Número da nota fiscal
      * @param int $id_nota ID da nota fiscal no sistema
      * @param string $erro Mensagem de erro detalhada
+     * @param mixed $usuario Identificador do usuário responsável (opcional)
      * @return bool True se inseriu com sucesso, false caso contrário
      * @throws Exception Em caso de erro na inserção no banco
      * @author ADMSistema
      * @since 4.5
      */
-    private function registraLogErro($numero_nota, $id_nota, $erro) {
+    public static function registraLogErro($numero_nota, $id_nota, $erro, $usuario = null) {
         try {
             $pdo = new c_banco_pdo();
             
@@ -176,7 +177,7 @@ Class p_boleto_email extends c_boleto {
             $pdo->prepare($sql);
             $pdo->bindParam(':numero_nota', $numero_nota, PDO::PARAM_STR);
             $pdo->bindParam(':id_nota', $id_nota, PDO::PARAM_INT);
-            $pdo->bindParam(':usuario', $this->m_userid, PDO::PARAM_STR);
+            $pdo->bindParam(':usuario', $usuario, PDO::PARAM_STR);
             $pdo->bindParam(':erro', $erro, PDO::PARAM_STR);
             
             return $pdo->execute();
@@ -249,14 +250,32 @@ Class p_boleto_email extends c_boleto {
             
             // Verifica se o email do cliente está vazio
             if (empty($conta[0]['EMAILNFE'])) {
-                $this->registraLogErro($numero_nota_fiscal, $id_nota_fiscal, 'Email do cliente não encontrado');
-                return false;
+
+                $return = array(   
+                    'success' => false,
+                    'mensagem' => 'Erro no envio de email',
+                    'erro' => [ 'Email do cliente não encontrado, verifique o campo EMAIL NFE no cadastro de conta e clique em enviar novamente.' ]
+                );
+
+                // Registra log de erro
+                $this->registraLogErro($numero_nota_fiscal, $id_nota_fiscal, 'Email do cliente não encontrado', $this->m_userid);
+
+                return $return;
             }
 
             // Verifica se o email do cliente é válido
             if(!$this->validarEmail($conta[0]['EMAILNFE'])) {
-                $this->registraLogErro($numero_nota_fiscal, $id_nota_fiscal, 'Email do cliente inválido');
-                return false;
+
+                $return = array(   
+                    'success' => false,
+                    'mensagem' => 'Erro no envio de email',
+                    'erro' => [ 'Email do cliente inválido' ]
+                );
+
+                // Registra log de erro
+                $this->registraLogErro($numero_nota_fiscal, $id_nota_fiscal, 'Email do cliente inválido', $this->m_userid);
+
+                return $return;
             }
 
             // Busca dados da nota fiscal para obter informações necessárias
@@ -265,8 +284,15 @@ Class p_boleto_email extends c_boleto {
             $nota_fiscal = $obj_nota_fiscal->select_nota_fiscal();
             
             if (empty($nota_fiscal)) {
-                $this->registraLogErro($numero_nota_fiscal, $id_nota_fiscal, 'Nota fiscal não encontrada');
-                return false;
+                $this->registraLogErro($numero_nota_fiscal, $id_nota_fiscal, 'Nota fiscal não encontrada', $this->m_userid);
+
+                $return = array(   
+                    'success' => false,
+                    'mensagem' => 'Erro no envio de email',
+                    'erro' => [ 'Nota fiscal não encontrada' ]
+                );
+
+                return $return;
             }
             
             // Extrai dados da NFe
@@ -285,7 +311,9 @@ Class p_boleto_email extends c_boleto {
 
             // Monta diretórios dos arquivos
             $ambiente_situacao = ADMambDesc; // Padrão do sistema
-            $path              = $path = BASE_DIR_NFE_AMB;
+
+            define('BASE_DIR_NFE_AMB', ADMnfe . '/' . $this->m_empresaid . '/' . ADMambDesc);
+            $path =  BASE_DIR_NFE_AMB;
 
             //define('BASE_DIR_ENVIADA_APROVADAS', $path . DIRECTORY_SEPARATOR . 'enviadas' . DIRECTORY_SEPARATOR . 'aprovadas' . DIRECTORY_SEPARATOR . $ano_mes . DIRECTORY_SEPARATOR . $chave . $nf_extensao);
             //HOMOLOGACAO
@@ -430,52 +458,34 @@ Class p_boleto_email extends c_boleto {
                 unlink($path_boleto);
             }
 
-            if (strstr($result, 'não')){
+            if ($result['success'] == false){
 
-                $erro_msg = "";
-
-                if (strstr($result, 'access file') && strstr($result, 'xml')) {
-
-                    $erro_msg = "email XML/DANFE NÃO enviado - Arquivo XML não localizado.";
-
-                } else if (strstr($result, 'pdf')) {
-
-                    $erro_msg = "email XML/DANFE NÃO enviado - Arquivo PDF não localizado.";
-
-                } else if (strstr($result, 'Invalid address')  && strstr($result, '(From):')) {
-
-                    $erro_msg = "email XML/DANFE NÃO enviado - email Remetente " . $email . " inválido.";
-
-                } else if (strstr($result, 'not Authenticate')) {
-
-                    $erro_msg = "email XML/DANFE NÃO enviado - Email/Senha invalido.";
-
-                } else if (strstr($result, 'Invalid address')  && strstr($result, '(to):')) {
-
-                    $erro_msg = "email XML/DANFE NÃO enviado - email Destinatário " . $email . " inválido.";
-
-                } else {
-
-                    $erro_msg = "email XML/DANFE NÃO enviado - entre em contato com o suporte";
-                }
+                $mensagem = $result['message'];
                 
                 // Registra log de erro
-                $this->registraLogErro($numero_nota_fiscal, $id_nota_fiscal, $erro_msg . " - Detalhes: " . $result);
-                return $erro_msg;
+                $this->registraLogErro($numero_nota_fiscal, $id_nota_fiscal, $mensagem . " - Detalhes: " . $result, $this->m_userid);
+                return ['success' => false, 'mensagem' => $mensagem];
 
             } else {
 
-                $mensagem = "Email XML/DANFE enviado com sucesso!!!";
+                $mensagem = 'Email XML/DANFE enviado com sucesso!';
+
                 if ($temBoleto) {
-                    $mensagem = "Email XML/DANFE e Boletos enviados com sucesso!!!";
+                    $mensagem = 'Email XML/DANFE e Boletos enviados com sucesso!';
                 }
-                return $mensagem;
+
+                // Retorna mensagem de sucesso
+                return ['success' => true, 'mensagem' => $mensagem];
             }
 
         } catch (Exception $e) {
-            $erro_msg = 'Erro -> ' . $e->getMessage();
-            $this->registraLogErro($numero_nota_fiscal, $id_nota_fiscal, $erro_msg);
-            return $erro_msg;
+            $mensagem = 'Erro -> ' . $e->getMessage();
+
+            // Registra log de erro
+            $this->registraLogErro($numero_nota_fiscal, $id_nota_fiscal, $mensagem, $this->m_userid);
+
+            // Retorna mensagem de erro
+            return ['success' => false, 'mensagem' => $mensagem];
         }
     }
 

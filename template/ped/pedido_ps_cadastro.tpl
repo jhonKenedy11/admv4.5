@@ -103,11 +103,52 @@
     #obra {
         font-size: dpx;
     }
+
+    #spinnerPesquisa {
+        background-color: transparent;
+        border: none;
+        padding: 0 8px;
+    }
+
+    .spinner-rotate {
+        animation: spin 1s linear infinite;
+        display: inline-block;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .ajuda-flutuante-icon {
+        cursor: help;
+        margin-left: 4px;
+        font-size: 14px;
+        vertical-align: middle;
+    }
+
+    .ajuda-flutuante-tip {
+        display: none;
+        position: fixed;
+        z-index: 10050;
+        max-width: 360px;
+        padding: 8px 10px;
+        font-size: 12px;
+        line-height: 1.45;
+        font-weight: normal;
+        color: #fff;
+        background: rgba(51, 51, 51, 0.95);
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        pointer-events: none;
+    }
 </style>
 
 <script type="text/javascript" src="{$pathJs}/ped/s_pedido_ps.js"> </script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
+<script type="text/javascript" src="{$pathCleave}/cleave.min.js"></script>
+
 <!-- page content -->
 <div class="right_col" role="main" style="padding: 5px 2px 2px 2px;">
     <div class="">
@@ -119,7 +160,7 @@
             <input name=form type=hidden value="pedido_ps">
             <input name=submenu type=hidden value={$subMenu}>
             <div id="idAtendimento">
-                <input name=id type=hidden value={$id}>
+                <input name="id" id="pedidoPsId" type="hidden" value="{$id}">
             </div>
             <div id="divPesquisaProduto">
                 <input name=abrePesquisa type=hidden value={$abrePesquisa}>
@@ -139,6 +180,15 @@
             <input name=centroCusto type=hidden value={$centroCusto}>
             <input name=centroCustoEntrega type=hidden value={$centroCustoEntrega}>
             <input name=endereco_entrega type=hidden value={$endereco_entrega_id}>
+            <input name=metodo type=hidden value={$metodo}>
+            <input type="hidden" name="situacao" id="situacao" value="{$situacao}">
+            <input type="hidden" name="origem" value="{$origem}">
+            <input type="hidden" name="estoqueValidado" id="estoqueValidado" value="0">
+            <input type="hidden" id="encomendaAtivaFlag" value="{if $encomendaAtiva}1{else}0{/if}">
+            <input type="hidden" id="pedidoPsAprovacaoParam" value="{$aprovacaoParam}">
+            <input type="hidden" id="pedidoPsValidarDescontoGeral" value="{$validarDescontoGeral}">
+            <input type="hidden" id="pedidoPsDescontoMaximo" value="{$descontoMaximo}">
+            <input type="hidden" id="pedidoPsPerDesconto" value="{$perDesconto}">
 
             <div class="row">
                 <div class="col-md-12 col-sm-12 col-xs-12">
@@ -152,18 +202,75 @@
                                     {if $subMenu eq "cadastrar"}
                                         <h2>Cadastro</h2>
                                     {else}
-                                        <h2><i>Altera&ccedil;&atilde;o</i></h2>
+                                        <h2><i>Altera&ccedil;&atilde;o</i>
+                                        {if $id neq ''} -
+                                                <strong>{$id}</strong>
+                                        {elseif isset($lancPesq[0].ID)} -
+                                                <strong>{$lancPesq[0].ID}</strong>
+                                        {/if}</h2>
                                     {/if}
+                                    
                                 </div>
                             </div>
                             {include file="../bib/msg.tpl"}
                             <ul class="nav navbar-right panel_toolbox">
-                                <li><button type="button" class="btn btn-primary"
+                                {if $situacao != 10}
+                                <li><button type="button" class="btn btn-primary" id="btnConfirmarPedidoPs"
                                         onClick="javascript:submitConfirmarSmart('');">
                                         <span class="glyphicon glyphicon-floppy-disk" aria-hidden="true"></span><span>
                                             Confirmar</span></button>
                                 </li>
-                                <li><button type="button" class="btn btn-danger" onClick="javascript:submitVoltar('');">
+                                {if $id neq '' && $situacao == 5 && !$encomendaAtiva}
+                                <li><button type="button" class="btn btn-success" id="btnPedidoPs"
+                                        onClick="javascript:submitPedidoPs();">
+                                        <span class="glyphicon glyphicon-briefcase" aria-hidden="true"></span><span> Pedido</span></button>
+                                </li>
+                                {/if}
+                                {if $id neq '' && ($situacao == 5 || $situacao == 13) && $encomendaAtiva}
+                                <li><button type="button" class="btn btn-success" id="btnPedidoPsEncomenda"
+                                        onClick="javascript:submitConfirmarPedidoEncomendaPs();">
+                                        <span class="glyphicon glyphicon-briefcase" aria-hidden="true"></span><span> Pedido</span></button>
+                                </li>
+                                {/if}
+                                {/if}
+                                {if $id neq '' && $situacao == 6}
+                                <li><button type="button" class="btn btn-warning" id="btnEstornoPedidoPs"
+                                        onClick="javascript:submitEstornoCotacao();">
+                                        <span class="glyphicon glyphicon-share-alt" aria-hidden="true"></span><span> Estorno</span></button>
+                                </li>
+                                {/if}
+                                {if $id neq '' && $situacao == 13}
+                                <li><button type="button" class="btn btn-warning" id="btnVoltarCotacaoEncomendaPs"
+                                        onClick="javascript:submitVoltarCotacaoEncomendaPs();">
+                                        <span class="glyphicon glyphicon-share-alt" aria-hidden="true"></span><span> Voltar p/ Cotação</span></button>
+                                </li>
+                                {/if}
+                                {if $id neq '' && $situacao == 8}
+                                <li><button type="button" class="btn btn-success" id="btnReativarCotacaoPs"
+                                        onClick="javascript:submitReativarCotacaoPs();">
+                                        <span class="glyphicon glyphicon-repeat" aria-hidden="true"></span><span> Reativar Cotação</span></button>
+                                </li>
+                                {/if}
+                                {if $id neq '' && $situacao == 9}
+                                <li><button type="button" class="btn btn-info" id="btnVoltarEmitirNfPs"
+                                        onClick="javascript:submitVoltarEmitirNfPs();">
+                                        <span class="glyphicon glyphicon-share-alt" aria-hidden="true"></span><span> Voltar p/ Emitir NF</span></button>
+                                </li>
+                                {/if}
+                                {if $id neq '' && $situacao == 3}
+                                <li><button type="button" class="btn btn-warning" id="btnVoltarPedidoPs"
+                                        onClick="javascript:submitVoltarPedidoPs();">
+                                        <span class="glyphicon glyphicon-briefcase" aria-hidden="true"></span><span> Voltar p/ Pedido</span></button>
+                                </li>
+                                {/if}
+                                {if $id neq '' && $situacao == 3 && $origem eq 'cupomGerente'}
+                                <li><button type="button" class="btn btn-warning" id="btnVoltarCotacaoCupomGerentePs"
+                                        onClick="javascript:submitVoltarCotacaoCupomGerentePs();">
+                                        <span class="glyphicon glyphicon-share-alt" aria-hidden="true"></span><span> Voltar p/ Cotação</span></button>
+                                </li>
+                                {/if}
+                                <li><button type="button" class="btn btn-danger" onClick="javascript:submitVoltar('{$id}');">
+
                                         <span class="glyphicon glyphicon-backward" aria-hidden="true"></span><span>
                                             Voltar</span></button>
                                 </li>
@@ -178,6 +285,13 @@
                                                 class="btn btn-primary btn-xs btnRelatorios"
                                                 onClick="javascript:submitDuplicarPedido({$id});">
                                                 <span>Duplicar Pedido</span>
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button {if $id eq ''} disabled {/if} id="btnImprimirPedido" type="button"
+                                                class="btn btn-primary btn-xs btnRelatorios"
+                                                onClick="javascript:printRomaneio({$id});">
+                                                <span> Imprimir Pedido</span>
                                             </button>
                                         </li>
                                         <li>
@@ -200,6 +314,29 @@
                                                 <span> Estornar OS</span>
                                             </button>
                                         </li>
+                                         <li>
+                                            <button {if $id eq '' || $situacao == 9 || $situacao == 8} disabled {/if} id="btnBaixarPedidoPs" type="button"
+                                                class="btn btn-success btn-xs btnRelatorios"
+                                                onClick="javascript:submitBaixarPedidoPs();">
+                                                <span>Baixar Pedido</span>
+                                            </button>
+                                        </li>
+                                        {if $encomendaAtiva && $id neq '' && ($situacao == 5 || $situacao == 13)}
+                                        <li>
+                                            <button id="btnValidarEncomendaPs" type="button"
+                                                class="btn btn-info btn-xs btnRelatorios"
+                                                onClick="javascript:validarEncomendaPedidoPs();">
+                                                <span> Validar Estoque</span>
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button id="btnConfirmarPedidoEncomendaPs" type="button"
+                                                class="btn btn-success btn-xs btnRelatorios"
+                                                onClick="javascript:submitConfirmarPedidoEncomendaPs();">
+                                                <span> Confirmar como Pedido</span>
+                                            </button>
+                                        </li>
+                                        {/if}
                                         <li style="padding: 5px -15px;">
                                             
                                         </li>
@@ -215,18 +352,39 @@
                             <br />
 
                             <div class="form-group line-formated">
-                                <div class="col-md-6 col-sm-12 col-xs-12 line-formated">
-                                    <label for="conta">Cliente</label>
+                                <div id="div_nome_cliente_pedido_ps"
+                                    class="{if $pessoa neq '' && ($saldoCreditoCliente > 0 || $limiteCreditoCliente > 0 || $clienteBloqueado)}col-md-4{else}col-md-6{/if} col-sm-12 col-xs-12 line-formated">
+                                    <label for="conta">
+                                        Cliente
+                                        <span id="badge_cliente_bloqueado_ps" class="label label-danger"
+                                              {if $pessoa eq '' || !$clienteBloqueado}style="display:none;"{/if}>
+                                            Cliente bloqueado
+                                        </span>
+                                    </label>
                                     <div class="input-group line-formated">
                                         <input type="text" class="form-control input-sm" id="nome" name="nome"
                                             placeholder="Conta" required value="{$nome}" readonly>
                                         <span class="input-group-btn">
                                             <button type="button" class="btn btn-primary btn-sm"
-                                                onClick="javascript:abrir('{$pathCliente}/index.php?mod=crm&form=contas&opcao=pesquisar&origem=atendimento');">
+                                                onClick="javascript:abrir('{$pathCliente}/index.php?mod=crm&form=contas&opcao=pesquisar&origem=atendimento&from=lancamento');">
                                                 <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
                                             </button>
                                         </span>
                                     </div>
+                                </div>
+
+                                <div class="col-md-2 col-sm-6 col-xs-6 line-formated" id="div_saldo_credito_cliente"
+                                    {if $pessoa eq '' || $saldoCreditoCliente <= 0}style="display:none;"{/if}>
+                                    <label for="saldo_credito_cliente">Saldo crédito</label>
+                                    <input type="text" class="form-control input-sm" id="saldo_credito_cliente" readonly
+                                        value="R$ {$saldoCreditoClienteFmt}" title="Soma dos créditos (valor - utilizado)">
+                                </div>
+
+                                <div class="col-md-2 col-sm-6 col-xs-6 line-formated" id="div_limite_credito_cliente"
+                                    {if $pessoa eq '' || $limiteCreditoCliente <= 0}style="display:none;"{/if}>
+                                    <label for="saldo_limite_credito_cliente">Crédito disponível</label>
+                                    <input type="text" class="form-control input-sm" id="saldo_limite_credito_cliente" readonly
+                                        value="R$ {$saldoLimiteDisponivelFmt}" title="Limite R$ {$limiteCreditoClienteFmt} menos financeiro e outros pedidos em aberto">
                                 </div>
 
                                 <div class="col-md-3 col-sm-6 col-xs-6">
@@ -236,13 +394,43 @@
                                 </div>
 
 
-                                <div class="col-lg-3 col-sm-6 col-xs-6 text-left line-formated">
-                                    <label>Situação</label>
+                                <div class="col-lg-2 col-sm-6 col-xs-6 text-left line-formated">
+                                    <label>Documento fiscal
+                                        <span id="tooltipDocFiscal" class="glyphicon glyphicon-info-sign text-info ajuda-flutuante-icon"
+                                              title=""></span>
+                                    </label>
                                     <div class="panel panel-default small line-formated">
-                                        <select name="situacao" class="form-control input-sm">
-                                            {html_options values=$situacao_ids selected=$situacao output=$situacao_names}
+                                        <select id="tipoDocFiscal" name="tipoDocFiscal" class="input-sm form-control">
+                                            {html_options options=$tipoDocFiscal_options selected=$tipoDocFiscal}
                                         </select>
                                     </div>
+                                </div>
+                                <div class="col-lg-1 col-sm-6 col-xs-6 text-left line-formated">
+                                    <label>Situa&ccedil;&atilde;o</label>
+                                    <span class="form-control input-sm">
+                                        {if $situacao == 0}
+                                            <span>Digita&ccedil;&atilde;o</span>
+                                        {elseif $situacao == 3}
+                                            <span>Emitir NF</span>
+                                        {elseif $situacao == 5}
+                                            <span>Cota&ccedil;&atilde;o</span>
+                                        {elseif $situacao == 6}
+                                            <span>Pedido</span>
+                                        {elseif $situacao == 7}
+                                            <span class="label label-default" style="display:inline-block;padding:2px 6px;">Perdido</span>
+                                        {elseif $situacao == 8}
+                                            <span class="label label-danger" style="display:inline-block;padding:2px 6px;">Cancelado</span>
+                                        {elseif $situacao == 9}
+                                            <span>Pedido baixado</span>
+                                        {elseif $situacao == 10}
+                                            <span class="label label-warning" style="display:inline-block;padding:2px 6px;">Em aprova&ccedil;&atilde;o</span>
+                                        {elseif $situacao == 13}
+                                            <span class="label label-warning" style="display:inline-block;padding:2px 6px;">Encomenda</span>
+                                        {else}
+                                            <span>Situa&ccedil;&atilde;o {$situacao}</span>
+                                        {/if}
+                                    </span>
+                                </div>
                                 </div>
                             </div>
                             <div class="form-group line-formated">
@@ -263,22 +451,34 @@
                                 <div class="col-lg-2 col-sm-6 col-xs-6 text-left line-formated">
                                     <label>Vendedor</label>
                                     <div class="panel panel-default small line-formated">
-                                        {if $controleVendedor == 1 && $permiteAlterarVendedor == false}
-                                            <select name="usrAberturaDisabled" class="form-control input-sm" title="Atendente" alt="Atendente" disabled>
-                                                <option value="{$usrAbertura}" selected>{$usrAbertura_names[$usrAbertura]}</option>
-                                            </select>
-                                            <input type="hidden" name="usrAbertura" value="{$usrAbertura}">
-                                        {else}
-                                            <select name="usrAbertura" class="form-control input-sm" title="Atendente" alt="Atendente">
-                                                {html_options values=$usrAbertura_ids selected=$usrAbertura output=$usrAbertura_names}
-                                            </select>
-                                        {/if}
+                                    {if $controleVendedor == 1 && $permiteAlterarVendedor == false}
+                                        {assign var="usrAberturaIndex" value=0}
+                                        {section name=i loop=$usrAbertura_ids}
+                                            {if $usrAbertura_ids[i] == $usrAbertura}
+                                                {assign var="usrAberturaIndex" value=$smarty.section.i.index}
+                                            {/if}
+                                        {/section}
+                                        <select name="usrAberturaDisabled" class="form-control input-sm" title="Atendente" alt="Atendente" disabled>
+                                            <option value="{$usrAbertura}" selected>{$usrAbertura_names[$usrAberturaIndex]}</option>
+                                        </select>
+                                        <input type="hidden" name="usrAbertura" value="{$usrAbertura}">
+                                    {else}
+                                        <select name="usrAbertura" class="form-control input-sm" title="Atendente" alt="Atendente">
+                                            {section name=i loop=$usrAbertura_ids}
+                                                {if $usrAbertura_ids[i] == $usrAbertura}
+                                                    <option value="{$usrAbertura_ids[i]}" selected>{$usrAbertura_names[i]}</option>
+                                                {else}
+                                                    <option value="{$usrAbertura_ids[i]}">{$usrAbertura_names[i]}</option>
+                                                {/if}
+                                            {/section}
+                                        </select>
+                                    {/if}
                                     </div>
                                 </div>
                                 <div class="col-lg-6 col-sm-6 col-xs-6 text-left line-formated" id="div_cond_pgto">
                                     <label>Condição de Pagamento</label>
                                     <div class="panel panel-default small line-formated">
-                                        <select id="condPgto" name="condPgto" class="input-sm form-control"
+                                        <select id="condPgto" name="condPgto" class="input-sm form-control js-example-basic-single"
                                             title="Condição de Pagamento" alt="Condição de Pagamento">
                                             {html_options values=$condPgto_ids selected=$condPgto output=$condPgto_names}
                                         </select>
@@ -437,8 +637,23 @@
                                     id="tab_content2" aria-labelledby="profile-tab">
                                     <div class="col-md-12 col-sm-12 col-xs-12">
                                         <div id="formPedidoItem">
-                                            <input name=prodExiste id="prodExiste" type=hidden value="{$prodExiste}">
                                             <div class="form-group line-formated">
+                                                <div class="col-md-2 small col-sm-12 col-xs-12 has-feedback">
+                                                    <label for="codFabricante">Pesquisa
+                                                        <span id="tooltipPesquisaProduto" class="glyphicon glyphicon-info-sign text-info ajuda-flutuante-icon"
+                                                              title=""></span>
+                                                    </label>
+                                                    <div class="input-group">
+                                                        <input class="form-control input-sm" type="text" id="codFabricante"
+                                                            name="codFabricante" placeholder="insira pelo menos 3 digitos"
+                                                            onblur="javascript:buscaProdutoAjax();"
+                                                            onkeypress="javascript:if(event.keyCode == 13) { buscaProdutoAjax(); return false; }"
+                                                            value={$codFabricante}>
+                                                        <span class="input-group-addon" id="spinnerPesquisa" style="display: none;">
+                                                            <span class="glyphicon glyphicon-refresh spinner-rotate" aria-hidden="true"></span>
+                                                        </span>
+                                                    </div>
+                                                </div>
                                                 <div class="col-md-2 small col-sm-12 col-xs-12 has-feedback">
                                                     <label for="codProduto">Cod Interno</label>
                                                     <button type="button" class="btnCp" title="Cadastro de Produto"
@@ -449,13 +664,6 @@
                                                     <input class="form-control input-sm" type="text" id="codProduto"
                                                         readonly name="codProduto" placeholder="Cod Interno"
                                                         value={$codProduto}>
-                                                </div>
-                                                <div class="col-md-2 small col-sm-12 col-xs-12">
-                                                    <label for="codFabricante">Cod Fabricante</label>
-                                                    <input class="form-control input-sm" type="text" id="codFabricante"
-                                                        name="codFabricante" placeholder="Codigo Fabricante"
-                                                        onblur="javascript:buscaProduto();" value={$codFabricante}>
-                                                    <!-- onchange="javascript:submitBuscaProduto('{$pathCliente}/index.php?mod=est&form=produto&opcao=pesquisar&from=pedido_ps')"-->
                                                 </div>
                                                 <div class="col-md-2 small col-sm-12 col-xs-12 has-feedback">
                                                     <label for="codProdutoNota">Código Nota</label>
@@ -525,17 +733,63 @@
                                                         id="totalPecas" name="totalPecas" placeholder="0,00"
                                                         value={$totalPecas}>
                                                 </div>
-                                                <div class="col-md-1 col-sm-12 col-xs-12 has-feedback">
+                                                <div class="col-md-2 col-sm-12 col-xs-12 has-feedback">
                                                     <label style="visibility:hidden">btn</label>
-                                                    <button type="button" class="btn btn-success btn-sm"
-                                                        onClick="javascript:submitConfirmarPecas('{$lancPesq[i].NRITEM}');">
-                                                        <span class="glyphicon glyphicon-plus"
-                                                            aria-hidden="true"></span><span>
-                                                            Confirmar</span></button>
+                                                    <div style="display:flex; gap:6px; align-items:center;">
+                                                        <button type="button" id="btnConfirmarPecas" class="btn btn-success btn-sm"
+                                                            style="flex:1; margin-top:-1px; white-space:nowrap;"
+                                                            onClick="javascript:submitConfirmarPecas('{$lancPesq[i].NRITEM}');">
+                                                            <span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span> Confirmar</span></button>
+                                                        <button type="button" class="btn btn-warning btn-sm"
+                                                            style="flex:1; margin-top:-1px; white-space:nowrap;"
+                                                            onClick="javascript:limpaCamposPeca();">
+                                                            <span>Limpar</span></button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div> <!-- FIM DIV formPedidoItem-->
 
+                                        <div id="secaoEdicaoItem" style="display: none; margin-top: 15px; margin-bottom: 15px;">
+                                            <div class="panel panel-info">
+                                                <div class="panel-body">
+                                                    <div id="listaEquivalencias"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-12" style="margin-top: 0px;">
+                                        <div class="panel panel-default small line-formated">
+                                            <div class="panel-heading" style="cursor:pointer; background: #f5f5f5;" data-toggle="collapse" data-target="#collapseInfoAdicionalPecas" aria-expanded="false" aria-controls="collapseInfoAdicionalPecas">
+                                                <span class="glyphicon glyphicon-chevron-down"></span>
+                                                <strong>   Mais Informações</strong>
+                                            </div>
+                                            <div id="collapseInfoAdicionalPecas" class="panel-collapse collapse" style="margin-top:0px;">
+                                                <div class="panel-body" style="padding: 10px;">
+                                                    <div class="form-group line-formated">
+                                                        <div class="col-md-4 small col-sm-12 col-xs-12">
+                                                            <label for="numeroOcPecas">Número Ordem de Compra</label>
+                                                            <input class="form-control input-sm" type="text" id="numeroOcPecas"
+                                                                name="numeroOcPecas" placeholder="Número da Ordem de Compra"
+                                                               maxlength="15" value="{$numeroOcPecas}">
+                                                        </div>
+                                                        <div class="col-md-4 small col-sm-12 col-xs-12">
+                                                            <label for="nItemPedPecas">Número Item Ordem de Compra</label>
+                                                            <input class="form-control input-sm" type="text" id="nItemPedPecas"
+                                                                name="nItemPedPecas" placeholder="Número do Item da Ordem de Compra" maxlength="6"
+                                                                value={$nItemPedPecas}>
+                                                        </div>
+                                                        <div class="col-md-4 small col-sm-12 col-xs-12">
+                                                            <label for="dataEntregaPeca">Data Entrega</label>
+                                                            <i class="glyphicon glyphicon-calendar fa fa-calendar"></i>
+                                                            <input class="form-control input-sm" placeholder="Data de Entrega."
+                                                                id="dataEntregaPeca" data-inputmask="'mask': '99/99/9999'" title="Data de Entrega"
+                                                                alt="Data de Entrega" name="dataEntregaPeca" value="{$dataEntregaPeca}">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     </div>
                                     <table id="datatable-buttons-pecas" class="table table-bordered jambo_table">
@@ -557,6 +811,10 @@
                                             {section name=i loop=$lancPesq}
                                                 <tr>
                                                     <td hidden class="i_nr_item"> {$lancPesq[i].NRITEM} </td>
+                                                    <td hidden class="i_numero_oc"> {$lancPesq[i].NUMEROOC|default:''} </td>
+                                                    <td hidden class="i_n_item_ped"> {$lancPesq[i].NITEMPED|default:''} </td>
+                                                    <td hidden class="i_data_entrega"> {$lancPesq[i].DATAENTREGAPECA|date_format:"%d/%m/%Y"} </td>
+                                                    <td hidden class="i_unidade">{$lancPesq[i].UNIDADE|default:$lancPesq[i].unidade|default:''}</td>
                                                     <td class="i_item_estoque"> {$lancPesq[i].ITEMESTOQUE} </td>
                                                     <td class="i_item_fabricante"> {$lancPesq[i].ITEMFABRICANTE} </td>
                                                     <td class="i_codigo_nota"> {$lancPesq[i].CODIGONOTA} </td>
@@ -598,24 +856,36 @@
                                 <div role="tabpanel" class="tab-pane fade {if $tab eq 'serviço'} active in {/if} small"
                                     id="tab_content3" aria-labelledby="profile-tab">
                                     <div class="col-md-12 col-sm-12 col-xs-12">
+                                        <div id="formPedidoServico">
                                         <div class="form-group line-formated">
                                             <div class="col-md-2 small col-sm-12 col-xs-12 has-feedback">
-                                                <label for="idServico">ID</label>
-                                                <input class="form-control input-sm" type="text" id="idServicos"
-                                                    name="idServicos" placeholder="Id Serviço" value={$idServicos}>
+                                                <label for="termoPesquisaServico">Pesquisa
+                                                    <span id="tooltipPesquisaServico" class="glyphicon glyphicon-info-sign text-info ajuda-flutuante-icon"
+                                                          title=""></span>
+                                                </label>
+                                                <div class="input-group">
+                                                    <input class="form-control input-sm" type="text" id="termoPesquisaServico"
+                                                        name="termoPesquisaServico" placeholder="insira pelo menos 3 digitos"
+                                                        onblur="javascript:buscaServicoAjax();"
+                                                        onkeypress="javascript:if(event.keyCode == 13) { buscaServicoAjax(); return false; }"
+                                                        value="">
+                                                    <span class="input-group-addon" id="spinnerPesquisaServico" style="display: none;">
+                                                        <span class="glyphicon glyphicon-refresh spinner-rotate" aria-hidden="true"></span>
+                                                    </span>
+                                                </div>
                                             </div>
                                             <div class="col-md-2 small col-sm-12 col-xs-12 has-feedback">
-                                                <label for="idServico">Cód Serviço</label>
+                                                <label for="codServico">Cód</label>
                                                 <input class="form-control input-sm" type="text" id="codServico"
-                                                    name="codServico" placeholder="Cód Serviço" value={$codServico}>
+                                                    name="codServico" placeholder="Cód" readonly value={$codServico}>
+                                                <input type="hidden" id="idServicos" name="idServicos" value={$idServicos}>
                                             </div>
                                             <div class="col-md-6 col-sm-12 col-xs-12 line-formated">
                                                 <label for="servico">Serviço</label>
                                                 <div class="input-group line-formated">
                                                     <input type="text" class="form-control input-sm"
                                                         id="descricaoServico" name="descricaoServico"
-                                                        placeholder="Serviço" required value="{$descricaoServico}"
-                                                        readonly>
+                                                        placeholder="Serviço" required value="{$descricaoServico}">
                                                     <span class="input-group-btn">
                                                         <button type="button" class="btn btn-primary btn-sm"
                                                             onClick="javascript:abrir('{$pathCliente}/index.php?mod=cat&form=servico&opcao=pesquisar&origem=pedido_ps', 'servicos');">
@@ -656,16 +926,31 @@
                                                     id="totalServico" name="totalServico" placeholder="Total Produto"
                                                     value={$totalServico}>
                                             </div>
-                                            <div class="col-md-1 col-sm-12 col-xs-12 has-feedback">
-                                            </div>
-                                            <div class="col-md-1 col-sm-12 col-xs-12 has-feedback">
+                                            <div class="col-md-2 col-sm-12 col-xs-12 has-feedback">
                                                 <label style="visibility:hidden">btn</label>
-                                                <button type="button" class="btn btn-success btn-sm"
-                                                    onclick="javascript:submitConfirmarServicos();">
-                                                    <span class="glyphicon glyphicon-plus"
-                                                        aria-hidden="true"></span><span> Confirmar</span></button>
+                                                <div style="display:flex; gap:6px; align-items:center;">
+                                                    <button type="button" class="btn btn-success btn-sm"
+                                                        style="flex:1; margin-top:-1px; white-space:nowrap;"
+                                                        onclick="javascript:submitConfirmarServicos();">
+                                                        <span class="glyphicon glyphicon-plus"
+                                                            aria-hidden="true"></span><span> Confirmar</span></button>
+                                                    <button type="button" class="btn btn-warning btn-sm"
+                                                        style="flex:1; margin-top:-1px; white-space:nowrap;"
+                                                        onClick="javascript:limpaCamposServicos();">
+                                                        <span>Limpar</span></button>
+                                                </div>
                                             </div>
                                         </div>
+
+                                        <div id="secaoEdicaoServico" style="display: none; margin-top: 15px; margin-bottom: 15px;">
+                                            <div class="panel panel-info">
+                                                <div class="panel-body">
+                                                    <div id="listaServicosEncontrados"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        </div> <!-- FIM formPedidoServico -->
+
                                         <div class="col-md-12" style="margin-top: 0px;">
                                         <div class="panel panel-default small line-formated">
                                             <div class="panel-heading" style="cursor:pointer; background: #f5f5f5;" data-toggle="collapse" data-target="#collapseInfoAdicional" aria-expanded="false" aria-controls="collapseInfoAdicional">
@@ -788,16 +1073,43 @@
 
                 </div> <!-- FIM class="x_panel" -->
             </div> <!-- FIM class="col-md-12 col-sm-12 col-xs-12" -->
+
             <!-- INCLUDES DE MODAL -->
             {include file="pedido_ps_produto_altera_modal.tpl"}
             {include file="pedido_ps_servico_altera_modal.tpl"}
     </div>
     </form>
 
+    <div id="docFiscalHelpTip" class="ajuda-flutuante-tip">
+        <strong>A definir (vazio):</strong> não fixa o documento no pedido; na emissão o padrão é <strong>Nota fiscal (NF-e)</strong>.<br>
+        <strong>Cupom (65):</strong> NFC-e.<br>
+        <strong>Nota (55):</strong> NF-e.
+    </div>
+    <div id="pesquisaProdutoHelpTip" class="ajuda-flutuante-tip">
+        <strong>Pesquisa de produtos</strong><br>
+        Mínimo de 3 caracteres, use Enter ou tab para buscar. Exige cliente e condição de pagamento.<br><br>
+        <strong>Busca em:</strong> código fabricante, código interno, código de barras, descrição e equivalências.<br><br>
+        <strong>Ordem dos resultados:</strong><br>
+        1. Código fabricante ou interno <em>igual</em> ao digitado<br>
+        2. Códigos que <em>começam</em> com o termo<br>
+        3. Demais (descrição, equivalência, etc.)<br><br>
+        Clique na <strong>linha</strong> ou no <strong>checkbox</strong> para selecionar,  informações do produto aparecem após a seleção.
+    </div>
+    <div id="pesquisaServicoHelpTip" class="ajuda-flutuante-tip">
+        <strong>Pesquisa de serviços</strong><br>
+        Mínimo de 3 caracteres, use Enter ou saia do campo para buscar. Exige cliente e condição de pagamento.<br><br>
+        <strong>Busca em:</strong> código do serviço e descrição.<br><br>
+        <strong>Ordem dos resultados:</strong><br>
+        1. Código <em>igual</em> ao digitado<br>
+        2. Códigos que <em>começam</em> com o termo<br>
+        3. Descrição (com 4+ caracteres)<br><br>
+        Clique na <strong>linha</strong> ou no <strong>checkbox</strong> para selecionar o serviço.
+    </div>
+
 </div> <!-- FIM class="right_col" role="main" -->
 
 {include file="template/form.inc"}
-<script src="https://cdn.rawgit.com/plentz/jquery-maskmoney/master/dist/jquery.maskMoney.min.js"></script>
+<!--<script src="https://cdn.rawgit.com/plentz/jquery-maskmoney/master/dist/jquery.maskMoney.min.js"></script>
 <script>
    $(".money").maskMoney({
             decimal: ",",
@@ -813,7 +1125,21 @@
             precision: {$casasDecimais}
         });
     });
+</script>-->
+
+<script>
+
+document.querySelectorAll('.money').forEach(function(el) {
+    new Cleave(el, {
+        numeral: true,
+        numeralThousandsGroupStyle: 'thousand',
+        numeralDecimalMark: ',',
+        delimiter: '.',
+        numeralDecimalScale: {$casasDecimais}
+    });
+});
 </script>
+
 <!-- bootstrap-daterangepicker -->
 <script src="js/moment/moment.min.js"></script>
 <script src="js/datepicker/daterangepicker.js"></script>
@@ -837,8 +1163,8 @@
         $('#prazoEntrega').daterangepicker({
             singleDatePicker: true,
             calender_style: "picker_1",
+            autoApply: false,
             autoUpdateInput: false,
-            autoApply: true,
             locale: {
                 format: 'DD/MM/YYYY',
                 daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
@@ -847,6 +1173,29 @@
                 ],
             }
 
+        });
+
+        $('#dataEntregaPeca').daterangepicker({
+            singleDatePicker: true,
+            calender_style: "picker_1",
+            autoApply: true,
+            locale: {
+                format: 'DD/MM/YYYY',
+                daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
+                monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho',
+                    'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                ],
+            }
+        });
+
+        // Preenche o campo apenas quando o usuário selecionar uma data
+        $('#dataEntregaPeca').on('apply.daterangepicker', function(ev, picker) {
+            $(this).val(picker.startDate.format('DD/MM/YYYY'));
+        });
+
+        // Limpa o campo quando o usuário cancelar
+        $('#dataEntregaPeca').on('cancel.daterangepicker', function(ev, picker) {
+            $(this).val('');
         });
 
         // Preenche o campo apenas quando o usuário selecionar uma data
@@ -903,20 +1252,50 @@
 
 <script>
 window.addEventListener('DOMContentLoaded', function() {
-    // Ativa tooltips do Bootstrap
+    // Tooltips Bootstrap (desconto etc.) — não usar no ícone de documento fiscal
     $('[data-toggle="tooltip"]').tooltip();
+
+    function vincularAjudaFlutuante(iconId, tipId) {
+        var icon = document.getElementById(iconId);
+        var tip = document.getElementById(tipId);
+        if (!icon || !tip) {
+            return;
+        }
+        function posicionar(e) {
+            tip.style.left = (e.clientX + 14) + 'px';
+            tip.style.top = (e.clientY + 14) + 'px';
+        }
+        icon.addEventListener('mouseenter', function (e) {
+            tip.style.display = 'block';
+            posicionar(e);
+        });
+        icon.addEventListener('mousemove', posicionar);
+        icon.addEventListener('mouseleave', function () {
+            tip.style.display = 'none';
+        });
+    }
+    vincularAjudaFlutuante('tooltipDocFiscal', 'docFiscalHelpTip');
+    vincularAjudaFlutuante('tooltipPesquisaProduto', 'pesquisaProdutoHelpTip');
+    vincularAjudaFlutuante('tooltipPesquisaServico', 'pesquisaServicoHelpTip');
     
     var valorTotal = document.getElementById('valorTotal');
     var valorDesconto = document.getElementById('valorDesconto');
-    var situacaoSelect = document.querySelector('select[name="situacao"]');
+    var formLanc = document.getElementById('lancamento');
+    
+    function situacaoAtualPedidoPs() {
+        if (!formLanc) return '0';
+        var a = formLanc.getAttribute('data-situacao-atual');
+        if (a !== null && a !== '') return String(a);
+        var h = document.getElementById('situacao');
+        return h ? String(h.value) : '0';
+    }
     
     function check() {
         var v = valorTotal.value.replace(/\./g, '').replace(',', '.');
         var totalZerado = (v === '' || isNaN(parseFloat(v)) || parseFloat(v) === 0);
         
-        // Verifica se a situação é Faturado ou Emitir NF
-        var situacaoAtual = situacaoSelect ? situacaoSelect.value : '0';
-        var situacaoBloqueada = (situacaoAtual == '6' || situacaoAtual == '3');
+        var situacaoAtual = situacaoAtualPedidoPs();
+        var situacaoBloqueada = (situacaoAtual === '6' || situacaoAtual === '3' || situacaoAtual === '8');
         
         // Campo fica readonly se: total zerado OU situação bloqueada
         valorDesconto.readOnly = (totalZerado || situacaoBloqueada);
@@ -934,11 +1313,6 @@ window.addEventListener('DOMContentLoaded', function() {
     check();
     valorTotal.addEventListener('input', check);
     valorTotal.addEventListener('change', check);
-    
-    // Monitora mudança na situação
-    if (situacaoSelect) {
-        situacaoSelect.addEventListener('change', check);
-    }
 });
 </script>
 <script>
@@ -962,4 +1336,24 @@ $(document).ready(function() {
         $('#endereco_entrega_lado').val($(this).val());
     });
 });
+</script>
+
+<script src="{$bootstrap}/select2-master/dist/js/select2.full.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $("#condPgto.js-example-basic-single").select2({
+            width: '100%',
+            dropdownAutoWidth: true,
+            placeholder: "Digite para buscar...",
+            allowClear: true,
+            language: {
+                noResults: function() {
+                    return "Nenhum resultado encontrado";
+                },
+                searching: function() {
+                    return "Buscando...";
+                }
+            }
+        });
+    });
 </script>

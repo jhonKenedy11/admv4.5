@@ -53,6 +53,7 @@ function __construct(){
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
 
           // dados para exportacao e relatorios
         $this->smarty->assign('titulo', "Acessório");

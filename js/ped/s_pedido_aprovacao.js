@@ -12,7 +12,6 @@ function myFunction() {
 }
 
 function submitLetra() {
-  debugger;
   f = document.lancamento;
   f.mod.value = "ped";
   f.form.value = "pedido_aprovacao";
@@ -54,6 +53,18 @@ function abrir(pag) {
   );
 }
 
+function abrirPedidoAprovacao(id, especie, idNatop) {
+  var formPedido = "pedido_venda_imp_romaneio";
+  var submenu = "";
+  var extra = "&opcao=imprimir&parm=" + id;
+  if (String(especie).toUpperCase() === "D" && parseInt(idNatop, 10) === 1) {
+    formPedido = "pedido_ps";
+    submenu = "&submenu=alterar";
+    extra = "&id=" + id;
+  }
+  abrir("index.php?mod=ped&form=" + formPedido + submenu + extra);
+}
+
 function salvarPedidoObsDesaprovado(id) {
   f = document.lancamento;
   f.id.value = id;
@@ -62,26 +73,27 @@ function salvarPedidoObsDesaprovado(id) {
   f.submit();
 }
 
-function submitCadastrarPedido(id, usr) {
-  debugger;
-  f = document.lancamento;
-  f.form.value = "pedido_venda_telhas";
-  f.submenu.value = "cadastrarPedido";
-  f.id.value = id;
-  f.usrAprovacao.value = usr;
-  f.submit();
-}
-
 function salvarPedidoAprovado(id) {
-  f = document.lancamento;
-  f.id.value = id;
-  f.form.value = "pedido_aprovacao";
-  f.submenu.value = "aprovado";
-  f.submit();
+  Swal.fire({
+    title: 'Confirmação',
+    text: 'Aprovar pedido/cotação Nº ' + id + '?',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Sim',
+    cancelButtonText: 'Não'
+  }).then(function (result) {
+    if (!result.isConfirmed) {
+      return;
+    }
+    var f = document.lancamento;
+    f.id.value = id;
+    f.form.value = 'pedido_aprovacao';
+    f.submenu.value = 'aprovado';
+    f.submit();
+  });
 }
 
 function pedidoDesaprovado(id) {
-  debugger;
   document.lancamento.id.value = id;
   var form = $("form[name=lancamento]");
 
@@ -94,7 +106,6 @@ function pedidoDesaprovado(id) {
       xhr.setRequestHeader("Ajax-Request", "true");
     },
     success: function (response) {
-      debugger;
       var result = $("<div />").append(response).find("#observacao").html();
       $("#observacao").html(result);
       $("#cotacao").val(id);

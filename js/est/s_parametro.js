@@ -4,36 +4,100 @@
  * Padrão ADM v4.5
  */
 
-/**
- * Submete formulário para cadastro
- */
+function validarFormularioParametro() {
+    var filial = document.getElementById('filial');
+    var modelo = document.getElementById('modelo');
+    var mensagens = [];
+
+    if (filial && !filial.disabled && !filial.value) {
+        mensagens.push('Selecione a empresa (centro de custo).');
+        filial.classList.add('is-invalid');
+    } else if (filial) {
+        filial.classList.remove('is-invalid');
+    }
+
+    if (modelo && !modelo.disabled && !modelo.value) {
+        mensagens.push('Selecione o modelo do documento fiscal.');
+        modelo.classList.add('is-invalid');
+    } else if (modelo) {
+        modelo.classList.remove('is-invalid');
+    }
+
+    if (mensagens.length > 0) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Campos obrigatórios',
+            html: mensagens.join('<br>'),
+            confirmButtonText: 'OK'
+        });
+        return false;
+    }
+
+    return true;
+}
+
+function sincronizarCentroCustoEmpresa() {
+    var filial = document.getElementById('filial');
+    var centrocusto = document.getElementById('centrocusto');
+
+    if (!filial || !centrocusto || filial.disabled) {
+        return;
+    }
+
+    if (!filial.value) {
+        return;
+    }
+
+    if (!centrocusto.value) {
+        centrocusto.value = filial.value;
+    }
+}
+
+function submitConfirmar() {
+    var f = document.parametro;
+
+    if (!validarFormularioParametro()) {
+        return;
+    }
+
+    sincronizarCentroCustoEmpresa();
+
+    Swal.fire({
+        title: 'Confirmação',
+        text: 'Deseja realmente salvar este parâmetro?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não'
+    }).then(function (result) {
+        if (result.isConfirmed) {
+            if (f.submenu.value === 'cadastro') {
+                f.submenu.value = 'inclui';
+            } else {
+                f.submenu.value = 'altera';
+            }
+            f.submit();
+        }
+    });
+}
+
 function submitCadastro() {
     document.parametro.submenu.value = 'cadastro';
     document.parametro.submit();
 }
 
-/**
- * Submete formulário para alteração
- */
-function submitAlterar(id) {
+function submitAlterar(filial, modelo) {
     document.parametro.submenu.value = 'alterar';
-    document.parametro.id.value = id;
+    if (filial) {
+        document.parametro.filial.value = filial;
+    }
+    if (modelo) {
+        document.parametro.modelo.value = modelo;
+    }
     document.parametro.submit();
 }
 
-/**
- * Submete formulário para salvar alterações
- */
-function submitSavedChanges(id) {
-    document.parametro.submenu.value = 'altera';
-    document.parametro.id.value = id;
-    document.parametro.submit();
-}
-
-/**
- * Submete formulário para exclusão
- */
-function submitExcluir(id) {
+function submitExcluir(filial, modelo) {
     Swal.fire({
         icon: 'question',
         title: 'Confirmar Exclusão',
@@ -42,20 +106,34 @@ function submitExcluir(id) {
         confirmButtonText: 'Sim, excluir',
         cancelButtonText: 'Cancelar',
         confirmButtonColor: '#d33'
-    }).then((result) => {
+    }).then(function (result) {
         if (result.isConfirmed) {
             document.parametro.submenu.value = 'excluir';
-            document.parametro.id.value = id;
+            if (filial) {
+                document.parametro.filial.value = filial;
+            }
+            if (modelo) {
+                document.parametro.modelo.value = modelo;
+            }
             document.parametro.submit();
         }
     });
 }
 
-// ========== FUNÇÕES PARA CADASTRO ==========
+function submitConsulta() {
+    document.parametro.submenu.value = 'consulta';
+    document.parametro.submit();
+}
 
-/**
- * Limpa todos os campos do formulário
- */
+function submitLimparFiltro() {
+    var filtro = document.getElementById('filtro_empresa');
+    if (filtro) {
+        filtro.value = '';
+    }
+    document.parametro.submenu.value = 'consulta';
+    document.parametro.submit();
+}
+
 function limparFormulario() {
     Swal.fire({
         icon: 'question',
@@ -64,24 +142,25 @@ function limparFormulario() {
         showCancelButton: true,
         confirmButtonText: 'Sim, limpar',
         cancelButtonText: 'Cancelar'
-    }).then((result) => {
+    }).then(function (result) {
         if (result.isConfirmed) {
             $('#formParametros')[0].reset();
             $('.is-invalid').removeClass('is-invalid');
-            
-            // Resetar valores padrão
+
             $('#modelo').val('55');
-            $('#consultaestoquezero').val('S');
-            $('#controlaestoque').val('S');
-            $('#integrafin').val('S');
-            $('#validanfauto').val('S');
             $('#tipovalidacao').val('N');
             $('#precobase').val('C');
             $('#clientepadrao').val('1');
-            
-            // Resetar máscaras
-            $('#percdescmaximo, #percalculo, #inss, #pis, #cofins, #ir, #contribuicao_social').inputmask('setvalue', '0,0000');
-            
+
+            marcarRadio('consultaestoquezero', 'S');
+            marcarRadio('controlaestoque', 'S');
+            marcarRadio('integrafin', 'S');
+            marcarRadio('validanfauto', 'S');
+            marcarRadio('xmlconferirestoque', 'N');
+            marcarRadio('xmlmanterorigemcst', 'S');
+            marcarRadio('calcula_ipi_custo_reposicao', 'N');
+            marcarRadio('calcula_st_custo_reposicao', 'N');
+
             Swal.fire({
                 icon: 'success',
                 title: 'Formulário Limpo',
@@ -93,9 +172,13 @@ function limparFormulario() {
     });
 }
 
-/**
- * Volta para a listagem
- */
+function marcarRadio(nome, valor) {
+    var radios = document.getElementsByName(nome);
+    for (var i = 0; i < radios.length; i++) {
+        radios[i].checked = (radios[i].value === valor);
+    }
+}
+
 function voltarListagem() {
     window.location = '?mod=est&form=parametro';
 }

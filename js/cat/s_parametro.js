@@ -1,26 +1,25 @@
-// desenha Cadastro
-function submitVoltar(formulario) {
-    f = document.lancamento;
-    f.mod.value = 'cat';
-    f.form.value = 'parametro';
-    f.submenu.value = '';
-    f.submit();
-} // fim submitVoltar
+/**
+ * JavaScript para administração dos parâmetros CAT
+ * Padrão ADM v4.5 — alinhado ao módulo EST
+ */
 
-function submitConfirmar(formulario) {
-    f = document.lancamento;
-    f.mod.value = 'cat';
-    f.form.value = 'parametro';
-    swal.fire({
+function submitVoltar() {
+    document.lancamento.submenu.value = '';
+    document.lancamento.submit();
+}
+
+function submitConfirmar() {
+    var f = document.lancamento;
+    Swal.fire({
         title: 'Confirmação',
-        text: 'Deseja realmente ' + f.submenu.value + ' este item?',
+        text: 'Deseja realmente salvar este parâmetro?',
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Sim',
         cancelButtonText: 'Não'
-    }).then((result) => {
+    }).then(function (result) {
         if (result.isConfirmed) {
-            if (f.submenu.value == "cadastrar") {
+            if (f.submenu.value === 'cadastro' || f.submenu.value === 'cadastrar') {
                 f.submenu.value = 'inclui';
             } else {
                 f.submenu.value = 'altera';
@@ -28,57 +27,51 @@ function submitConfirmar(formulario) {
             f.submit();
         }
     });
-} // fim submitConfirmar
+}
 
-
-// mostra Cadastro
-function submitCadastro(formulario) {
-    f = document.lancamento;
-    f.mod.value = 'cat';
-    f.form.value = 'parametro';
-    f.submenu.value = 'cadastrar';
-    f.id.value = "";
+function submitCadastro() {
+    var f = document.lancamento;
+    f.submenu.value = 'cadastro';
+    f.id.value = '';
     f.submit();
-} // submitCadastro
+}
 
+function submitAlterar(id) {
+    var f = document.lancamento;
+    f.submenu.value = 'alterar';
+    f.id.value = id;
+    f.submit();
+}
 
-function submitAlterar(parametro) {
-
-    swal.fire({
-        title: 'Confirmação',
-        text: 'Deseja realmente Alterar este item?',
+function submitExcluir(id) {
+    Swal.fire({
+        title: 'Confirmar Exclusão',
+        text: 'Deseja realmente excluir este parâmetro?',
         icon: 'question',
         showCancelButton: true,
-        confirmButtonText: 'Sim',
-        cancelButtonText: 'Não'
-    }).then((result) => {
+        confirmButtonText: 'Sim, excluir',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d33'
+    }).then(function (result) {
         if (result.isConfirmed) {
-        f = document.lancamento;
-        f.mod.value = 'cat';
-        f.form.value = 'parametro';
-        f.submenu.value = 'alterar';
-        f.id.value = parametro;
-        f.submit();
+            var f = document.lancamento;
+            f.submenu.value = 'excluir';
+            f.id.value = id;
+            f.submit();
         }
     });
-} // submitAlterar
+}
 
-function submitExcluir(parametro) {
-    swal.fire({
-        title: 'Confirmação',
-        text: 'Deseja realmente Excluir este item?',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonText: 'Sim',
-        cancelButtonText: 'Não'
-    }).then((result) => {
-        if (result.isConfirmed) {
-        f = document.lancamento;
-        f.mod.value = 'cat';
-        f.form.value = 'parametro';
-        f.submenu.value = 'exclui';
-        f.id.value = parametro;
-        f.submit();
-        }
-    });
-} // submitExcluir
+function submitConsulta() {
+    document.lancamento.submenu.value = 'consulta';
+    document.lancamento.submit();
+}
+
+function submitLimparFiltro() {
+    var filtro = document.getElementById('filtro_busca');
+    if (filtro) {
+        filtro.value = '';
+    }
+    document.lancamento.submenu.value = 'consulta';
+    document.lancamento.submit();
+}

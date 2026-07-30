@@ -71,7 +71,7 @@
 </style>
 <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"> </script>
 <script type="text/javascript" src="{$pathJs}/est/s_produto.js"> </script>
-
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <!-- page content -->
 <div class="right_col" role="main">
     <form class="full" NAME="lancamentoajax" METHOD="POST" class="form-horizontal form-label-left" novalidate ACTION={$SCRIPT_NAME} enctype="multipart/form-data">
@@ -126,27 +126,11 @@
                         <div class="x_panel">
                             <div class="row" style="margin-top: 15px;">
                                 {section name=i loop=$lanc}
-                                    {* <div class="col-md-3 col-sm-6 col-xs-12">
-                                        <img src="images/doc/est/{$lanc[i].ID_DOC}/{$lanc[i].ID}.jpg" class="img-rounded abrirModal tagImg"/>
-
-                                        <div class="row btnManutencao">
-                                            <button type="button" 
-                                                {if $lanc[i].DESTAQUE eq 'N'} class="btn-xs btn-warning" {else} class="btn-xs btn-success" {/if}
-                                                onClick="javascript:submitDestaqueImagem({$lanc[i].ID}, '{$lanc[i].DESTAQUE}');">
-                                                <span class="glyphicon glyphicon-flag" aria-hidden="true"></span>
-                                                <span> Destaque</span>
-                                            </button>
-
-                                            <button type="button" class="btn-xs btn-danger" onClick="javascript:submitExcluirImagem({$lanc[i].ID_DOC}, {$lanc[i].ID});">
-                                                <span class="glyphicon glyphicon-remove-circle" aria-hidden="true"></span>
-                                                <span> Apagar </span>
-                                            </button>
-                                        </div>
-                                    </div> *}
-
                                     <div class="col-md-3 col-sm-6 col-xs-12">
                                         <div class="image-container">
-                                            <img src="images/doc/est/{$lanc[i].ID_DOC}/{$lanc[i].ID}.jpg" class="img-rounded abrirModal tagImg" />
+                                            {* Novo padrão GED - concatena pathCliente com PATH relativo *}
+                                            <img src="{$pathCliente}/{$lanc[i].PATH}" class="img-rounded abrirModal tagImg" 
+                                                 onerror="this.onerror=null; this.src='images/no-image.png';" />
                                         </div>
 
                                         <div class="row btnManutencao">
@@ -157,7 +141,7 @@
                                                 <span> Destaque</span>
                                             </button>
 
-                                            <button type="button" class="btn-xs btn-danger" onClick="javascript:submitExcluirImagem({$lanc[i].ID_DOC}, {$lanc[i].ID});">
+                                            <button type="button" class="btn-xs btn-danger" onClick="javascript:submitExcluirImagem({$lanc[i].TABLE_ID}, {$lanc[i].ID});">
                                                 <span class="glyphicon glyphicon-remove-circle" aria-hidden="true"></span>
                                                 <span> Apagar </span>
                                             </button>
@@ -204,17 +188,8 @@
 
 
 <script>
-var arqName = document.querySelector("#upload-file-info");
-var input = document.querySelector("#user_image");
-var imgWidth = document.querySelector("#imgLarg");
-var imgHeight = document.querySelector("#imgAlt");
-input.addEventListener("change", function() {
-    arqName.innerText = "Nenhuma imagem selecionada.";
-    if (input.files.length > 0) {
-        arqName.innerText = input.files[0].name;
-    }
-})
-</script>
+// Script de upload de imagem - removido pois não é mais usado (usamos o sistema de file abaixo)
+
 
 <script>
 $(".abrirModal").click(function() {

@@ -1,20 +1,29 @@
 function submitConfirmar() {
-    debugger;
     f = document.lancamento;
-    f.mod.value = 'est';
-    f.form.value = 'meta_mensal';
-    if (confirm('Deseja realmente ' + f.submenu.value + ' este item') == true) {
-        if (f.submenu.value == "cadastrar") {
-            f.submenu.value = 'inclui';
-        } else {
-            f.submenu.value = 'altera';
+
+    const isCadastrar = (f.submenu.value === "cadastrar");
+    const acaoTexto = isCadastrar ? "cadastrar" : "alterar";
+
+    Swal.fire({
+        title: "Atenção!",
+        text: "Deseja " + acaoTexto + " esse registro?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: isCadastrar ? "Cadastrar" : "Alterar",
+        cancelButtonText: "Cancelar",
+    })
+    .then((result) => {
+        if (result.isConfirmed) {
+            f.mod.value = "est";
+            f.form.value = "meta_mensal";
+            f.submenu.value = isCadastrar ? "inclui" : "altera";
+            f.submit();
         }
-        f.submit();
-    } //  
-} // submitConfirmar
+    });
+}
 
 function submitVoltar() {
-    debugger;
+     
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'meta_mensal';
@@ -22,8 +31,20 @@ function submitVoltar() {
     f.submit();
 } // fim submitVoltar
 
+
+function submitVoltarVendedor() {
+     
+    f = document.lancamento;
+    f.mod.value = 'est';
+    f.form.value = 'meta_mensal';
+    f.submenu.value = 'alterar';
+    f.param.value = 'formVendedor'
+    f.submit();
+} // fim submitVoltar
+
+
 function submitCadastro() {
-    debugger;
+     
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'meta_mensal';
@@ -32,7 +53,7 @@ function submitCadastro() {
 } // submitCadastro
 
 function submitAlterar(meta_id) {
-    debugger;
+     
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'meta_mensal';
@@ -41,20 +62,28 @@ function submitAlterar(meta_id) {
     f.submit();
 } // submitAlterar
 
+
 function submitExcluir(meta_id) {
-    debugger;
-    if (confirm('Deseja realmente Excluir esta meta ') == true) {
-        f = document.lancamento;
-        f.mod.value = 'est';
-        f.form.value = 'meta_mensal';
-        f.submenu.value = 'exclui';
-        f.id.value = meta_id;
-        f.submit();
-    } // if
-} // submitExcluir
+    f = document.lancamento;
+
+    Swal.fire({
+        title: "Atenção!",
+        text: "Deseja excluir esta meta?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Excluir",
+        cancelButtonText: "Cancelar",
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f.submenu.value = "exclui";
+            f.id.value = meta_id;
+            f.submit();
+        }
+    });
+}
 
 function submitAddMetaUsuario() {
-    debugger;
+     
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'meta_mensal';
@@ -63,22 +92,34 @@ function submitAddMetaUsuario() {
 } // submitAddMetaUsuario
 
 function submitConfirmarVendedor() {
-    debugger;
     f = document.lancamento;
-    f.mod.value = 'est';
     f.form.value = 'meta_mensal';
-    if (confirm('Deseja realmente ' + f.submenu.value + ' este item') == true) {
-        if (f.submenu.value == "cadastrarVendedor") {
-            f.submenu.value = 'incluirVendedor';
-        } else {
-            f.submenu.value = 'alteraVendedor';
+    f.mod.value = 'est';
+
+    const isCadastrar = (f.submenu.value === "cadastrarVendedor");
+    const acaoTexto = isCadastrar ? "cadastrar" : "alterar";
+    const acaoBotao = isCadastrar ? "Cadastrar" : "Alterar";
+
+    Swal.fire({
+        title: "Atenção!",
+        text: "Deseja " + acaoTexto + " essa meta vendedor?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: acaoBotao,
+        cancelButtonText: "Cancelar",
+    })
+    .then((result) => {
+         
+        if (result.isConfirmed) {
+            f.submenu.value = isCadastrar ? "incluirVendedor" : "alteraVendedor";
+            f.submit();
         }
-        f.submit();
-    } //  
-} // submitConfirmar
+    });
+} // submitConfirmarVendedor
+
 
 function submitAlterarVendedor(id, metaid) {
-    debugger;
+     
     f = document.lancamento;
     f.mod.value = 'est';
     f.form.value = 'meta_mensal';
@@ -87,15 +128,24 @@ function submitAlterarVendedor(id, metaid) {
     f.submit();
 } // submitAlterar
 
+
 function submitExcluirVendedor(id, metaid) {
-    debugger;
-    if (confirm('Deseja realmente Excluir esta meta ') == true) {
-        f = document.lancamento;
-        f.mod.value = 'est';
-        f.form.value = 'meta_mensal';
-        f.submenu.value = 'excluiVendedor';
-        f.id.value = id;
-        f.metaid.value = metaid;
-        f.submit();
-    } // if
-} // submitExcluir
+    f = document.lancamento;
+
+    Swal.fire({
+        title: "Atenção!",
+        text: "Deseja excluir esta meta?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Excluir",
+        cancelButtonText: "Cancelar",
+    })
+    .then((result) => {
+        if (result.isConfirmed) {
+            f.submenu.value = "excluiVendedor";
+            f.id.value = id;
+            f.metaid.value = metaid;
+            f.submit();
+        }
+    });
+}

@@ -40,6 +40,18 @@ function submitMesAtual() {
     f.submit();
 } // fim submit
 
+function submitUltimoMes() {
+    var f = document.lancamento;
+    var hoje = new Date();
+    var quarentaDiasAtras = new Date();
+    quarentaDiasAtras.setDate(hoje.getDate() - 59); 
+    f.mod.value = 'ped';
+    f.form.value = 'pedido_venda_gerente';
+    f.letra.value = formatDate(quarentaDiasAtras) + '|' + formatDate(hoje) + '||||||';
+    f.submenu.value = '';
+    f.submit();
+} // fim submit
+
 
 function submitAgruparPedidos(){
     debugger

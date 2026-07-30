@@ -7,6 +7,7 @@
   <script type="text/javascript" src="{$pathJs}/cat/s_servico.js"> </script>
 {/if}
 
+<script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 <!-- Nas telas de pesquisas ele completa o footer da pagina -->
 {if $opcao eq 'pesquisar'}
 <style>

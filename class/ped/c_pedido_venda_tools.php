@@ -258,17 +258,18 @@ Class c_pedidoVendaTools extends c_pedidoVenda
             // $arrPedido = $this->select_pedidoVenda();
             $arrPedidoItem = $this->select_todos_pedidos_item($idPedido);
             for ($i = 0; $i < count($arrPedidoItem); $i++) {
-                // NOVO CALCULO
-                $resultEstoqueCC = $classProdutoQtde->produtoQtdeCC($arrPedidoItem[$i]['ITEMESTOQUE'], $cce);
+                if (isset($arrPedidoItem[$i]['MOTIVO']) && (int) $arrPedidoItem[$i]['MOTIVO'] === 8) {
+                    continue;
+                }
 
-                // $IndexCC = substr($this->m_empresacentrocusto, 0, 1)-1;
-                $quantAtual = $resultEstoqueCC[0]['ESTOQUE'];
-                $quantReservada = $resultEstoqueCC[0]['RESERVA'];
-                $quantEncomenda = $resultEstoqueCC[0]['ENCOMENDA'];
-                $disponivel = $quantAtual - $quantReservada;
+                $resultEstoqueCC = $classProdutoQtde->produtoQtdeCC(
+                    $arrPedidoItem[$i]['ITEMESTOQUE'],
+                    $cce
+                );
 
-                // FIM 
-
+                $quantAtual = (float) ($resultEstoqueCC[0]['ESTOQUE'] ?? 0);
+                $quantReservada = (float) ($resultEstoqueCC[0]['RESERVA'] ?? 0);
+                $disponivel = (float) ($resultEstoqueCC[0]['DISPONIVEL'] ?? ($quantAtual - $quantReservada));
 
                 // $produtoQuant = $classProdutoQtde->produtoQtde($arrPedidoItem[$i]['ITEMESTOQUE'], $cce);
                 // $estoque = 0;
@@ -297,8 +298,12 @@ Class c_pedidoVendaTools extends c_pedidoVenda
 
                 // }
                 // $disponivel = $quantAtual - $quantReservada;
-                if ($arrPedidoItem[$i]['QTSOLICITADA'] > $disponivel) {
-                    $msg .= "Item " . $arrPedidoItem[$i]['ITEMESTOQUE'] . " -> " . $arrPedidoItem[$i]['DESCRICAO'] . " com quantidade indisponível-> Qt Atual: " . $disponivel . "<BR>";
+                if ((float) $arrPedidoItem[$i]['QTSOLICITADA'] > $disponivel) {
+                    $msg .= "Item " . $arrPedidoItem[$i]['ITEMESTOQUE'] . " -> " . $arrPedidoItem[$i]['DESCRICAO']
+                        . " com quantidade indisponível — solicitado: " . $arrPedidoItem[$i]['QTSOLICITADA']
+                        . ", disponível: " . $disponivel
+                        . " (estoque: " . $quantAtual . ", reserva: " . $quantReservada . ")";
+                    $msg .= "<BR>";
                 }
             }
 

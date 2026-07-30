@@ -118,21 +118,24 @@
                                     <table class="table table-striped">
                                           <thead>
                                                 <tr>
-                                                      <th style="width: 22%">Nome</th>
+                                                      <th style="width: 18%">Nome</th>
                                                       <th style="width: 8%">Documento</th>
                                                       <th style="width: 4%">Tipo</th>
                                                       <th style="width: 8%">Telefone</th>
-                                                      <th style="width: 20%">Email</th>
-                                                      <th style="width: 16%">Cidade</th>
+                                                      <th style="width: 18%">Email</th>
+                                                      <th style="width: 8%">Inscrição Estadual</th>
+                                                      <th style="width: 8%">Inscrição Municipal</th>
+                                                      <th style="width: 14%">Cidade</th>
                                                       <th style="width: 4%">Estado</th>
-                                                      <th style="width: 18%">Bairro</th>
-
+                                                      <th style="width: 20%">Endereço</th>
+                                                      <th style="width: 8%">Representante</th>
+                                                      <th style="width: 4%">Classe</th>
                                                 </tr>
                                           </thead>
                                           <tbody>
                                                 {foreach $lanc as $item}
                                                       <tr>
-                                                            <td> {$item.NOME}</td>
+                                                            <td>{$item.NOME}</td>
                                                             <td>{$item.CNPJCPF}</td>
                                                             <td>
                                                                   {if $item.PESSOA == 'F'}
@@ -147,9 +150,15 @@
                                                                   {/if}
                                                             </td>
                                                             <td>{$item.EMAIL}</td>
+                                                            <td>{$item.INSCESTRG}</td>
+                                                            <td>{$item.INSCMUNICIPAL}</td>
                                                             <td>{$item.CIDADE}</td>
                                                             <td>{$item.UF}</td>
-                                                            <td>{$item.BAIRRO}</td>
+                                                            <td>
+                                                                  {if $item.TIPOEND}{$item.TIPOEND} {/if}{$item.ENDERECO}{if $item.NUMERO}, {$item.NUMERO}{/if}{if $item.COMPLEMENTO} - {$item.COMPLEMENTO}{/if}{if $item.BAIRRO} - {$item.BAIRRO}{/if}{if $item.CEP} - {$item.CEP}{/if}
+                                                            </td>
+                                                            <td>{$item.REPRESENTANTE}</td>
+                                                            <td>{$item.CLASSEDESC}</td>
                                                       </tr>
                                                 {/foreach}
                                           </tbody>
@@ -168,7 +177,37 @@
                         <button class="btn btn-default btn-sm" onclick="window.print();">
                               <i class="fa fa-print"></i> Imprimir
                         </button>
+                        <button class="btn btn-success btn-sm" onclick="exportarTabelaParaExcel();">
+                              <i class="fa fa-file-excel-o"></i> Exportar Excel
+                        </button>
                   </div>
             </div>
       </div>
 </section>
+
+<script src="{$pathJs}/../bib/js/vendor/xlsx.full.min.js"></script>
+<script type="text/javascript">
+      function exportarTabelaParaExcel() {
+            var table = document.querySelector('.table-striped');
+            if (!table) {
+                  alert('Tabela não encontrada!');
+                  return;
+            }
+
+            if (typeof XLSX === 'undefined') {
+                  alert('Biblioteca de exportação (XLSX) não carregada!');
+                  return;
+            }
+
+            var wb = XLSX.utils.book_new();
+            var ws = XLSX.utils.table_to_sheet(table, { raw: true });
+
+            XLSX.utils.book_append_sheet(wb, ws, "Contas");
+
+            var dataImp = '{$dataImp}';
+            var nomeArquivo = 'Relatorio_Contas_' +
+                  dataImp.replace(/\//g, '_') + '.xlsx';
+
+            XLSX.writeFile(wb, nomeArquivo);
+      }
+</script>

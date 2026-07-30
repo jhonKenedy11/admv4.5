@@ -19,7 +19,10 @@ require_once($dir."/../../class/est/c_produto_estoque.php");
 require_once($dir."/../../class/est/c_nota_fiscal.php");
 require_once($dir."/../../class/est/c_nota_fiscal_produto.php");
 require_once($dir."/../../class/crm/c_conta.php");
+require_once($dir."/../../class/ped/c_pedido_venda.php");
 require_once($dir."/../../class/ped/c_pedido_venda_tools.php");
+require_once($dir."/../../class/ped/c_pedido_venda_nf.php");
+require_once($dir."/../../class/ped/c_pedido_ps.php");
 //require_once($dir."/../../forms/est/p_movimentacao_estoque_cc_imprime.php");
 
 //Class movimentacao_estoque_cc
@@ -99,6 +102,7 @@ Class movimentacao_estoque_cc extends c_produto{
 
         // caminhos absolutos para todos os diretorios biblioteca e sistema
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
+        $this->smarty->assign('pathSweet', ADMhttpCliente . '/../sweetalert2');
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('admClass', ADMclass);
         $this->smarty->assign('raizCliente', $this->raizCliente);
@@ -123,59 +127,304 @@ Class movimentacao_estoque_cc extends c_produto{
 //---------------------------------------------------------------
     function controle() {
         switch ($this->m_submenu) {
-            case 'inclui':
-                $tipoMsg = null;
-                $quant = str_replace('.', '',$this->m_quantNova);
-                $quant = str_replace(',', '.', $quant);
-
-                if (abs($quant) > 0) {
-                    //Saída
-                    if($this->ccustoOrigem != $this->ccustoDestino){
-                        $result = $this->insereQuant($this->m_quantNova, $this->ccustoOrigem, '1');
-                        $msg = "</br>".'N&deg; Docto <b>SA&Iacute;DA</b> '.$result ;
-                        //Var para impressão
-                        $this->idSaida = $result;
-                    }
-                    //Entrada
-                    $result = $this->insereQuant($this->m_quantNova, $this->ccustoDestino, '0');
-                    $msg .= "</br>".'N&deg; Docto <b>ENTRADA</b> '.$result;
-                    //Var para impressão
-                    $this->idEntrada   = $result;
-
-                    //Atualiza tupula DOC Nota de entrada e saída setField($id, $field, $value)
-                    $updateDoc = new c_banco;
-                    $updateDoc->setTab("EST_NOTA_FISCAL");
-                    $updateDoc->setField($this->idSaida, "DOC", $this->idSaida);
-                    $updateDoc->setField($this->idEntrada, "DOC", $this->idSaida);
-                    
-                    $this->modeloNota = $this->m_modelo;
-                    $this->serieNota =  $this->m_serieDocto;
-                    $this->idCCEntrada = $this->ccustoDestino;
-                    $this->idCCSaida = $this->ccustoOrigem;
-                    $this->produto =$this->desc_prod;
-                    $this->quantidade = $this->m_quantNova;
-                    $this->conta = $this->id_pessoa;
-                    $this->genero = $this->m_genero;
-                    $this->obsNf = $this->m_obsNf;
-
-                    //Consulta se exist o produto em encomenda
-                    $resultProd = $this->select_produto_encomenda($this->id_produto);
-
-                    if($resultProd != null){
-                        $this->smarty->assign('mensagem', $resultProd);
-                    };
-
-                    $this->mostraBaixaEstoque($msg, 'sucesso');
-
-                } else {
-                    $msg = 'Quantidade inválida !!';
-                    $this->mostraBaixaEstoque($msg, 'alerta');
-                }  
-            break;
+            case 'ajax_entrada':
+                $this->responderJson($this->executarEntradaCc());
+                break;
+            case 'ajax_liberar_encomenda':
+                $this->responderJson($this->liberarEncomendaAjax());
+                break;
+            case 'buscar_produtos':
+                $this->responderJson($this->buscarProdutosAjax());
+                break;
+            case 'detalhe_produto':
+                $this->responderJson($this->detalheProdutoAjax());
+                break;
             default:
                 $this->mostraBaixaEstoque('');
-               
-        } //switch
+        }
+    }
+
+    private function buscarProdutosAjax(): array
+    {
+        $termo = trim((string) (filter_input(INPUT_POST, 'termo', FILTER_DEFAULT) ?? ''));
+        if (strlen($termo) < 2) {
+            return [];
+        }
+
+        try {
+            $rows = $this->buscarProdutosPorTermo($termo);
+        } catch (Exception $e) {
+            error_log('[movimentacao_estoque_cc] buscar_produtos: ' . $e->getMessage());
+            return [];
+        }
+
+        $results = [];
+        foreach ($rows as $row) {
+            if (count($results) >= 20) {
+                break;
+            }
+            $codigo = trim((string) ($row['CODIGO'] ?? $row['codigo'] ?? ''));
+            $descricao = trim((string) ($row['DESCRICAO'] ?? $row['descricao'] ?? ''));
+            if ($codigo === '' || $descricao === '') {
+                continue;
+            }
+            $results[] = [
+                'id' => $codigo,
+                'text' => $codigo . ' - ' . $descricao,
+            ];
+        }
+        return $results;
+    }
+
+    private function detalheProdutoAjax(): array
+    {
+        $codigo = (int) (filter_input(INPUT_POST, 'codigo', FILTER_DEFAULT) ?? 0);
+        if ($codigo <= 0) {
+            return ['ok' => false, 'mensagem' => 'Código de produto inválido.'];
+        }
+
+        $this->setId($codigo);
+        $rows = $this->select_produto();
+        if (!is_array($rows) || count($rows) === 0) {
+            return ['ok' => false, 'mensagem' => 'Produto não encontrado.'];
+        }
+
+        $produto = $rows[0];
+        $uniFracionada = $produto['UNIFRACIONADA'] ?? 'N';
+        $estoque = '—';
+
+        if ($uniFracionada !== 'S') {
+            $cc = (int) $this->m_empresacentrocusto;
+            $banco = new c_banco_pdo();
+            $sql = 'SELECT COUNT(*) AS QTD FROM EST_PRODUTO_ESTOQUE
+                    WHERE CODPRODUTO = :cod AND CENTROCUSTO = :cc AND STATUS = 0';
+            $banco->prepare($sql);
+            $banco->bindValue(':cod', $codigo);
+            $banco->bindValue(':cc', $cc);
+            $banco->execute();
+            $rowEst = $banco->fetch();
+            $qtd = isset($rowEst['QTD']) ? (int) $rowEst['QTD'] : 0;
+            $estoque = number_format($qtd, 2, ',', '.');
+        }
+
+        $venda = isset($produto['VENDA']) ? (float) $produto['VENDA'] : 0;
+
+        return [
+            'ok' => true,
+            'codigo' => $codigo,
+            'descricao' => $produto['DESCRICAO'] ?? '',
+            'unidade' => $produto['UNIDADE'] ?? '',
+            'venda' => number_format($venda, 2, ',', '.'),
+            'uniFracionada' => $uniFracionada,
+            'estoque' => $estoque,
+        ];
+    }
+
+    private function responderJson(array $payload): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    private function formatEncomendaLista(array $rows): array
+    {
+        $lista = [];
+        foreach ($rows as $row) {
+            $lista[] = [
+                'pedido' => (int) $row['PEDIDO'],
+                'cliente' => $row['NOMEREDUZIDO'],
+                'qtde' => (float) ($row['QTD_FALTA'] ?? $row['QTSOLICITADA']),
+                'qtdeSolicitada' => (float) $row['QTSOLICITADA'],
+                'descricao' => $row['DESCRICAO'],
+                'ccusto' => $row['CCUSTO'],
+                'prazoEntrega' => $row['PRAZOENTREGA'] ?? '',
+                'centroCustoEntrega' => $row['CENTROCUSTOENTREGA'],
+            ];
+        }
+        return $lista;
+    }
+
+    private function executarEntradaCc(): array
+    {
+        $quant = str_replace('.', '', (string) $this->m_quantNova);
+        $quant = str_replace(',', '.', $quant);
+
+        if (abs((float) $quant) <= 0) {
+            return [
+                'ok' => false,
+                'mensagem' => 'Quantidade inválida!',
+                'tipo' => 'warning',
+            ];
+        }
+
+        $this->idSaida = null;
+        $msgParts = [];
+
+        if ($this->ccustoOrigem != $this->ccustoDestino) {
+            $this->idSaida = $this->insereQuant($this->m_quantNova, $this->ccustoOrigem, '1');
+            $msgParts[] = 'N&deg; Docto <b>SA&Iacute;DA</b> ' . $this->idSaida;
+        }
+
+        $this->idEntrada = $this->insereQuant($this->m_quantNova, $this->ccustoDestino, '0');
+        $msgParts[] = 'N&deg; Docto <b>ENTRADA</b> ' . $this->idEntrada;
+
+        $updateDoc = new c_banco;
+        $updateDoc->setTab('EST_NOTA_FISCAL');
+        if (!empty($this->idSaida)) {
+            $updateDoc->setField($this->idSaida, 'DOC', $this->idSaida);
+            $updateDoc->setField($this->idEntrada, 'DOC', $this->idSaida);
+        } else {
+            $updateDoc->setField($this->idEntrada, 'DOC', $this->idEntrada);
+        }
+
+        $encomendas = $this->formatEncomendaLista(
+            $this->select_produto_encomenda((int) $this->id_produto)
+        );
+
+        return [
+            'ok' => true,
+            'mensagem' => implode('<br>', $msgParts),
+            'tipo' => 'success',
+            'idEntrada' => $this->idEntrada,
+            'idSaida' => $this->idSaida ?? '',
+            'idCCEntrada' => $this->ccustoDestino,
+            'idCCSaida' => $this->ccustoOrigem,
+            'codProduto' => $this->id_produto,
+            'produto' => $this->desc_prod,
+            'quantidade' => $this->m_quantNova,
+            'conta' => $this->id_pessoa,
+            'genero' => $this->m_genero,
+            'obsNf' => $this->m_obsNf,
+            'encomendas' => $encomendas,
+        ];
+    }
+
+    private function liberarEncomendaAjax(): array
+    {
+        $idPedido = (int) $this->m_modalIdPedido;
+        if ($idPedido <= 0) {
+            return [
+                'ok' => false,
+                'status' => 'erro',
+                'titulo' => 'Erro',
+                'mensagem' => 'Pedido inválido.',
+            ];
+        }
+
+        $ccEntrega = ($this->m_modalCCEntrega !== null && $this->m_modalCCEntrega !== '')
+            ? (int) $this->m_modalCCEntrega
+            : null;
+
+        if (!$this->atualizaDadosPedidoEncomenda($idPedido, $this->m_modalDataEntrega, $ccEntrega)) {
+            return [
+                'ok' => false,
+                'status' => 'erro',
+                'titulo' => 'Erro',
+                'mensagem' => 'Não foi possível atualizar os dados do pedido.',
+            ];
+        }
+
+        $cce = $ccEntrega ?? 0;
+        if ($cce <= 0) {
+            $bancoCc = new c_banco();
+            $bancoCc->setTab('FAT_PEDIDO');
+            $cce = (int) $bancoCc->getField('CENTROCUSTOENTREGA', 'ID=' . $idPedido);
+            if ($cce <= 0) {
+                $cce = (int) $bancoCc->getField('CCUSTO', 'ID=' . $idPedido);
+            }
+            $bancoCc->close_connection();
+        }
+
+        $objPs = new c_pedido_ps();
+        $msgValidacao = $objPs->validaEstoquePedidoPs($idPedido, $cce);
+        if ($msgValidacao !== null && $msgValidacao !== '') {
+            return [
+                'ok' => false,
+                'status' => 'encomenda',
+                'titulo' => 'Pedido permanece em encomenda',
+                'mensagem' => 'Ainda há divergência de estoque nos itens do pedido.',
+                'detalhe' => strip_tags(str_ireplace(['<br>', '<br/>', '<BR>'], "\n", $msgValidacao)),
+                'encomendas' => [],
+            ];
+        }
+
+        if ((new c_produto())->select_lancamento($idPedido) === null) {
+            return [
+                'ok' => false,
+                'status' => 'sem_financeiro',
+                'titulo' => 'Sem financeiro',
+                'mensagem' => 'Pedido sem financeiro! Deve ser alterado manualmente através do menu de pedidos.',
+                'encomendas' => [],
+            ];
+        }
+
+        $objPs->setId($idPedido);
+        $objPs->buscaPedido();
+
+        $transaction = new c_banco();
+        $transaction->inicioTransacao($transaction->id_connection);
+        try {
+            $msgReserva = $objPs->pedidoPsExecutarReservaEstoqueFarma($transaction->id_connection, 13);
+            if ($msgReserva !== '') {
+                throw new Exception($msgReserva);
+            }
+            $transaction->commit($transaction->id_connection);
+        } catch (Exception $e) {
+            $transaction->rollback($transaction->id_connection);
+            return [
+                'ok' => false,
+                'status' => 'encomenda',
+                'titulo' => 'Pedido permanece em encomenda',
+                'mensagem' => $e->getMessage(),
+                'encomendas' => [],
+            ];
+        }
+
+        $objPed = new c_pedidoVenda();
+        $objPed->setId($idPedido);
+        $objPed->atualizarField('SITUACAO', '6');
+
+        $objNfPs = new c_pedidoVendaNf();
+        $objNfPs->setId($idPedido);
+        $objNfPs->pedidoPsPosFinanceiroBaixaEstoque(null);
+
+        $resultado = [
+            'ok' => true,
+            'status' => 'liberado',
+            'titulo' => 'Sucesso',
+            'mensagem' => 'Pedido liberado para conferência e baixa de estoque!',
+        ];
+
+        $codProduto = (int) $this->id_produto;
+        $resultado['encomendas'] = $codProduto > 0
+            ? $this->formatEncomendaLista($this->select_produto_encomenda($codProduto))
+            : [];
+
+        return $resultado;
+    }
+
+    private function atualizaDadosPedidoEncomenda(int $idPedido, ?string $dataEntrega, ?int $ccEntrega): bool
+    {
+        $sets = [];
+        if ($dataEntrega !== null) {
+            $sets[] = ($dataEntrega !== '')
+                ? "PRAZOENTREGA = '" . addslashes($dataEntrega) . "'"
+                : 'PRAZOENTREGA = NULL';
+        }
+        if ($ccEntrega !== null) {
+            $sets[] = 'CENTROCUSTOENTREGA = ' . (int) $ccEntrega;
+        }
+        if ($sets === []) {
+            return true;
+        }
+
+        $sql = 'UPDATE FAT_PEDIDO SET ' . implode(', ', $sets) . ' WHERE ID = ' . $idPedido;
+        $banco = new c_banco();
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+
+        return (bool) $banco->result;
     }
 
 // fim controle
@@ -213,52 +462,14 @@ Class movimentacao_estoque_cc extends c_produto{
 
         $this->smarty->assign('centroCustoOrigem',  $ccusto_id);
         $this->smarty->assign('centroCustoDestino', $ccusto_id);
+        $this->smarty->assign('modalDataEntrega', date('d/m/Y'));
 
-        //Ajax responsavel por atualizar pedido
-        $ajax_request = @($_SERVER["HTTP_AJAX_ATUALIZA_PEDIDO"] == "true");
-        if($_SERVER["HTTP_AJAX_ATUALIZA_PEDIDO"] == "true"){
-            $ajax_request = 'true';
-
-            $objPedidoTool = new c_pedidoVendaTools();
-
-            //CONVERSAO DA DATA PARA INSERIR NO BANCO
-            //$this->m_modalDataEntrega = c_date::convertDateBdSh($this->m_modalDataEntrega, $this->m_banco);
-            
-            //ATUALIZA DADOS PEDIDO
-            $objPedidoTool->alteraDadosPedido($this->m_modalIdPedido, $this->m_modalDataEntrega, $this->m_modalCCEntrega, null);
-            
-            //VALIDA PEDIDO
-            $msg = $objPedidoTool->validaPedido($this->m_idPed, $this->m_modalCCEntrega);
-
-            //VERIFICA SE MSG É NULL(QUANDO NAO TEM DIVERGENCIA NO PEDIDO)
-            if (!is_null($msg)) {
-                $this->smarty->assign('msgPedModal', 'PEDIDO PERMANECE EM ENCOMENDA'.'</br>'.'</br>'.'</br>'.$msg);
-            }else{
-                //BUSCA PARCELAS DO FINANCEIRO
-                $parcFin = $this->select_lancamento($this->m_idPed);
-                
-                if(is_null($parcFin)){
-                    $this->smarty->assign('msgPedModal', 'PEDIDO SEM FINANCEIRO!!!'.'</br>'.'DEVE SER ALTERADO MANUALMENTE ATRAVÉS DO MENU DE PEDIDOS');
-                }else{
-                    //ALTERA PARA PEDIDO
-                    $objPedidoTool = new c_pedidoVendaTools();
-                    $objPedidoTool->alteraDadosPedido($this->m_idPed, null, null, 6); // PEDIDO
-                    $this->smarty->assign('msgPedModal', 'Pedido Alterado!');
-
-                    //Consulta se exist o produto em encomenda
-                    $resultProd = $this->select_produto_encomenda($this->id_produto);
-
-                    if($resultProd != null){
-                        $this->smarty->assign('mensagem', $resultProd);
-                    };
-                }
-            }
-
-        }else{
-            $ajax_request = 'false';
-            $this->smarty->assign('ajax', $ajax_request);
+        $ccList = [];
+        for ($i = 1; $i < count($ccusto_ids); $i++) {
+            $ccList[] = ['id' => $ccusto_ids[$i], 'nome' => $ccusto_names[$i]];
         }
-        
+        $this->smarty->assign('centroCustoJson', json_encode($ccList, JSON_UNESCAPED_UNICODE));
+
         $this->smarty->display('movimentacao_estoque_cc.tpl');
         
     }
@@ -366,7 +577,7 @@ Class movimentacao_estoque_cc extends c_produto{
                     $objEstProduto->setCodProduto($this->id_produto);
                     $objEstProduto->setStatus('0');
                     $objEstProduto->setAplicado('0');
-                    $objEstProduto->setCentroCusto($this->ccustoOrigem);
+                    $objEstProduto->setCentroCusto($centroCusto);
                     $objEstProduto->setUserProduto($this->m_userid);
                     $objEstProduto->setLocalizacao('');
                     //$objEstProduto->setNsEntrada($this->getNumSerie());

@@ -58,7 +58,7 @@
                   <label class="control-label col-md-3 col-sm-3 col-xs-12" for="id">C&oacute;digo </label>
                   <div class="col-md-6 col-sm-6 col-xs-12">
                     <input id="id" name="id" type="text" required="true" class="form-control col-md-7 col-xs-12"
-                      maxlength="6" placeholder="Digite o C&oacute;digo do G&ecirc;nero." value={$id}>
+                      maxlength="8" placeholder="Digite o C&oacute;digo do G&ecirc;nero." value={$id}>
                   </div>
                 </div>
                 <div class="form-group">

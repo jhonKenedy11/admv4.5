@@ -83,80 +83,69 @@ function formata_numero($numero,$loop,$insert,$tipo = "geral") {
 }
 
 
-function fbarcode($valor){
+function fbarcode($valor) {
+    $fino = 1;
+    $largo = 3;
+    $altura = 50;
+    $imgBase = $_SERVER['DOCUMENT_ROOT'] . '/admv4.5/boleto/imagens/'; // caminho absoluto
+    $barcodes = [];
+    $barcodes[0] = "00110";
+    $barcodes[1] = "10001";
+    $barcodes[2] = "01001";
+    $barcodes[3] = "11000";
+    $barcodes[4] = "00101";
+    $barcodes[5] = "10100";
+    $barcodes[6] = "01100";
+    $barcodes[7] = "00011";
+    $barcodes[8] = "10010";
+    $barcodes[9] = "01010";
 
-$fino = 1 ;
-$largo = 3 ;
-$altura = 50 ;
-
-  $barcodes[0] = "00110" ;
-  $barcodes[1] = "10001" ;
-  $barcodes[2] = "01001" ;
-  $barcodes[3] = "11000" ;
-  $barcodes[4] = "00101" ;
-  $barcodes[5] = "10100" ;
-  $barcodes[6] = "01100" ;
-  $barcodes[7] = "00011" ;
-  $barcodes[8] = "10010" ;
-  $barcodes[9] = "01010" ;
-  for($f1=9;$f1>=0;$f1--){ 
-    for($f2=9;$f2>=0;$f2--){  
-      $f = ($f1 * 10) + $f2 ;
-      $texto = "" ;
-      for($i=1;$i<6;$i++){ 
-        $texto .=  substr($barcodes[$f1],($i-1),1) . substr($barcodes[$f2],($i-1),1);
-      }
-      $barcodes[$f] = $texto;
+    for ($f1 = 9; $f1 >= 0; $f1--) {
+        for ($f2 = 9; $f2 >= 0; $f2--) {
+            $f = ($f1 * 10) + $f2;
+            $texto = "";
+            for ($i = 1; $i < 6; $i++) {
+                $texto .= substr($barcodes[$f1], ($i - 1), 1) . substr($barcodes[$f2], ($i - 1), 1);
+            }
+            $barcodes[$f] = $texto;
+        }
     }
-  }
 
+    $html = '';
 
-//Desenho da barra
+    // Guarda inicial
+    $html .= '<img src="' . $imgBase . 'p.png" width="' . $fino  . '" height="' . $altura . '" border="0">';
+    $html .= '<img src="' . $imgBase . 'b.png" width="' . $fino  . '" height="' . $altura . '" border="0">';
+    $html .= '<img src="' . $imgBase . 'p.png" width="' . $fino  . '" height="' . $altura . '" border="0">';
+    $html .= '<img src="' . $imgBase . 'b.png" width="' . $fino  . '" height="' . $altura . '" border="0">';
 
+    $texto = $valor;
+    if ((strlen($texto) % 2) != 0) {
+        $texto = "0" . $texto;
+    }
 
-//Guarda inicial
-?><img src=images/blt/p.png width=<?php echo $fino?> height=<?php echo $altura?> border=0><img 
-src=images/blt/b.png width=<?php echo $fino?> height=<?php echo $altura?> border=0><img 
-src=images/blt/p.png width=<?php echo $fino?> height=<?php echo $altura?> border=0><img 
-src=images/blt/b.png width=<?php echo $fino?> height=<?php echo $altura?> border=0><img 
-<?php
-$texto = $valor ;
-if((strlen($texto) % 2) <> 0){
-	$texto = "0" . $texto;
+    // Draw dos dados
+    while (strlen($texto) > 0) {
+        $i  = round(esquerda($texto, 2));
+        $texto = direita($texto, strlen($texto) - 2);
+        $f  = $barcodes[$i];
+
+        for ($i = 1; $i < 11; $i += 2) {
+            $f1 = (substr($f, ($i - 1), 1) == "0") ? $fino : $largo;
+            $html .= '<img src="' . $imgBase . 'p.png" width="' . $f1 . '" height="' . $altura . '" border="0">';
+
+            $f2 = (substr($f, $i, 1) == "0") ? $fino : $largo;
+            $html .= '<img src="' . $imgBase . 'b.png" width="' . $f2 . '" height="' . $altura . '" border="0">';
+        }
+    }
+
+    // Guarda final
+    $html .= '<img src="' . $imgBase . 'p.png" width="' . $largo . '" height="' . $altura . '" border="0">';
+    $html .= '<img src="' . $imgBase . 'b.png" width="' . $fino  . '" height="' . $altura . '" border="0">';
+    $html .= '<img src="' . $imgBase . 'p.png" width="' . 1      . '" height="' . $altura . '" border="0">';
+
+    echo $html; // mantém o echo para não quebrar o template existente
 }
-
-// Draw dos dados
-while (strlen($texto) > 0) {
-  $i = round(esquerda($texto,2));
-  $texto = direita($texto,strlen($texto)-2);
-  $f = $barcodes[$i];
-  for($i=1;$i<11;$i+=2){
-    if (substr($f,($i-1),1) == "0") {
-      $f1 = $fino ;
-    }else{
-      $f1 = $largo ;
-    }
-?>
-    src=images/blt/p.png width=<?php echo $f1?> height=<?php echo $altura?> border=0><img 
-<?php
-    if (substr($f,$i,1) == "0") {
-      $f2 = $fino ;
-    }else{
-      $f2 = $largo ;
-    }
-?>
-    src=images/blt/b.png width=<?php echo $f2?> height=<?php echo $altura?> border=0><img 
-<?php
-  }
-}
-
-// Draw guarda final
-?>
-src=images/blt/p.png width=<?php echo $largo?> height=<?php echo $altura?> border=0><img 
-src=images/blt/b.png width=<?php echo $fino?> height=<?php echo $altura?> border=0><img 
-src=images/blt/p.png width=<?php echo 1?> height=<?php echo $altura?> border=0> 
-  <?php
-} //Fim da função
 
 function esquerda($entra,$comp){
 	return substr($entra,0,$comp);

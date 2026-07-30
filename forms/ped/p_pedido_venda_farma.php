@@ -18,6 +18,7 @@ require_once($dir . "/../../class/ped/c_pedido_venda_tools.php");
 require_once($dir . "/../../class/ped/c_pedido_venda_nf.php");
 require_once($dir . "/../../class/est/c_produto.php");
 require_once($dir . "/../../class/est/c_produto_estoque.php");
+require_once($dir . "/../../class/fin/c_lancamento.php");
 require_once($dir . "/../../forms/ped/p_pedido_venda_nf.php");
 
 //Class P_situacao
@@ -28,6 +29,7 @@ Class p_pedido_venda extends c_pedidoVendaFarma {
     private $m_pesq         = NULL;
     private $m_par          = NULL;
     private $m_parPesq      = NULL;
+    private $m_idPedido     = NULL;
     private $m_desconto     = NULL;
     private $m_itensPedido  = NULL;
     private $m_itensQtde    = NULL;
@@ -80,6 +82,7 @@ Class p_pedido_venda extends c_pedidoVendaFarma {
         $this->m_itensQtde = $parmPost['itensQtde'];
         $this->m_agrupar_pedidos = $parmPost['agrupar_pedidos'];
         $this->m_motivoSelecionados = $parmPost['motivosSelecionados'];
+        $this->m_idPedido = isset($parmPost['idPedido']) ? $parmPost['idPedido'] : '';
 
         if ($this->verificaDireitoPrograma('FATVENDAPERDIDA', 'S')) {
             $exibirmotivo = 'S';
@@ -387,7 +390,7 @@ function calculaImpostosItem() {
 
                     foreach($itens_pedido as $item){
 
-                        $validate_quant = c_produto_estoque::verify_itemns_order_product($this->getId(), $item["ITEMESTOQUE"], 1);
+                        $validate_quant = c_produto_estoque::verify_itemns_order_product($this->getId(), $item["ITEMESTOQUE"], 1) ?? [];
                         
                         $qtd_reservada = count($validate_quant);
                         $qtd_solicitada = intval($item["QTSOLICITADA"]);
@@ -423,12 +426,41 @@ function calculaImpostosItem() {
                         $this->setSituacao(1);
                     else:    
                         $this->setSituacao($situacaoEmitirNf);
+                        $this->setPedido($this->getId());
+                        //$this->mostraPedido('Pedido confirmado. Número: '.$this->getId() );
                     endif;
-                    $this->setPedido($this->getId());
+
                     
+
+
+                    $checkLimite = c_lancamento::validaLimiteCreditoPedido(
+                        (int) $this->getCliente(),
+                        (int) $this->getId(),
+                        doubleval($this->select_totalPedido()),
+                        'liberar'
+                    );
+                    $podeEmitirNf = $checkLimite['ok'];
+                    $msgLimite = $checkLimite['mensagem'];
+
+                    if ($podeEmitirNf) {
+                        if (($fluxo=='S') or ($fluxo=='I')):
+                            $this->setSituacao(1);
+                        else:    
+                            $this->setSituacao($situacaoEmitirNf);
+                        endif;
+                        $this->setPedido($this->getId());
+                    } else {
+                        $this->setSituacao(0);
+                        $this->setPedido(0);
+                    }
+
                     $this->alteraPedidoTotal();
                     $this->atualizarField('CLIENTE', $this->getCliente());
-                    $this->mostraPedido('Pedido confirmado. Número: '.$this->getId() );
+                    if ($podeEmitirNf) {
+                        $this->mostraPedido('Pedido confirmado. Número: '.$this->getId() );
+                    } else {
+                        $this->mostraPedido($msgLimite, 'warning');
+                    }
                     
                 }
                 break;
@@ -829,7 +861,7 @@ function calculaImpostosItem() {
         $this->smarty->assign('emissao', $this->getEmissao('F'));
         $this->smarty->assign('entregador', $this->getEntregador());
         $this->smarty->assign('usrFatura', $this->getUsrFatura());
-        $this->smarty->assign('natop', $this->getIdNatop());
+        $this->smarty->assign('natop_id', $this->getIdNatop());
         $this->smarty->assign('tabPreco', $this->getTabPreco());
         $this->smarty->assign('entradaTabPreco', $this->getEntradaCondPg('F'));
         $this->smarty->assign('taxaFin', $this->getTaxaFin('F'));
@@ -967,10 +999,16 @@ function calculaImpostosItem() {
             $objProdutoQtde = new c_produto_estoque();
             if ($ItemFoiAdicionado != "S")  {
                 $lancPesq = $objProdutoQtde->produtoQtdePreco_40($this->m_pesq, $this->m_empresacentrocusto, null, 'P');
+                $gedBase = rtrim(ADMhttpCliente, '/') . '/';
+                foreach ($lancPesq as &$row) {
+                    $path = $row['PATH'] ?? $row['path'] ?? '';
+                    $row['PATH'] = $path;
+                    $row['img_src'] = $path ? $gedBase . implode('/', array_map('rawurlencode', explode('/', $path))) : '';
+                }
+                unset($row);
             } else {
               $lancPesq = $objProdutoQtde->null;  
             }
-//            $lancPesq = $this->select_pedido_venda_item_letra($this->m_pesq);
             $this->smarty->assign('lancPesq', $lancPesq);
         }
         $id = $this->getId();
@@ -1153,6 +1191,7 @@ function calculaImpostosItem() {
 
         $this->smarty->assign('motivo_ids', $motivo_ids);
         $this->smarty->assign('motivo_names', $motivo_names);
+        $this->smarty->assign('idPedido', isset($this->m_idPedido) ? $this->m_idPedido : '');
 
         $this->smarty->display('pedido_venda_farma_mostra.tpl');
     }

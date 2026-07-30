@@ -366,6 +366,7 @@
 </div>
 <!-- /page content -->
 
+<script src="{$pathJs}/../bib/js/vendor/xlsx.full.min.js"></script>
 <script type="text/javascript">
     function exportarTabelaParaExcel() {
         var table = document.querySelector('.table-striped');
@@ -374,34 +375,27 @@
             return;
         }
 
-        var csv = '';
-        var rows = table.querySelectorAll('tr');
-
-        for (var i = 0; i < rows.length; i++) {
-            var row = rows[i];
-            var cells = row.querySelectorAll('td, th');
-            var rowData = [];
-
-            for (var j = 0; j < cells.length; j++) {
-                var cellText = cells[j].textContent.trim();
-                // Remove caracteres especiais e escapa vírgulas/aspas
-                cellText = cellText.replace(/[»&raquo;]/g, '').trim();
-                if (cellText.indexOf(',') !== -1 || cellText.indexOf('"') !== -1) {
-                    cellText = '"' + cellText.replace(/"/g, '""') + '"';
-                }
-                rowData.push(cellText);
-            }
-
-            csv += rowData.join(',') + '\n';
+        if (typeof XLSX === 'undefined') {
+            alert('Biblioteca de exportação (XLSX) não carregada!');
+            return;
         }
 
-        // Adiciona BOM para UTF-8
-        var BOM = '\uFEFF';
-        var blob = new Blob([BOM + csv], {ldelim}type: 'text/csv;charset=utf-8;'{rdelim});
-        var link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'Financeiro_DataEntrega_{$dataIni}_a_{$dataFim}.csv';
-        link.click();
+        var wb = XLSX.utils.book_new();
+        var ws = XLSX.utils.table_to_sheet(table, { raw: true });
+
+        if (typeof converteColunaNumeroBR === 'function') {
+            converteColunaNumeroBR(ws, 12);
+        }
+
+        XLSX.utils.book_append_sheet(wb, ws, "Data Entrega");
+
+        var dataIni = '{$dataIni}';
+        var dataFim = '{$dataFim}';
+        var nomeArquivo = 'Financeiro_DataEntrega_' +
+            dataIni.replace(/\//g, '_') + '_a_' +
+            dataFim.replace(/\//g, '_') + '.xlsx';
+
+        XLSX.writeFile(wb, nomeArquivo);
     }
 </script>
 

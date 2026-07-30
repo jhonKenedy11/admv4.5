@@ -1,5 +1,5 @@
 function submitAtual(id, alteraCondPgto='' ) {
-    debugger;
+     
 
     f = document.lancamento;
     f.mod.value = 'ped';
@@ -14,7 +14,7 @@ function submitAtual(id, alteraCondPgto='' ) {
 } // fim submit
 
 function submitCadastro(id) {
-    debugger;
+     
 
     f = document.lancamento;
     f.mod.value = 'ped';
@@ -26,7 +26,7 @@ function submitCadastro(id) {
 } // fim submit
 
 function submitVoltar(formulario) {
-    debugger;
+     
 
     f = document.lancamento;
     f.mod.value = 'ped';
@@ -37,7 +37,7 @@ function submitVoltar(formulario) {
 } // fim submitVoltar
 
 function submitVoltarNovo(formulario) {
-    debugger;
+     
 
     f = document.lancamento;
     f.mod.value = 'ped';
@@ -48,7 +48,7 @@ function submitVoltarNovo(formulario) {
 
 
 function submitConfirmar(formulario) {
-    debugger;
+     
 
     f = document.lancamento;
     f.mod.value = 'ped';
@@ -65,7 +65,7 @@ function submitConfirmar(formulario) {
 } // fim submitConfirmar
 
 function submitCadastraNf(id) {
-    debugger;
+     
 
     f = document.lancamento;
     f.mod.value = 'ped';
@@ -83,7 +83,7 @@ function submitCadastraNf(id) {
 
 function submitCadastraFinanceiro(id) {
     f = document.lancamento;
-
+    
     if(f.numNf.value == ''){
         alert("Preencha o campo de Num Nota Fiscal.")
         return false;

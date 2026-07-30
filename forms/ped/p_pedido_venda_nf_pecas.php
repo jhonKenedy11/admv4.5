@@ -456,6 +456,13 @@ Class p_pedido_venda_nf_pecas extends c_pedidoVendaNf {
                         $objNfProduto->setDataFabricacao($arrItemPedido[$i]['FABDATAFABRICACAO']);
 
                         $objNfProduto->setOrdem($arrItemPedido[$i]['NUMEROOC']);
+                        // Preenche o número do item da ordem de compra (NITEMPED)
+                        // Se existir o campo NITEMPED no pedido, usar ele, senão usar NRITEM
+                        if (!empty($arrItemPedido[$i]['NITEMPED'])){
+                            $objNfProduto->setNItemPed($arrItemPedido[$i]['NITEMPED']);
+                        }else{
+                            $objNfProduto->setNItemPed($arrItemPedido[$i]['NRITEM']);
+                        }
                         $objNfProduto->setProjeto($arrItemPedido[$i]['PROJETO']);
                         $objNfProduto->setDataConferencia($arrItemPedido[$i]['DATACONFERENCIA']);
                         
@@ -578,7 +585,8 @@ Class p_pedido_venda_nf_pecas extends c_pedidoVendaNf {
                     $this->desenhaCadastroPedido("Nf Não foi gerado: "."<br>".$e->getMessage()."<br>");
                     // throw new Exception($e->getMessage()."Nf Não foi gerado " );
 
-                } catch (Exception $e) {
+                }
+                catch (Exception $e) {
                     //echo 'Caught exception: ',  $e->getMessage(), "\n";
                     if ($this->nfAberto == true):
                         $transaction->commit($transaction->id_connection);

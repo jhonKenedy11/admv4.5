@@ -1,5 +1,5 @@
 function submitConfirmarSmart() {
-    debugger;
+     
     f = document.lancamento;
     if (f.pessoa.value == "") {
         alert('Selecione uma Pessoa!');
@@ -26,7 +26,7 @@ function submitConfirmarSmart() {
 } // submitConfirmarSmart
 
 function submitConfirmar() {
-    debugger;
+     
     f = document.lancamento;
     if (f.pessoa.value == "") {
         alert('Selecione uma pessoa!');
@@ -66,27 +66,33 @@ function submitVoltar() {
 } // fim submitVoltar
 
 function submitLetra() {
-    debugger;
     f = document.lancamento;
     f.letra.value = '';
     f.submenu.value = 'pesquisa';
-    f.letra.value = f.dataIni.value + "|" + f.dataFim.value + "|" + f.pessoa.value + "||" + f.codProduto.value + "||";
+    debugger;
+    
+    // Se houver ID do pedido preenchido, usa busca direta por ID
+    if (f.idPedido && f.idPedido.value != '') {
+        // Monta letra com ID: dataIni|dataFim|cliente|||0|0|ID
+        f.letra.value = "||||||0|0|" + f.idPedido.value;
+    } else {
+        // Busca normal com filtros
+        f.letra.value = f.dataIni.value + "|" + f.dataFim.value + "|" + f.pessoa.value + "||" + f.codProduto.value + "||";
 
+        // situacao lancamento
+        myCheckbox = document.lancamento.elements["situacao[]"];
 
-    // situacao lancamento
-    myCheckbox = document.lancamento.elements["situacao[]"];
-
-    l = 0;
-    for (var i = 0; i < situacao.options.length; i++) {
-        if (situacao[i].selected == true) { l++; }
-    }
-    f.letra.value = f.letra.value + "|" + l;
-    for (var i = 0; i < situacao.options.length; i++) {
-        if (situacao[i].selected == true) {
-            f.letra.value = f.letra.value + "|" + situacao[i].value;
+        l = 0;
+        for (var i = 0; i < situacao.options.length; i++) {
+            if (situacao[i].selected == true) { l++; }
+        }
+        f.letra.value = f.letra.value + "|" + l;
+        for (var i = 0; i < situacao.options.length; i++) {
+            if (situacao[i].selected == true) {
+                f.letra.value = f.letra.value + "|" + situacao[i].value;
+            }
         }
     }
-
 
     // motivo lancamento
 
@@ -103,8 +109,9 @@ function submitLetra() {
 } // fim submitVoltar
 
 function submitCadastro() {
-    debugger;
-    f = document.lancamento;
+     
+    f = document.getElementById('lancamento');
+
     //f.opcao.value = 'pedido_venda';
     f.submenu.value = 'cadastrar';
     f.submit();
@@ -138,7 +145,7 @@ function submitEstornar(id) {
 } // submitEstornar
 
 function submitBuscar() {
-    debugger;
+     
     f = document.lancamento;
     f.submenu.value = 'cadastrar';
     if ((f.pesProduto.value == "") && (f.pesLocalizacao.value == "") && (f.grupo.value == "") && (f.promocoes == '')) {
@@ -155,7 +162,7 @@ function submitBuscar() {
 
 
 function submitIncluirItem() {
-    debugger;
+     
     f = document.lancamento;
     // situacao lancamento
     if (f.pessoa.value == "") {
@@ -191,7 +198,7 @@ function submitIncluirItem() {
 }
 
 function submitIncluirItemQuant() {
-    debugger;
+     
     f = document.lancamento;
     f.itensPedido.value = '';
     var table = document.getElementById("datatable-buttons");
@@ -236,7 +243,7 @@ function submitIncluirItemQuantKit() {
 }
 
 function submitIncluirItemQuantPreco() {
-    debugger;
+     
     f = document.lancamento;
     if (f.pessoa.value == "") {
         alert('Selecione uma pessoa!');
@@ -333,7 +340,7 @@ function submitExibirMotivo() {
 } // submitAlterar
 
 function submitPedidoPerdidoSalvar() {
-    debugger;
+     
     f = document.lancamento;
     var itensperdido = '';
     //var table = document.getElementById("datatable-buttons2");  
@@ -367,7 +374,7 @@ function submitPedidoPerdidoSalvar() {
 }
 
 function submitIncluirItemQuantPrecoPecas() {
-    debugger;
+     
     f = document.lancamento;
     if (f.pessoa.value == "") {
         alert('Selecione uma pessoa!');

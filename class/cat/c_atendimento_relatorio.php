@@ -123,22 +123,27 @@ class c_atendimento_relatorio extends c_user
         U.NOMEREDUZIDO AS USUARIO, 
         SE.DESCRICAO AS SERVICO,
         E.DESCRICAO AS EQUIPAMENTO,  
-        S.DESCRICAO AS STATUSDESC, 
+        S.DESCRICAO AS STATUSDESC,
+        S.ID AS STATUS_ID,
         C.DESCRICAO AS CENTRO_CUSTO, 
         A.PEDIDO_ID AS NUM_PEDIDO, 
         A.ID AS NUM_OS, 
         F.NOME AS CLIENTE, 
         A.DATAABERATEND AS DATA_ABERTURA, 
         A.DATAFECHATEND AS DATA_FECHAMENTO,
-        A.VALORSERVICOS
+        A.VALORSERVICOS AS VALOR_OS_TOTAL,
+        SAT.TOTALSERVICO AS VALOR_SERVICO,
+        SAT.VALUNITARIO AS VALOR_UNITARIO,
+        SAT.QUANTIDADE AS QUANTIDADE_SERVICO,
+        SAT.QUANTIDADE_EXECUTADA AS QUANTIDADE_EXECUTADA
         FROM CAT_ATENDIMENTO A  
-        INNER JOIN FIN_CENTRO_CUSTO C ON A.CENTROCUSTO = C.CENTROCUSTO
-        INNER JOIN CAT_SITUACAO S ON S.ID = A.CAT_SITUACAO_ID 
-        INNER JOIN CAT_EQUIPAMENTO E ON E.ID = A.CAT_EQUIPAMENTO_ID
-        INNER JOIN AMB_USUARIO U ON U.USUARIO = A.USRABERTURA
-        INNER JOIN FIN_CLIENTE F ON F.CLIENTE = A.CLIENTE
-        INNER JOIN CAT_AT_SERVICOS SAT ON SAT.ID = A.ID
-        INNER JOIN CAT_SERVICO SE ON SE.ID = SAT.CAT_SERVICOS_ID 
+        LEFT JOIN FIN_CENTRO_CUSTO C ON A.CENTROCUSTO = C.CENTROCUSTO
+        LEFT JOIN CAT_SITUACAO S ON S.ID = A.CAT_SITUACAO_ID 
+        LEFT JOIN CAT_EQUIPAMENTO E ON E.ID = A.CAT_EQUIPAMENTO_ID
+        LEFT JOIN AMB_USUARIO U ON U.USUARIO = A.USRABERTURA
+        LEFT JOIN FIN_CLIENTE F ON F.CLIENTE = A.CLIENTE
+        LEFT JOIN CAT_AT_SERVICOS SAT ON SAT.CAT_ATENDIMENTO_ID = A.ID
+        LEFT JOIN CAT_SERVICO SE ON SE.ID = SAT.CAT_SERVICOS_ID 
         WHERE A.DATAABERATEND BETWEEN :data_ini AND :data_fim ";
 
         if (!empty($usuario)) {
@@ -214,18 +219,24 @@ class c_atendimento_relatorio extends c_user
             if ($this->banco->rowCount() > 0) {
 
                 while ($row_events = $this->banco->fetch(PDO::FETCH_ASSOC)) {
+                    $valor_servico = $row_events['VALOR_SERVICO'] ?? $row_events['VALOR_OS_TOTAL'] ?? 0;
+                    
                     $resultados[] = [
-                        'num_os' => $row_events['NUM_OS'],
-                        'id_servico' => $row_events['SERVICO'],
-                        'cliente' => $row_events['CLIENTE'],
-                        'data_abertura' => $row_events['DATA_ABERTURA'],
-                        'data_fechamento' => $row_events['DATA_FECHAMENTO'],
-                        'usuario' => $row_events['USUARIO'],
-                        'status' => $row_events['STATUSDESC'],
-                        'num_pedido' => $row_events['NUM_PEDIDO'],
-                        'equipamento' => $row_events['EQUIPAMENTO'],
-                        'centro_custo' => $row_events['CENTRO_CUSTO'],
-                        'valor_servicos' => $row_events['VALORSERVICOS'],
+                        'num_os' => $row_events['NUM_OS'] ?? null,
+                        'id_servico' => $row_events['SERVICO'] ?? '-',
+                        'cliente' => $row_events['CLIENTE'] ?? '-',
+                        'data_abertura' => $row_events['DATA_ABERTURA'] ?? null,
+                        'data_fechamento' => $row_events['DATA_FECHAMENTO'] ?? null,
+                        'usuario' => $row_events['USUARIO'] ?? '-',
+                        'status' => $row_events['STATUSDESC'] ?? '-',
+                        'status_id' => $row_events['STATUS_ID'] ?? null,
+                        'num_pedido' => $row_events['NUM_PEDIDO'] ?? null,
+                        'equipamento' => $row_events['EQUIPAMENTO'] ?? '-',
+                        'centro_custo' => $row_events['CENTRO_CUSTO'] ?? '-',
+                        'valor_servicos' => $valor_servico,
+                        'valor_unitario' => $row_events['VALOR_UNITARIO'] ?? 0,
+                        'quantidade_servico' => $row_events['QUANTIDADE_SERVICO'] ?? 0,
+                        'quantidade_executada' => $row_events['QUANTIDADE_EXECUTADA'] ?? 0,
                     ];
                 }
             }
@@ -233,6 +244,174 @@ class c_atendimento_relatorio extends c_user
             return $resultados;
         } catch (Exception $e) {
             error_log("Erro ao gerar relatório: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Consulta relatório de período detalhado com informações completas
+     * 
+     * @param array $params Array com parâmetros de filtro:
+     *              - data_ini (string): Data inicial (formato 'DD/MM/YYYY')
+     *              - data_fim (string): Data final (formato 'DD/MM/YYYY')
+     *              - usuario (int) [opcional]: ID do usuário
+     *              - id_servico (int) [opcional]: ID do serviço
+     *              - equipamento (int) [opcional]: ID do equipamento
+     *              - id_status (int) [opcional]: ID do status
+     *              - centro_custo (int) [opcional]: ID do centro de custo
+     *              - num_pedido (int) [opcional]: Número do pedido
+     *              - num_os (int) [opcional]: Número da OS
+     *              - cliente_id (int) [opcional]: ID do cliente
+     *              - ordenacao (string) [opcional]: Tipo de ordenação (padrão: 'situacao_cliente_os')
+     * 
+     * @return array Resultados formatados com dados detalhados do relatório
+     * @throws Exception Em caso de erro na consulta
+     */
+    public function selectRelatorioPeriodoDetalhado($params)
+    {
+        $usuario = $params["usuario"];
+        $id_servico = $params["id_servico"];
+        $equipamento = $params["equipamento"];
+        $id_status = $params["id_status"];
+        $centro_custo = $params["centro_custo"];
+        $num_pedido = $params["num_pedido"];
+        $num_os = $params["num_os"];
+        $cliente_id = $params["cliente_id"];
+        $ordenacao = isset($params["ordenacao"]) ? $params["ordenacao"] : '1';
+        $data_fim = c_date::convertDateBd($params["data_fim"]);
+        $data_ini = c_date::convertDateBd($params["data_ini"]);
+
+        $sql = "SELECT 
+        F.NOME AS CLIENTE,
+        CO.PROJETO AS OBRA,
+        SE.DESCRICAO AS TIPO_SERVICO,
+        SAT.UNIDADE AS UNIDADE_SERVICO,
+        PS.QUANTIDADE AS QUANTIDADE_CONTRATADA,
+        PS.OBSSERVICO,
+        SAT.QUANTIDADE AS QUANTIDADE_EXECUTADA,
+        SAT.VALUNITARIO AS CUSTO_UNITARIO,
+        SAT.TOTALSERVICO AS TOTAL_FATURADO_SERVICO,
+        P.TOTAL AS TOTAL_CONTRATO,
+        S.DESCRICAO AS SITUACAO_OS,
+        S.ID AS STATUS_ID,
+        A.ID AS NUM_OS,
+        A.PEDIDO_ID AS NUM_PEDIDO,
+        A.DATAABERATEND AS DATA_ABERTURA,
+        A.DATAFECHATEND AS DATA_FECHAMENTO,
+        U.NOMEREDUZIDO AS USUARIO,
+        E.DESCRICAO AS EQUIPAMENTO,
+        C.DESCRICAO AS CENTRO_CUSTO
+        FROM CAT_ATENDIMENTO A  
+        LEFT JOIN FIN_CENTRO_CUSTO C ON A.CENTROCUSTO = C.CENTROCUSTO
+        LEFT JOIN CAT_SITUACAO S ON S.ID = A.CAT_SITUACAO_ID 
+        LEFT JOIN CAT_EQUIPAMENTO E ON E.ID = A.CAT_EQUIPAMENTO_ID
+        LEFT JOIN AMB_USUARIO U ON U.USUARIO = A.USRABERTURA
+        LEFT JOIN FIN_CLIENTE F ON F.CLIENTE = A.CLIENTE
+        LEFT JOIN FAT_PEDIDO P ON P.ID = A.PEDIDO_ID
+        LEFT JOIN FIN_CLIENTE_OBRA CO ON CO.CLIENTE = A.CLIENTE AND CO.STATUS = 'A' AND P.OBRA_ID = CO.ID
+        LEFT JOIN CAT_AT_SERVICOS SAT ON SAT.CAT_ATENDIMENTO_ID = A.ID
+        LEFT JOIN CAT_SERVICO SE ON SE.ID = SAT.CAT_SERVICOS_ID
+        LEFT JOIN FAT_PEDIDO_SERVICO PS ON PS.ID = SAT.FAT_PEDIDO_SERVICO_ID
+        WHERE A.DATAABERATEND IS NOT NULL 
+        AND A.DATAABERATEND BETWEEN :data_ini AND :data_fim ";
+
+        if (!empty($usuario)) {
+            $sql .= " AND A.USRABERTURA = :usuario";
+        }
+        if (!empty($id_servico)) {
+            $sql .= " AND SAT.CAT_SERVICOS_ID = :id_servico";
+        }
+        if (!empty($equipamento)) {
+            $sql .= " AND A.CAT_EQUIPAMENTO_ID = :equipamento";
+        }
+        if (!empty($id_status)) {
+            $sql .= " AND A.CAT_SITUACAO_ID = :id_status";
+        }
+        if (!empty($centro_custo)) {
+            $sql .= " AND A.CENTROCUSTO = :centro_custo";
+        }
+        if (!empty($num_pedido)) {
+            $sql .= " AND A.PEDIDO_ID = :num_pedido";
+        }
+        if (!empty($num_os)) {
+            $sql .= " AND A.ID = :num_os";
+        }
+        if (!empty($cliente_id)) {
+            $sql .= " AND A.CLIENTE = :cliente_id";
+        }
+
+        // Aplica ordenação dinâmica
+        $sql .= " ORDER BY " . $this->getOrderByClause($ordenacao);
+
+        try {
+            $this->banco = new c_banco_pdo();
+            $this->banco->prepare($sql);
+
+            // Bind dos parâmetros obrigatórios
+            $this->banco->bindValue(":data_ini", $data_ini);
+            $this->banco->bindValue(":data_fim", $data_fim);
+            
+            // Bind dos parâmetros opcionais
+            if (!empty($usuario)) {
+                $this->banco->bindValue(":usuario", $usuario);
+            }
+            if (!empty($id_servico)) {
+                $this->banco->bindValue(":id_servico", $id_servico);
+            }
+            if (!empty($equipamento)) {
+                $this->banco->bindValue(":equipamento", $equipamento);
+            }
+            if (!empty($id_status)) {
+                $this->banco->bindValue(":id_status", $id_status);
+            }
+            if (!empty($centro_custo)) {
+                $this->banco->bindValue(":centro_custo", $centro_custo);
+            }
+            if (!empty($num_pedido)) {
+                $this->banco->bindValue(":num_pedido", $num_pedido);
+            }
+            if (!empty($num_os)) {
+                $this->banco->bindValue(":num_os", $num_os);
+            }
+            if (!empty($cliente_id)) {
+                $this->banco->bindValue(":cliente_id", $cliente_id);
+            }
+
+            $this->banco->execute();
+
+            $resultados = [];
+
+            if ($this->banco->rowCount() > 0) {
+                while ($row_events = $this->banco->fetch(PDO::FETCH_ASSOC)) {
+                    $resultados[] = [
+                        'cliente' => $row_events['CLIENTE'] ?? '',
+                        'obra' => $row_events['OBRA'] ?? '',
+                        'tipo_servico' => $row_events['TIPO_SERVICO'] ?? '',
+                        'unidade_servico' => $row_events['UNIDADE_SERVICO'] ?? '',
+                        'obs_servico' => $row_events['OBSSERVICO'] ?? '',
+                        'quantidade_contratada' => floatval($row_events['QUANTIDADE_CONTRATADA'] ?? 0),
+                        'quantidade_executada' => floatval($row_events['QUANTIDADE_EXECUTADA'] ?? 0),
+                        'custo_unitario' => floatval($row_events['CUSTO_UNITARIO'] ?? 0),
+                        'total_faturado_servico' => floatval($row_events['TOTAL_FATURADO_SERVICO'] ?? 0),
+                        'total_contrato' => floatval($row_events['TOTAL_CONTRATO'] ?? 0),
+                        'situacao_os' => $row_events['SITUACAO_OS'] ?? '',
+                        'status_id' => $row_events['STATUS_ID'] ?? null,
+                        'num_os' => $row_events['NUM_OS'] ?? null,
+                        'num_pedido' => $row_events['NUM_PEDIDO'] ?? null,
+                        'data_abertura' => $row_events['DATA_ABERTURA'] ?? null,
+                        'data_fechamento' => $row_events['DATA_FECHAMENTO'] ?? null,
+                        'usuario' => $row_events['USUARIO'] ?? '',
+                        'equipamento' => $row_events['EQUIPAMENTO'] ?? '',
+                        'centro_custo' => $row_events['CENTRO_CUSTO'] ?? '',
+                    ];
+                }
+            }
+
+            return $resultados;
+        } catch (Exception $e) {
+            error_log("Erro ao gerar relatório detalhado: " . $e->getMessage());
+            error_log("SQL: " . $sql);
+            error_log("Parâmetros - data_ini: " . $data_ini . ", data_fim: " . $data_fim);
             return [];
         }
     }
@@ -306,7 +485,7 @@ class c_atendimento_relatorio extends c_user
             LEFT JOIN CAT_AT_SERVICOS SAT ON SAT.CAT_ATENDIMENTO_ID = A.ID
             LEFT JOIN CAT_SERVICO SE ON SE.ID = SAT.CAT_SERVICOS_ID 
             LEFT JOIN FAT_PEDIDO_SERVICO PS ON PS.ID = SAT.FAT_PEDIDO_SERVICO_ID";
-            
+
         if (!empty($num_pedido)) {
             $sql .= " WHERE A.PEDIDO_ID = :num_pedido";
         }
@@ -352,6 +531,28 @@ class c_atendimento_relatorio extends c_user
 
 
     /**
+     * Gera a cláusula ORDER BY baseada no ID de ordenação selecionado
+     * 
+     * @param int|string $ordenacaoId ID da ordenação selecionada (1-4)
+     * @return string Cláusula ORDER BY para SQL
+     */
+    private function getOrderByClause($ordenacaoId)
+    {
+        // Converte para inteiro para garantir comparação correta
+        $ordenacaoId = (int)$ordenacaoId;
+        
+        $orderByMap = [
+            1 => 'F.NOME',      // Cliente
+            2 => 'CO.PROJETO',  // Obra
+            3 => 'SE.DESCRICAO', // Serviço
+            4 => 'S.ID',        // Situação
+        ];
+
+        // Retorna a ordenação padrão (ID 1 - Cliente) se não encontrar a selecionada
+        return isset($orderByMap[$ordenacaoId]) ? $orderByMap[$ordenacaoId] : $orderByMap[1];
+    }
+
+    /**
      * Carrega todos os combos para filtros do relatório
      * 
      * Inclui combos de: centro de custo, usuários, status, 
@@ -366,6 +567,7 @@ class c_atendimento_relatorio extends c_user
         $this->comboStatus();
         $this->comboEquipamento();
         $this->comboServicos();
+        $this->comboOrdenacao();
     }
 
     /**
@@ -520,5 +722,35 @@ class c_atendimento_relatorio extends c_user
         } else {
             $this->smarty->assign('id_servico_id', $this->getServico());
         }
+    }
+
+    /**
+     * Gera combo de opções de ordenação para relatórios
+     * 
+     * Preenche arrays para template:
+     * - ordenacao_ids: Valores dos IDs (1-4)
+     * - ordenacao_names: Descrições das opções
+     * 
+     * @return void
+     */
+    public function comboOrdenacao()
+    {
+        $ordenacao_ids = [];
+        $ordenacao_names = [];
+
+        $ordenacao_ids[0] = '1';
+        $ordenacao_names[0] = 'Cliente';
+        
+        $ordenacao_ids[1] = '2';
+        $ordenacao_names[1] = 'Obra';
+        
+        $ordenacao_ids[2] = '3';
+        $ordenacao_names[2] = 'Serviço';
+        
+        $ordenacao_ids[3] = '4';
+        $ordenacao_names[3] = 'Situação';
+
+        $this->smarty->assign('ordenacao_ids', $ordenacao_ids);
+        $this->smarty->assign('ordenacao_names', $ordenacao_names);
     }
 }    //	END OF THE CLASS

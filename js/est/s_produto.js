@@ -1,9 +1,4 @@
-document.addEventListener('keydown', function (event) {
-    // evento pressionar ENTER
-    if (event.key == "Enter") {
-        submitLetraPesquisa();
-    }// fim evento enter
-});
+// Enter na tela "Consulta produtos" é tratado no template `produto_pesquisar.tpl`
 
 
 //loops through all buttons and all three equivalents to style buttons that contain equivalents 
@@ -71,7 +66,7 @@ function mostrarTRs(id, elemento) {
         trElement.style.display = 'table-row';
         elemento.innerText = 'Ocultar Equivalente';
       }
-  
+
     }
 }
 
@@ -455,21 +450,72 @@ function submitClear(){
 async function submitConfirmarEquivalencia() {
     f = document.lancamento;
 
-    if (f.submenu.value == "cadastrar"){
-         swal.fire({ text: 'Inclua o produto antes de cadastrar equivalências!', title: 'Atenção!', icon: 'warning', dangerMode: true });
-    }else{
+    if (f.submenu.value == "cadastrar") {
+        swal.fire({ text: 'Inclua o produto antes de cadastrar equivalências!', title: 'Atenção!', icon: 'warning', dangerMode: true });
+        return;
+    }
+
+    if (f.submenu.value == "alteraequivalencia") {
+        // enviar alteração via AJAX e só limpar os campos após resposta bem-sucedida
+        try {
+            f.submenu.value = 'alteraequivalencia';
+            const formData = new FormData(f);
+            const resp = await fetch(document.URL, {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            });
+            if (resp.ok) {
+                const text = await resp.text();
+                try {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(text, 'text/html');
+                    const newContainer = doc.querySelector('#equivalenciasContainer');
+                    if (newContainer) {
+                        const target = document.getElementById('equivalenciasContainer');
+                        if (target) target.innerHTML = newContainer.innerHTML;
+                        submitCancelarEquivalencia();
+                        await Swal.fire({ title: 'Sucesso', text: 'Equivalência alterada com sucesso.', icon: 'success' });
+                    } else {
+                        // fallback: servidor retornou página inteira sem o fragmento esperado
+                        location.reload();
+                    }
+                } catch (err) {
+                    console.error(err);
+                    location.reload();
+                }
+            } else {
+                Swal.fire({ title: 'Erro', text: 'Falha ao alterar equivalência.', icon: 'error' });
+            }
+        } catch (error) {
+            console.error(error);
+            Swal.fire({ title: 'Erro', text: 'Erro ao conectar com o servidor.', icon: 'error' });
+        }
+        return;
+    }
+
+    else {
         try{
              
             let codigo  = f.codEquivalente.value;
             const response = await fetch(document.URL + "?mod=est&form=produto&submenu=pesquisaCodigo&opcao=blank&pesquisaCodigo=" + codigo); 
             const data = await response.json();
             if(data === 'false'){
-                if (confirm('Deseja cadastrar códico equivalencia deste item') == true) {
-                    f.submenu.value = 'incluiequivalencia';
-                    f.submit();
-                }else{
-                    return false;
-                }
+                swal.fire({
+                    title: 'Confirmar',
+                    text: 'Deseja cadastrar código equivalência deste item?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sim',
+                    cancelButtonText: 'Não'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        f.submenu.value = 'incluiequivalencia';
+                        f.submit();
+                    } else {
+                        return false;
+                    }
+                });
             }else{
 
                  swal.fire({
@@ -513,14 +559,57 @@ async function submitConfirmarEquivalencia() {
 
 } // Fim submitConfirmar
 
-function submitExcluirEquivalencia(id) {
-    if (confirm('Deseja realmente Excluir este item') == true) {
-        f = document.lancamento;
-        f.opcao.value = '';
-        f.submenu.value = 'excluiequivalencia';
-        f.idEquiv.value = id;
-        f.submit();
+function AlterarEquivalencia(id, code, conta, contaName, marca, nf, data, quant, preco) {
+    var f = document.lancamento;
+    f.opcao.value = '';
+    f.submenu.value = 'alteraequivalencia';
+    f.idEquiv.value = id;    
+    f.codEquivalente.value = code;
+    f.contaEquiv.value = conta;
+    f.nomeEquivalente.value = contaName;
+    f.marcaEquivalente.value = marca;
+    f.nfUltimaCompraEquiv.value = nf;
+    f.dataUltimaCompraEquiv.value = data;
+    f.quantUltimaCompraEquiv.value = quant;
+    f.precoUnitarioEquiv.value = preco;
+}
+
+function submitCancelarEquivalencia() {
+    var f = document.lancamento;
+    f.opcao.value = '';
+    f.submenu.value = '';
+    f.idEquiv.value = '';
+    f.codEquivalente.value = '';
+    f.contaEquiv.value = '';
+    f.nomeEquivalente.value = '';
+    f.precoUnitarioEquiv.value = '';
+    f.marcaEquivalente.value = '';
+    if (typeof $ !== 'undefined' && $('#marcaEquivalente').length) {
+        $('#marcaEquivalente').val('').trigger('change');
     }
+
+    f.nfUltimaCompraEquiv.value = '';
+    f.dataUltimaCompraEquiv.value = '';
+    f.quantUltimaCompraEquiv.value = '';
+}
+
+function submitExcluirEquivalencia(id) {
+    Swal.fire({
+        title: 'Atenção',
+        text: 'Deseja realmente Excluir este item',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.lancamento;
+            f.opcao.value = '';
+            f.submenu.value = 'excluiequivalencia';
+            f.idEquiv.value = id;
+            f.submit();
+        }
+    });
 }
 
 // mostra Cadastro
@@ -577,21 +666,6 @@ function montaLetra() {
     l.letra.value = l.produtoNome.value + "|" + l.grupo.value + "|" + l.codFabricante.value + "|" + l.localizacao.value + "|" + valueQuant + "|" + valueFora;
 }// submitLetra
 
-
-// function submitLetra() {
-//     
-//     f = document.lancamento;
-//     var quant = document.getElementsByName('quant');
-//     var fora = document.getElementsByName('fora');
-//     if ((f.codFabricante.value == '') && (f.produtoNome.value == '') && (f.grupo.value == '') && (f.localizacao.value == '') && (!quant[0].checked) && (!fora[0].checked)) {
-//         alert('Digite algum Filtro de pesquisa.');
-//     } else {
-//         f.submenu.value = 'letra';
-//         montaLetra();
-//         f.submit();
-//     }
-// }
-
 function submitLetra() {
     
     f = document.lancamento;
@@ -628,8 +702,25 @@ function submitLetraPesquisa(codigo = null, codFabricante = null, checkbox = '')
     f = document.lancamento;
 
     if ((codigo == null) && (f.codFabricante.value == '') && (f.produtoNome.value == '') && (f.grupo.value == '') && (f.localizacao.value == '')) {
-        alert('Digite algum Filtro de pesquisa.');
+        swal.fire({
+            title: 'Atenção',
+            text: 'Digite algum Filtro de pesquisa.',
+            icon: 'warning',
+            timer: 1500
+        });
     } else {
+        // Mostra loader com SweetAlert
+        swal.fire({
+            title: 'Pesquisando...',
+            text: 'Aguarde enquanto os produtos são pesquisados.',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+        
         f.submenu.value = 'letra';
         var valueQuant = "F";
         var valueFora = "F";
@@ -649,6 +740,7 @@ function submitLetraPesquisa(codigo = null, codFabricante = null, checkbox = '')
                 f.checkbox.value = false;}
         }
         
+        f.quantidade_pesquisada.value = null;
 
         f.letra.value = f.produtoNome.value + "|" + f.grupo.value + "|" + f.codFabricante.value + "|" + f.localizacao.value + "|" + valueQuant + "|" + valueFora;
         f.submit();
@@ -658,15 +750,29 @@ function submitLetraPesquisa(codigo = null, codFabricante = null, checkbox = '')
 function submitAjustaEstoque() {
     f = document.lancamento;
     if ((f.quantNova.value == "") || (f.quantNova.value == 0)) {
-        alert("Digite a NOVA Quantidade a ser ajustada para o produto.");
+        swal.fire({
+            title: 'Atenção',
+            text: 'Digite a NOVA Quantidade a ser ajustada para o produto.',
+            icon: 'warning',
+            timer: 1500
+        });
     } else {
-        if (confirm('Deseja ajustar a quantidade') == true) {
+        swal.fire({
+            title: 'Atenção',
+            text: 'Deseja ajustar a quantidade',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sim, ajustar!',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
             f.mod.value = 'est';
             f.form.value = 'produto';
             f.submenu.value = 'ajustaestoque';
-        }
+            }
+            f.submit();
+        });
     }
-    f.submit();
 }
 
 
@@ -794,7 +900,12 @@ function submitInsertProdutoJson(params) {
 
 function submitLetraModal() {
     if (document.lancamento.desc.value == '') {
-        alert('Preencha o campo para a pesquisa.');
+        swal.fire({
+            title: 'Atenção',
+            text: 'Preencha o campo para a pesquisa.',
+            icon: 'warning',
+            timer: 1500
+        });
         return false;
     }
 
@@ -831,7 +942,12 @@ function submitModal() {
     
     let numLinhas = document.getElementById("datatable").rows.length;
     if (numLinhas <= 1) {
-        alert("Aviso! Faça a Pesquisa antes de importar dados.");
+        swal.fire({
+            title: 'Atenção',
+            text: 'Aviso! Faça a Pesquisa antes de importar dados.',
+            icon: 'warning',
+            timer: 1500
+        });
         return false
     }
 
@@ -850,15 +966,61 @@ function formata_descricao(str) {
         .replace(/(^-+|-+$)/, ''); // Remove hífens extras do final ou do inicio da string
 }
 
-function submitAlterarItemTabela($id, $codigo) {
-    
-    f = document.lancamento;
-    f.mod.value = 'est';
-    f.form.value = 'tabela_preco_item';
-    f.submenu.value = 'alterar';
-    f.letra.value = $id;
-    f.codigo.value = $codigo;
-    f.submit();
+
+
+function abrirCadastrarItemTabela(codigo, id_tabela_preco) {
+    var form = document.createElement('form');
+    form.method = 'post';
+    form.action = 'index.php';
+    form.target = '_blank';
+
+    var inputs = {
+        mod: 'est',
+        form: 'tabela_preco_item',
+        submenu: 'cadastrar',
+        codigo_produto: codigo,
+        id_tabela_preco: id_tabela_preco
+    };
+
+    for (var k in inputs) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = k;
+        input.value = inputs[k];
+        form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+}
+
+function abrirAlterarItemTabela(id, id_tabela_preco, codigo) {
+    var form = document.createElement('form');
+    form.method = 'post';
+    form.action = 'index.php';
+    form.target = '_blank';
+
+    var inputs = {
+        mod: 'est',
+        form: 'tabela_preco_item',
+        submenu: 'alterar',
+        id: id,
+        id_tabela_preco: id_tabela_preco,
+        codigo_produto: codigo
+    };
+
+    for (var k in inputs) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = k;
+        input.value = inputs[k];
+        form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
 }
 
 /**
@@ -878,15 +1040,24 @@ function submitDestaqueImagem(idimg, destaque) {
 
 function submitExcluirImagem(id, idimg) {
     
-    if (confirm('Deseja realmente Excluir este item') == true) {
+    swal.fire({
+        title: 'Atenção',
+        text: 'Deseja realmente Excluir esta Imagem',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
         f = document.lancamentoajax;
         f.mod.value = 'est';
         f.form.value = 'produto';
         f.submenu.value = 'excluiImagem';
         f.id.value = id;
-        f.idimg.value = idimg;
-        f.submit();
-    }
+            f.idimg.value = idimg;
+            f.submit();
+        }
+    });
 } // submitExcluirImagem
 
 function submitVoltarImagem(consulta = '') {
@@ -966,74 +1137,42 @@ function fechaProdutoNf(codigo, descProduto, unidade) {
 
 //fecha pesquisa de produto e atualiza campos da form que chamou ( importa nfe )
 function fechaProdutoPesquisaNfe(codigo, descProduto, unidade) {
-    alert("Código equivalencia incluido com sucesso!!");
     f = document.lancamento;
     f.submenu.value = 'incluiequivalenciaPesquisa';
     f.codProduto.value = codigo;
-    f.submit();
+    
+    var formData = new FormData(f);
+
+    $.ajax({
+        type: "POST",
+        url: f.action || window.location.href,
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(response) {
+            swal.fire({
+                title: 'Sucesso',
+                text: 'Código equivalência incluído com sucesso!!',
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false
+            }).then(function() {
+                if (window.opener) {
+                    window.opener.location.reload();
+                }
+                window.close();
+            });
+        },
+        error: function(xhr, status, error) {
+            swal.fire({
+                title: 'Erro',
+                text: 'Erro ao incluir equivalência. Tente novamente.',
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
+        }
+    });
 }
-
-//ALTERACAO 08/01/2024
-// //fecha pesquisa de produto e atualiza campos da form que chamou
-// function fechaProdutoPesquisaParam(codigo, descProduto, unidade, codigonota = null, quantAtual = null, valorVenda = null, uniFracionada = null) {
-//     
-//     f = window.opener.document.lancamento;
-//     f.codProduto.value = codigo;
-//     f.unidade.value = unidade;
-//     f.descProduto.value = descProduto;
-//     if(lancamento.from.value != ''){
-//         f.codProduto.value = codigo;
-//         f.pesProduto.value = descProduto;
-//         f.descProduto.value = descProduto;
-//         f.unidade.value = unidade;
-//         if (f.pesProduto != undefined) { //tela de pedido 
-//             f.codProduto.value = codigonota;
-//             f.pesProduto.value = codigonota;
-//             f.mod.value = 'ped';
-//             f.form.value = window.opener.document.lancamento.form.value;
-//             f.pesq.value = '||||' + codigo + '|' + codigonota;
-//         } else {
-//             f.mod.value = 'est';
-//             f.form.value = 'nota_fiscal_produto'
-//         }
-//         f.submenu.value = 'cadastrar';
-//         f.submit();
-//     }
-    
-//     window.close();
-// }
-
-//fecha pesquisa de produto e atualiza campos da form que chamou
-// function fechaProdutoPesquisaParam(codigo, descProduto, unidade, codigonota = null, quantAtual = null, valorVenda = null, uniFracionada = null) {
-//     
-//     f = window.opener.document.lancamento;
-//     f.codProduto.value = codigo;
-//     f.unidade.value = unidade;
-//     f.descProduto.value = descProduto;
-//     if(lancamento.from.value != ''){
-//         f.codProduto.value = codigo;
-//         f.pesProduto.value = descProduto;
-//         f.descProduto.value = descProduto;
-//         f.unidade.value = unidade;
-//         lancamento.from.value == 'baixa_estoque' ? f.quantAtual.value = quantAtual : '';
-//         lancamento.from.value == 'baixa_estoque' ? f.valorVenda.value = valorVenda : '';
-//         lancamento.from.value == 'baixa_estoque' ? f.uniFracionada.value = uniFracionada : '';
-//         if (f.pesProduto != undefined && lancamento.from.value != 'baixa_estoque') { //tela de pedido 
-//             f.codProduto.value = codigonota;
-//             f.pesProduto.value = codigonota;
-//             f.mod.value = 'ped';
-//             f.form.value = window.opener.document.lancamento.form.value;
-//             f.pesq.value = '||||' + codigo + '|' + codigonota;
-//         } else {
-//             f.mod.value = 'est';
-//             f.form.value = 'nota_fiscal_produto'
-//         }
-//         f.submenu.value = 'cadastrar';
-//         f.submit();
-//     }
-    
-//     window.close();
-// }
 
 //OLD
 function fechaProdutoPesquisaParam(codigo, descProduto, unidade, codigonota = null, quantAtual = null, valorVenda = null, uniFracionada = null) {
@@ -1047,9 +1186,13 @@ function fechaProdutoPesquisaParam(codigo, descProduto, unidade, codigonota = nu
         f.pesProduto.value = descProduto;
         f.descProduto.value = descProduto;
         f.unidade.value = unidade;
-        lancamento.from.value == 'baixa_estoque' ? f.quantAtual.value = quantAtual : '';
-        lancamento.from.value == 'baixa_estoque' ? f.valorVenda.value = valorVenda : '';
-        lancamento.from.value == 'baixa_estoque' ? f.uniFracionada.value = uniFracionada : '';
+        var fromMovEstoque = (lancamento.from.value == 'baixa_estoque' || lancamento.from.value == 'movimentacao_estoque_cc');
+        fromMovEstoque ? f.quantAtual.value = quantAtual : '';
+        fromMovEstoque ? f.valorVenda.value = valorVenda : '';
+        fromMovEstoque ? f.uniFracionada.value = uniFracionada : '';
+        if (lancamento.from.value == 'movimentacao_estoque_cc' && window.opener.movCcAtualizarResumoProduto) {
+            window.opener.movCcAtualizarResumoProduto();
+        }
     } else {
         if (f.pesProduto != undefined) { //tela de pedido 
             f.codProduto.value = codigonota;
@@ -1156,36 +1299,58 @@ function fechaProdutoPesquisa(e, codKitReparo, descricao) {
 
     var linha = $(e).closest("tr");
 
-    var id               = linha.find("td:eq(2)").text().trim(); 
-    var codFabricante    = linha.find("td:eq(3)").text().trim();
-    if (lancamento.codFabricante.value == "")
-        var codNota          = linha.find("td:eq(3)").text();
-    else
-        var codNota          = lancamento.codFabricante.value;
-    codNota = codNota.trim();
-    var descricaoProduto = linha.find("td:eq(6)").text().trim(); 
-    var unidade          = linha.find("td:eq(7)").text().trim(); 
-    var vlrUnitario      = linha.find("td:eq(8)").text().trim();
-
+    // produto_pesquisar.tpl: [0]=chk [1]=equiv btn [2]=cod [3]=cod nota [4]=fab [5]=loc [6]=marca [7]=desc [8]=un [9]=venda [10]=est [11]=sel
+    var id               = linha.find("td:eq(2)").text().trim();
+    var codProdNota      = linha.find("td:eq(3)").text().trim();
+    var codFabricante    = linha.find("td:eq(4)").text().trim();
+    var codNota = codProdNota;
+    if (f.codFabricante && f.codFabricante.value != ""){
+        codNota = f.codFabricante.value;
+    }
+    codNota = String(codNota).trim();
+    var descricaoProduto = linha.find("td:eq(7)").text().trim();
+    var unidade          = linha.find("td:eq(8)").text().trim();
+    var vlrUnitario      = linha.find("td:eq(9)").text().trim();
+    var focarQuantidade = false;
     if(f.codProduto.value == '0'){
         f.codProduto.value      = id;
         f.descProduto.value     = descricaoProduto  
         f.uniProduto.value      = unidade
+        if (f.vlrUnitarioPecas) f.vlrUnitarioPecas.value = vlrUnitario;
+        if (f.quantidadePecas && (!f.form || f.form.value != 'cotacao')) {
+            if (!f.quantidadePecas.value) f.quantidadePecas.value = '0,00';
+            focarQuantidade = true;
+        }
     }else if(f.id === 'form_report'){
         f.codProduto.value      = id;
         f.descProduto.value     = descricaoProduto 
         f.descProduto.focus()
         window.close();
+        return;
     }else{
         f.codProduto.value      = id;
-        f.codFabricante.value   = codFabricante
-        f.codProdutoNota.value  = codNota 
+        if (f.codFabricante) f.codFabricante.value = codFabricante;
+        if (f.codProdutoNota) f.codProdutoNota.value = codNota;
         f.descProduto.value     = descricaoProduto  
         f.uniProduto.value      = unidade
-        f.vlrUnitarioPecas.value        = vlrUnitario   
+        // Verifica se é cotação para usar o campo correto
+        if(f.form && f.form.value == 'cotacao'){
+            if(f.vlrUnitarioProduto) f.vlrUnitarioProduto.value = vlrUnitario;
+            if(f.quantidadeProduto) f.quantidadeProduto.focus();
+        } else {
+            if(f.vlrUnitarioPecas) f.vlrUnitarioPecas.value = vlrUnitario;
+            if (f.quantidadePecas) {
+                if (!f.quantidadePecas.value) f.quantidadePecas.value = '0,00';
+                focarQuantidade = true;
+            }
+        }
     }
-    f.quantidadePecas.focus();
     window.close();
+    if (focarQuantidade && window.opener && typeof window.opener.focarCampoPecas === 'function') {
+        window.opener.focarCampoPecas('quantidadePecas');
+    } else if (focarQuantidade && f.quantidadePecas) {
+        f.quantidadePecas.focus();
+    }
     
 }
 
@@ -1249,11 +1414,21 @@ function fechaProdutoPesquisaAtendimento_old(codigo, descProduto, unidade, codig
     descontoItemValue = document.getElementsByName(descontoItem)[0].value;
 
     if(quantValue == "0,00" || quantValue == ""){
-        alert("Digite a quantidade do produto.");
+        swal.fire({
+            title: 'Atenção',
+            text: 'Digite a quantidade do produto.',
+            icon: 'warning',
+            timer: 1500
+        });
         return false;
     }
     if(vendaValue == "0,00" || vendaValue == ""){
-        alert("Digite a Venda do produto.");
+        swal.fire({
+            title: 'Atenção',
+            text: 'Digite a Venda do produto.',
+            icon: 'warning',
+            timer: 1500
+        });
         return false;
     }
 
@@ -1391,7 +1566,6 @@ function addItemsCart(){
     document.querySelector('.quantCart').innerHTML = carTemp.length;
     document.querySelector('.quantCart').style.backgroundColor = '#e12222'; 
     
-    console.log(carTemp)
 }
 
 function actionBtnIncluiQuantidade(){
@@ -1460,82 +1634,6 @@ function deleteItemsCart(idTR){
 
 }
 
-// //abre a modal #modalCart e gera tabela com itens, recebendo o string json $carrinho
-// function abrirModalItens() {
-    
-//     const form = document.getElementById('item-form-cart');
-//     const tabelaExistente = form.querySelector('table');
-//     let jsonItens = document.getElementById('carrinho');
-//     let jsonDecodificado = decodeEntities(jsonItens.value);
-//     let objItensRep = jsonDecodificado.replace(/`/g, '"');
-//     let objItens = JSON.parse(objItensRep);
-
-//     if (tabelaExistente) {
-//         // Se uma tabela já existe dentro do elemento com o ID "item-form-cart", deve-se remover a tabela
-//         form.removeChild(tabelaExistente);
-//     }
-
-//     // Crie um elemento de tabela com classes Bootstrap
-//     var table = document.createElement('table');
-//     table.classList.add('table', 'table-striped', 'table-bordered', );
-
-//     // Crie a linha de cabeçalho com classe Bootstrap
-//     var thead = document.createElement('thead');
-//     thead.classList.add('table-info'); // Adiciona classe de cabeçalho escuro do Bootstrap
-//     var cabecalho = thead.insertRow();
-
-//     // Crie as colunas do cabeçalho
-//     var th = document.createElement('th');
-//     th.textContent = 'Código';
-//     th.classList.add('thCartCodigo');
-//     cabecalho.appendChild(th);
-//     th = document.createElement('th');
-//     th.textContent = 'Desrição';
-//     cabecalho.appendChild(th);
-//     th = document.createElement('th');
-//     th.textContent = 'Quantidade';
-//     th.classList.add('thCartQuant');
-//     cabecalho.appendChild(th);
-//     th = document.createElement('th');
-//     th.classList.add('thManutencao');
-//     th.textContent = '';
-//     cabecalho.appendChild(th);
-
-//     // Adicione o cabeçalho à tabela
-//     table.appendChild(thead);
-
-//     let htmlTabela = [];
-//     for (let prop of Object.keys(objItens)) {
-         
-//         htmlTabela +=
-//             `<tr id="` + objItens[prop]['codigo'] +`">
-//                 <td class="tdsCart" style="vertical-align: middle !important; text-align:center;"" >`
-//                     + objItens[prop]['codigo'] + 
-//                 `</td>
-//                 <td class="tdsCart" style="vertical-align: middle !important;" >`
-//                     + objItens[prop]['descricao'] + 
-//                 `</td>
-//                 <td class="tdsCart" style="vertical-align: middle !important; text-align:center;">`
-//                     + objItens[prop]['quantidade'] + 
-//                 `</td>
-//                 <td class="tdsCart" style="vertical-align: middle !important;">
-//                     <button type ="button" class="btn btn-sm btn-danger btnExcluirCart" title="Excluir item" onclick ="deleteItemsCart('`+ objItens[prop]['codigo']+`')"> 
-//                         <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
-//                     </button>
-//                 </td>
-//             </tr>`
-//     }
-//     // Crie o corpo da tabela
-//     var tbody = document.createElement('tbody');
-//     tbody.classList.add('tbodyCart');
-//     tbody.innerHTML = htmlTabela;   
-
-//     // Adicione o corpo à tabela
-//     table.appendChild(tbody);
-
-//     // Adicione a tabela Bootstrap ao formulário
-//     form.appendChild(table);
-// }
 
 function abrirModalItens() {
     const form = document.getElementById('item-form-cart');
@@ -1636,6 +1734,7 @@ function abrirModalItens() {
     const importButton = document.createElement('button');
     importButton.type = 'button';
     importButton.className = 'btn btn-primary';
+    importButton.id = 'importCartBtn';
     importButton.onclick = importaCarrinhoCotacao;
     importButton.innerHTML = (document.getElementById('from').value === 'pedido_ps') ? 'Incluir no pedido' : 'Cadastrar cotação';
 
@@ -2283,4 +2382,57 @@ function responseErrorExcluiItem(response){
     document.getElementById('addQuantidadeKitReparo').value = '';
     document.getElementById('closedKitReparo').click();
     document.getElementById('dados-tab-reparo').click();
+}
+
+
+function paginacao(acao){
+
+    debugger;
+
+    let letra = document.querySelector('input[name="letra"]').value;
+    let opcao = document.querySelector('input[name="opcao"]').value;
+    let pagina = parseInt(document.getElementById('pagina_atual').value);
+    let quantidade_pesquisada = parseInt(document.getElementById('quantidade_pesquisada').value);
+    let quantidade_maxima_por_pagina = parseInt(document.getElementById('quantidade_maxima_por_pagina').value);
+    let proxima_pagina = null;
+
+    // Verifica se a pagina é diferente de 1 para voltar uma pagina, ser for igual a 1 nao volta
+    if(acao == 'anterior' && pagina !== 1){
+
+        proxima_pagina = pagina - 1;
+        quantidade_pesquisada = quantidade_pesquisada - quantidade_maxima_por_pagina;
+
+    // Verifica se a pagina é diferente de total_paginas para avançar uma pagina, ser for igual a total_paginas nao avança
+    }else if(acao == 'proxima' && pagina !== total_paginas){
+        proxima_pagina = pagina + 1;
+        quantidade_pesquisada = quantidade_pesquisada + quantidade_maxima_por_pagina;
+    }
+
+     
+    if(acao == 'anterior'){
+        window.location.href = 'index.php?mod=est&form=produto&submenu=default&opcao=' + opcao + '&letra=' + letra + '&pagina=' + proxima_pagina + '&quantidade_pesquisada=' + quantidade_pesquisada;
+    }else if(acao == 'proxima'){
+        window.location.href = 'index.php?mod=est&form=produto&submenu=default&opcao=' + opcao + '&letra=' + letra + '&pagina=' + proxima_pagina + '&quantidade_pesquisada=' + quantidade_pesquisada;
+    }
+}
+
+function imprimirEtiquetaProduto(codProduto) {
+    const openPrint = (qtde) => {
+        qtde = parseInt(qtde, 10);
+        if (!qtde || qtde < 1) qtde = 1;
+        const url = 'index.php?mod=est&form=produto&submenu=imp_etiqueta&opcao=imprimir&parm=' + encodeURIComponent(codProduto) + '&qtde=' + encodeURIComponent(qtde);
+        window.open(url, 'etiqueta', 'toolbar=no,location=no,menubar=no,width=900,height=650,scrollbars=yes,resizable=yes');
+    };
+
+    Swal.fire({
+        title: 'Quantidade de etiquetas',
+        input: 'number',
+        inputValue: 1,
+        inputAttributes: { min: 1, step: 1 },
+        showCancelButton: true,
+        confirmButtonText: 'Imprimir',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) openPrint(result.value);
+    });
 }

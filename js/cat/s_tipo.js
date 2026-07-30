@@ -11,14 +11,23 @@ function submitConfirmar(formulario) {
     f = document.lancamento;
     f.mod.value = 'cat';
     f.form.value = 'tipo';
-    if (confirm('Deseja realmente ' + f.submenu.value + ' este item') == true) {
-        if (f.submenu.value == "cadastrar") {
-           f.submenu.value = 'inclui'; }
-        else {
-           f.submenu.value = 'altera'; }
+    swal.fire({
+        title: 'Atenção',
+        text: 'Deseja realmente ' + f.submenu.value + ' este item',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, confirmar!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            if (f.submenu.value == "cadastrar") {
+                f.submenu.value = 'inclui'; }
+            else {
+                f.submenu.value = 'altera'; }
 
-        f.submit(); // já estava
-    } // if
+            f.submit(); // já estava
+        }
+    });
 } // fim submitConfirmar
 
 
@@ -35,7 +44,15 @@ function submitCadastro(formulario) {
 
 function submitAlterar(tipo) {
 
-    if (confirm('Deseja realmente Alterar este item') == true) {
+    swal.fire({
+        title: 'Atenção',
+        text: 'Deseja realmente Alterar este item',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, alterar!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
         f = document.lancamento;
         f.mod.value = 'cat';
         f.form.value = 'tipo';
@@ -43,10 +60,19 @@ function submitAlterar(tipo) {
         f.id.value = tipo;
         f.submit();
     }
+    });
 } // submitAlterar
 
 function submitExcluir(tipo) {
-    if (confirm('Deseja realmente Excluir este item') == true) {
+    swal.fire({
+        title: 'Atenção',
+        text: 'Deseja realmente Excluir este item',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
         f = document.lancamento;
         f.mod.value = 'cat';
         f.form.value = 'tipo';
@@ -54,4 +80,5 @@ function submitExcluir(tipo) {
         f.id.value = tipo;
         f.submit();
     }
+    });
 } // submitExcluir

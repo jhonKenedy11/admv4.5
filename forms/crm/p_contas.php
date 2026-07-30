@@ -30,6 +30,7 @@ class p_conta extends c_conta
     public $from = NULL; // tela de pesquisa (qual tpl esta chamando)
     public $m_check = NULL;
     private $checkPedido = 'N';
+    
 
     //---------------------------------------------------------------
     //---------------------------------------------------------------
@@ -83,6 +84,18 @@ class p_conta extends c_conta
         $this->ajax_nrItem   = (isset($parmPost['nrItem']) ? $parmPost['nrItem'] : "");
         $this->ajax_vlrBonus = (isset($parmPost['vlrBonus']) ? $parmPost['vlrBonus'] : "0.00");
         $this->ajax_cliente  = (isset($parmPost['cliente']) ? $parmPost['cliente'] : "");
+       
+        // credito
+        $this->setAjaxIdCredito(isset($parmPost['id_credito']) ? $parmPost['id_credito'] : "");
+        $this->setAjaxPedido(isset($parmPost['pedido']) ? $parmPost['pedido'] : "");
+        $this->setAjaxNritem(isset($parmPost['nritem']) ? $parmPost['nritem'] : "");
+        $this->setAjaxQuantidade(isset($parmPost['quantidade']) ? $parmPost['quantidade'] : "0.00");
+        $this->setAjaxUnitario(isset($parmPost['unitario']) ? $parmPost['unitario'] : "0.00");
+        $this->setAjaxValor(isset($parmPost['valor']) ? $parmPost['valor'] : "0.00");
+        $this->setAjaxUtilizado(isset($parmPost['utilizado']) ? $parmPost['utilizado'] : "0.00");
+        $this->setAjaxEmissao(isset($parmPost['emissao']) ? $parmPost['emissao'] : "");
+        $this->setAjaxPedidoUtilizado(isset($parmPost['pedidoutilizado']) ? $parmPost['pedidoutilizado'] : "");
+        $this->setAjaxClienteId(isset($parmPost ['cliente']) ? $parmPost['cliente'] : "");
 
         $this->id_searchAddress = (isset($this->parmGet['id_searchAddress']) ? $this->parmGet['id_searchAddress'] : null);
         $this->object_address  = (isset($this->parmPost) ? $this->parmPost : "");
@@ -234,7 +247,8 @@ class p_conta extends c_conta
                             icon: 'warning',
                             title: 'Atenção',
                             text: '" . $result . ".',
-                            confirmButtonText: 'OK'
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#3085d6',
                         });
                         </script>";
                         $this->mostraConta('');
@@ -246,67 +260,114 @@ class p_conta extends c_conta
                             icon: 'warning',
                             title: 'Atenção',
                             text: 'Erro ao inserir pessoa!',
-                            confirmButtonText: 'OK'
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#d9534f',
                         });
                         </script>";
-                        // echo "<script src='https://unpkg.com/sweetalert/dist/sweetalert.min.js'></script> ";
-                        // echo "<script>swal({text: 'Erro ao inserir pessoa!', title: 'Atencao!', icon: 'error',button: 'Ok', dangerMode: true});</script>";
                         $this->desenhaCadastroConta($msg, 'alerta');
                     }
-                }
-                /* SCRIPT OLD
-                    $insert = true;
-                    $msg = '';
-                    if ($this->getCnpjCpf()!= ''){
-                        $cnpjCpf = new ValidaCPFCNPJ($this->getCnpjCpf());
-                        if (!$cnpjCpf->valida()){
-                            $insert = false;
-                            $msg = 'CNPJ/CPF Invalido!';
-                        }else {
-                            if ($this->existeContaCnpj($this->getCnpjCpf(), false) > 0 ) {
-                                $insert = false;
-                                $msg = 'CNPJ/CPF Já cadastrado!';
-                            }
-                        }
-                    }    
-                    if (($insert) and ($msg == '')){
-                        $msg = $this->incluiConta();
-                    }
-
-                    if ($msg == true):
-                        $this->mostraConta('');
-                        $clienteCad = $this->getNomeReduzido();
-
-                        
-                        echo"<script>
-                                swal({
-                                    title: 'Cadastro $clienteCad Realizado!',
-                                    icon: 'success',
-                                  });
-                            </script>";
-                    else:    
-                        $this->m_submenu = 'cadastrar';
-                        $this->desenhaCadastroConta($msg, 'alerta');
-                    endif;
-                } */
+                }               
                 break;
             case 'altera':
                 if ($this->verificaDireitoUsuario('FinPessoa', 'A')) {
                     if ($this->getCnpjCpf() != '') {
                         $cnpjCpf = new ValidaCPFCNPJ($this->getCnpjCpf());
                         if ($cnpjCpf->valida()) {
+
                             if ($this->existeContaCnpj($this->getCnpjCpf(), false) > 1) {
-                                $this->desenhaCadastroConta('CNPJ/CPF Já Cadastrado!', 'alerta');
+                                echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                                echo "<script>
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Atenção',
+                                    text: 'CNPJ/CPF Já Cadastrado!',
+                                    confirmButtonText: 'OK'
+                                    confirmButtonColor: '#d9534f',
+                                });
+                                </script>";
+
+                                $this->desenhaCadastroConta();
                             } else {
-                                $this->alteraConta();
-                                $this->mostraConta('Registro Salvo.');
+                                $result = $this->alteraConta();
+                                // Se o resultado for true, exibe a mensagem de sucesso
+                                if($result === true) {
+
+                                    echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                                    echo "<script>
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Registro Salvo.',
+                                        confirmButtonText: 'OK',
+                                        confirmButtonColor: '#3085d6',
+                                    });
+                                    </script>";
+
+                                    $this->mostraConta();
+
+                                } else {
+                                    // Se o resultado for false, exibe a mensagem de erro
+                                    echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                                    echo "<script>
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Erro ao salvar registro.',
+                                        text: '" . $result . "',
+                                        confirmButtonText: 'OK',
+                                        confirmButtonColor: '#d9534f',
+                                    });
+                                    </script>";
+
+                                    $this->desenhaCadastroConta();
+                                }
                             }
                         } else {
-                            $this->desenhaCadastroConta('CNPJ/CPF Invalido!', 'alerta');
+                            // Se o CNPJ/CPF for inválido, exibe a mensagem de erro
+                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Atenção',
+                                text: 'CNPJ/CPF Invalido!',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#d9534f',
+                            });
+                            </script>";
+
+                            $this->desenhaCadastroConta();
                         }
                     } else {
-                        $this->alteraConta();
-                        $this->mostraConta('Registro Salvo.');
+                        // Se o CNPJ/CPF for válido, altera o registro
+                        $result = $this->alteraConta();
+
+                        // Se o resultado for true, exibe a mensagem de sucesso
+                        if($result === true) {
+
+                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script>
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Registro Salvo.',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#3085d6',
+                            });
+                            </script>";
+
+                        } else {
+                            // Se o resultado for false, exibe a mensagem de erro
+                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro ao salvar registro.',
+                                confirmButtonText: 'OK',
+                                confirmButtonColor: '#d9534f',
+                            });
+                            </script>";
+
+                        }
+
+                        $this->mostraConta();
+
                     }
 
                     //if ( $cnpjCpf->valida() ) {
@@ -327,7 +388,7 @@ class p_conta extends c_conta
             case 'buscaHistoricoCliente':
                 //consulta historico
                 $consultaPed = new c_pedidoVenda();
-                $this->setId($this->ajax_cliente);
+                $this->setId($this->getAjaxClienteId());
                 $resultHis = $this->last_perfil();
                 header('Content-type: application/json');
                 echo json_encode($resultHis, JSON_FORCE_OBJECT);
@@ -335,7 +396,7 @@ class p_conta extends c_conta
             case 'buscaPedidosCliente':
                 //consulta pedidos
                 $consultaPed = new c_pedidoVenda();
-                $resultPed = $consultaPed->selectPersonPedidosClient($this->ajax_cliente);
+                $resultPed = $consultaPed->selectPersonPedidosClient($this->getAjaxClienteId());
                 header('Content-type: application/json');
                 echo json_encode($resultPed, JSON_FORCE_OBJECT);
                 die;
@@ -356,6 +417,7 @@ class p_conta extends c_conta
                     $this->setComplemento($_POST['complemento'] ?? '');
                     $this->setBairro($_POST['bairro'] ?? '');
                     $this->setCidade($_POST['cidade'] ?? '');
+                    $this->setCodMunicipio($_POST['codMunicipio'] ?? '');
                     $this->setEstado($_POST['estado'] ?? '');
                     $this->setStatus(($_POST['status'] ?? '') === 'true' ? 'I' : 'A');
 
@@ -431,6 +493,63 @@ class p_conta extends c_conta
                     }
                 }
                 exit;
+            case 'listaCreditosAjax':
+                if ($this->verificaDireitoUsuario('FinPessoa', 'C')) {
+                    $creditos = $this->selectCreditos($this->getId());
+                    header('Content-type: application/json');
+                    echo json_encode($creditos ?: []);
+                } else {
+                    header('Content-type: application/json');
+                    echo json_encode([]);
+                }
+                exit;
+            case 'cadastraCredito':
+                if ($this->verificaDireitoUsuario('FinPessoa', 'I') || $this->verificaDireitoUsuario('FinPessoa', 'A')) {
+                    $toDecimal = function ($value) {
+                        $value = str_replace('.', '', (string)$value);
+                        $value = str_replace(',', '.', $value);
+                        return (float)$value;
+                    };
+
+                    $dadosCredito = [
+                        'cliente' => (int)$this->getId(),
+                        'pedido' => (int)$this->getAjaxPedido(),
+                        'nritem' => (int)$this->getAjaxNritem(),
+                        'quantidade' => $toDecimal($this->getAjaxQuantidade()),
+                        'unitario' => $toDecimal($this->getAjaxUnitario()),
+                        'valor' => $toDecimal($this->getAjaxValor()),
+                        'utilizado' => $toDecimal($this->getAjaxUtilizado()),
+                        'emissao' => ($this->getAjaxEmissao()),
+                        'pedidoutilizado' => trim((string)$this->getAjaxPedidoUtilizado())
+                    ];
+
+                    if (!empty($this->getAjaxIdCredito())) {
+                        $success = $this->alteraCredito((int)$this->getAjaxIdCredito(), $dadosCredito);
+                    } else {
+                        $success = $this->incluiCredito($dadosCredito);
+                    }
+
+                    echo $success ? 'success' : 'error';
+                } else {
+                    echo 'error';
+                }
+                die;
+            case 'excluiCredito':
+                if ($this->verificaDireitoUsuario('FinPessoa', 'E')) {
+                    $idCredito = (int)$this->getAjaxIdCredito();
+                    $clienteId = (int)$this->getAjaxClienteId();
+                    if ($clienteId <= 0) {
+                        $clienteId = (int)$this->getId();
+                    }
+                    $success = false;
+                    if ($idCredito > 0 && $clienteId > 0) {
+                        $success = $this->excluiCredito($idCredito, $clienteId);
+                    }
+                    echo $success ? 'success' : 'error';
+                } else {
+                    echo 'error';
+                }
+                die;
                 //anexos Obra inicio
             case 'salvarAnexoObra':
                 try {
@@ -558,6 +677,7 @@ class p_conta extends c_conta
         $this->smarty->assign('consumidorFinal', $this->getConsumidorFinal());
         $this->smarty->assign('regimeEspecialSTMTAliq', $this->getRegimeEspecialSTMTAliq());
         $this->smarty->assign('regimeEspecialSTAliq', $this->getRegimeEspecialSTAliq());
+        $this->smarty->assign('geraBoletoAutomatico', $this->getGeraBoletoAutomatico());
 
         // // Obra
         // $obra = $this->selectObras($this->getId());
@@ -724,15 +844,7 @@ class p_conta extends c_conta
         $this->smarty->assign('classe_names', $classe_names);
         $this->smarty->assign('classe_id', $this->getClasse());
 
-        $sql = "SELECT * from FIN_CLIENTE_CREDITO where (CLIENTE = '" . $this->getId() . "')";
-        $consulta = new c_banco();
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
-
-        // Operador de coalescencia para php 8.3 
-        $result = $consulta->resultado ?? [];
-
-        $this->smarty->assign('credito', $result);
+        $this->smarty->assign('credito', $this->selectCreditos($this->getId()));
 
         $this->smarty->display('conta_cadastro.tpl');
     }
@@ -1172,15 +1284,21 @@ if (isset($_POST['consumidorFinal'])) {
 } else {
     $conta->setConsumidorFinal('N');
 };
-if (isset($_POST['regimeEspecialSTMTAliq'])) {
+if (isset($_POST['regimeEspecialSTMTAliq']) && $_POST['regimeEspecialSTMTAliq'] != '') {
     $conta->setRegimeEspecialSTMTAliq($_POST['regimeEspecialSTMTAliq']);
 } else {
-    $conta->setRegimeEspecialSTMTAliq('0');
+    $conta->setRegimeEspecialSTMTAliq('0.00');
 };
-if (isset($_POST['regimeEspecialSTAliq'])) {
+if (isset($_POST['regimeEspecialSTAliq']) && $_POST['regimeEspecialSTAliq'] != '') {
     $conta->setRegimeEspecialSTAliq($_POST['regimeEspecialSTAliq']);
 } else {
-    $conta->setRegimeEspecialSTAliq('0');
+    $conta->setRegimeEspecialSTAliq('0.00');
+};
+
+if (isset($_POST['geraBoletoAutomatico'])) {
+    $conta->setGeraBoletoAutomatico($_POST['geraBoletoAutomatico']);
+} else {
+    $conta->setGeraBoletoAutomatico('S');
 };
 
 if (isset($_POST['status'])) {

@@ -13,10 +13,18 @@ function submitCadastraNf(id) {
     var nf =  document.getElementById("numNf");
     var serie =  document.getElementById("serie");
     if (numNf.value == '') {
-        alert('preencha campo NF');
+        swal.fire({
+            text: 'Preencha campo NF',
+            icon: "warning",
+            confirmButtonText: "Ok"
+        });
         return false
     } else if (serie.value == '') {
-        alert('preencha campo SERIE');
+        swal.fire({
+            text: 'Preencha campo SERIE',
+            icon: "warning",
+            confirmButtonText: "Ok"
+        });
         return false
     } else {
     
@@ -100,16 +108,28 @@ function submitCadastraNf(id) {
 
         f.itenscotacao.value = $itenscotacao;   
         if (valido == 'N'){
-            alert('preencha campo CFOP');
+            swal.fire({
+                text: 'Preencha campo CFOP',
+                icon: "warning",
+                confirmButtonText: "Ok"
+            });
         } else {
-            if (confirm('Deseja realmente INCLUIR NFe e FATURAMENTO') == true) {
-                f.submenu.value = 'cadastraNf';
-                f.id.value = id;
-            }
-            else {
-                f.submenu.value = '';
-            } // else
-            f.submit();
+            swal.fire({
+                title: 'Confirmação',
+                text: 'Deseja realmente INCLUIR NFe e FATURAMENTO?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sim',
+                cancelButtonText: 'Não'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    f.submenu.value = 'cadastraNf';
+                    f.id.value = id;
+                    f.submit();
+                } else {
+                    f.submenu.value = '';
+                }
+            });
         } 
     }
     
@@ -132,7 +152,11 @@ function submitGerarNFC(id, situacao) {
     f.submenu.value = 'financeiro';
     f.id.value = id;
     if (situacao == 9) {
-        alert('já foi gerada nota desta cotação.');
+        swal.fire({
+            text: 'Já foi gerada nota desta cotação.',
+            icon: "warning",
+            confirmButtonText: "Ok"
+        });
     } else {
         f.submit();
     }
@@ -144,7 +168,11 @@ function submitSearch() {
     f = document.lancamento;
     f.submenu.value = 'cadastrar';
     if ((f.pesProduto.value == "") && (f.pesLocalizacao.value == "") && (f.grupo.value == "") && (prom == '') ){
-        alert('Faça algum filtro de pesquisa.');
+        swal.fire({
+            text: 'Faça algum filtro de pesquisa.',
+            icon: "warning",
+            confirmButtonText: "Ok"
+        });
     }else{
         f.pesq.value = f.pesProduto.value + '|' + f.grupo.value + '|' + f.promocoes.value + '|' + f.pesLocalizacao.value;
         //alert(f.pesq.value);
@@ -158,40 +186,74 @@ function submitConfirmarSmart() {
      
     f = document.lancamento;
     if (f.pessoa.value == "") {
-        alert('Selecione um Cliente.');
+        swal.fire({
+            text: 'Selecione um Cliente.',
+            icon: "warning",
+            confirmButtonText: "Ok"
+        });
         return false;
     } 
     if (f.condPgto.value == "") {
-        alert('Selecione uma Condição de Pagamento.');
+        swal.fire({
+            text: 'Selecione uma Condição de Pagamento.',
+            icon: "warning",
+            confirmButtonText: "Ok"
+        });
         return false;
     } 
-    if (confirm('Deseja realmente ' + f.submenu.value + ' esta Ordem de Compra') == true) {
-        if(f.id.value == ''){
-            f.submenu.value = 'inclui';
-        }else{
-            f.submenu.value == "cadastrar" ? f.submenu.value = 'inclui' : f.submenu.value = 'altera';
+    swal.fire({
+        title: 'Confirmação',
+        text: 'Deseja realmente ' + f.submenu.value + ' esta Ordem de Compra?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            if(f.id.value == ''){
+                f.submenu.value = 'inclui';
+            }else{
+                f.submenu.value == "cadastrar" ? f.submenu.value = 'inclui' : f.submenu.value = 'altera';
+            }
+            f.submit();
         }
-        f.submit();
-    } 
+    }); 
 
 } // submitConfirmarSmart
 
 function submitConfirmar() {
     f = document.lancamento;
     if (f.pessoa.value == "") {
-        alert('Selecione uma Conta!');
+        swal.fire({
+            text: 'Selecione uma Conta!',
+            icon: "warning",
+            confirmButtonText: "Ok"
+        });
     } else {
         if (f.id.value == "") {
-            alert('Pedido sem itens cadastrado!');
+            swal.fire({
+                text: 'Pedido sem itens cadastrado!',
+                icon: "warning",
+                confirmButtonText: "Ok"
+            });
         }else{    
-            if (confirm('Deseja realmente FINALIZAR este pedido') == true) {
-                if (f.submenu.value == "cadastrar") {
-                    f.submenu.value = 'inclui';
-                } else {
-                    f.submenu.value = 'altera';
+            swal.fire({
+                title: 'Confirmação',
+                text: 'Deseja realmente FINALIZAR este pedido?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sim',
+                cancelButtonText: 'Não'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    if (f.submenu.value == "cadastrar") {
+                        f.submenu.value = 'inclui';
+                    } else {
+                        f.submenu.value = 'altera';
+                    }
+                    f.submit();
                 }
-                f.submit();
-            } //  
+            });  
         } //  
     }
 
@@ -257,25 +319,47 @@ function submitAlterar(id, situacao, pessoa) {
 } // submitAlterar
 
 function submitExcluir(id, situacao) {
-    if (confirm('Deseja realmente Excluir esta Ordem de Compra?') == true) {
-        f = document.lancamento;
-        f.submenu.value = 'exclui';
-        f.id.value = id;
-        if (situacao == 9) {
-            alert('já foi gerada nota desta cotação.');
-        } else {
-            f.submit();
+    swal.fire({
+        title: 'Confirmação',
+        text: 'Deseja realmente Excluir esta Ordem de Compra?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.lancamento;
+            f.submenu.value = 'exclui';
+            f.id.value = id;
+            if (situacao == 9) {
+                swal.fire({
+                    text: 'Já foi gerada nota desta cotação.',
+                    icon: "warning",
+                    confirmButtonText: "Ok"
+                });
+            } else {
+                f.submit();
+            }
         }
-    } // if 
+    }); // submitExcluir
 } // submitExcluir
 
 function submitEstornar(id) {
-    if (confirm('Deseja realmente Estornar este pedido') == true) {
-        f = document.lancamento;
-        f.submenu.value = 'estorna';
-        f.id.value = id;
-        f.submit();
-    } // if
+    swal.fire({
+        title: 'Confirmação',
+        text: 'Deseja realmente Estornar este pedido?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.lancamento;
+            f.submenu.value = 'estorna';
+            f.id.value = id;
+            f.submit();
+        }
+    }); // submitEstornar
 } // submitEstornar
 
 function submitBuscar() {
@@ -283,7 +367,11 @@ function submitBuscar() {
     f = document.lancamento;
     f.submenu.value = 'cadastrar';
     if ((f.pesProduto.value == "") && (f.pesLocalizacao.value == "") && (f.grupo.value == "") && (prom == '') ){
-        alert('Faça algum filtro de pesquisa.');
+        swal.fire({
+            text: 'Faça algum filtro de pesquisa.',
+            icon: "warning",
+            confirmButtonText: "Ok"
+        });
     }else{
         f.pesq.value = f.pesProduto.value + '|' + f.grupo.value + '|' + f.promocoes.value + '|' + f.pesLocalizacao.value;
         //alert(f.pesq.value);
@@ -297,10 +385,18 @@ function submitIncluirItem(){
     f = document.lancamento;
     // situacao lancamento
     if (f.pessoa.value == "") {
-        alert('Selecione uma Conta!');
+        swal.fire({
+            text: 'Selecione uma Conta!',
+            icon: "warning",
+            confirmButtonText: "Ok"
+        });
     } else {
     if (f.natop.value == "") {
-        alert('Selecione uma Natureza de Operação!');
+        swal.fire({
+            text: 'Selecione uma Natureza de Operação!',
+            icon: "warning",
+            confirmButtonText: "Ok"
+        });
 
     } else {
         submitBuscar();
@@ -353,10 +449,18 @@ function submitIncluirItemQuantPreco(){
      
     f = document.lancamento;
     if (f.pessoa.value == "") {
-        alert('Selecione uma Conta!');
+        swal.fire({
+            text: 'Selecione uma Conta!',
+            icon: "warning",
+            confirmButtonText: "Ok"
+        });
     } else {
             if (f.condPgto.value == "") {
-                alert('Selecione uma Condição Pagamento!');
+                swal.fire({
+                    text: 'Selecione uma Condição Pagamento!',
+                    icon: "warning",
+                    confirmButtonText: "Ok"
+                });
             } else {
                 f.itensPedido.value = '';
                 var table = document.getElementById("datatable-buttons");
@@ -380,15 +484,24 @@ function submitIncluirItemQuantPreco(){
 
 
 function submitExcluirItem(id, nrItem) {
-    if (confirm('Deseja realmente Excluir este item') == true) {
-        //submitBuscar();
-        f = document.lancamento;
-        f.submenu.value = 'excluiItem';
-        f.id.value = id;
-        f.nrItem.value = nrItem;
-        f.submit();
-    } // if
-} // submitExcluir
+    swal.fire({
+        title: 'Confirmação',
+        text: 'Deseja realmente Excluir este item?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            //submitBuscar();
+            f = document.lancamento;
+            f.submenu.value = 'excluiItem';
+            f.id.value = id;
+            f.nrItem.value = nrItem;
+            f.submit();
+        }
+    }); // submitExcluirItem
+} // submitExcluirItem
 
 function abrir(pag, form=''){
     screenWidth = 750;
@@ -404,12 +517,21 @@ function abrir(pag, form=''){
 }
 
 function submitEntregue(id) {
-    if (confirm('Deseja realmente colocar como entregue o pedido') == true) {
-        f = document.lancamento;
-        f.submenu.value = 'entregue';
-        f.id.value = id;
-        f.submit();
-    } // if
+    swal.fire({
+        title: 'Confirmação',
+        text: 'Deseja realmente colocar como entregue o pedido?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.lancamento;
+            f.submenu.value = 'entregue';
+            f.id.value = id;
+            f.submit();
+        }
+    }); // submitEntregue
 } // submitEntregue
 
 function submitAgruparPedidos(){
@@ -424,7 +546,11 @@ function submitAgruparPedidos(){
       }
     }
     if (f.nome.value == "") {
-        alert('Selecione um cliente!');
+        swal.fire({
+            text: 'Selecione um cliente!',
+            icon: "warning",
+            confirmButtonText: "Ok"
+        });
         f.submenu.value = '';
     } else {
       f.agrupar_pedidos.value = '';
@@ -463,15 +589,27 @@ function buscaEmailCliente(id, idCliente){
   function enviaEmail(id) {
   
     if(document.lancamento.destinatario.value == ''){
-      alert("Preencha o campo 'Para:' ao enviar Email.");
+      swal.fire({
+          text: "Preencha o campo 'Para:' ao enviar Email.",
+          icon: "warning",
+          confirmButtonText: "Ok"
+      });
       return false;
     }
     if(document.lancamento.assunto.value == ''){
-      alert("Preencha o campo Assunto para enviar Email.");
+      swal.fire({
+          text: "Preencha o campo Assunto para enviar Email.",
+          icon: "warning",
+          confirmButtonText: "Ok"
+      });
       return false;
     }
     if(document.lancamento.emailCorpo.value == ''){
-      alert("Preencha o campo Corpo para enviar Email.");
+      swal.fire({
+          text: "Preencha o campo Corpo para enviar Email.",
+          icon: "warning",
+          confirmButtonText: "Ok"
+      });
       return false;
     }
     document.lancamento.id.value = id;
@@ -702,39 +840,44 @@ function editarItem(e, nrItem){
 }
 
 function submitExcluiItem(nrItem) {
-    if (confirm('Deseja realmente Excluir este Item ?') == true) {
-        document.lancamento.letra_item.value = document.lancamento.id.value + "|" +
-        nrItem 
+    swal.fire({
+        title: 'Confirmação',
+        text: 'Deseja realmente Excluir este Item?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            document.lancamento.letra_item.value = document.lancamento.id.value + "|" +
+            nrItem 
 
-        var form = $("form[name=lancamento]");
-    
-        $.ajax({
-            type: "POST",
-            url: form.action ? form.action : document.URL,
-            data: $(form).serialize(),
-            dataType: "text",
-            beforeSend: function (xhr) {
-                xhr.setRequestHeader("Ajax-Request-Exclui-Item", "true");
-            },
-            success: function (response) {
-                 
-                var result = $('<table></table>').append(response).find('#datatable-buttons-item').html();
-                $("#datatable-buttons-item").html(result);
-    
-                var resultTotal = $('<div />').append(response).find('#divTotal').html();
-                $("#divTotal").html(resultTotal);
+            var form = $("form[name=lancamento]");
+        
+            $.ajax({
+                type: "POST",
+                url: form.action ? form.action : document.URL,
+                data: $(form).serialize(),
+                dataType: "text",
+                beforeSend: function (xhr) {
+                    xhr.setRequestHeader("Ajax-Request-Exclui-Item", "true");
+                },
+                success: function (response) {
+                     
+                    var result = $('<table></table>').append(response).find('#datatable-buttons-item').html();
+                    $("#datatable-buttons-item").html(result);
+            
+                    var resultTotal = $('<div />').append(response).find('#divTotal').html();
+                    $("#divTotal").html(resultTotal);
 
-                limpaCamposItem();
-    
-            }
-        });
-        return false;
-    }else{
-        return false
-    }
-    
-  
-
+                    limpaCamposItem();
+            
+                }
+            });
+        } else {
+            return false;
+        }
+    });
 }
 
 function montaLetraItem(){
@@ -778,14 +921,14 @@ function currencyFormat(num) {
         .toFixed(2) // always two decimal digits
         .replace(".", ",") // replace decimal point character with ,
         .replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.") // use . as a separator
-}
+} // currencyFormat
 
 function duplicaOrdemCompra(id) {
     f = document.lancamento;  
     f.submenu.value = 'duplicaOrdemCompra';
     f.id.value = id 
     f.submit();
-}
+} // duplicaOrdemCompra
 
 function atualizaTotais() {
      
@@ -808,36 +951,12 @@ function atualizaTotais() {
     });
     return false;
 
-}
-//function calculaFDS(){
-//     
-//    var f = document.lancamento;
-//    if(f.frete.value == '0,00' || f.frete.value == ''){
-//        f.frete.value = '0,00';
-//    }
-//    if (f.seguro.value == '0,00' || f.seguro.value ==  ''){
-//        f.seguro.value = '0,00';
-//    }
-//    if (f.despacessorias.value == '0,00' || f.despacessorias.value ==  ''){
-//        f.despacessorias.value = '0,00';
-//    }
-//    if (f.totalItem.value == '0,00' || f.totalItem.value ==  ''){
-//        f.totalItem.value = '0,00';
-//    }
-//
-//    vlrFrete          = parseFloat(f.frete.value.replace(".","").replace(",","."))
-//    vlrSeguro         = parseFloat(f.seguro.value.replace(".","").replace(",","."))
-//    vlrDespAcessorias = parseFloat(f.despacessorias.value.replace(".","").replace(",","."))
-//    vlrTotalItens     = parseFloat(f.totalItem.value.replace(".","").replace(",","."))
-//
-//    totalFDS          = (vlrFrete + vlrSeguro) + (vlrDespAcessorias + vlrTotalItens);
-//
-//    f.totalOc.value   =  totalFDS.toFixed(2).replace('.', ',').replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
-//}
+} // atualizaTotais
+
 
 function cadastraProduto(){
     window.open("index.php?mod=est&form=produto&opcao=imprimir&submenu=cadastrar&parm=toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes");
-}
+} // cadastraProduto
 
 
 function buscaProduto() {
@@ -911,10 +1030,9 @@ function buscaProduto() {
                 });
             }
         });
-            return false;
+        return false;
 
         }else{
             return false;
         }
-    }
-    
+    } // buscaProduto

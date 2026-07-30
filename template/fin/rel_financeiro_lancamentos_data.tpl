@@ -282,7 +282,7 @@
                                     {assign var="totalParcial" value=$totalParcial+$resultado[i].TOTAL}
 
                                     <tr>
-                                        <td align=left class=ColunaTitulo colspan="13"><b><big>&raquo; {$nomeCampo}: {$dataAtual|date_format:"%d/%m/%Y"}</big></b></td>
+                                        <td align=left class=ColunaTitulo colspan="15"><b><big>&raquo; {$nomeCampo}: {$dataAtual|date_format:"%d/%m/%Y"}</big></b></td>
                                     </tr>
                                     <tr>
                                         <th align=left class=ColunaTitulo style="width: 2%">Docto</th>
@@ -297,6 +297,8 @@
                                         <th align=left class=ColunaTitulo style="width: 5%">Tipo</th>
                                         <th align=left class="ColunaTitulo ColunaObs" style="width: 12%">Obs</th>
                                         <th align=left class=ColunaTitulo style="width: 7%">Usuário</th>
+                                        <th align=left class=ColunaTitulo style="width: 5%">Multa</th>
+                                        <th align=left class=ColunaTitulo style="width: 5%">Juros</th>
                                         <th align=left class=ColunaTitulo style="width: 6%">Total</th>
                                     </tr>
                                 {elseif $dataAtual eq $dataAnt}
@@ -306,10 +308,10 @@
                                 {else}
                                     {* Mudou a data - mostra total anterior e cria novo grupo *}
                                     <tr>
-                                        <td align=right class=ColunaTitulo colspan="13"><b><big>Total...: R${$totalParcial|number_format:2:",":"."}</big></b></td>
+                                        <td align=right class=ColunaTitulo colspan="15"><b><big>Total...: R${$totalParcial|number_format:2:",":"."}</big></b></td>
                                     </tr>
                                     <tr>
-                                        <td align=left class=ColunaTitulo colspan="13"><b><big>&raquo; {$nomeCampo}: {$dataAtual|date_format:"%d/%m/%Y"}</big></b></td>
+                                        <td align=left class=ColunaTitulo colspan="15"><b><big>&raquo; {$nomeCampo}: {$dataAtual|date_format:"%d/%m/%Y"}</big></b></td>
                                     </tr>
                                     {assign var="totalParcial" value='0'}
                                     {assign var="dataAnt" value=$dataAtual}
@@ -327,6 +329,8 @@
                                         <th align=left class=ColunaTitulo style="width: 5%">Tipo</th>
                                         <th align=left class="ColunaTitulo ColunaObs" style="width: 12%">Obs</th>
                                         <th align=left class=ColunaTitulo style="width: 8%">Usuário</th>
+                                        <th align=left class=ColunaTitulo style="width: 5%">Multa</th>
+                                        <th align=left class=ColunaTitulo style="width: 5%">Juros</th>
                                         <th align=left class=ColunaTitulo style="width: 6%">Total</th>
                                     </tr>
                                 {/if}
@@ -344,20 +348,22 @@
                                     <td>{$resultado[i].TIPOLANCAMENTO_DESC}</td>
                                     <td class="ColunaObs">{$resultado[i].OBS}</td>
                                     <td>{$resultado[i].NOMEREDUZIDO}</td>
+                                    <td>{$resultado[i].MULTA|default:0|number_format:2:",":"."}</td>
+                                    <td>{$resultado[i].JUROS|default:0|number_format:2:",":"."}</td>
                                     <td>{$resultado[i].TOTAL|number_format:2:",":"."}</td>
                                 </tr>
 
                             {sectionelse}
                                 <tr>
-                                    <td colspan="13" class="text-center">Não há valores cadastrados para este período</td>
+                                    <td colspan="15" class="text-center">Não há valores cadastrados para este período</td>
                                 </tr>
                             {/section}
 
                             <tr class="totais-group">
-                                <td align=right class=ColunaTitulo colspan="13"><b><big>Total do Período: R${$totalParcial|number_format:2:",":"."}</big></b></td>
+                                <td align=right class=ColunaTitulo colspan="15"><b><big>Total do Período: R${$totalParcial|number_format:2:",":"."}</big></b></td>
                             </tr>
                             <tr class="totais-group">
-                                <td align=right class=ColunaTitulo colspan="13"><b><big>TOTAL GERAL: R${$totalGeral|number_format:2:",":"."}</big></b></td>
+                                <td align=right class=ColunaTitulo colspan="15"><b><big>TOTAL GERAL: R${$totalGeral|number_format:2:",":"."}</big></b></td>
                             </tr>
                         </tbody>
                     </table>
@@ -383,6 +389,7 @@
 </div>
 <!-- /page content -->
 
+<script src="{$pathJs}/../bib/js/vendor/xlsx.full.min.js"></script>
 <script type="text/javascript">
     function exportarTabelaParaExcel() {
         var table = document.querySelector('.table-striped');
@@ -391,30 +398,29 @@
             return;
         }
 
-        var csv = '';
-        var rows = table.querySelectorAll('tr');
-
-        for (var i = 0; i < rows.length; i++) {
-            var row = rows[i];
-            var cells = row.querySelectorAll('td, th');
-            var rowData = [];
-
-            for (var j = 0; j < cells.length; j++) {
-                var cellText = cells[j].textContent.trim();
-                if (cellText.indexOf(',') !== -1 || cellText.indexOf('"') !== -1) {
-                    cellText = '"' + cellText.replace(/"/g, '""') + '"';
-                }
-                rowData.push(cellText);
-            }
-
-            csv += rowData.join(',') + '\n';
+        if (typeof XLSX === 'undefined') {
+            alert('Biblioteca de exportação (XLSX) não carregada!');
+            return;
         }
 
-        var blob = new Blob([csv], {ldelim}type: 'text/csv;charset=utf-8;'{rdelim});
-        var link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'Financeiro_Lancamentos_{$dataIni}_a_{$dataFim}.csv';
-        link.click();
+        var wb = XLSX.utils.book_new();
+        var ws = XLSX.utils.table_to_sheet(table, { raw: true });
+
+        if (typeof converteColunaNumeroBR === 'function') {
+            converteColunaNumeroBR(ws, 12);
+            converteColunaNumeroBR(ws, 13);
+            converteColunaNumeroBR(ws, 14);
+        }
+
+        XLSX.utils.book_append_sheet(wb, ws, "Lançamentos");
+
+        var dataIni = '{$dataIni}';
+        var dataFim = '{$dataFim}';
+        var nomeArquivo = 'Financeiro_Lancamentos_' +
+            dataIni.replace(/\//g, '_') + '_a_' +
+            dataFim.replace(/\//g, '_') + '.xlsx';
+
+        XLSX.writeFile(wb, nomeArquivo);
     }
 </script>
 

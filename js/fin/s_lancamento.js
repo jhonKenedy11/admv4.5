@@ -25,26 +25,60 @@ function currencyFormat (num) {
        .replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.") // use . as a separator
 }
 
+
+function converteColunaNumeroBR(ws, colIndex, primeiraLinhaDados) {
+    if (!ws || !ws['!ref']) return;
+
+    var range = XLSX.utils.decode_range(ws['!ref']);
+    var rInicio = (typeof primeiraLinhaDados === 'number')
+        ? primeiraLinhaDados
+        : range.s.r + 1; // pula cabeçalho por padrão
+
+    for (var r = rInicio; r <= range.e.r; r++) {
+        var cell = ws[XLSX.utils.encode_cell({ r: r, c: colIndex })];
+        if (!cell || cell.v == null) continue;
+
+        var txt = (cell.v + '').trim();
+        if (!txt) continue;
+
+        txt = txt
+            .replace(/^R\$\s*/i, '')
+            .replace(/\./g, '')
+            .replace(',', '.');
+
+        var num = parseFloat(txt);
+        if (!isNaN(num)) {
+            cell.t = 'n';
+            cell.v = num;
+            cell.z = '#,##0.00';
+        }
+    }
+}
+
 function submitMassa(id) {
     f = document.lancamento;
     f.submenu.value = 'massa';
     f.id.value = id;
-    f.atividade.value = prompt('Digite a código da ATIVIDADE para lançamento:', '');
-    if (f.atividade.value != ""){
-        f.submit();
-    }
+    Swal.fire({
+        title: 'Lançamento em lote',
+        html: 'Informe a <b>sigla</b> da ATIVIDADE (conforme <b>Cadastros Gerais → Atividade</b>, ou cadastro do cliente).',
+        input: 'text',
+        inputPlaceholder: 'Ex.: CL (cliente)',
+        inputValue: '',
+        showCancelButton: true,
+        confirmButtonText: 'Confirmar',
+        cancelButtonText: 'Cancelar',
+        inputValidator: (value) => {
+            if (!value || !String(value).trim()) return 'Informe a sigla da atividade.';
+            return null;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f.atividade.value = String(result.value).trim();
+            f.submit();
+        }
+    });
 } // fim submitParcela
-
-function submitParcela(id) {
-    f = document.lancamento;
-    f.submenu.value = 'parcela';
-    f.id.value = id;
-    f.quantparc.value = prompt('Quantidade de Parcelas para Lançamento', 1);
-    if (f.quantparc.value != ""){
-        f.submit();
-    }
-} // fim submitParcela
-
 
 //==ON CHANGE ===
 function dataMovimento() {
@@ -57,12 +91,6 @@ function dataMovimento() {
 
 function calculaTotal(){
     var f = document.lancamento;
-    // var original= f.original.value == '' ? '0,00' : f.original.value;
-    // var multa=f.multa.value== '' ? '0,00' : f.multa.value;
-    // var juros=f.juros.value== '' ? '0,00' : f.juros.value;
-    // var adiantamento=f.adiantamento.value== '' ? '0,00' : f.adiantamento.value;
-    // var desconto=f.desconto.value== '' ? '0,00' : f.desconto.value;
-
 
     var original=f.original.value;
     var multa=f.multa.value;
@@ -84,10 +112,26 @@ function submitParcela(id) {
     f.form.value = 'lancamento';
     f.submenu.value = 'parcela';
     f.id.value = id;
-    f.quantparc.value = prompt('Quantidade de Parcelas para Lançamento', 1);
-    if (f.quantparc.value != ""){
-        f.submit();
-    }
+    Swal.fire({
+        title: 'Acrescentar parcelas',
+        text: 'Quantidade de parcelas para o lançamento:',
+        input: 'number',
+        inputValue: 1,
+        inputAttributes: { min: 1, step: 1 },
+        showCancelButton: true,
+        confirmButtonText: 'Confirmar',
+        cancelButtonText: 'Cancelar',
+        inputValidator: (value) => {
+            const n = Number(value);
+            if (!Number.isFinite(n) || n < 1) return 'Informe uma quantidade válida (mínimo 1).';
+            return null;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f.quantparc.value = String(result.value);
+            f.submit();
+        }
+    });
 } // fim submitParcela
 
 
@@ -128,13 +172,22 @@ function submitVoltar(formulario) {
 
 function reenviaCobranca(id) {
     f = document.lancamento;
-    if (confirm('Deseja realmente CANCELAR o titulo atual e gerar novo titulo para cobrança bancária?') == true) {
-        f.mod.value = 'fin';
-        f.form.value = 'lancamento';
-        f.submenu.value = 'reenvia';
-        f.id.value = id;
-        f.submit();
-    }    
+    Swal.fire({
+        title: 'Reenviar cobrança bancária',
+        text: 'Deseja realmente cancelar o título atual e gerar um novo título para cobrança bancária?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, gerar novo',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f.mod.value = 'fin';
+            f.form.value = 'lancamento';
+            f.submenu.value = 'reenvia';
+            f.id.value = id;
+            f.submit();
+        }
+    });
 } // fim submitParcela
 
 
@@ -157,7 +210,12 @@ function submitConfirmar(formulario) {
       cc = cc + "-" + coluna ;
       coluna = row.item(2).getElementsByTagName("input");
       coluna = coluna.item(0).value;
-      valorRateio = parseFloat(valorRateio) + parseFloat(coluna) ;    
+      
+      // Trata valores com vírgula e ponto
+      const valorSemPonto = coluna.replace(/\./g, ""); // Remove todos os pontos
+      const valorSemVirgula = valorSemPonto.replace(",", "."); // Substitui vírgula por ponto
+      
+      valorRateio = parseFloat(valorRateio) + parseFloat(valorSemVirgula) ;    
       cc = cc + "-" + coluna + "|" ;
     }
     if (valorRateio == 0 ){
@@ -171,68 +229,96 @@ function submitConfirmar(formulario) {
     f.rateioCC.value = cc;
 
     if (f.original.textLength == 0) {
-      alert("Permitido somente número inteiro positivo!"); }
+      Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Permitido somente número inteiro positivo!' }); }
     else if (f.genero.value == "")
-      alert ('Preencha o campo Gênero!');
+      Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Preencha o campo Gênero!' });
     else if (f.nome.value == "")
-      alert ('Selecione uma Pessoa!');
+      Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Selecione uma Pessoa!' });
     else if (valorRateio != 100)
-      alert ('Percentual do rateio maior que o permitido!');
+      Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Percentual do rateio deve totalizar 100%!' });
     else if (parseFloat(f.original.value) < 0)
-        alert ('Digite um valor para o documento!!');
+      Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Digite um valor para o documento!!' });
     else {
-        if (confirm('Deseja realmente ' + f.submenu.value + ' este item') == true) {
-            f.opcao.value = formulario;
-            if ((f.submenu.value == "alterar") || (f.submenu.value == "altera")) {
-                f.submenu.value = 'altera';
-            } else {
-                f.submenu.value = 'inclui';
+        Swal.fire({
+            title: 'Confirmar',
+            text: 'Deseja realmente salvar este item?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sim',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                f.opcao.value = formulario;
+                if ((f.submenu.value == "alterar") || (f.submenu.value == "altera")) {
+
+                    f.submenu.value = 'altera';
+
+                    // Verifica se a parcela foi informada
+                    if (!f.parcela.value || String(f.parcela.value).trim() === '') {
+                        Swal.fire({ icon: 'warning', title: 'Atenção', text: 'Informe o número da parcela!' });
+                        return;
+                    }
+                } else {
+                    f.submenu.value = 'inclui';
+                    if (!f.parcela.value || String(f.parcela.value).trim() === '') {
+                        f.parcela.value = '1';
+                    }
+                }
+                f.submit();
             }
-        }
-       // alert(f.opcao.value);
-    f.submit();
+        });
     } // if
 } // fim submitConfirmar
 
 function submitSalvaRateio() {
     
-    f = document.lancamento;
-    f.mod.value = 'fin';
-    f.form.value = 'lancamento';
+    var valida = validaPercentualConfirma();
+    if (!valida){
+         return false;
+    }else{
+        f = document.lancamento;
+        f.mod.value = 'fin';
+        f.form.value = 'lancamento';
 
-    var table = document.getElementById("datatable-cc");
-    var r = table.rows.length;
-    var  cc = "";
-    var coluna = "";
-    var valorRateio = 0; 
-    for (i = 1; i < r; i++){
-      var row = table.rows.item(i).getElementsByTagName("td");
-      coluna = row.item(0).firstChild.nodeValue;
-      cc = cc + coluna;
-      coluna = row.item(1).firstChild.nodeValue;
-      cc = cc + "-" + coluna ;
-      coluna = row.item(2).getElementsByTagName("input");
-      coluna = coluna.item(0).value;
-      valorRateio = parseFloat(valorRateio) + parseFloat(coluna) ;    
-      cc = cc + "-" + coluna + "|" ;
+        var table = document.getElementById("datatable-cc");
+        var r = table.rows.length;
+        var  cc = "";
+        var coluna = "";
+        var valorRateio = 0; 
+        for (i = 1; i < r; i++){
+          var row = table.rows.item(i).getElementsByTagName("td");
+          coluna = row.item(0).firstChild.nodeValue;
+          cc = cc + coluna;
+          coluna = row.item(1).firstChild.nodeValue;
+          cc = cc + "-" + coluna ;
+          coluna = row.item(2).getElementsByTagName("input");
+          coluna = coluna.item(0).value;
+          
+          // Trata valores com vírgula e ponto
+          const valorSemPonto = coluna.replace(/\./g, ""); // Remove todos os pontos
+          const valorSemVirgula = valorSemPonto.replace(",", "."); // Substitui vírgula por ponto
+          
+          valorRateio = parseFloat(valorRateio) + parseFloat(valorSemVirgula) ;    
+          cc = cc + "-" + coluna + "|" ;
+        }
+        if (valorRateio == 0 ){
+            var comboCentroCusto = document.getElementById("centrocusto");
+            cc = comboCentroCusto.options[comboCentroCusto.selectedIndex].value;
+            cc = cc + "-" + comboCentroCusto.selectedIndex;
+            ccdesc = comboCentroCusto.options[comboCentroCusto.selectedIndex].text;
+            cc = cc + "-100";
+            valorRateio = 100;
+        } 
+        f.rateioCC.value = cc;
+
+        if (f.id.value == '') {
+          alert("Salve o lançamento antes de salvar o rateio!"); }
+        else {
+            f.submenu.value = 'salvarateio';
+            f.submit();
+        } // if
     }
-    if (valorRateio == 0 ){
-        var comboCentroCusto = document.getElementById("centrocusto");
-        cc = comboCentroCusto.options[comboCentroCusto.selectedIndex].value;
-        cc = cc + "-" + comboCentroCusto.selectedIndex;
-        ccdesc = comboCentroCusto.options[comboCentroCusto.selectedIndex].text;
-        cc = cc + "-100";
-        valorRateio = 100;
-    } 
-    f.rateioCC.value = cc;
-
-    if (f.id.value == '') {
-      alert("Salve o lançamento antes de salvar o rateio!"); }
-    else {
-        f.submenu.value = 'salvarateio';
-        f.submit();
-    } // if
-} // fim submitConfirmar
+} // fim submitSalvaRateio
 
 // mostra Cadastro
 function submitCadastro(formulario) {
@@ -247,27 +333,43 @@ function submitCadastro(formulario) {
 
 function submitAlterar(lancamento_id) {
 
-    if (confirm('Deseja realmente Alterar este item') == true) {
-       f = document.lancamento;
-        f.mod.value = 'fin';
-        f.form.value = 'lancamento';
-//   		   f.opcao.value = formulario;
-        f.submenu.value = 'alterar';
-        f.id.value = lancamento_id;
-        f.submit();
-    }
+    Swal.fire({
+        title: 'Confirmar alteração',
+        text: 'Deseja realmente alterar este item?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.lancamento;
+            f.mod.value = 'fin';
+            f.form.value = 'lancamento';
+            f.submenu.value = 'alterar';
+            f.id.value = lancamento_id;
+            f.submit();
+        }
+    });
 }
 
 function submitExcluir(lancamento_id) {
-    if (confirm('Deseja realmente Excluir este item') == true) {
-        f = document.lancamento;
-        f.mod.value = 'fin';
-        f.form.value = 'lancamento';
-//   		   f.opcao.value = formulario;
-        f.submenu.value = 'exclui';
-        f.id.value = lancamento_id;
-        f.submit();
-    }
+    Swal.fire({
+        title: 'Confirmar exclusão',
+        text: 'Deseja realmente excluir este item?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Excluir',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.lancamento;
+            f.mod.value = 'fin';
+            f.form.value = 'lancamento';
+            f.submenu.value = 'exclui';
+            f.id.value = lancamento_id;
+            f.submit();
+        }
+    });
 }
 	
 
@@ -467,7 +569,7 @@ function submitLetra() {
 
     f.submit();
 }	
-	
+
 function consultaConsolidacao() {
     g = document.lancamento;
     montaLetra();
@@ -523,6 +625,13 @@ function consultaDRE(sitlan) {
       //  alert(g.letra.value);
    	window.open('index.php?mod=fin&form=consulta_dre&opcao=imprimir&letra=' + g.letra.value+'&rel=D', 'consulta', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes');
 }
+
+function consultaDREAnual(sitlan) {
+	g = document.lancamento;
+	montaLetra(sitlan);
+      //  alert(g.letra.value);
+   	window.open('index.php?mod=fin&form=consulta_dre_anual&opcao=imprimir&letra=' + g.letra.value+'&rel=D', 'consulta', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=1200,height=900,scrollbars=yes');
+}
 function remessaBancaria() {
 	g = document.lancamento;
 	montaLetra();
@@ -546,7 +655,11 @@ function lancPedDataEntrega() {
 function abrir(pag)
 {
 
-    window.open(pag, 'consulta', 'toolbar=no,location=no,menubar=no,width=800,height=550,scrollbars=yes');
+    window.open(
+        pag,
+        'consulta',
+        'toolbar=no,location=yes,status=no,menubar=no,scrollbars=no,resizable=yes,width=800,height=900'
+    );
 }
         
 function abrirGenero(pag)
@@ -613,16 +726,91 @@ function validaPercentual(formulario) {
       var row = table.rows.item(i).getElementsByTagName("td");
       coluna = row.item(2).getElementsByTagName("input");
       coluna = coluna.item(0).value;
-      cc = parseFloat(cc) + parseFloat(coluna) ;
+
+      // Trata valores com vírgula e ponto
+      const valorSemPonto = coluna.replace(/\./g, ""); // Remove todos os pontos
+      const valorSemVirgula = valorSemPonto.replace(",", "."); // Substitui vírgula por ponto
+      
+      cc = parseFloat(cc) + parseFloat(valorSemVirgula) ;
     }
     
     if (cc > 100) {
-        alert ('Percentual de rateio maior que o permitido!');
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro',
+                text: 'Percentual de rateio maior que o permitido!',
+                confirmButtonColor: '#dc3545'
+            });
+        } else {
+            alert('Percentual de rateio maior que o permitido!');
+        }
     } else if (cc < 100) {
-        alert ('Percentual de rateio não permitido!');
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro',
+                text: 'Percentual de rateio menor que o permitido!',
+                confirmButtonColor: '#dc3545'
+            });
+        } else {
+            alert('Percentual de rateio menor que o permitido!');
+        }
     } 
    
-} // fim submitConfirmar
+} // fim validaPercentual
+
+function validaPercentualConfirma() {
+    
+    f = document.lancamento;
+    f.mod.value = 'fin';
+    f.form.value = 'lancamento';
+
+    var table = document.getElementById("datatable-cc");
+    var r = table.rows.length;
+    var  cc = 0;
+    var coluna = "";
+    for (i = 1; i < r; i++){
+        var row = table.rows.item(i).getElementsByTagName("td");
+        coluna = row.item(2).getElementsByTagName("input");
+        coluna = coluna.item(0).value;
+
+        // Trata valores com vírgula e ponto
+        const valorSemPonto = coluna.replace(/\./g, ""); // Remove todos os pontos
+        const valorSemVirgula = valorSemPonto.replace(",", "."); // Substitui vírgula por ponto
+        
+        cc = parseFloat(cc) + parseFloat(valorSemVirgula) ;
+    }
+    
+    if (cc > 100) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro',
+                text: 'Percentual de rateio maior que o permitido!',
+                confirmButtonColor: '#dc3545'
+            });
+        } else {
+            alert('Percentual de rateio maior que o permitido!');
+        }
+        return false;
+    } else if (cc < 100) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'error',
+                title: 'Erro',
+                text: 'Percentual de rateio menor que o permitido!',
+                confirmButtonColor: '#dc3545'
+            });
+        } else {
+            alert('Percentual de rateio menor que o permitido!');
+        }
+        return false;
+    } else {
+        return true;
+    }
+   
+} // fim validaPercentualConfirma
 
 function agrupaLancModal(){
     
@@ -882,7 +1070,12 @@ function impSlipLote(){
     if(lancChecked == true){
         window.open('index.php?mod=fin&form=rel_slip_imprime&opcao=imprimir&letra=' +f.dadosLanc.value, 'consulta', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes');
     }else{
-        alert("Selecione mais de um Lançamento para fazer a impressão do SLIP.");
+        Swal.fire({
+            icon: 'warning',
+            title: 'Atenção',
+            text: 'Selecione mais de um Lançamento para fazer a impressão do SLIP.',
+            confirmButtonText: 'OK'
+        });
         return false;
     }
  
@@ -975,4 +1168,61 @@ function downloadImageAnexo() {
 
     // Remove o elemento 'a' temporário
     document.body.removeChild(link);
+}
+
+function imprimirBoleto(id) {
+
+    let id_lancamento = id;
+
+    if(!id_lancamento) {
+        Swal.fire('Erro', 'ID do lançamento não informado', 'error');
+        return false;
+    }
+
+    $.ajax({
+        type: 'POST',
+        url: url,
+        dataType: 'json',
+        data: {
+            'mod': 'fin',
+            'form': 'boleto_imprime',
+            'submenu': 'recuperarCobranca',
+            'opcao': 'ajax',
+            'id': id,
+
+        },
+        success: (response) => {
+            Swal.close();
+
+            if (response.success) {
+                this.RecuperarCobrancaInterSuccess(response);
+            } else {
+                Swal.fire('Erro', response.message || 'Falha ao emitir cobrança', 'error');
+            } 
+            
+        },
+        error: (xhr) => {
+            Swal.close();
+
+            debugger
+
+            httpCode = xhr.status;
+
+            if(httpCode === 400) {
+                this.RecuperarCobrancaInterError400(xhr.responseJSON);
+            } else {
+                this.RecuperarCobrancaInterError(xhr.responseJSON);
+            }
+        }
+    });
+
+}
+
+function submitAtualizaJuros() {
+    f = document.lancamento;
+    montaLetra();
+    f.mod.value = 'fin';
+    f.form.value = 'lancamento';
+    f.submenu.value = 'atualizaJuros';
+    f.submit();
 }

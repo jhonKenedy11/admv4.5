@@ -190,7 +190,7 @@
                   </div>
             </div>
             <div class="x_panel">
-                  {if count($resultado) > 0}
+                  {if !empty($resultado)}
                         <div class="table-responsive">
                               <table class="table table-striped" style="margin-bottom: 0;">
                                     <thead>
@@ -235,7 +235,43 @@
                         <button class="btn btn-default" onclick="window.print();">
                               <i class="fa fa-print"></i> Imprimir
                         </button>
+                        <button class="btn btn-success" onclick="exportarTabelaParaExcel();">
+                              <i class="fa fa-file-excel-o"></i> Exportar Excel
+                        </button>
                   </div>
             </div>
       </div>
 </div> 
+
+<script type="text/javascript" src="{$pathJs}/est/s_estoque_relatorio.js"></script>
+<script src="{$pathJs}/../bib/js/vendor/xlsx.full.min.js"></script>
+<script type="text/javascript">
+      function exportarTabelaParaExcel() {
+            var table = document.querySelector('.table-striped');
+            if (!table) {
+                  alert('Tabela não encontrada!');
+                  return;
+            }
+
+            if (typeof XLSX === 'undefined') {
+                  alert('Biblioteca de exportação (XLSX) não carregada!');
+                  return;
+            }
+
+            var wb = XLSX.utils.book_new();
+            var ws = XLSX.utils.table_to_sheet(table, { raw: true });
+
+            if (typeof converteColunaNumeroBR === 'function') {
+                  converteColunaNumeroBR(ws, 6);
+                  converteColunaNumeroBR(ws, 7);
+                  converteColunaNumeroBR(ws, 8);
+            }
+
+            XLSX.utils.book_append_sheet(wb, ws, "Compras Estoque Mínimo");
+
+            var dataIni = '{$dataIni}';
+            var dataFim = '{$dataFim}';
+            var nomeArquivo = 'Compras_Estoque_Minimo_' + dataIni.replace(/\//g, '_') + '_a_' + dataFim.replace(/\//g, '_') + '.xlsx';
+            XLSX.writeFile(wb, nomeArquivo);
+      }
+</script>

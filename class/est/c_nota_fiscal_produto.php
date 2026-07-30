@@ -13,6 +13,7 @@ $dir = dirname(__FILE__);
 include_once($dir . "/../../bib/c_user.php");
 include_once($dir . "/../../bib/c_date.php");
 include_once($dir . "/../../bib/c_tools.php");
+include_once($dir . "/../../bib/c_database_pdo.php");
 
 //Class C_NOTA_FISCAL
 Class c_nota_fiscal_produto extends c_user {
@@ -44,12 +45,23 @@ Class c_nota_fiscal_produto extends c_user {
     private $modBc              = NULL; // char(1)
     private $bcIcms             = NULL; // numeric(11,2)
     private $valorIcms          = NULL; // numeric(11,2)
+    private $vICMSDeson         = NULL; // numeric(11,2) - ICMS Desonerado
+    private $motDesICMS         = NULL; // varchar(2) - Motivo Desoneração ICMS
+    private $vBCFCP             = NULL; // numeric(11,2) - Base cálculo FCP normal
+    private $pFCP               = NULL; // numeric(5,2) - Alíquota FCP normal
+    private $vFCP               = NULL; // numeric(11,2) - Valor FCP normal
     private $insideIpiBc        = NULL; // char(1)
     private $enqIpi             = NULL; // varchar(3)
     private $cstIpi             = NULL; // varchar(2)
     private $baseCalculoIpi              = NULL; // decimal(11,2)
+    private $qUnidIpi           = NULL; // decimal(11,4) - Quantidade unidade IPI
+    private $vUnidIpi           = NULL; // decimal(11,4) - Valor unidade IPI
     private $valorIpi           = NULL; // numeric(11,2)
     private $aliqIpi            = NULL; // numeric(5,2)
+    private $vBCII              = NULL; // numeric(11,2) - Base cálculo II
+    private $vDespAdu           = NULL; // numeric(11,2) - Despesas aduaneiras
+    private $vII                = NULL; // numeric(11,2) - Valor II
+    private $vIOF               = NULL; // numeric(11,2) - Valor IOF
     private $percDiferido       = NULL; // decimal(5,2) +++++++
     private $valorIcmsDiferido  = NULL; // numeric(11,2) +++++++
     private $valorIcmsOperacao  = NULL; // numeric(11,2) +++++++
@@ -78,6 +90,7 @@ Class c_nota_fiscal_produto extends c_user {
     private $dataValidade       = NULL; // varchar(4)
     private $dataGarantia       = NULL; // date
     private $ordem              = NULL; // integer not null
+    private $nItemPed           = NULL; // varchar(6) - número do item da ordem de compra
     private $projeto            = NULL; // varchar(20) not null
     private $dataConferencia    = NULL; // timestamp
     private $localizacao        = NULL; // varchar -------------
@@ -135,9 +148,9 @@ Class c_nota_fiscal_produto extends c_user {
 
     public function getCodProduto() { return $this->codProduto; }
 
-    public function setDescricao($descricao) { $this->descricao = strtoupper($descricao); }
+    public function setDescricao($descricao) { $this->descricao = $descricao; }
 
-    public function getDescricao() { return $this->descricao; }
+    public function getDescricao() { return $this->descricao === null ? '' : $this->descricao; }
 
     public function setUnidade($unidade) { $this->unidade = strtoupper($unidade); }
 
@@ -453,6 +466,98 @@ Class c_nota_fiscal_produto extends c_user {
     public function setInsideIpiBc($insideIpiBc){ $this->insideIpiBc = strtoupper($insideIpiBc); }
 
     public function getInsideIpiBc(){ return $this->insideIpiBc; }
+    
+    public function setEnqIpi($enqIpi) { $this->enqIpi = strtoupper($enqIpi); }
+    
+    public function getEnqIpi() { return $this->enqIpi; }
+    
+    public function setVICMSDeson($vICMSDeson, $format=false) {
+        $this->vICMSDeson = (($vICMSDeson == "0,00") or ($vICMSDeson == "0.00")) ? c_tools::stringToDouble($vICMSDeson) : $vICMSDeson;
+        if ($format){
+            $this->vICMSDeson = number_format($this->vICMSDeson, 2, ',', '.');
+        }
+    }
+    
+    public function getVICMSDeson($format = null) {
+        if ($format == 'F') {
+            return number_format($this->vICMSDeson ?? 0, 2, ',', '.');
+        } elseif ($format == 'B') {
+            if ($this->vICMSDeson != null) {
+                $num = str_replace('.', '', $this->vICMSDeson);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            }
+            return 0;
+        }
+        return $this->vICMSDeson;
+    }
+    
+    public function setMotDesICMS($motDesICMS) { $this->motDesICMS = $motDesICMS; }
+    
+    public function getMotDesICMS() { return $this->motDesICMS; }
+    
+    public function setVBCFCP($vBCFCP, $format=false) {
+        $this->vBCFCP = (($vBCFCP == "0,00") or ($vBCFCP == "0.00")) ? c_tools::stringToDouble($vBCFCP) : $vBCFCP;
+        if ($format){
+            $this->vBCFCP = number_format($this->vBCFCP, 2, ',', '.');
+        }
+    }
+    
+    public function getVBCFCP($format = null) {
+        if ($format == 'F') {
+            return number_format($this->vBCFCP ?? 0, 2, ',', '.');
+        } elseif ($format == 'B') {
+            if ($this->vBCFCP != null) {
+                $num = str_replace('.', '', $this->vBCFCP);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            }
+            return 0;
+        }
+        return $this->vBCFCP;
+    }
+    
+    public function setPFCP($pFCP, $format=false) {
+        $this->pFCP = (($pFCP == "0,00") or ($pFCP == "0.00")) ? c_tools::stringToDouble($pFCP) : $pFCP;
+        if ($format){
+            $this->pFCP = number_format($this->pFCP, 2, ',', '.');
+        }
+    }
+    
+    public function getPFCP($format = null) {
+        if ($format == 'F') {
+            return number_format($this->pFCP ?? 0, 2, ',', '.');
+        } elseif ($format == 'B') {
+            if ($this->pFCP != null) {
+                $num = str_replace('.', '', $this->pFCP);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            }
+            return 0;
+        }
+        return $this->pFCP;
+    }
+    
+    public function setVFCP($vFCP, $format=false) {
+        $this->vFCP = (($vFCP == "0,00") or ($vFCP == "0.00")) ? c_tools::stringToDouble($vFCP) : $vFCP;
+        if ($format){
+            $this->vFCP = number_format($this->vFCP, 2, ',', '.');
+        }
+    }
+    
+    public function getVFCP($format = null) {
+        if ($format == 'F') {
+            return number_format($this->vFCP ?? 0, 2, ',', '.');
+        } elseif ($format == 'B') {
+            if ($this->vFCP != null) {
+                $num = str_replace('.', '', $this->vFCP);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            }
+            return 0;
+        }
+        return $this->vFCP;
+    }
     
     public function setBaseCalculoIpi($baseCalculoIpi, $format=false) {
 
@@ -1009,11 +1114,16 @@ Class c_nota_fiscal_produto extends c_user {
     }
 
     public function setPSt($pST, $format=false) {
+        if ($pST === null || $pST === '') {
+            $this->pST = 0;
+        } elseif (is_numeric($pST) && strpos((string) $pST, ',') === false) {
+            $this->pST = (float) $pST;
+        } else {
+            $this->pST = c_tools::stringToDouble($pST);
+        }
 
-        $this->pST = (($pST == "0,00") or ($pST == "0.00")) ? c_tools::stringToDouble($pST) : $pST;
-
-        if ($format){
-            $this->aliqIcms = number_format($this->pST, 2, ',', '.');
+        if ($format) {
+            $this->pST = number_format((float) $this->pST, 2, ',', '.');
         }
     }
 
@@ -1021,24 +1131,19 @@ Class c_nota_fiscal_produto extends c_user {
     {
         switch ($format) {
             case 'F':
-                // Operador de coalescencia versao php.8.3
                 $this->pST = $this->pST ?? 0;
-
-                return number_format((double) $this->pST, 2, ',', '.');
-            break;
+                $valor = (is_numeric($this->pST) && strpos((string) $this->pST, ',') === false)
+                    ? (float) $this->pST
+                    : c_tools::stringToDouble($this->pST);
+                return number_format($valor, 2, ',', '.');
             case 'B':
-
-                if ($this->pST != null) {
-
-                    $num = str_replace('.', '', $this->pST);
-                    $num = str_replace(',', '.', $num);
-
-                    return $num;
-                } else {
+                if ($this->pST === null || $this->pST === '') {
                     return 0;
                 }
-
-            break;
+                if (is_numeric($this->pST) && strpos((string) $this->pST, ',') === false) {
+                    return (float) $this->pST;
+                }
+                return c_tools::stringToDouble($this->pST);
             default:
                 return $this->pST;
         }
@@ -1282,6 +1387,10 @@ Class c_nota_fiscal_produto extends c_user {
     public function setOrdem($ordem) { $this->ordem = $ordem; }
 
     public function getOrdem() { return $this->ordem; }
+
+    public function setNItemPed($nItemPed) { $this->nItemPed = $nItemPed; }
+
+    public function getNItemPed() { return $this->nItemPed; }
 
     public function setProjeto($projeto) { $this->projeto = $projeto; }
 
@@ -1547,31 +1656,20 @@ Class c_nota_fiscal_produto extends c_user {
         }
     }
 
-    public function setVBCSTRet($VBCSTRet, $format=false) { 
-
-        $this->VBCSTRet = (($VBCSTRet == "0,00") or ($VBCSTRet == "0.00")) ? c_tools::stringToDouble($VBCSTRet) : $VBCSTRet;
-
-        if ($format){
-            $this->VBCSTRet = number_format($this->VBCSTRet, 2, ',', '.');
-        }
+    /**
+     * Aliases usados na importação do XML de entrada.
+     * Devem gravar nas propriedades lidas pelo INSERT (VALORBCSTRETIDO / VALORICMSSTRETIDO / VICMSSUBSTITUTO).
+     */
+    public function setVBCSTRet($VBCSTRet, $format=false) {
+        $this->setValorBaseCalculoStRetido($VBCSTRet, $format);
     }
 
-    public function setVICMSSubstituto($VICMSSubstituto, $format=false) { 
-
-        $this->VICMSSubstituto = (($VICMSSubstituto == "0,00") or ($VICMSSubstituto == "0.00")) ? c_tools::stringToDouble($VICMSSubstituto) : $VICMSSubstituto;
-
-        if ($format){
-            $this->VICMSSubstituto = number_format($this->VICMSSubstituto, 2, ',', '.');
-        }
+    public function setVICMSSubstituto($VICMSSubstituto, $format=false) {
+        $this->setValorIcmsSubstituto($VICMSSubstituto, $format);
     }
     
-    public function setVICMSSTRet($VICMSSTRet, $format=false) { 
-
-        $this->VICMSSTRet = (($VICMSSTRet == "0,00") or ($VICMSSTRet == "0.00")) ? c_tools::stringToDouble($VICMSSTRet) : $VICMSSTRet;
-
-        if ($format){
-            $this->VICMSSTRet = number_format($this->VICMSSTRet, 2, ',', '.');
-        }
+    public function setVICMSSTRet($VICMSSTRet, $format=false) {
+        $this->setValorIcmsStRetido($VICMSSTRet, $format);
     }
     
     
@@ -1972,13 +2070,139 @@ Class c_nota_fiscal_produto extends c_user {
     public function setCstIpi($cstIpi) { $this->cstIpi = $cstIpi; }
 
     public function getCstIpi() { return $this->cstIpi; }
-
-    public function setFrete($frete, $format=false) { 
-
-        $this->frete = (($frete == "0,00") or ($frete == "0.00")) ? c_tools::stringToDouble($frete) : $frete;
-
+    
+    public function setQUnidIpi($qUnidIpi, $format=false) {
+        $this->qUnidIpi = (($qUnidIpi == "0,00") or ($qUnidIpi == "0.00")) ? c_tools::stringToDouble($qUnidIpi) : $qUnidIpi;
         if ($format){
-           $this->frete = number_format($this->frete, 4, ',', '.');
+            $this->qUnidIpi = number_format($this->qUnidIpi, 4, ',', '.');
+        }
+    }
+    
+    public function getQUnidIpi($format = null) {
+        if ($format == 'F') {
+            return number_format($this->qUnidIpi ?? 0, 4, ',', '.');
+        } elseif ($format == 'B') {
+            if ($this->qUnidIpi != null) {
+                $num = str_replace('.', '', $this->qUnidIpi);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            }
+            return 0;
+        }
+        return $this->qUnidIpi;
+    }
+    
+    public function setVUnidIpi($vUnidIpi, $format=false) {
+        $this->vUnidIpi = (($vUnidIpi == "0,00") or ($vUnidIpi == "0.00")) ? c_tools::stringToDouble($vUnidIpi) : $vUnidIpi;
+        if ($format){
+            $this->vUnidIpi = number_format($this->vUnidIpi, 4, ',', '.');
+        }
+    }
+    
+    public function getVUnidIpi($format = null) {
+        if ($format == 'F') {
+            return number_format($this->vUnidIpi ?? 0, 4, ',', '.');
+        } elseif ($format == 'B') {
+            if ($this->vUnidIpi != null) {
+                $num = str_replace('.', '', $this->vUnidIpi);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            }
+            return 0;
+        }
+        return $this->vUnidIpi;
+    }
+    
+    public function setVBCII($vBCII, $format=false) {
+        $this->vBCII = (($vBCII == "0,00") or ($vBCII == "0.00")) ? c_tools::stringToDouble($vBCII) : $vBCII;
+        if ($format){
+            $this->vBCII = number_format($this->vBCII, 2, ',', '.');
+        }
+    }
+    
+    public function getVBCII($format = null) {
+        if ($format == 'F') {
+            return number_format($this->vBCII ?? 0, 2, ',', '.');
+        } elseif ($format == 'B') {
+            if ($this->vBCII != null) {
+                $num = str_replace('.', '', $this->vBCII);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            }
+            return 0;
+        }
+        return $this->vBCII;
+    }
+    
+    public function setVDespAdu($vDespAdu, $format=false) {
+        $this->vDespAdu = (($vDespAdu == "0,00") or ($vDespAdu == "0.00")) ? c_tools::stringToDouble($vDespAdu) : $vDespAdu;
+        if ($format){
+            $this->vDespAdu = number_format($this->vDespAdu, 2, ',', '.');
+        }
+    }
+    
+    public function getVDespAdu($format = null) {
+        if ($format == 'F') {
+            return number_format($this->vDespAdu ?? 0, 2, ',', '.');
+        } elseif ($format == 'B') {
+            if ($this->vDespAdu != null) {
+                $num = str_replace('.', '', $this->vDespAdu);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            }
+            return 0;
+        }
+        return $this->vDespAdu;
+    }
+    
+    public function setVII($vII, $format=false) {
+        $this->vII = (($vII == "0,00") or ($vII == "0.00")) ? c_tools::stringToDouble($vII) : $vII;
+        if ($format){
+            $this->vII = number_format($this->vII, 2, ',', '.');
+        }
+    }
+    
+    public function getVII($format = null) {
+        if ($format == 'F') {
+            return number_format($this->vII ?? 0, 2, ',', '.');
+        } elseif ($format == 'B') {
+            if ($this->vII != null) {
+                $num = str_replace('.', '', $this->vII);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            }
+            return 0;
+        }
+        return $this->vII;
+    }
+    
+    public function setVIOF($vIOF, $format=false) {
+        $this->vIOF = (($vIOF == "0,00") or ($vIOF == "0.00")) ? c_tools::stringToDouble($vIOF) : $vIOF;
+        if ($format){
+            $this->vIOF = number_format($this->vIOF, 2, ',', '.');
+        }
+    }
+    
+    public function getVIOF($format = null) {
+        if ($format == 'F') {
+            return number_format($this->vIOF ?? 0, 2, ',', '.');
+        } elseif ($format == 'B') {
+            if ($this->vIOF != null) {
+                $num = str_replace('.', '', $this->vIOF);
+                $num = str_replace(',', '.', $num);
+                return $num;
+            }
+            return 0;
+        }
+        return $this->vIOF;
+    }
+
+    public function setFrete($frete, $format=false)
+    {
+        if ($format) {
+            $this->frete = number_format(c_tools::parseMoedaValor($frete), 4, ',', '.');
+        } else {
+            $this->frete = c_tools::parseMoedaValor($frete);
         }
     }
 
@@ -1986,24 +2210,12 @@ Class c_nota_fiscal_produto extends c_user {
     {
         switch ($format) {
             case 'F':
-                // Operador de coalescencia versao php.8.3
                 $this->frete = $this->frete ?? 0;
 
-                return number_format($this->frete, 4, ',', '.');
+                return number_format(c_tools::parseMoedaValor($this->frete), 4, ',', '.');
             break;
             case 'B':
-
-                if ($this->frete != null) {
-
-                    $num = str_replace('.', '', $this->frete);
-                    $num = str_replace(',', '.', $num);
-
-                    return $num;
-                } else {
-
-                    return 0;
-                }
-
+                return c_tools::parseMoedaValor($this->frete ?? 0);
             break;
             default:
                 return $this->frete;
@@ -2145,10 +2357,22 @@ Class c_nota_fiscal_produto extends c_user {
         $this->setModBc($notaFiscal[0]['MODBC']);
         $this->setBcIcms($notaFiscal[0]['BCICMS']);
         $this->setValorIcms($notaFiscal[0]['VALORICMS']);
+        $this->setVICMSDeson($notaFiscal[0]['VICMSDESON']);
+        $this->setMotDesICMS($notaFiscal[0]['MOTDESICMS']);
+        $this->setVBCFCP($notaFiscal[0]['VBCFCP']);
+        $this->setPFCP($notaFiscal[0]['PFCP']);
+        $this->setVFCP($notaFiscal[0]['VFCP']);
+        $this->setEnqIpi($notaFiscal[0]['ENQIPI']);
         $this->setCstIpi($notaFiscal[0]['CSTIPI']);
         $this->setBaseCalculoIpi($notaFiscal[0]['BCIPI']);
+        $this->setQUnidIpi($notaFiscal[0]['QUNIDIPI']);
+        $this->setVUnidIpi($notaFiscal[0]['VUNIDIPI']);
         $this->setAliqIpi($notaFiscal[0]['ALIQIPI']);
         $this->setValorIpi($notaFiscal[0]['VALORIPI']);
+        $this->setVBCII($notaFiscal[0]['VBCII']);
+        $this->setVDespAdu($notaFiscal[0]['VDESPAU']);
+        $this->setVII($notaFiscal[0]['VII']);
+        $this->setVIOF($notaFiscal[0]['VIOF']);
         $this->setPercDiferido($notaFiscal[0]['PERCDIFERIDO']);
         $this->setValorIcmsDiferido($notaFiscal[0]['VALORICMSDIFERIDO']);
         $this->setValorIcmsOperacao($notaFiscal[0]['VALORICMSOPERACAO']);
@@ -2175,12 +2399,16 @@ Class c_nota_fiscal_produto extends c_user {
         $this->setBcPis($notaFiscal[0]['BCPIS']);
         $this->setAliqPis($notaFiscal[0]['ALIQPIS']);
         $this->setValorPis($notaFiscal[0]['VALORPIS']);
+        $this->setQuantBcProdPis($notaFiscal[0]['QUANTBCPRODPIS']);
         $this->setCstCofins($notaFiscal[0]['CSTCOFINS']);
         $this->setBcCofins($notaFiscal[0]['BCCOFINS']);
         $this->setAliqCofins($notaFiscal[0]['ALIQCOFINS']);        
         $this->setValorCofins($notaFiscal[0]['VALORCOFINS']);
+        $this->setQuantBcProdCofins($notaFiscal[0]['QUANTBCPRODCOFINS']);
         $this->setPSt($notaFiscal[0]['PST']);
-        $this->setCBenef($notaFiscal[0]['CBENEF']);
+        // Se CBENEF for NULL no banco, seta como NULL
+        $cbenef = $notaFiscal[0]['CBENEF'];
+        $this->setCBenef(($cbenef === null || $cbenef === '') ? null : $cbenef);
         $this->setBcFcpUfDest($notaFiscal[0]['BCFCPUFDEST']);        
         $this->setAliqFcpUfDest($notaFiscal[0]['ALIQFCPUFDEST']); 
         $this->setValorFcpUfDest($notaFiscal[0]['VALORFCPUFDEST']);
@@ -2330,7 +2558,7 @@ Class c_nota_fiscal_produto extends c_user {
         // $sql .= "N.VALORICMSDIFERIDO,N.VALORICMSOPERACAO,N.MODBCST,N.PERCMVAST,N.PERCREDUCAOBCST,N.VALORBCST,N.ALIQICMSST,N.VALORICMSST,N.VALORTOTALTRIBUTOS,N.VALORBCSTRETIDO,N.VALORICMSSTRETIDO,N.CUSTOPRODUTO, ";
         // $sql .= "N.LOTE,N.DATAFABRICACAO,N.DATAVALIDADE,N.CSTPIS,N.BCPIS,N.ALIQPIS,N.VALORPIS,N.CSTCOFINS,N.BCCOFINS,N.ALIQCOFINS,N.VALORCOFINS, p.CODIGOBARRAS, p.CODPRODUTOANVISA, ";
         $sql = "SELECT DISTINCT N.*, ";
-        $sql .= "P.CODIGOBARRAS, P.CODPRODUTOANVISA, P.CODFABRICANTE FROM EST_NOTA_FISCAL_PRODUTO N ";
+        $sql .= "P.CODIGOBARRAS, P.CODPRODUTOANVISA, P.CODFABRICANTE, P.CCLASSTRIB FROM EST_NOTA_FISCAL_PRODUTO N ";
         $sql .= "LEFT JOIN EST_PRODUTO P ON(N.CODPRODUTO = P.CODIGO) ";
         $sql .= "WHERE (N.IDNF = " . $this->getIdNf() . ") ";
         //$sql .= "ORDER BY p.codfabricante";
@@ -2361,12 +2589,12 @@ Class c_nota_fiscal_produto extends c_user {
 
 
         $sql .= "IDNF, CODPRODUTO, DESCRICAO, UNIDADE, QUANT, UNITARIO, DESCONTO, TOTAL, ORIGEM,CFOP, TRIBICMS, PERCREDUCAOBC, ";
-		$sql .= "MODBC, BCICMS, VALORICMS, CSTIPI, BCIPI, VALORIPI, PERCDIFERIDO, ALIQICMS, ALIQIPI, CSTPIS, BCPIS, ALIQPIS, VALORPIS, ";
+		$sql .= "MODBC, BCICMS, VALORICMS, VICMSDESON, MOTDESICMS, VBCFCP, PFCP, VFCP, ENQIPI, CSTIPI, BCIPI, QUNIDIPI, VUNIDIPI, VALORIPI, PERCDIFERIDO, ALIQICMS, ALIQIPI, CSTPIS, BCPIS, ALIQPIS, VALORPIS, QUANTBCPRODPIS, ";
 		$sql .= "PERCMVAST, PERCREDUCAOBCST, BCFCPST, ALIQFCPST, VALORFCPST, VALORICMSDIFERIDO, ";
-        $sql .= "BCCOFINS, ALIQCOFINS, VALORCOFINS, CUSTOPRODUTO, NCM, CEST, NRSERIE, LOTE, BCFCPUFDEST, ALIQFCPUFDEST, ";
+        $sql .= "BCCOFINS, ALIQCOFINS, VALORCOFINS, QUANTBCPRODCOFINS, CUSTOPRODUTO, NCM, CEST, NRSERIE, LOTE, BCFCPUFDEST, ALIQFCPUFDEST, ";
         $sql .= "VALORFCPUFDEST, BCICMSUFDEST, ALIQICMSUFDEST, ALIQICMSINTER, ALIQICMSINTERPART, VALORICMSUFDEST, ";
-        $sql .= "VALORICMSUFREMET, VALORBCST, VALORICMSST, ALIQICMSST, MODBCST, PCREDSN, VCREDICMSSN, CSTCOFINS, DATAFABRICACAO, DATAVALIDADE, ";
-		$sql .= "DATAGARANTIA, ORDEM, PROJETO, DATACONFERENCIA, CBENEF, FRETE, CODIGONOTA, VALORICMSOPERACAO, VALORBCSTRETIDO, VALORICMSSTRETIDO, VICMSSUBSTITUTO,DESPACESSORIAS) ";
+        $sql .= "VALORICMSUFREMET, VALORBCST, VALORICMSST, VALORTOTALTRIBUTOS, VBCII, VDESPAU, VII, VIOF, ALIQICMSST, MODBCST, PCREDSN, VCREDICMSSN, PST, CSTCOFINS, DATAFABRICACAO, DATAVALIDADE, ";
+		$sql .= "DATAGARANTIA, ORDEM, NITEMPED, PROJETO, DATACONFERENCIA, CBENEF, FRETE, CODIGONOTA, VALORICMSOPERACAO, VALORBCSTRETIDO, VALORICMSSTRETIDO, VICMSSUBSTITUTO, DESPACESSORIAS) ";
 
         if ($banco->gerenciadorDB == 'interbase') {
             $sql .= "VALUES (" . $this->getId() . ", ";
@@ -2388,9 +2616,17 @@ Class c_nota_fiscal_produto extends c_user {
                 . $this->getPercReducaoBc('B') . "', '"
                 . $this->getModBc() . "', "
                 . $this->getBcIcms('B') . ", "
-                . $this->getValorIcms('B') . ", '"
+                . $this->getValorIcms('B') . ", "
+                . $this->getVICMSDeson('B') . ", '"
+                . $this->getMotDesICMS() . "', "
+                . $this->getVBCFCP('B') . ", "
+                . $this->getPFCP('B') . ", "
+                . $this->getVFCP('B') . ", '"
+                . $this->getEnqIpi() . "', '"
                 . $this->getCstIpi() . "', '"
                 . $this->getBaseCalculoIpi('B') . "', "
+                . $this->getQUnidIpi('B') . ", "
+                . $this->getVUnidIpi('B') . ", "
                 . $this->getValorIpi('B') . ", "
                 . $this->getPercDiferido('B') . ", "
                 . $this->getAliqIcms('B') . ", "
@@ -2398,7 +2634,8 @@ Class c_nota_fiscal_produto extends c_user {
                 . $this->getCstPis() . "', "
                 . $this->getBcPis('B') . ", "
                 . $this->getAliqPis('B') . ", "
-                . $this->getValorPis('B') . ", '"
+                . $this->getValorPis('B') . ", "
+                . $this->getQuantBcProdPis('B') . ", '"
                 . $this->getPercMvaSt('B') . "', '"
                 . $this->getPercReducaoBcSt('B') . "', '"
                 . $this->getBcFcpSt('B') . "', '"
@@ -2408,6 +2645,7 @@ Class c_nota_fiscal_produto extends c_user {
                 . $this->getBcCofins('B') . "', "
                 . $this->getAliqCofins('B') . ", "
                 . $this->getValorCofins('B') . ", "
+                . $this->getQuantBcProdCofins('B') . ", "
                 . $this->getCustoProduto('B') . ", '"
                 . $this->getNcm() . "', '"
                 . $this->getCest() . "', '"
@@ -2424,10 +2662,16 @@ Class c_nota_fiscal_produto extends c_user {
                 . $this->getValorIcmsUFRemet('B') . "', "       
                 . $this->getValorBcSt('B') . ", "            
                 . $this->getValorIcmsSt('B') . ", "        
+                . $this->getValorTotalTributos('B') . ", "
+                . $this->getVBCII('B') . ", "
+                . $this->getVDespAdu('B') . ", "
+                . $this->getVII('B') . ", "
+                . $this->getVIOF('B') . ", "        
                 . $this->getAliqIcmsSt('B') . ", '"       
                 . $this->getModBcSt() . "', '"                       
                 . $this->getPCredSN('B') . "', '"                        
-                . $this->getVCredICMSSN('B') . "', ";
+                . $this->getVCredICMSSN('B') . "', "
+                . $this->getPSt('B') . ", ";
 
         if ($this->getCstCofins() == ''):
             $sql .= "null, ";
@@ -2448,12 +2692,24 @@ Class c_nota_fiscal_produto extends c_user {
         endif;
 
         if ( $this->getDataFabricacao('B') == ''):
-            $sql .= "null, '";
+            $sql .= "null, ";
         else:
-            $sql .= "'" . $this->getDataGarantia('B') . "', '";
+            if ( $this->getDataGarantia('B') == ''):
+                $sql .= "null, ";
+            else:
+                $sql .= "'" . $this->getDataGarantia('B') . "', ";
+            endif;
         endif;        
 
-        $sql .= $this->getOrdem() . "', '". $this->getProjeto() . "', ";
+        $sql .= "'" . $this->getOrdem() . "', ";
+        
+        if (empty($this->getNItemPed())){
+            $sql .= "null, ";
+        }else{
+            $sql .= "'" . $this->getNItemPed() . "', ";
+        }
+        
+        $sql .= "'" . $this->getProjeto() . "', ";
 
         if ($this->getDataConferencia('B') == ''):
             $sql .= "null,  ";
@@ -2461,16 +2717,20 @@ Class c_nota_fiscal_produto extends c_user {
             $sql .= "'" .$this->getDataConferencia('B') . "',  ";
         endif;
 
-        $sql .= "'".$this->getCBenef() . "', ";
-        $sql .= " ".$this->getFrete('B') . ", '";
-        $sql .= " ".$this->getCodigoNota() . "', ";
+        if (empty($this->getCBenef())){
+            $sql .= "null, ";
+        }else{
+            $sql .= "'".$this->getCBenef() . "', ";
+        }
+        $sql .= " " . $this->getFrete('B') . ", ";
+        $sql .= " '" . $this->getCodigoNota() . "', ";
         $sql .= " ".$this->getValorIcmsOperacao('B') . ", ";
         $sql .= " ".$this->getValorBaseCalculoStRetido('B') . ", ";
         $sql .= " ".$this->getValorIcmsStRetido('B') . ", ";
         $sql .= " ".$this->getValorIcmsSubstituto('B') . ", ";
         $sql .= " ".$this->getDespAcessorias('B') . ");";
 
-        //ECHO strtoupper($sql)."<br>";
+        //echo strtoupper($sql)."<br>";
         $banco = new c_banco;
         $res_nf = $banco->exec_sql($sql, $conn, 'EST_PRODUTO_ESTOQUE');
         $banco->close_connection();
@@ -2520,6 +2780,7 @@ Class c_nota_fiscal_produto extends c_user {
         $sql .= "modBc = " . $this->getModBc() . ", ";
         $sql .= "bcIcms = " . $this->getBcIcms('B') . ", ";
         $sql .= "ValorIcms = " . $this->getValorIcms('B') . ", ";
+        $sql .= "enqipi = '" . $this->getEnqIpi() . "', ";
         $sql .= "bcipi = " . $this->getBaseCalculoIpi('B') . ", ";
         $sql .= "cstIpi = '" . $this->getCstIpi() . "', ";
         $sql .= "ValorIpi = " . $this->getValorIpi('B') . ", ";
@@ -2534,15 +2795,22 @@ Class c_nota_fiscal_produto extends c_user {
         $sql .= "valorbcst = " . $this->getValorBcSt('B') . ", ";
         $sql .= "modBcSt = '".$this->getModBcSt()."', ";
         $sql .= "valoricmsst = " . $this->getValorIcmsSt('B') . ", ";
+        $sql .= "valortotaltributos = " . $this->getValorTotalTributos('B') . ", ";
+        $sql .= "vbcii = " . $this->getVBCII('B') . ", ";
+        $sql .= "vdespau = " . $this->getVDespAdu('B') . ", ";
+        $sql .= "vii = " . $this->getVII('B') . ", ";
+        $sql .= "viof = " . $this->getVIOF('B') . ", ";
         $sql .= "AliqIpi = " . $this->getAliqIpi('B') . ", ";
         $sql .= "cstpis = '" . $this->getCstPis() . "', ";
         $sql .= "bcpis = " . $this->getBcPis('B') . ", ";
         $sql .= "aliqpis = " . $this->getAliqPis('B') . ", ";
         $sql .= "valorpis = " . $this->getValorPis('B') . ", ";
+        $sql .= "quantbcprodpis = " . $this->getQuantBcProdPis('B') . ", ";
         $sql .= "cstCofins = '" . $this->getCstCofins() . "', ";
         $sql .= "bccofins = " . $this->getBcCofins('B') . ", ";
         $sql .= "aliqcofins = " . $this->getAliqCofins('B') . ", ";
         $sql .= "valorcofins = " . $this->getValorCofins('B') . ", ";
+        $sql .= "quantbcprodcofins = " . $this->getQuantBcProdCofins('B') . ", ";
         $sql .= "bcfcpufdest = " . $this->getBcFcpUfDest('B') . ", ";
         $sql .= "aliqfcpufdest = " . $this->getAliqFcpUfDest('B') . ", ";
         $sql .= "valorfcpufdest = " . $this->getValorFcpUfDest('B') . ", ";
@@ -2577,12 +2845,22 @@ Class c_nota_fiscal_produto extends c_user {
         else
             $sql .= "DATAGARANTIA = '" . $this->getDataGarantia('B') . "', ";
         $sql .= "ORDEM = '" . $this->getOrdem() . "', ";
+        if (empty($this->getNItemPed())){
+            $sql .= "NITEMPED = null, ";
+        }else{
+            $sql .= "NITEMPED = '" . $this->getNItemPed() . "', ";
+        }
         $sql .= "PROJETO = '" . $this->getProjeto() . "', ";
-        $sql .= "CBENEF = '" . $this->getCBenef() . "', ";
+        if (empty($this->getCBenef())){
+            $sql .= "CBENEF = null, ";
+        }else{
+            $sql .= "CBENEF = '" . $this->getCBenef() . "', ";
+        }
 
         $sql .= "VALORBCSTRETIDO = " . $this->getValorBaseCalculoSTRetido() . ", ";
         $sql .= "VALORICMSSTRETIDO = " . $this->getValorIcmsStRetido() . ", ";
-        $sql .= "VICMSSUBSTITUTO = " . $this->getValorIcmsSubstituto() . " ";
+        $sql .= "VICMSSUBSTITUTO = " . $this->getValorIcmsSubstituto() . ", ";
+        $sql .= "PST = " . $this->getPSt('B') . " ";
         $sql .= " WHERE id = " . $this->getId() . ";";
 
         //echo strtoupper($sql);
@@ -3036,6 +3314,167 @@ function calculaRateios($idNf) {
 
 }
 // Fim calculaRateios
+/*
+* Inclui os tributos IBS/CBS do produto da nota fiscal
+* @name incluiNotaFiscalProdutoTributos
+* @param array $dados Dados do produto da nota fiscal
+* @return bool true se o tributo foi incluído, false caso contrário
+*/
+public function incluiNotaFiscalProdutoTributos($dados) {
+            
+            try {
+                
+
+                $sql = "INSERT INTO EST_NOTA_FISCAL_PRODUTO_TRIBUTOS (
+                    ID_NOTA_FISCAL,
+                    ID_NOTA_FISCAL_PRODUTO,
+                    CST_REG,
+                    C_CLASS_TRIB_REG,
+                    P_ALIQ_EFET_REG_IBS_UF,
+                    V_TRIB_REG_IBS_UF,
+                    P_ALIQ_EFET_REG_IBS_MUN,
+                    V_TRIB_REG_IBS_MUN,
+                    P_ALIQ_EFET_REG_CBS,
+                    V_TRIB_REG_CBS,
+                    V_BC_CRED_PRES,
+                    C_CRED_PRES,
+                    Q_BC_MONO,
+                    AD_REM_IBS,
+                    AD_REM_CBS,
+                    V_IBS_MONO,
+                    V_CBS_MONO,
+                    Q_BC_MONO_RETEN,
+                    AD_REM_IBS_RETEN,
+                    V_IBS_MONO_RETEN,
+                    AD_REM_CBS_RETEN,
+                    V_CBS_MONO_RETEN,
+                    Q_BC_MONO_RET,
+                    AD_REM_IBS_RET,
+                    V_IBS_MONO_RET,
+                    AD_REM_CBS_RET,
+                    V_CBS_MONO_RET,
+                    P_DIF_IBS,
+                    V_IBS_MONO_DIF,
+                    P_DIF_CBS,
+                    V_TOT_IBS_MONO_ITEM,
+                    V_TOT_CBS_MONO_ITEM,
+                    V_IBS_EST_CRED,
+                    V_CBS_EST_CRED,
+                    CREATED_USER
+                ) VALUES (
+                    :id_nota_fiscal,
+                    :id_nota_fiscal_produto,
+                    :cst_reg,
+                    :c_class_trib_reg,
+                    :p_aliq_efet_reg_ibs_uf,
+                    :v_trib_reg_ibs_uf,
+                    :p_aliq_efet_reg_ibs_mun,
+                    :v_trib_reg_ibs_mun,
+                    :p_aliq_efet_reg_cbs,
+                    :v_trib_reg_cbs,
+                    :v_bc_cred_pres,
+                    :c_cred_pres,
+                    :q_bc_mono,
+                    :ad_rem_ibs,
+                    :ad_rem_cbs,
+                    :v_ibs_mono,
+                    :v_cbs_mono,
+                    :q_bc_mono_reten,
+                    :ad_rem_ibs_reten,
+                    :v_ibs_mono_reten,
+                    :ad_rem_cbs_reten,
+                    :v_cbs_mono_reten,
+                    :q_bc_mono_ret,
+                    :ad_rem_ibs_ret,
+                    :v_ibs_mono_ret,
+                    :ad_rem_cbs_ret,
+                    :v_cbs_mono_ret,
+                    :p_dif_ibs,
+                    :v_ibs_mono_dif,
+                    :p_dif_cbs,
+                    :v_tot_ibs_mono_item,
+                    :v_tot_cbs_mono_item,
+                    :v_ibs_est_cred,
+                    :v_cbs_est_cred,
+                    :created_user
+                )";
+
+                $banco = new c_banco_pdo();
+                $banco->prepare($sql);
+
+                $banco->bindValue(':id_nota_fiscal', $dados['ID_NOTA_FISCAL'] ?? null, PDO::PARAM_INT);
+                $banco->bindValue(':id_nota_fiscal_produto', $dados['ID_NOTA_FISCAL_PRODUTO'] ?? null, PDO::PARAM_INT);
+                $banco->bindValue(':cst_reg', $dados['CST_REG'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':c_class_trib_reg', $dados['C_CLASS_TRIB_REG'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':p_aliq_efet_reg_ibs_uf', $dados['P_ALIQ_EFET_REG_IBS_UF'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_trib_reg_ibs_uf', $dados['V_TRIB_REG_IBS_UF'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':p_aliq_efet_reg_ibs_mun', $dados['P_ALIQ_EFET_REG_IBS_MUN'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_trib_reg_ibs_mun', $dados['V_TRIB_REG_IBS_MUN'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':p_aliq_efet_reg_cbs', $dados['P_ALIQ_EFET_REG_CBS'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_trib_reg_cbs', $dados['V_TRIB_REG_CBS'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_bc_cred_pres', $dados['V_BC_CRED_PRES'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':c_cred_pres', $dados['C_CRED_PRES'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':q_bc_mono', $dados['Q_BC_MONO'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':ad_rem_ibs', $dados['AD_REM_IBS'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':ad_rem_cbs', $dados['AD_REM_CBS'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_ibs_mono', $dados['V_IBS_MONO'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_cbs_mono', $dados['V_CBS_MONO'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':q_bc_mono_reten', $dados['Q_BC_MONO_RETEN'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':ad_rem_ibs_reten', $dados['AD_REM_IBS_RETEN'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_ibs_mono_reten', $dados['V_IBS_MONO_RETEN'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':ad_rem_cbs_reten', $dados['AD_REM_CBS_RETEN'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_cbs_mono_reten', $dados['V_CBS_MONO_RETEN'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':q_bc_mono_ret', $dados['Q_BC_MONO_RET'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':ad_rem_ibs_ret', $dados['AD_REM_IBS_RET'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_ibs_mono_ret', $dados['V_IBS_MONO_RET'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':ad_rem_cbs_ret', $dados['AD_REM_CBS_RET'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_cbs_mono_ret', $dados['V_CBS_MONO_RET'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':p_dif_ibs', $dados['P_DIF_IBS'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_ibs_mono_dif', $dados['V_IBS_MONO_DIF'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':p_dif_cbs', $dados['P_DIF_CBS'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_tot_ibs_mono_item', $dados['V_TOT_IBS_MONO_ITEM'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_tot_cbs_mono_item', $dados['V_TOT_CBS_MONO_ITEM'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_ibs_est_cred', $dados['V_IBS_EST_CRED'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':v_cbs_est_cred', $dados['V_CBS_EST_CRED'] ?? null, PDO::PARAM_STR);
+                $banco->bindValue(':created_user', $this->m_userid, PDO::PARAM_INT);
+
+                $banco->execute();
+
+                return $banco->rowCount() > 0;
+
+            } catch (PDOException $e) {
+                error_log("Erro ao incluir tributos IBS/CBS do produto da nota fiscal: " . $e->getMessage());
+                return false;
+            }
+        }
+
+    /*
+    * Exclui os tributos IBS/CBS do produto da nota fiscal
+    * @name excluiNotaFiscalProdutoTributos
+    * @param int $idNotaFiscalProduto ID do produto da nota fiscal
+    * @return bool true se o tributo foi excluído, false caso contrário
+    */
+    public function excluiNotaFiscalProdutoTributos($idNotaFiscalProduto) {
+        
+        try {
+            $sql = "DELETE FROM EST_NOTA_FISCAL_PRODUTO_TRIBUTOS WHERE ID_NOTA_FISCAL_PRODUTO = :id_nota_fiscal_produto";
+            
+            $banco = new c_banco_pdo();
+            $banco->prepare($sql);
+            $banco->bindValue(':id_nota_fiscal_produto', $idNotaFiscalProduto, PDO::PARAM_INT);
+            $banco->execute();
+            
+            return $banco->rowCount() > 0;
+
+        } catch (PDOException $e) {
+            error_log("Erro ao excluir tributos IBS/CBS do produto da nota fiscal: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    // Fim Tributos IBS/CBS
+    
+
 }
 //	END OF THE CLASS
 ?>

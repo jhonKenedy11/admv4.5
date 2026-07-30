@@ -1,0 +1,113 @@
+/* =================================================================
+CONTROLE DE TAMANHO DOS BOTÕES "INTER"
+-----------------------------------------------------------------
+Ajuste APENAS as 4 variáveis abaixo para mudar o tamanho:
+--btn-inter-padding-y  → altura interna (vertical)
+--btn-inter-padding-x  → largura interna (horizontal)
+--btn-inter-font-size  → tamanho do texto
+--btn-inter-gap        → espaço entre os botões
+-----------------------------------------------------------------
+Presets:
+PEQUENO :  6px / 10px / 12px / 6px
+MÉDIO   :  8px / 15px / 14px / 10px   ← atual
+GRANDE  : 12px / 20px / 16px / 12px
+================================================================= */
+.row_botoes_api .btn_acoes_inter {
+    --btn-inter-padding-y: 8px;
+    --btn-inter-padding-x: 15px;
+    --btn-inter-font-size: 12px;
+    --btn-inter-gap: 10px;
+
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--btn-inter-gap);
+    width: 100%;
+    padding: 10px 0;
+}
+
+  /* Em telas menores, reduz proporcionalmente as 4 variáveis.
+    Sem !important para que o controle pelas variáveis continue
+    funcionando em qualquer breakpoint. */
+    /* @media (max-width: 1200px) {
+    .row_botoes_api .btn_acoes_inter {
+      --btn-inter-padding-y: 7px;
+      --btn-inter-padding-x: 12px;
+      --btn-inter-font-size: 13px;
+      --btn-inter-gap: 8px;
+    }
+  }
+
+  @media (max-width: 992px) {
+    .row_botoes_api .btn_acoes_inter {
+      --btn-inter-padding-y: 6px;
+      --btn-inter-padding-x: 10px;
+      --btn-inter-font-size: 12px;
+      --btn-inter-gap: 6px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .row_botoes_api .btn_acoes_inter {
+      --btn-inter-padding-y: 5px;
+      --btn-inter-padding-x: 9px;
+      --btn-inter-font-size: 11px;
+      --btn-inter-gap: 5px;
+    }
+  } */
+
+/* Aplica padding/font controlados pelas variáveis.
+   Usa !important para vencer o "height" e "font-size" fixos
+   que existiam na classe .btns_inter (Bootstrap concorrente). */
+.row_botoes_api .btn_acoes_inter .btn.btns_inter {
+    padding: var(--btn-inter-padding-y) var(--btn-inter-padding-x) !important;
+    font-size: var(--btn-inter-font-size) !important;
+    font-weight: 600;
+    height: auto !important;        /* libera a altura para o padding controlar */
+    line-height: 1.2;
+    box-sizing: border-box;
+}
+
+.row_botoes_api .btn_acoes_inter .btn.btns_inter .fa {
+    margin-right: 6px !important;
+    font-size: var(--btn-inter-font-size);
+    vertical-align: middle;
+}
+
+.fa_sm_inter {
+    font-size: 11px !important;
+}
+
+/* Classes independentes, sem conflito com Bootstrap   */
+
+.btns_inter {
+    display: inline-flex;
+    color: #f1f1f1;
+    align-items: center;
+    cursor: pointer;
+    text-decoration: none;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #1b339cd5 0%, #282d4bbb 100%);
+    box-shadow: 0 2px 3px rgba(102, 126, 234, 0.25) !important;
+    transition:
+      box-shadow 0.32s cubic-bezier(.22, .68, 0, 1.2),
+      transform  0.3s cubic-bezier(.22, .68, 0, 1.2),
+      background 0.3s ease;
+  }
+  .btns_inter:hover {
+    transform: translateY(-2px) !important;
+    transition: all 0.3s ease !important;
+    scale: 1.02 !important;
+    background: linear-gradient(135deg, #1e3fd18e 0%, #8990b0a4 100%);
+    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.35) !important;
+  }
+  
+  .btns_inter:disabled,
+  .btns_inter[disabled] {
+    opacity: 0.42;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+

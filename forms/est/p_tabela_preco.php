@@ -36,6 +36,9 @@ Class p_tabela_preco extends c_tabela_preco {
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
+        $this->smarty->assign('pathCliente', ADMhttpCliente);
+
 
         // dados para exportacao e relatorios
         $this->smarty->assign('titulo', "Classe");
@@ -49,85 +52,50 @@ Class p_tabela_preco extends c_tabela_preco {
         $this->setCentroCusto(isset($parmPost['centroCusto']) ? $parmPost['centroCusto'] : '');
         $this->setPrecoBase(isset($parmPost['precoBase']) ? $parmPost['precoBase'] : '');
         $this->setMargem(isset($parmPost['margem']) ? $parmPost['margem'] : '');
+        $this->setPessoa(isset($parmPost['pessoa']) ? $parmPost['pessoa'] : '');
     }
 
     function controle() {
         switch ($this->m_submenu) {
             case 'cadastrar':
-                //if ($this->verificaDireitoUsuario('TABELAPRECO', 'I')) {
-                {
+                if ($this->verificaDireitoUsuario('TABELAPRECO', 'I')) {
                     $this->desenharCadastroTabelaPreco();
                 }
                 break;
             case 'alterar':
-                //if ($this->verificaDireitoUsuario('TABELAPRECO', 'A')) {
-                {
+                if ($this->verificaDireitoUsuario('TABELAPRECO', 'A')) {
                     $this->buscar_tabela_preco();
                     $this->desenharCadastroTabelaPreco();
                 }
                 break;
             case 'inclui':
-                if ($this->existe_tabela_preco()) {
-                    $this->m_submenu = "cadastrar";
-                    $this->desenharCadastroTabelaPreco("Já existe tabela com este código, por favor altere a tabela", "alerta");
-                } else {
-                    
-                    $transaction = new c_banco();
-                    $transaction->inicioTransacao($transaction->id_connection);
-                    $result = true;
-                    $identificador = $this->incluir_tabela_preco($transaction->id_connection);
-                    $transaction->commit($transaction->id_connection);
-                    
-                    $itens = $this->select_itens();
-                        
-                    $id = $identificador;
-                    $margem =$this->getMargem('B');
-                        
-                    for ($i = 0; $i < count($itens); $i++) {
-                        $this->insere_item_tabela_preco(
-                        $id,
-                        $itens[$i]['GRUPO'],                            
-                        $itens[$i]['CODIGO'],
-                        $itens[$i]['VENDA'],
-                        $margem,
-                        $itens[$i]['VENDA'] * (1 + ($margem / 100)));
-                    } 
-                    $this->mostrarTabelaPreco('');
+                if ($this->verificaDireitoUsuario('TABELAPRECO', 'I')) {
+                    if ($this->existe_tabela_preco()) {
+                        $this->m_submenu = "cadastrar";
+                        $this->desenharCadastroTabelaPreco("Já existe tabela com este código, por favor altere a tabela", "alerta");
+                    } else {                    
+                        $identificador = $this->incluir_tabela_preco();
+                        $this->mostrarTabelaPreco('');
+                    }
                 }
                 break;
             case 'altera':
-                $this->alterar_tabela_preco();
-                $this->excluir_tabela_preco('_ITEM');
-
-                $id = $this->getID();
-                $margem =$this->getMargem();
-                
-                $itens = $this->select_itens();
-
-                for ($i = 0; $i < count($itens); $i++) {
-                    $this->insere_item_tabela_preco(
-                    $id,
-                    $itens[$i]['GRUPO'],                            
-                    $itens[$i]['CODIGO'],
-                    $itens[$i]['VENDA'],
-                    $margem,
-                    $itens[$i]['VENDA'] * (1 + ($margem / 100)));
+                if ($this->verificaDireitoUsuario('TABELAPRECO', 'A')) {
+                    $this->alterar_tabela_preco();
+                    $this->mostrarTabelaPreco('Registro salvo.');
                 }
-                $this->mostrarTabelaPreco('Registro salvo.');
                 break;
             case 'exclui':
-                //if ($this->verificaDireitoUsuario('TABELAPRECO', 'E')) {
-                {
-                    $this->excluir_tabela_preco('_ITEM');
+                if ($this->verificaDireitoUsuario('TABELAPRECO', 'E')) {
                     $this->excluir_tabela_preco();
                     $this->mostrarTabelaPreco('Registro excluido.');
                 }
                 break;
             default:
-                //if ($this->verificaDireitoUsuario('TABELAPRECO', 'C')) {
-                {
+                if ($this->verificaDireitoUsuario('TABELAPRECO', 'C')) {   
                     $this->mostrarTabelaPreco('');
                 }
+            break;
         }
     }
 
@@ -144,6 +112,8 @@ Class p_tabela_preco extends c_tabela_preco {
 
         $this->smarty->assign('id', $this->getId());
         $this->smarty->assign('nome',  "'" . $this->getNome().  "'");
+        $this->smarty->assign('pessoa',  "'" . $this->getPessoa().  "'");
+        $this->smarty->assign('nomePessoa',  "'" . $this->getPessoaNome('').  "'");
         if ($this->m_submenu == 'cadastrar') {
             $this->smarty->assign('validade',  "'" . $this->getValidade().  "'");
         } else {
@@ -151,27 +121,16 @@ Class p_tabela_preco extends c_tabela_preco {
         }
         $this->smarty->assign('centrocusto',  "'" . $this->getCentroCusto().  "'");
         $this->smarty->assign('precobase',  "'" . $this->getPrecoBase().  "'");
-        $this->smarty->assign('margem',  "'" . $this->getMargem().  "'");
+        $this->smarty->assign('margem',  "'" . $this->getMargem('F').  "'");
 
         //PRECO BASE #############
-        $consulta = new c_banco();
-        $sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='EST_MENU') and (campo='PRECOBASE')";
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
-        $result = $consulta->resultado;
-        $precoBase_ids[0] = '';
-        $precoBase_names[0] = 'Selecione.';
-        for ($i = 0; $i < count($result); $i++) {
-            $precoBase_ids[$i+1] = $result[$i]['ID'];
-            $precoBase_names[$i+1] = $result[$i]['DESCRICAO'];
-        }
+        list($precoBase_ids, $precoBase_names) = $this->comboPrecoBase();
         $this->smarty->assign('precoBase_ids', $precoBase_ids);
         $this->smarty->assign('precoBase_names', $precoBase_names);
         $this->smarty->assign('precoBase_id', $this->getPrecoBase());
 
         //CENTRO CUSTO ############# 
-        $sql = "select centrocusto as id, descricao from fin_centro_custo ".$aliqRegEspSTMTcWhere." order by centrocusto";
-        $this->comboSql($sql, $this->m_par[7] ?? $this->m_empresacentrocusto, $centroCusto_id, $centroCusto_ids, $centroCusto_names);
+        list($centroCusto_ids, $centroCusto_names) = $this->comboCentroCusto();
         $this->smarty->assign('centroCusto_ids', $centroCusto_ids);
         $this->smarty->assign('centroCusto_names', $centroCusto_names);  
         $this->smarty->assign('centroCusto_id', $this->getCentroCusto()); 
@@ -191,25 +150,6 @@ Class p_tabela_preco extends c_tabela_preco {
         $this->smarty->assign('lanc', $tabelaPreco);
 
         $this->smarty->display('tabela_preco_mostra.tpl');
-    }
-
-    function comboSql($sql, $par, &$id, &$ids, &$names) {
-        $consulta = new c_banco();
-        $consulta->exec_sql($sql);
-        $consulta->close_connection();
-        $result = $consulta->resultado;
-        for ($i = 0; $i < count($result); $i++) {
-            $ids[$i] = $result[$i]['ID'];
-            $names[$i] = $result[$i]['DESCRICAO'];
-        }
-        
-        $param = explode(",", $par);
-        $i=0;
-        $id[$i] = "0";
-        while ($param[$i] != '') {
-            $id[$i] = $param[$i];
-            $i++;
-        }    
     }
 
 //fim mostraAtividade

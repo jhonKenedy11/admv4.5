@@ -5,6 +5,7 @@ endif;
 $dir = dirname(__FILE__);
 require_once($dir . "/../../../smarty/libs/Smarty.class.php");
 require_once($dir . "/../../class/ped/c_pedido_venda.php");
+require_once($dir . "/../../class/ped/c_pedido_venda_telhas_dash.php");
 require_once($dir . "/../../class/ped/c_pedido_venda_tools.php");
 require_once($dir . "/../../class/ped/c_pedido_venda_nf.php");
 require_once($dir . "/../../class/est/c_produto.php");
@@ -12,7 +13,7 @@ require_once($dir . "/../../class/est/c_produto_estoque.php");
 
 
 //Class P_situacao
-Class p_pedido_venda_telhas_dash extends c_pedidoVenda {
+Class p_pedido_venda_telhas_dash extends c_pedidoVendaTelhasDash {
             
     private $m_submenu      = NULL;
     private $m_letra        = NULL;
@@ -175,59 +176,6 @@ Class p_pedido_venda_telhas_dash extends c_pedidoVenda {
                 }
         }
     }
-/*
-function dias_feriados($ano = null)
-{
-  if ($ano === null)
-  {
-    $ano = intval(date('Y'));
-  }
- 
-  $pascoa     = easter_date($ano); // Limite de 1970 ou após 2037 da easter_date PHP consulta http://www.php.net/manual/pt_BR/function.easter-date.php
-  $dia_pascoa = date('j', $pascoa);
-  $mes_pascoa = date('n', $pascoa);
-  $ano_pascoa = date('Y', $pascoa);
- 
-  $feriados = array(
-    // Tatas Fixas dos feriados Nacionail Basileiras
-    mktime(0, 0, 0, 1,  1,   $ano), // Confraternização Universal - Lei nº 662, de 06/04/49
-    mktime(0, 0, 0, 4,  21,  $ano), // Tiradentes - Lei nº 662, de 06/04/49
-    mktime(0, 0, 0, 5,  1,   $ano), // Dia do Trabalhador - Lei nº 662, de 06/04/49
-    mktime(0, 0, 0, 9,  7,   $ano), // Dia da Independência - Lei nº 662, de 06/04/49
-    mktime(0, 0, 0, 10,  12, $ano), // N. S. Aparecida - Lei nº 6802, de 30/06/80
-    mktime(0, 0, 0, 11,  2,  $ano), // Todos os santos - Lei nº 662, de 06/04/49
-    mktime(0, 0, 0, 11, 15,  $ano), // Proclamação da republica - Lei nº 662, de 06/04/49
-    mktime(0, 0, 0, 12, 25,  $ano), // Natal - Lei nº 662, de 06/04/49
- 
-    // These days have a date depending on easter
-    mktime(0, 0, 0, $mes_pascoa, $dia_pascoa - 48,  $ano_pascoa),//2ºferia Carnaval
-    mktime(0, 0, 0, $mes_pascoa, $dia_pascoa - 47,  $ano_pascoa),//3ºferia Carnaval	
-    mktime(0, 0, 0, $mes_pascoa, $dia_pascoa - 2 ,  $ano_pascoa),//6ºfeira Santa  
-    mktime(0, 0, 0, $mes_pascoa, $dia_pascoa     ,  $ano_pascoa),//Pascoa
-    mktime(0, 0, 0, $mes_pascoa, $dia_pascoa + 60,  $ano_pascoa),//Corpus Cirist
-  );
- 
-  sort($feriados);
-  
-  return $feriados;
-} */
-
-// dataPascoa(ano, formato);
-// Autor: Yuri Vecchi
-//
-// Funcao para o calculo da Pascoa
-// Retorna o dia da pascoa no formato desejado ou false.
-//
-// ######################ATENCAO###########################
-// Esta funcao sofre das limitacoes de data de mktime()!!!
-// ########################################################
-//
-// Possui dois parametros, ambos opcionais
-// ano = ano com quatro digitos
-//	 Padrao: ano atual
-// formato = formatacao da funcao date() http://br.php.net/date
-//	 Padrao: d/m/Y
-
 
 function dataPascoa($ano=false, $form="d/m/Y") {
 	$ano=$ano?$ano:date("Y");
@@ -262,22 +210,6 @@ function dataPascoa($ano=false, $form="d/m/Y") {
 
 
 
-// dataCarnaval(ano, formato);
-// Autor: Yuri Vecchi
-//
-// Funcao para o calculo do Carnaval
-// Retorna o dia do Carnaval no formato desejado ou false.
-//
-// ######################ATENCAO###########################
-// Esta funcao sofre das limitacoes de data de mktime()!!!
-// ########################################################
-//
-// Possui dois parametros, ambos opcionais
-// ano = ano com quatro digitos
-//	 Padrao: ano atual
-// formato = formatacao da funcao date() http://br.php.net/date
-//	 Padrao: d/m/Y
-
 function dataCarnaval($ano=false, $form="d/m/Y") {
 	$ano=$ano?$ano:date("Y");
 	$a=explode("/", $this->dataPascoa($ano));
@@ -286,45 +218,11 @@ function dataCarnaval($ano=false, $form="d/m/Y") {
 
 
 
-
-// dataCorpusChristi(ano, formato);
-// Autor: Yuri Vecchi
-//
-// Funcao para o calculo do Corpus Christi
-// Retorna o dia do Corpus Christi no formato desejado ou false.
-//
-// ######################ATENCAO###########################
-// Esta funcao sofre das limitacoes de data de mktime()!!!
-// ########################################################
-//
-// Possui dois parametros, ambos opcionais
-// ano = ano com quatro digitos
-//	 Padrao: ano atual
-// formato = formatacao da funcao date() http://br.php.net/date
-//	 Padrao: d/m/Y
-
 function dataCorpusChristi($ano=false, $form="d/m/Y") {
 	$ano=$ano?$ano:date("Y");
 	$a=explode("/", $this->dataPascoa($ano));
 	return date($form, mktime(0,0,0,$a[1],$a[0]+60,$a[2]));
 }
-
-
-// dataSextaSanta(ano, formato);
-// Autor: Yuri Vecchi
-//
-// Funcao para o calculo da Sexta-feira santa ou da Paixao.
-// Retorna o dia da Sexta-feira santa ou da Paixao no formato desejado ou false.
-//
-// ######################ATENCAO###########################
-// Esta funcao sofre das limitacoes de data de mktime()!!!
-// ########################################################
-//
-// Possui dois parametros, ambos opcionais
-// ano = ano com quatro digitos
-// Padrao: ano atual
-// formato = formatacao da funcao date() http://br.php.net/date
-// Padrao: d/m/Y
 
 function dataSextaSanta($ano=false, $form="d/m/Y") {
 	$ano=$ano?$ano:date("Y");
@@ -338,14 +236,7 @@ function dataSextaSanta($ano=false, $form="d/m/Y") {
 
 function somar_dias_uteis($str_data,$int_qtd_dias_somar,$feriados) {
 
-	// Caso seja informado uma data do MySQL do tipo DATETIME - aaaa-mm-dd 00:00:00
-	// Transforma para DATE - aaaa-mm-dd
-
    $str_data = substr($str_data,0,10);
-
-	// Se a data estiver no formato brasileiro: dd/mm/aaaa
-	// Converte-a para o padrão americano: aaaa-mm-dd
-
 	if ( preg_match("@/@",$str_data) == 1 ) {
 
 		$str_data = implode("-", array_reverse(explode("/",$str_data)));
@@ -419,12 +310,19 @@ function getWorkingDays($startDate, $endDate) {
         return 0;
     }
     else {
-        $holidays = array('01/01','12/10','25/12');
+        $holidaysTemp = $this->buscaFeriados($startDate, $endDate);
+
+        $holidays = array();
+        for ($i = 0;$i < count($holidaysTemp); $i++){
+            $holidays[$i] = $holidaysTemp[$i]['feriados'];
+        }
+
         $weekends = 0;
         $no_days = 0;
         $holidayCount = 0;
         while ($begin <= $end) {
             $no_days++; // no of days in the given interval
+
             if (in_array(date("d/m", $begin), $holidays)) {
                 $holidayCount++;
             }
@@ -453,32 +351,21 @@ function getWorkingDays($startDate, $endDate) {
             }
             $dataFim = c_date::convertDateTxt($par[1]);
             $mes = date('m', strtotime($dataFim));
-            $ano = date('yy', strtotime($dataFim));
+            $ano = date('Y', strtotime($dataFim));
 
             $qtFeriado = 0;
-            /*foreach($this->dias_feriados($ano) as $a)
-            {
-                $feriado = date("Y-m-d",$a);
-                if (( strtotime($feriado) >= strtotime($dataIni)) and (strtotime($feriado) <= strtotime($dataFim))) {
-                    $qtFeriado += 1;
-                }						 
-            } */
+
 
             $data = explode("-", $dataFim);
             $d = new DateTime($dataIni);
-            //$qtdDiasUteis = $this->d_uteis($d->format('Y-m-01'), $d->format('Y-m-t'));
             $qtdDiasUteis = $this->getWorkingDays($d->format('Y-m-01'), $d->format('Y-m-t'));
 
-            //$qtdDiasUteis = 27;
-            //$diasPassados = $this->getWorkingDays($dataIni,$dataFim);
             $diasPassados = 0;
             $diasPassados = $this->getWorkingDays($dataIni,date('Y-m-d'));
-            $diasPassados = $diasPassados - 1;
+            $diasPassados = $diasPassados;
             if ($diasPassados <= 0) {
                 $diasPassados = 0;
             }
-            //$diasPassados = $this->d_uteis($dataIni,$dataFim);
-            //$diasPassados = 6;
 
             $where = " (";
             $wherel = " (";
@@ -516,22 +403,44 @@ function getWorkingDays($startDate, $endDate) {
                 $dias = $result = $consulta->resultado;
                 $qtdDiasUteis = $dias[0]['TOTALDIAMES'];
             } 
+
             
-            
-            $financeiro = $this->financeiro($dataIni, $dataFim, $wherel);
-            $this->smarty->assign('financeiro', $financeiro);
-            $total = $this->totais($dataIni, $dataFim, $wheres, $wherel);
-            $this->smarty->assign('total', $total);
-            $totaisDet = $this->totaisDetalhes($dataIni, $dataFim, $wheres);
-            $this->smarty->assign('totaisDet', $totaisDet);
-            //$forecast = $this->forecast($dataIni, $dataFim, $qtdDiasUteis, $data[2]);
-            $forecast = $this->forecast($dataIni, $dataFim, $qtdDiasUteis, $diasPassados, $wherec, $mes, $wheres, $ano);
-            $this->smarty->assign('forecast', $forecast);
-            $projecao = $this->projecao($dataIni, $dataFim, $qtdDiasUteis, $diasPassados, $wherec );
-            $this->smarty->assign('projecao', $projecao);
-            $metas = $this->metas($dataIni, $dataFim, $wherec);
-            $this->smarty->assign('metas', $metas);
+            if($qtdDiasUteis !== null){
+                $financeiro = $this->financeiro($dataIni, $dataFim, $wherel);
+                $this->smarty->assign('financeiro', $financeiro);
+                $total = $this->totais($dataIni, $dataFim, $wheres, $wherel);
+                $totaisDet = $this->totaisDetalhes($dataIni, $dataFim, $wheres);
+                $this->smarty->assign('totaisDet', $totaisDet);
+                //$forecast = $this->forecast($dataIni, $dataFim, $qtdDiasUteis, $data[2]);
+                $forecast = $this->forecast($dataIni, $dataFim, $qtdDiasUteis, $diasPassados, $wherec, $mes, $wheres, $ano);
+                $this->smarty->assign('forecast', $forecast);
+                $projecao = $this->projecao($dataIni, $dataFim, $qtdDiasUteis, $diasPassados, $wherec);
+                $this->smarty->assign('projecao', $projecao);
+                $metas = $this->metas($dataIni, $dataFim, $wherec);
+                $this->smarty->assign('metas', $metas);
+
+                $lucroBruto = $total[0]['LUCROBRUTO'];
+                for ($i = 0; $i < count($financeiro); $i++) {
+                    if ($financeiro[$i]['GENERO'] == 'ENTRADA') {
+                        $lucroBruto += $financeiro[$i]['TOTAL'];
+                    }
+                }
+                $total[0]['LUCROBRUTO'] = "$lucroBruto";
+                //            $total[0]['MARKUP'] = ($total[0]['LUCROBRUTO'] / $total[0]['VALORVENDA']) * 100;
+                $valorLiquido = $total[0]['VALORVENDA'] - $total[0]['CUSTOTOTAL'];
+                $total[0]['MARKUP'] = ($valorLiquido / $total[0]['VALORVENDA']) * 100;
+                $this->smarty->assign('total', $total);
+            }else{
+                $msg = "Meta não localizada!";
+                echo "<script src='https://unpkg.com/sweetalert/dist/sweetalert.min.js'></script> ";
+                echo "<style>.swal-modal{width: 510px !important;}.swal-title{font-size: 21px;}</style> ";
+                echo "<script>swal({text: '',title: `$msg`,icon: 'error',button: 'Ok', dangerMode:true});</script>";
+            }
+
         }
+
+
+
         if($this->m_par[0] == "") $this->smarty->assign('dataIni', date("01/m/Y"));
         else $this->smarty->assign('dataIni', $this->m_par[0]);
 
@@ -549,9 +458,30 @@ function getWorkingDays($startDate, $endDate) {
         $this->comboSql($sql, $this->m_par[3] ?? $this->m_empresacentrocusto, $centroCusto_id, $centroCusto_ids, $centroCusto_names);
         $this->smarty->assign('centroCusto_ids', $centroCusto_ids);
         $this->smarty->assign('centroCusto_names', $centroCusto_names);  
-        $this->smarty->assign('centroCusto_id', $centroCusto_id);  
+        if ($par[2] == '') {
+            $this->smarty->assign('centroCusto_id', $centroCusto_ids);  
+        }else{
+            $teste = explode(",", $par[2]);
+            $this->smarty->assign('centroCusto_id', explode(",", $par[2]));  
+        }
 
         $this->smarty->display('pedido_venda_telhas_dash_mostra.tpl');
+    }
+
+    public function buscaFeriados($startDate, $endDate){
+        $elementosArray = explode(',', $this->m_par[2]);
+        $centroCustoFormatados = "'" . implode("','", $elementosArray) . "'";
+
+        $sql  = "SELECT DATE_FORMAT(DATAFERIADO, '%d/%m') as feriados ";
+        $sql .= "FROM AMB_FERIADO ";
+        $sql .= "WHERE DATAFERIADO >= '" . $startDate . "' AND DATAFERIADO <= '" . $endDate . "' ";
+        $sql .= "AND CENTROCUSTO IN (" . $centroCustoFormatados . ")  ORDER BY DATAFERIADO ";
+
+        //echo $sql;
+        $banco = new c_banco;
+        $banco->exec_sql_lower_case($sql);
+        $banco->close_connection();
+        return $banco->resultado;
     }
 }
 

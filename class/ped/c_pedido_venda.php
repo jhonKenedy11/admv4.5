@@ -65,6 +65,7 @@ Class c_pedidoVenda extends c_user {
     private $totalProdutos = NULL; // DECIMAL(9,2)
     private $valorServicos = NULL; // DECIMAL(9,2)
     private $frete = NULL; // DECIMAL(9,2)
+    private $saldoCreditoCliente = NULL; // DECIMAL(11,2)
     private $dtValidade = NULL; // DATE
     private $dataAlteracao = NULL; // DATE
     private $obs = NULL; // TEXT
@@ -180,13 +181,6 @@ Class c_pedidoVenda extends c_user {
         c_user::from_array($_SESSION['user_array']);
 
     }
-
-    /**
-    * METODOS DE SETS E GETS
-        $sql .= "cliente, pedido, situacao, emissao, entregador, idnatop, condpg, entradacondpg, ";
-        $sql .= "desconto, total, moeda, contadeposito, especie, serie, horaemissao, ";
-        $sql .= "genero, ccusto, obs, USERINSERT, DATEINSERT)";
-    */
 
 
     public function __set($property, $value) {
@@ -330,10 +324,14 @@ Class c_pedidoVenda extends c_user {
         if (isset($this->desconto)):
             switch ($format) {
                 case 'B':
-                    return c_tools::moedaBd($this->desconto);
+                    return (strpos((string) $this->desconto, ',') !== false)
+                        ? c_tools::moedaBd($this->desconto)
+                        : $this->desconto;
                     break;
                 case 'F':
-                    return number_format($this->desconto, 2, ',', '.');
+                    return (strpos((string) $this->desconto, ',') !== false)
+                        ? $this->desconto
+                        : number_format((float) $this->desconto, 2, ',', '.');
                     break;
                 default :
                     return $this->desconto;
@@ -353,10 +351,14 @@ Class c_pedidoVenda extends c_user {
     function getDescontoGeral($format = NULL) {
         if (!empty($this->descontoGeral)) {
             if ($format == 'F') {
-                return number_format($this->descontoGeral, 2, ',', '.');
-            } else {
-                return c_tools::moedaBd($this->descontoGeral);
+                return (strpos((string) $this->descontoGeral, ',') !== false)
+                    ? $this->descontoGeral
+                    : number_format((float) $this->descontoGeral, 2, ',', '.');
             }
+
+            return (strpos((string) $this->descontoGeral, ',') !== false)
+                ? c_tools::moedaBd($this->descontoGeral)
+                : $this->descontoGeral;
         } else {
             return 0;
         }        
@@ -372,10 +374,14 @@ Class c_pedidoVenda extends c_user {
     function getTaxaEntrega($format = NULL) {
         if (!empty($this->taxaEntrega)) {
             if ($format == 'F') {
-                return number_format($this->taxaEntrega, 2, ',', '.');
-            } else {
-                return c_tools::moedaBd($this->taxaEntrega);
+                return (strpos((string) $this->taxaEntrega, ',') !== false)
+                    ? $this->taxaEntrega
+                    : number_format((float) $this->taxaEntrega, 2, ',', '.');
             }
+
+            return (strpos((string) $this->taxaEntrega, ',') !== false)
+                ? c_tools::moedaBd($this->taxaEntrega)
+                : $this->taxaEntrega;
         } else {
             return 0;
         }        
@@ -392,10 +398,14 @@ Class c_pedidoVenda extends c_user {
         if (!empty($this->total)) {
             switch ($format) {
                 case 'B':
-                    return c_tools::moedaBd($this->total);
+                    return (strpos((string) $this->total, ',') !== false)
+                        ? c_tools::moedaBd($this->total)
+                        : $this->total;
                     break;
                 case 'F':
-                    return number_format((double) $this->total, 2, ',', '.');
+                    return (strpos((string) $this->total, ',') !== false)
+                        ? $this->total
+                        : number_format((float) $this->total, 2, ',', '.');
                     break;
                 default :
                     return $this->total;
@@ -414,10 +424,14 @@ Class c_pedidoVenda extends c_user {
     function getTotalRecebido($format = NULL) {
         if (!empty($this->totalRecebido)) {
             if ($format == 'F') {
-                return number_format($this->totalRecebido, 2, ',', '.');
-            } else {
-                return c_tools::moedaBd($this->totalRecebido);
+                return (strpos((string) $this->totalRecebido, ',') !== false)
+                    ? $this->totalRecebido
+                    : number_format((float) $this->totalRecebido, 2, ',', '.');
             }
+
+            return (strpos((string) $this->totalRecebido, ',') !== false)
+                ? c_tools::moedaBd($this->totalRecebido)
+                : $this->totalRecebido;
         } else {
             return 0;
         }        
@@ -433,10 +447,14 @@ Class c_pedidoVenda extends c_user {
         if (!empty($this->totalProdutos)) {
             switch ($format) {
                 case 'B':
-                    return c_tools::moedaBd($this->totalProdutos);
+                    return (strpos((string) $this->totalProdutos, ',') !== false)
+                        ? c_tools::moedaBd($this->totalProdutos)
+                        : $this->totalProdutos;
                     break;
                 case 'F':
-                    return number_format((double) $this->totalProdutos, 2, ',', '.');
+                    return (strpos((string) $this->totalProdutos, ',') !== false)
+                        ? $this->totalProdutos
+                        : number_format((float) $this->totalProdutos, 2, ',', '.');
                     break;
                 default :
                     return $this->totalProdutos;
@@ -459,7 +477,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->valorServicos);
                     break;
                 case 'F':
-                    return number_format((double) $this->valorServicos, 2, ',', '.');
+                    return number_format((float) $this->valorServicos, 2, ',', '.');
                     break;
                 default :
                     return $this->valorServicos;
@@ -582,7 +600,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->despesaTotal);
                     break;
                 case 'F':
-                    return number_format((double) $this->despesaTotal, 2, ',', '.');
+                    return number_format((float) $this->despesaTotal, 2, ',', '.');
                     break;
                 default :
                     return $this->despesaTotal;
@@ -606,7 +624,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->custoTotal);
                     break;
                 case 'F':
-                    return number_format((double) $this->custoTotal, 2, ',', '.');
+                    return number_format((float) $this->custoTotal, 2, ',', '.');
                     break;
                 default :
                     return $this->custoTotal;
@@ -886,7 +904,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->despAcessorias);
                     break;
                 case 'F':
-                    return number_format((double) $this->despAcessorias, 2, ',', '.');
+                    return number_format((float) $this->despAcessorias, 2, ',', '.');
                     break;
                 default :
                     return $this->despAcessorias;
@@ -910,7 +928,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->credito);
                     break;
                 case 'F':
-                    return number_format((double) $this->credito, 2, ',', '.');
+                    return number_format((float) $this->credito, 2, ',', '.');
                     break;
                 default :
                     return $this->credito;
@@ -996,7 +1014,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->frete);
                     break;
                 case 'F':
-                    return number_format((double) $this->frete, 2, ',', '.');
+                    return number_format((float) $this->frete, 2, ',', '.');
                     break;
                 default :
                     return $this->frete;
@@ -1041,7 +1059,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->custo);
                     break;
                 case 'F':
-                    return number_format((double) $this->custo, 2, ',', '.');
+                    return number_format((float) $this->custo, 2, ',', '.');
                     break;
                 default :
                     return $this->custo;
@@ -1065,7 +1083,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->despesas);
                     break;
                 case 'F':
-                    return number_format((double) $this->despesas, 2, ',', '.');
+                    return number_format((float) $this->despesas, 2, ',', '.');
                     break;
                 default :
                     return $this->despesas;
@@ -1089,7 +1107,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->lucrobruto);
                     break;
                 case 'F':
-                    return number_format((double) $this->lucrobruto, 2, ',', '.');
+                    return number_format((float) $this->lucrobruto, 2, ',', '.');
                     break;
                 default :
                     return $this->lucrobruto;
@@ -1113,7 +1131,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->margemliquida);
                     break;
                 case 'F':
-                    return number_format((double) $this->margemliquida, 2, ',', '.');
+                    return number_format((float) $this->margemliquida, 2, ',', '.');
                     break;
                 default :
                     return $this->margemLiquida;
@@ -1138,7 +1156,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->markup);
                     break;
                 case 'F':
-                    return number_format((double) $this->markup, 2, ',', '.');
+                    return number_format((float) $this->markup, 2, ',', '.');
                     break;
                 default :
                     return $this->markup;
@@ -1163,7 +1181,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->bcIcms);
                     break;
                 case 'F':
-                    return number_format((double) $this->bcIcms, 2, ',', '.');
+                    return number_format((float) $this->bcIcms, 2, ',', '.');
                     break;
                 default :
                     return $this->bcIcms;
@@ -1188,7 +1206,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->aliqIcms);
                     break;
                 case 'F':
-                    return number_format((double) $this->aliqIcms, 2, ',', '.');
+                    return number_format((float) $this->aliqIcms, 2, ',', '.');
                     break;
                 default :
                     return $this->aliqIcms;
@@ -1212,7 +1230,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->vlIcms);
                     break;
                 case 'F':
-                    return number_format((double) $this->vlIcms, 2, ',', '.');
+                    return number_format((float) $this->vlIcms, 2, ',', '.');
                     break;
                 default :
                     return $this->vlIcms;
@@ -1238,7 +1256,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->vlIcmsDiferido);
                     break;
                 case 'F':
-                    return number_format((double) $this->vlIcmsDiferido, 2, ',', '.');
+                    return number_format((float) $this->vlIcmsDiferido, 2, ',', '.');
                     break;
                 default :
                     return $this->vlIcmsDiferido;
@@ -1264,7 +1282,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->vlIcmsOperacao);
                     break;
                 case 'F':
-                    return number_format((double) $this->vlIcmsOperacao, 2, ',', '.');
+                    return number_format((float) $this->vlIcmsOperacao, 2, ',', '.');
                     break;
                 default :
                     return $this->vlIcmsOperacao;
@@ -1290,7 +1308,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->vlBcSt);
                     break;
                 case 'F':
-                    return number_format((double) $this->vlBcSt, 2, ',', '.');
+                    return number_format((float) $this->vlBcSt, 2, ',', '.');
                     break;
                 default :
                     return $this->vlBcSt;
@@ -1316,7 +1334,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->vlIcmsSt);
                     break;
                 case 'F':
-                    return number_format((double) $this->vlIcmsSt, 2, ',', '.');
+                    return number_format((float) $this->vlIcmsSt, 2, ',', '.');
                     break;
                 default :
                     return $this->vlIcmsSt;
@@ -1342,7 +1360,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->mvaSt);
                     break;
                 case 'F':
-                    return number_format((double) $this->mvaSt, 2, ',', '.');
+                    return number_format((float) $this->mvaSt, 2, ',', '.');
                     break;
                 default :
                     return $this->mvaSt;
@@ -1368,7 +1386,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->aliqIcmsSt);
                     break;
                 case 'F':
-                    return number_format((double) $this->aliqIcmsSt, 2, ',', '.');
+                    return number_format((float) $this->aliqIcmsSt, 2, ',', '.');
                     break;
                 default :
                     return $this->aliqIcmsSt;
@@ -1394,7 +1412,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->percReduacaoBcSt);
                     break;
                 case 'F':
-                    return number_format((double) $this->percReduacaoBcSt, 2, ',', '.');
+                    return number_format((float) $this->percReduacaoBcSt, 2, ',', '.');
                     break;
                 default :
                     return $this->percReduacaoBcSt;
@@ -1420,7 +1438,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->vlbcIcmsUfDest);
                     break;
                 case 'F':
-                    return number_format((double) $this->vlbcIcmsUfDest, 2, ',', '.');
+                    return number_format((float) $this->vlbcIcmsUfDest, 2, ',', '.');
                     break;
                 default :
                     return $this->vlbcIcmsUfDest;
@@ -1446,7 +1464,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->vlIcmsUfDest);
                     break;
                 case 'F':
-                    return number_format((double) $this->vlIcmsUfDest, 2, ',', '.');
+                    return number_format((float) $this->vlIcmsUfDest, 2, ',', '.');
                     break;
                 default :
                     return $this->vlIcmsUfDest;
@@ -1472,7 +1490,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->aliqFcpSt);
                     break;
                 case 'F':
-                    return number_format((double) $this->aliqFcpSt, 2, ',', '.');
+                    return number_format((float) $this->aliqFcpSt, 2, ',', '.');
                     break;
                 default :
                     return $this->aliqFcpSt;
@@ -1497,7 +1515,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->aliqIcmsInter);
                     break;
                 case 'F':
-                    return number_format((double) $this->aliqIcmsInter, 2, ',', '.');
+                    return number_format((float) $this->aliqIcmsInter, 2, ',', '.');
                     break;
                 default :
                     return $this->aliqIcmsInter;
@@ -1522,7 +1540,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->aliqIcmsInterPart);
                     break;
                 case 'F':
-                    return number_format((double) $this->aliqIcmsInterPart, 2, ',', '.');
+                    return number_format((float) $this->aliqIcmsInterPart, 2, ',', '.');
                     break;
                 default :
                     return $this->aliqIcmsInterPart;
@@ -1548,7 +1566,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->vlFcpUfDest);
                     break;
                 case 'F':
-                    return number_format((double) $this->vlFcpUfDest, 2, ',', '.');
+                    return number_format((float) $this->vlFcpUfDest, 2, ',', '.');
                     break;
                 default :
                     return $this->vlFcpUfDest;
@@ -1575,7 +1593,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->vlDifal);
                     break;
                 case 'F':
-                    return number_format((double) $this->vlDifal, 2, ',', '.');
+                    return number_format((float) $this->vlDifal, 2, ',', '.');
                     break;
                 default :
                     return $this->vlDifal;
@@ -1603,7 +1621,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this->vlIcmsUFRemet);
                     break;
                 case 'F':
-                    return number_format((double) $this->vlIcmsUFRemet, 2, ',', '.');
+                    return number_format((float) $this->vlIcmsUFRemet, 2, ',', '.');
                     break;
                 default :
                     return $this->vlIcmsUFRemet;
@@ -1980,7 +1998,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this-> aliqcofins);
                     break;
                 case 'F':
-                    return number_format((double) $this-> aliqcofins, 2, ',', '.');
+                    return number_format((float) $this-> aliqcofins, 2, ',', '.');
                     break;
                 default :
                     return $this-> aliqcofins;
@@ -2005,7 +2023,7 @@ Class c_pedidoVenda extends c_user {
                     return c_tools::moedaBd($this-> aliqpis);
                     break;
                 case 'F':
-                    return number_format((double) $this-> aliqpis, 2, ',', '.');
+                    return number_format((float) $this-> aliqpis, 2, ',', '.');
                     break;
                 default :
                     return $this-> aliqpis;
@@ -2029,7 +2047,13 @@ Class c_pedidoVenda extends c_user {
     
     public function getNomeTransportador() {return $this->nomeTransportador; }
     
-    public function getNomeTransportadora() {return $this->transpNome; }
+
+    public function setSaldoCredito($saldoCredito) {
+        $this->saldoCreditoCliente = $saldoCredito;
+    }
+    public function getSaldoCredito() {
+        return $this->saldoCreditoCliente;
+    }
 
     //############### FIM SETS E GETS FAT_PEDIDO_ITEM ###############     
     //###############################################################     
@@ -2058,6 +2082,8 @@ Class c_pedidoVenda extends c_user {
         $this->setMoeda($pedido[0]['MOEDA']);
         $this->setUsrPedido($pedido[0]['USRPEDIDO']);
         $this->setObs($pedido[0]['OBS']);
+
+        $this->setSaldoCredito($pedido[0]['SALDOCREDITO']);
 
         $this->setSerie($pedido[0]['SERIE']);
         $this->setIdNatop($pedido[0]['IDNATOP']);
@@ -2856,29 +2882,34 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
         //$sql = "SELECT DISTINCT p.*, c.nome, c.nomereduzido, c.pessoa, ";
         $sql = "SELECT p.*, c.nome, c.nomereduzido, c.pessoa, c.obs as OBSCLIENTE, c.REFERENCIA, o.PROJETO, c.TRANSVERSAL1, c.TRANSVERSAL2, c.FONECONTATO, ";
         $sql .= "c.fonearea, c.fone, c.celular, c.fonecontato, c.tipoend, c.INSCESTRG, ";
-        $sql .= "c.tituloend, c.pessoa, G.PADRAO AS DESCENTREGA, ";
-        $sql .= " IF ( CNPJCPF <> '', IF ";
-        $sql .= " (PESSOA = 'J', CONCAT(SUBSTRING(cnpjcpf, 1,2), '.' , SUBSTRING(cnpjcpf, 3,3),'.', SUBSTRING(cnpjcpf, 6,3),'/',SUBSTRING(cnpjcpf, 9,4), ";
-        $sql .= " '-',SUBSTRING(cnpjcpf, 13,2)), ";
-        $sql .= " CONCAT(SUBSTRING(cnpjcpf, 1,3), '.' , SUBSTRING(cnpjcpf, 4,3),'.',SUBSTRING(cnpjcpf, 7,3),'-',SUBSTRING(cnpjcpf, 10,2)) ";
+        $sql .= "c.tituloend, c.pessoa, G.PADRAO AS DESCENTREGA, SUM(CR.VALOR - CR.UTILIZADO) AS SALDOCREDITO, ";
+        $sql .= " IF ( c.CNPJCPF <> '', IF ";
+        $sql .= " (c.PESSOA = 'J', CONCAT(SUBSTRING(c.cnpjcpf, 1,2), '.' , SUBSTRING(c.cnpjcpf, 3,3),'.', SUBSTRING(c.cnpjcpf, 6,3),'/',SUBSTRING(c.cnpjcpf, 9,4), ";
+        $sql .= " '-',SUBSTRING(c.cnpjcpf, 13,2)), ";
+        $sql .= " CONCAT(SUBSTRING(c.cnpjcpf, 1,3), '.' , SUBSTRING(c.cnpjcpf, 4,3),'.',SUBSTRING(c.cnpjcpf, 7,3),'-',SUBSTRING(c.cnpjcpf, 10,2)) ";
         $sql .= " ), '')  AS CNPJCPF, ";      
         $sql .= "c.endereco, c.numero, c.complemento, c.bairro, c.cidade, c.uf, c.cep, c.email, c.codmunicipio, t.descricao as descpgto, ";
         $sql .="e.NfAuto, e.ModeloNF, Coalesce(p.transportadora, p.cliente) as Transportadora, u.NOME as USRFATURA_ ";
         $sql .= "FROM fat_pedido p ";
         $sql .= "inner join fin_cliente c on c.cliente = p.cliente ";
-        $sql .= "LEFT join fin_cliente_obra o on (o.cliente = p.cliente AND o.id = p.obra_id) ";
+        $sql .= "LEFT join fin_cliente_obra o on (o.cliente = p.cliente AND o.id = p.obra_id) ";  
+        $sql .= "LEFT JOIN FIN_CLIENTE_CREDITO CR ON CR.CLIENTE = C.CLIENTE ";      
         $sql .= "LEFT join fat_cond_pgto t on t.id = p.condpg ";
         $sql .= "LEFT join est_nat_op e on (e.id = p.idnatop) ";
         $sql .= "LEFT join amb_usuario u on (u.usuario = p.usrfatura) "; 
         $sql .= "LEFT JOIN AMB_DDM G ON ((G.TIPO=P.TIPOENTREGA) AND (ALIAS='PED_MENU') AND (CAMPO='TIPOENTREGA')) ";
-        $sql .= "WHERE (p.id = " . $this->getId() . ") ";
+        $id = $this->getId();
+        if (empty($id)) {
+            return array();
+        }
+        $sql .= "WHERE (p.id = " . $id . ") ";
         if (!empty($situacao)) {
             if ($situacao == '0') {
-                $sql .= "and (situacao ='" . $situacao . "') ";
+                $sql .= "and (p.situacao ='" . $situacao . "') ";
             }
         }
-        $sql .= "ORDER BY id;"; 
-//        echo strtoupper($sql)."<BR>";
+        $sql .= "ORDER BY p.id;"; 
+        //echo strtoupper($sql)."<BR>";
         $banco = new c_banco;        
         $banco->exec_sql($sql);
         $banco->close_connection();
@@ -2999,7 +3030,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
      * @return ARRAY todos os campos da table
      * @version 2000287
      */
-    public function select_pedidoVenda_letra($letra, $motivos = null) {
+    public function select_pedidoVenda_letra($letra, $motivos = null, $comFinanceiro = false) {
         /*
          * [0] = data inicio
          * [1] = data FIm
@@ -3012,11 +3043,16 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
          * [8] = id (pedido)  
          */
         $par = explode("|", $letra);
-        $dataIni = c_date::convertDateTxt($par[0]);
-        $dataFim = c_date::convertDateTxt($par[1]);
+        $dataIni = c_date::convertDateBdSh($par[0]);
+        $dataFim = c_date::convertDateBdSh($par[1]);
         
         $sql = "SELECT p.*, D.PADRAO, C.NOMEREDUZIDO, C.NOME, C.USERLOGIN, V.NOMEREDUZIDO AS VENDEDOR  ";
-        $sql .= "FROM fat_pedido p ";
+        if ($comFinanceiro) {
+            $sql .= ", EXISTS (SELECT 1 FROM FIN_LANCAMENTO FL WHERE FL.NUMLCTO = p.ID AND FL.ORIGEM = 'PED' AND FL.SITPGTO <> 'C') AS TEM_FINANCEIRO ";
+            $sql .= ", EXISTS (SELECT 1 FROM EST_NOTA_FISCAL NF WHERE NF.DOC = p.ID AND NF.ORIGEM = 'PED' AND NF.SITUACAO = 'A') AS TEM_NOTA_ABERTA ";
+            $sql .= ", EXISTS (SELECT 1 FROM EST_NOTA_FISCAL NF WHERE NF.DOC = p.ID AND NF.ORIGEM = 'PED' AND NF.SITUACAO = 'R') AS TEM_NOTA_REJEITADA ";
+        }
+        $sql .= "FROM FAT_PEDIDO p ";
         $sql .= "INNER JOIN AMB_DDM D ON ((D.TIPO=P.SITUACAO) AND (ALIAS='FAT_MENU') AND (CAMPO='SITUACAOPEDIDO')) ";
         $sql .= "LEFT JOIN FIN_CLIENTE C ON (C.CLIENTE=P.CLIENTE) ";        
         $sql .= "LEFT JOIN AMB_USUARIO V ON (V.USUARIO=P.USRFATURA) ";
@@ -3076,13 +3112,21 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
         //     $sql .= $sqlMotivo;
         // }
 
-        $sql .= ' and (p.situacao <> 8)';
+        $cond =  strpos($sql, 'where') === false ? 'where' : 'and';
+        $sql .= " $cond (p.situacao <> 8)";
 
+        if ($comFinanceiro) {
+            $cond =  strpos($sql, 'where') === false ? 'where' : 'and';
+            $sql .= " $cond NOT EXISTS (SELECT 1 FROM EST_NOTA_FISCAL NF WHERE NF.DOC = p.ID AND NF.ORIGEM = 'PED' AND NF.SITUACAO = 'B') ";
+        }
 
        // $sql .= "ORDER BY p.situacao, p.emissao, p.cliente ";
        // $sql .= "ORDER BY c.nome ";
-        $sql .= "ORDER BY p.emissao Desc";
-        //echo strtoupper($sql)."<BR>";
+        if ($comFinanceiro) {
+            $sql .= ' ORDER BY FIELD(p.situacao, 6, 3), p.emissao DESC';
+        } else {
+            $sql .= ' ORDER BY p.emissao Desc';
+        }
 
         $banco = new c_banco;
         $banco->exec_sql($sql);
@@ -3889,39 +3933,9 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
 
         $sql = "UPDATE fat_pedido ";
         $sql .= "SET situacao = '" . $this->getSituacao() . "' ";
-        if ($this->getCliente() > 0) {
-            $sql .= ", cliente = '".$this->getCliente()."' ";
-        }
-        if ($condPgto != '') {
-            $sql .= ", condpg = '".$this->getCondPg()."' ";
-        }
-        $sql .= ", obs = '" . $this->getObs() . "' ";
-        $sql .= ", emissao = '" . $this->getEmissao('B') . "' ";
-        if (($this->getTotal() < $this->getCredito()) and
-           ($this->getTotal() > 0) and ($this->getCredito() > 0)) {
-            $sql .= ",credito = " . $this->getCredito('B') . " ";           
-        
-        } else {
-            $sql .= ",credito = " . $this->getCredito('B') . " ";            
-        }
-        
-
-        if (($this->getSituacao() == 10)or($this->getSituacao() == 5)or($this->getSituacao() == 3) or($this->getSituacao() == 6)) {
-            $sql .= ",pedido = '" . $this->getId() . "' ";
-        }
-
-        if ($this->getPrazoEntrega() != '') {
-            $sql .= ",prazoEntrega = '" . $this->getPrazoEntrega() . "' ";
-        }
-
-        if (($this->getUsrAprovacao() != '') and ($this->getUsrAprovacao() != NULL) ) {
-            $sql .= ",usraprovacao = " . $this->getUsrAprovacao() . " ";
-        }
-        
         if (!is_null($condPgto)):
             $sql .= ", condpg = " . $this->getCondPg() . " ";
         endif;
-
         $sql .= "WHERE id = " . $this->getId() . ";";
         //echo strtoupper($sql)."<BR>";
         $banco = new c_banco;
@@ -3973,7 +3987,8 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
         $sql .= "genero, ccusto, obs, USERINSERT, DATEINSERT)";
         
         $sql = "UPDATE fat_pedido ";
-        $sql .= "SET desconto = '" . $this->getDesconto('B') . "', ";
+        $sql .= "SET condpg = " . (int) $this->getCondPg() . ", ";
+        $sql .= "desconto = '" . $this->getDesconto('B') . "', ";
         $sql .= "taxaentrega = '" . $this->getTaxaEntrega('B') . "', ";
         $sql .= "totalrecebido = '" . $this->getTotalRecebido('B') . "', ";
         $sql .= "total = '" . $this->getTotal('B') . "', ";
@@ -4254,7 +4269,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
                 // $sql .= "WHERE (i.id = '" . $this->getId() . "') ";
                 // // $sql .= "group by i.ITEMESTOQUE ORDER BY I.NRITEM ASC ";
                 // $sql .= "group by i.ITEMESTOQUE, e.FABLOTE, e.fabdatavalidade; ";
-                $sql  = "SELECT I.ITEMESTOQUE, I.QTSOLICITADA, I.TOTAL, I.PERCDESCONTO, ";
+                $sql  = "SELECT I.ITEMESTOQUE, I.QTSOLICITADA, I.TOTAL, I.PERCDESCONTO, I.DATAENTREGAPECA, M.DESCRICAO AS DESCMARCA, ";
                 $sql .= "CASE WHEN P.Unifracionada = 'S' THEN I.QTSOLICITADA ";
                 $sql .= "ELSE E.QUANTIDADE END as QUANTIDADE, ";
                 $sql .= "I.DESCRICAO, I.UNITARIO, E.FABLOTE, E.FABDATAFABRICACAO, ";
@@ -4263,6 +4278,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
                 $sql .= "I.DESCONTO, I.FRETE, I.CODIGONOTA, I.DESPACESSORIAS, I.NRITEM, I.ITEMFABRICANTE, I.NUMEROOC FROM ";
                 $sql .= "FAT_PEDIDO_ITEM I ";
                 $sql .= "LEFT JOIN EST_PRODUTO P ON (P.CODIGO=I.ITEMESTOQUE)  ";
+                $sql .= "LEFT JOIN EST_MARCA M ON (M.MARCA = P.MARCA)  ";
                 $sql .= "LEFT join (SELECT CODPRODUTO, IDPEDIDO, COUNT(CODPRODUTO) AS QUANTIDADE, FABLOTE, FABDATAFABRICACAO, FABDATAVALIDADE FROM EST_PRODUTO_ESTOQUE  ";
                 $sql .= "WHERE IDPEDIDO='" . $this->getId() . "' GROUP BY IDPEDIDO ,CODPRODUTO, FABLOTE, FABDATAFABRICACAO, FABDATAVALIDADE) E ";
                 $sql .= "ON (E.IDPEDIDO = I.ID AND E.CODPRODUTO=I.ITEMESTOQUE) ";
@@ -4289,10 +4305,9 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
                 break;
             default: // sem lote e data fab
                 $sql = "SELECT i.*, P.unidade, P.unifracionada, p.origem, p.TRIBICMS, ";
-                $sql .= "p.ncm, p.cest, p.codigobarras, I.DESCONTO, p.PRECOMINIMO, I.NUMEROOC FROM ";
+                $sql .= "p.ncm, p.cest, p.codigobarras, p.CODFABRICANTE, I.DESCONTO, p.PRECOMINIMO, I.NUMEROOC FROM ";
                 $sql .= "fat_pedido_item i ";
                 $sql .= "LEFT JOIN EST_PRODUTO P ON (P.CODIGO=I.ITEMESTOQUE)  ";
-                $sql .= "LEFT JOIN EST_GRUPO G ON (G.GRUPO=P.GRUPO)  ";
                 $sql .= "WHERE (i.id = '" . $this->getId() . "')  and ( i.motivo = 0)";
         }
         
@@ -4487,7 +4502,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
         $sql .= "from fat_pedido_item ";
         
         $pedidos = '';
-        $agruparPedidos = explode("|", $pedidosSelecionados); 
+        $agruparPedidos = explode("|", (string) $pedidosSelecionados); 
         for ($i=0;$i<count($agruparPedidos);$i++){
           if ($agruparPedidos[$i] > 0) {
             $pedidos .= "( ID = ".$agruparPedidos[$i]." )";
@@ -4495,6 +4510,10 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
           if (($agruparPedidos[$i+1] > 0) and ($pedidos <> "")) {
             $pedidos .= " OR ";
           }   
+        }
+
+        if ($pedidos === '') {
+            return array();
         }
                 
         $sql .= " WHERE " .$pedidos." ";
@@ -4577,7 +4596,7 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
         return $cWhere;
     }  //montaWhere
     
-    public function select_pedidoVenda_letra_atual($letra) {
+      public function select_pedidoVenda_letra_atual($letra) {
         /*
          * [0] = data inicio
          * [1] = data FIm
@@ -4634,8 +4653,8 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
       }
 
       public function atualizarMotivoItem($motivo , $nritem = NULL) {
-        $sql = "UPDATE fat_pedido_item SET MOTIVO = '".$motivo."' ";
-        $sql .= "WHERE (id = '" . $this->getId() . "') ";
+        $sql = "UPDATE FAT_PEDIDO_ITEM SET MOTIVO = '".$motivo."' ";
+        $sql .= "WHERE (ID = '" . $this->getId() . "') ";
         
         if ($nritem > 0){
             $sql .= " and (nritem = '".$nritem."');";
@@ -4645,10 +4664,24 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
         $banco->exec_sql($sql);
         $banco->close_connection();
       }
+     
+      /**
+       * Atualiza o texto/observação da perda do pedido (campo OBS em fat_pedido).
+       * @param string $texto Observação da perda
+       */
+      public function atualizarObsPerda($texto='') {
+        $sql = "UPDATE FAT_PEDIDO SET OBS = '" . $texto . "', ";
+        $sql .= "USERCHANGE = " . $this->m_userid . ", ";
+        $sql .= "DATECHANGE = CURRENT_TIMESTAMP() ";
+        $sql .= "WHERE (ID = '" . $this->getId() . "');";
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+    }
 
       public function atualizarTotal($total) {
-        $sql = "UPDATE fat_pedido SET Total = '".$total."' ";
-        $sql .= "WHERE (id = '" . $this->getId() . "');";
+        $sql = "UPDATE FAT_PEDIDO SET TOTAL = '".$total."' ";
+        $sql .= "WHERE (ID = '" . $this->getId() . "');";
                         
         $banco = new c_banco;
         $banco->exec_sql($sql);
@@ -4954,8 +4987,8 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
     }
 
     public function atualizarFieldPedido($situacaoEmitirNf = '', $condPg = '', $obs = '', $genero = '', $idnatop = '', $entrega = '') {
-        $sql = "UPDATE fat_pedido ";
-        $sql .= "SET pedido = '". $this->getId() ."' ";
+        $sql = "UPDATE FAT_PEDIDO ";
+        $sql .= "SET PEDIDO = '". $this->getId() ."' ";
         if ($situacaoEmitirNf != ''){
             $sql .= ",SITUACAO = ".$situacaoEmitirNf." ";
         }
@@ -5287,8 +5320,72 @@ public function select_todos_pedidos($pesq, $vendedores, $condPagamento, $situac
         return $banco->resultado;
     }
 
-    
-}
+    public function atualizaSaldoCredito($valorCredito, $totalPedidoPost = null){
+        $sql = "SELECT ID, CLIENTE, VALOR, UTILIZADO, PEDIDOUTILIZADO
+                FROM FIN_CLIENTE_CREDITO
+                WHERE CLIENTE = '".$this->getCliente()."'
+                ORDER BY EMISSAO DESC";
 
-//	END OF THE CLASS
-?>
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $saldo = $banco->resultado;
+        $banco->close_connection();
+
+        if (empty($saldo)) {
+            return;
+        }
+
+        $restante = (is_string($valorCredito) && strpos((string) $valorCredito, ',') !== false)
+            ? doubleval(c_tools::moedaBd($valorCredito))
+            : doubleval($valorCredito);
+        if ($totalPedidoPost !== null && $totalPedidoPost !== '') {
+            $totalPedido = doubleval(c_tools::moedaBd($totalPedidoPost));
+        } else {
+            $totalPedido = 0;
+            $idPedido = intval($this->getId());
+            if ($idPedido > 0) {
+                $bPed = new c_banco;
+                $bPed->exec_sql("SELECT TOTAL FROM FAT_PEDIDO WHERE ID = " . $idPedido);
+                if (!empty($bPed->resultado[0]['TOTAL'])) {
+                    $totalPedido = doubleval($bPed->resultado[0]['TOTAL']);
+                }
+                $bPed->close_connection();
+            }
+        }
+        $saldoDisponivel = 0;
+        for ($s = 0; $s < count($saldo); $s++) {
+            $saldoDisponivel += max(0, doubleval($saldo[$s]['VALOR']) - doubleval($saldo[$s]['UTILIZADO']));
+        }
+        if ($totalPedido > 0 && $saldoDisponivel >= $totalPedido) {
+            $restante = min($restante, $totalPedido);
+        }
+
+        for ($i = 0; $i < count($saldo); $i++) {
+
+            if ($restante <= 0) {
+                break;
+            }
+
+            $disponivel = doubleval($saldo[$i]['VALOR']) - doubleval($saldo[$i]['UTILIZADO']);
+
+            if ($disponivel <= 0) {
+                continue;
+            }
+            $usar = min($disponivel, $restante);
+            
+            $pedidoUtilizado = !empty($saldo[$i]['PEDIDOUTILIZADO'])? $saldo[$i]['PEDIDOUTILIZADO'] . ',' . $this->getId(): $this->getId();
+        
+            $sqlUpdate = "UPDATE FIN_CLIENTE_CREDITO 
+                        SET UTILIZADO = UTILIZADO + '".$usar."',
+                            PEDIDOUTILIZADO = '".$pedidoUtilizado."'
+                        WHERE ID = '".$saldo[$i]['ID']."' 
+                        AND CLIENTE = '".$this->getCliente()."';";
+            $banco = new c_banco;
+            $banco->exec_sql($sqlUpdate);
+            $banco->close_connection();
+
+            $restante -= $usar;
+        }
+    }
+
+}

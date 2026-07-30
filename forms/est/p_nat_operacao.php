@@ -97,6 +97,8 @@ function __construct(){
     $this->setUtilizacao(isset($parmPost['utilizacao']) ? $parmPost['utilizacao'] : '');
     $this->setNfAuto(isset($parmPost['nfAuto']) ? $parmPost['nfAuto'] : '');
     $this->setModeloNf(isset($parmPost['modeloNf']) ? $parmPost['modeloNf'] : '');
+    $this->setIr(isset($parmPost['irrf']) ? $parmPost['irrf'] : 'N');
+    $this->setIrPercentual(isset($parmPost['percIRRF']) ? $parmPost['percIRRF'] : '');
     
 
     // include do javascript
@@ -137,6 +139,8 @@ function controle(){
                         $this->setUtilizacao($nat_operacao[0]['UTILIZACAO']);
                         $this->setNfAuto($nat_operacao[0]['NFAUTO']);
                         $this->setModeloNf($nat_operacao[0]['MODELONF']);
+                        $this->setIr($nat_operacao[0]['IR']);
+                        $this->setIrPercentual($nat_operacao[0]['IR_PERCENTUAL']);
                         $this->desenhaCadastroNatOperacao();
                 } 
                 break;
@@ -232,7 +236,8 @@ function desenhaCadastroNatOperacao($mensagem=NULL){
     $this->smarty->assign('utilizacao', $this->getUtilizacao()."");
     $this->smarty->assign('nfAuto', $this->getNfAuto()."");
     $this->smarty->assign('modeloNf', $this->getModeloNf()."");
-					    
+    $this->smarty->assign('irrf', $this->getIr()."");
+    $this->smarty->assign('percIRRF', $this->getIrPercentual('F')."");
    
     // tipo Nat Operacao##############################
     $sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='FAT_MENU') and (campo='TipoNatOp')";

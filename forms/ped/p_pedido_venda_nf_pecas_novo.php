@@ -19,10 +19,15 @@ require_once($dir . "/../../class/est/c_produto.php");
 require_once($dir . "/../../class/est/c_produto_estoque.php");
 require_once($dir . "/../../forms/est/p_nfephp_40.php");
 require_once($dir . "/../../forms/est/p_nfephp_imprime_danfe.php");
+require_once($dir . "/../../forms/est/p_nfe_json_espelho.php");
+require_once($dir . "/../../forms/est/p_espelho_nfe.php");
 require_once($dir . "/../../class/est/c_nota_fiscal.php");
 require_once($dir . "/../../class/est/c_nota_fiscal_produto.php");
 require_once($dir . "/../../class/fin/c_lancamento.php");
 require_once($dir . "/../../class/crm/c_conta.php");
+require_once($dir . "/../../class/fin/c_extrato.php");
+require_once($dir . "/../../class/est/c_parametro.php");
+require_once($dir . "/../../class/pdv/c_cupom.php");
 
 if ($_POST['submenu'] == 'cadastraFinanceiro') {
     require_once($dir . "/../../forms/ped/p_pedido_venda_gerente_novo.php");
@@ -36,17 +41,17 @@ if ($_POST['submenu'] == 'cadastraFinanceiroNotaFiscal') {
 class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
 {
 
-    private $m_submenu = NULL;
-    private $m_letra = NULL;
-    private $m_opcao = NULL;
-    private $m_msg = NULL;
-    private $parmPost = NULL;
+    public $m_submenu = NULL;
+    public $m_letra = NULL;
+    public $m_opcao = NULL;
+    public $m_msg = NULL;
+    public $parmPost = NULL;
     public $smarty = NULL;
     public $descCondPgto = NULL;
 
-    private $alteraCondPgto = NULL;
-    private $formNf = NULL;
-    private $vendaPresencial = NULL;
+    public $alteraCondPgto = NULL;
+    public $formNf = NULL;
+    public $vendaPresencial = NULL;
 
     // field NF
     public $modFrete = NULL;
@@ -73,7 +78,11 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
     public $arrProdutoEstoqueReserva = NULL;
     public $arrItemPedido = NULL;
     public $t_origem = NULL;
-
+    public $usarCredito = NULL;
+    public $credito = NULL;
+    public $saldoCredito = NULL;
+    public $data_history = NULL;
+    public $tipoDocFiscal = NULL;
 
 
     /**
@@ -131,8 +140,12 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
         $this->setContaDeposito(isset($this->parmPost['conta']) ? $this->parmPost['conta'] : '');
         $this->setTotal(isset($this->parmPost['total']) ? $this->parmPost['total'] : '');
         $this->setCentroCusto(isset($this->parmPost['centroCusto']) ? $this->parmPost['centroCusto'] : '');
+
         $this->vendaPresencial = (isset($this->parmPost['vendaPresencial']) ? $this->parmPost['vendaPresencial'] : 'N');
 
+        $this->usarCredito = (isset($this->parmPost['usarCredito']) ? $this->parmPost['usarCredito'] : 'N');
+        $this->credito = (isset($this->parmPost['credito']) ? $this->parmPost['credito'] : 0);
+        $this->saldoCredito = (isset($this->parmPost['saldoCredito']) ? $this->parmPost['saldoCredito'] : 0);
         $this->descCondPgto = (isset($this->parmPost['descCondPgto']) ? $this->parmPost['descCondPgto'] : "");
         $this->modFrete = (isset($this->parmPost['modFrete']) ? $this->parmPost['modFrete'] : "");
         $this->transportador = (isset($this->parmPost['pessoa']) ? $this->parmPost['pessoa'] : "0");
@@ -148,7 +161,9 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
         $this->obs = (isset($this->parmPost['obs']) ? $this->parmPost['obs'] : "");
         $this->alteraCondPgto = (isset($this->parmPost['alteraCondPgto']) ? $this->parmPost['alteraCondPgto'] : "");
         $this->t_origem = (isset($this->parmPost['t_origem']) ? $this->parmPost['t_origem'] : "");
-
+        // Parametro usado para historico do form gerente pedido
+        $this->data_history = (isset($this->parmPost['data_history']) ? $this->parmPost['data_history'] : "");
+        $this->tipoDocFiscal = (isset($this->parmPost['tipoDocFiscal']) ? $this->parmPost['tipoDocFiscal'] : "");
 
         // status para cadastro da nf em aberto mesmo com erro.
         $this->nfAberto = (isset($this->parmPost['nfAberto']) ? true : false);
@@ -213,6 +228,20 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
         switch ($this->m_submenu) {
             case 'financeiro': // financeiro
                 if ($this->verificaDireitoUsuario('PedGeraNf', 'C')) {
+                    $arrPedBloq = $this->select_pedidoVenda();
+                    $objContaBloq = new c_conta();
+                    if (is_array($arrPedBloq) && strtoupper((string) $objContaBloq->contaBloqueada((int) ($arrPedBloq[0]['CLIENTE'] ?? 0))) === 'S') {
+                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Cliente bloqueado',
+                                text: 'Cliente bloqueado. Verifique com o financeiro.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
                     $this->formNf = false;
                     $this->desenhaCadastroPedido();
                 }
@@ -225,17 +254,60 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                 break;
             case 'notafiscal':
                 if ($this->verificaDireitoUsuario('PedGeraNf', 'C')) {
+                    $arrPedBloq = $this->select_pedidoVenda();
+                    $objContaBloq = new c_conta();
+                    if (is_array($arrPedBloq) && strtoupper((string) $objContaBloq->contaBloqueada((int) ($arrPedBloq[0]['CLIENTE'] ?? 0))) === 'S') {
+                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Cliente bloqueado',
+                                text: 'Cliente bloqueado. Verifique com o financeiro.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
+                    if ($this->pedidoEmEncomenda()) {
+                        $this->formNf = false;
+                        $this->desenhaCadastroPedido(
+                            'Pedido em <b>encomenda</b> — aguardando entrada de estoque. '
+                            . 'Cadastre apenas o financeiro; a NF será emitida após liberação do pedido.',
+                            'warning'
+                        );
+                        break;
+                    }
                     $this->formNf = true;
                     $this->desenhaCadastroPedido();
                 }
                 break;
             case 'cadastraNf':
                 if ($this->verificaDireitoUsuario('PedGeraNf', 'S')) {
+                    $arrPedBloq = $this->select_pedidoVenda();
+                    $objContaBloq = new c_conta();
+                    if (is_array($arrPedBloq) && strtoupper((string) $objContaBloq->contaBloqueada((int) ($arrPedBloq[0]['CLIENTE'] ?? 0))) === 'S') {
+                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script>";
+                        echo "<script>
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Cliente bloqueado',
+                                text: 'Cliente bloqueado. Verifique com o financeiro.',
+                                confirmButtonText: 'OK'
+                            });
+                        </script>";
+                        break;
+                    }
                     $this->formNf = true;
                     try {
                         // busca dados pedido e cliente
                         //$this->setPedidoVenda(); // seta dados pedido e cliente
                         $arrPedido = $this->select_pedidoVenda();
+                        $seriePedido = trim((string) ($arrPedido[0]['SERIE'] ?? ''));
+                        $ehCupomFiscalPedido = $this->ehCupomFiscalContext($arrPedido);
+                        if ($ehCupomFiscalPedido) {
+                            $this->aplicaParametrosCupomFiscal();
+                            $this->vendaPresencial = 'S';
+                        }
 
                         // valida se CC pedido é o mesmo da CC logada no sistema.
                         // if ($arrPedido[0]['CCUSTO']==$this->m_empresacentrocusto){
@@ -258,6 +330,11 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
 
                         $numPedido = $arrPedido[0]['PEDIDO'];
                         $sitPedido = $arrPedido[0]['SITUACAO'];
+                        if ((int) $sitPedido === 13) {
+                            $this->m_msg = 'Não é possível emitir NF com o pedido em <b>encomenda</b>. '
+                                . 'Aguarde a entrada de estoque e a liberação do pedido antes de faturar.';
+                            throw new Exception($this->m_msg);
+                        }
                         if ($sitPedido == 9):
                             $this->m_msg = "Nota fiscal não foi gerada, pedido <b>" . $this->getId() . "</b> com BAIXADO";
                             $result = false;
@@ -276,6 +353,11 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                         } else {
                             $validaNfAuto = $arrPedido[0]['NFAUTO'];
                             $modeloNf = $arrPedido[0]['MODELONF'];
+                        }
+                        if ($ehCupomFiscalPedido) {
+                            $modeloNf = '65';
+                        } elseif ($seriePedido === '65' || $seriePedido === '55') {
+                            $modeloNf = $seriePedido;
                         }
                         $parametros->setTab("EST_NAT_OP");
                         $arrNatOp = $parametros->getRecord("ID=" . $this->getIdNatop());
@@ -355,14 +437,25 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                         // GERA NF
                         $objNotaFiscal = new c_nota_fiscal();
 
-                        if ($objNotaFiscal->existeNotaFiscalPedido($numPedido) == true):
+                        if ($ehCupomFiscalPedido) {
+                            $objCupomFiscal = new c_cupom();
+                            if ($objCupomFiscal->existeNfceCupomAutorizada((int) $this->getId())) {
+                                $this->m_msg = 'Já existe NFC-e (cupom) autorizada para este pedido: ' . $this->getId();
+                                throw new Exception($this->m_msg);
+                            }
+                        } elseif ($objNotaFiscal->existeNotaFiscalPedido($numPedido) == true) {
                             $this->m_msg = "Já existe nota fiscal autorizada para este pedido: " . $this->getId();
                             $result = false;
                             throw new Exception($this->m_msg);
-                        endif;
+                        }
 
                         $objNotaFiscal->setModelo($modeloNf);
                         $objNotaFiscal->setSerie($this->getSerie());
+                        if ($ehCupomFiscalPedido) {
+                            $this->vendaPresencial = 'S';
+                            $this->modFrete = '9';
+                            $this->transportador = '0';
+                        }
                         // ****** Gerar numero da notafiscal!! *********
                         $numNf = 0;
                         /*$this->m_msg = $numNf." >>>Numero NF";
@@ -405,12 +498,15 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                         $objNotaFiscal->setVolPesoLiq($this->volPesoLiq);
                         $objNotaFiscal->setVolPesoBruto($this->volPesoBruto);
                         $objNotaFiscal->setObs("Pedido: " . $numPedido . "; " . $arrNatOp[0]["OBS"] . ";" . $arrPedido[0]['OBS'] . ";" . $this->obs);
-                        $objNotaFiscal->setOrigem('PED');
-                        $objNotaFiscal->setDoc($numPedido);
+                        $objNotaFiscal->setOrigem($ehCupomFiscalPedido ? 'CPM' : 'PED');
+                        $objNotaFiscal->setDoc($ehCupomFiscalPedido ? (int) $this->getId() : $numPedido);
                         $objNotaFiscal->setDespAcessorias($arrPedido[0]['DESPACESSORIAS'], true);
                         $objNotaFiscal->setDescontoGeral($arrPedido[0]['DESCONTO']);
                         $objNotaFiscal->setFrete((isset($arrPedido[0]['FRETE']) ? $arrPedido[0]['FRETE'] : $this->frete), true);
                         $objNotaFiscal->setVendaPresencial($this->vendaPresencial);
+                        if ($ehCupomFiscalPedido) {
+                            $objNotaFiscal->setCpfNota(trim((string) ($this->parmPost['cpf'] ?? '')));
+                        }
 
                         $idGerado = $objNotaFiscal->incluiNotaFiscal($transaction->id_connection);
                         // verificar inclusao NF
@@ -449,7 +545,13 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                                         );
                                         $arrItemPedido[$i]['QUANTIDADE'] = $arrItemPedido[$i]['QTSOLICITADA'];
                                     } else {
-                                        $this->m_msg = "Erro: Quantidade solicitida " . $arrItemPedido[$i]['QTSOLICITADA'] . " não disposível! Diponível " . $arrItemPedido[$i]['QUANTIDADE'] . "!";
+                                        $this->m_msg = 'Estoque insuficiente para o produto '
+                                            . ($arrItemPedido[$i]['DESCRICAO'] ?? $arrItemPedido[$i]['ITEMESTOQUE'])
+                                            . ': solicitado ' . $arrItemPedido[$i]['QTSOLICITADA']
+                                            . ', disponível ' . $QTDISP . '.';
+                                        if ((int) $sitPedido === 13) {
+                                            $this->m_msg .= ' Pedido em encomenda — a NF só pode ser emitida após liberação de estoque.';
+                                        }
                                         throw new Exception($this->m_msg);
                                     }
                                 endif;
@@ -501,12 +603,19 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                                 $ufPessoa = $objNotaFiscal->getUfPessoa();
                             }
 
+                            $difalContext = [
+                                'ie' => trim($arrPedido[0]['INSCESTRG'] ?? ''),
+                                'vendaPresencial' => $this->vendaPresencial ?? 'N',
+                            ];
+
                             $result = $this->calculaImpostosNfe(
                                 $objNfProduto,
                                 $objNotaFiscal->getIdNatop(),
                                 $ufPessoa,
                                 $objNotaFiscal->getTipoPessoa(),
-                                $this->m_empresacentrocusto
+                                $this->m_empresacentrocusto,
+                                null,
+                                $difalContext
                             );
 
                             if (!$result):
@@ -523,20 +632,18 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                             $objNfProduto->setLote($arrItemPedido[$i]['FABLOTE']);
                             $objNfProduto->setDataValidade($arrItemPedido[$i]['FABDATAVALIDADE']);
                             $objNfProduto->setDataFabricacao($arrItemPedido[$i]['FABDATAFABRICACAO']);
-
-                            $objNfProduto->setOrdem($arrItemPedido[$i]['NUMEROOC']);
+                            if (!empty($arrItemPedido[$i]['NUMEROOC'])){
+                                $objNfProduto->setOrdem($arrItemPedido[$i]['NUMEROOC']);
+                            }else{
+                                $objNfProduto->setOrdem($arrItemPedido[$i]['ID']);
+                            }
+                            if (!empty($arrItemPedido[$i]['NITEMPED'])){
+                                $objNfProduto->setNItemPed($arrItemPedido[$i]['NITEMPED']);
+                            }else{
+                                $objNfProduto->setNItemPed($arrItemPedido[$i]['NRITEM']);
+                            }
                             $objNfProduto->setProjeto($arrItemPedido[$i]['PROJETO']);
                             $objNfProduto->setDataConferencia($arrItemPedido[$i]['DATACONFERENCIA']);
-
-                            $objNfProduto->setBcFcpUfDest('0');
-                            $objNfProduto->setAliqFcpUfDest('0');
-                            $objNfProduto->setValorFcpUfDest('0');
-                            $objNfProduto->setBcIcmsUfDest('0');
-                            $objNfProduto->setAliqIcmsUfDest('0');
-                            $objNfProduto->setAliqIcmsInter('0');
-                            $objNfProduto->setAliqIcmsInterPart('0');
-                            $objNfProduto->setValorIcmsUfDest('0');
-                            $objNfProduto->setValorIcmsUFRemet('0');
 
                             $objNfProduto->setCodigoNota($arrItemPedido[$i]['CODIGONOTA']);
                             $objNfProduto->setDespAcessorias($arrItemPedido[$i]['DESPACESSORIAS'], true);
@@ -556,13 +663,29 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                             $ifControlaEstoque = (($controlaEstoque == 'S') && ($uniFrac == 'N'));
                             //                        if ($controlaEstoque == 'S'):
                             if ($ifControlaEstoque):
-                                $objProdutoEstoque->produtoBaixaReserva(
+                                $codProdBaixa = $objNfProduto->getCodProduto();
+                                if ($objProdutoEstoque->existeBaixaReservaFinanceiroSemNf(
                                     $this->m_empresacentrocusto,
                                     $this->getId(),
-                                    $idGerado,
-                                    $objNfProduto->getCodProduto(),
+                                    $codProdBaixa,
                                     $transaction->id_connection
-                                );
+                                )) {
+                                    $objProdutoEstoque->vinculaNfBaixaFinanceiro(
+                                        $this->m_empresacentrocusto,
+                                        $this->getId(),
+                                        $idGerado,
+                                        $codProdBaixa,
+                                        $transaction->id_connection
+                                    );
+                                } else {
+                                    $objProdutoEstoque->produtoBaixaReserva(
+                                        $this->m_empresacentrocusto,
+                                        $this->getId(),
+                                        $idGerado,
+                                        $codProdBaixa,
+                                        $transaction->id_connection
+                                    );
+                                }
                             endif;
                         } //for
 
@@ -593,13 +716,11 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                             $arrParamFin['OBS'] = $objNotaFiscal->getObs();
 
                             if ($integraFin == 'S'):
-                                // não altera financeiro se já existir lançamento de pedido
                                 $objFinanceiro->addParcelas($arrParamFin, $arrParcelas, $transaction->id_connection);
-                                
                             endif;
-                        } else {
-                            $integraFin = 'N';
                         }
+                        // Lançamento do pedido já existente: não duplica parcelas; alteraParcelaPedidoNf
+                        // abaixo vincula SERIE=NFS e DOCTO=número da NF quando integraFin == 'S'.
 
                         //; commit transação
                         //$transaction->commit($transaction->id_connection);
@@ -624,29 +745,68 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                             // valida e autoriza nf
                             $exporta = new p_nfe_40();
                             $result = $exporta->Gera_XML($idGerado, $this->m_empresacentrocusto, '', $transaction->id_connection, '', 'PED');
-                            
-                            if ($result['cStatus'] == '100') {
 
+                            if ($result['cStatus'] == '100') {
+                            
                                 $this->atualizarFieldPedido(9);
+
                                 // FALTA RETORNAR O RECIBO
                                 $objNotaFiscal->alteraNfNumero($transaction->id_connection, $result['recibo']);
-                                
-                                
+
+                                if ($this->usarCredito == 'S' && $integraFin == 'S') {
+                                    $totalPostCred = isset($this->parmPost['total']) ? $this->parmPost['total'] : null;
+                                    $this->atualizaSaldoCredito($this->credito, $totalPostCred);
+                                    $objFinanceiro->aplicaCreditoNasParcelasPedidoNf(
+                                        $numPedido,
+                                        $this->getCliente(),
+                                        $this->credito,
+                                        $transaction->id_connection
+                                    );
+                                }
+
                                 //; commit transação
                                 $transaction->commit($transaction->id_connection);
 
+
+                                #########################################################################
+                                ################### ENVIO DE BOLETO PARA API BANCARIA ###################
+                                #########################################################################
+
+                                // Obtém o parâmetro de envio de boleto da empresa
+                                $processa_boleto = $this->processaBoletoApi($this->getId());
+
+ 
+                                ################## FIM ENVIO DE BOLETO PARA API BANCARIA ###################
+                                ##### AGORA O EMAIL E ENVIADO DA NOVA TELA DE NOTA E BOLETO #####
+
                                 // Envia email com boletos após o commit
                                 // VALIDAR
-                                if (isset($arrParcelas)) {
-                                    $dir = dirname(__FILE__);
-                                    require_once($dir . "/../../forms/blt/p_boleto_email.php");
-                                    $obj_email = new p_boleto_email();
+                                // if (isset($arrParcelas)) {
+                                //     try {
 
-                                    // para teste
-                                    //$idGerado = 146;
-                                    //$numNf = 1239;
-                                    $obj_email->sendDocumentsEmail($idGerado, $numNf, $objNotaFiscal->getPessoa(), $this->getId());
-                                }
+                                //         $dir = dirname(__FILE__);
+                                //         require_once($dir . "/../../forms/blt/p_boleto_email.php");
+                                //         $obj_email = new p_boleto_email();
+
+                                //         // Se o boleto nao foi processado com sucesso, lança uma exceção
+                                //         if ($processa_boleto['sucesso'] !== true) {
+                                //             throw new Exception('Erro ao processar boleto: ' . $processa_boleto['mensagem']);
+                                //         }
+                                
+                                //         // para teste
+                                //         //$idGerado = 146;
+                                //         //$numNf = 1239;
+                                //         $obj_email->sendDocumentsEmail($idGerado, $numNf, $objNotaFiscal->getPessoa(), $this->getId());
+                                        
+                                //     } catch (Exception $e) {
+
+                                //         // Registra o erro no log
+                                //         p_boleto_email::registraLogErro($numNf, $idGerado, $e->getMessage(), $this->m_userid);
+                                        
+                                //         // Opcionalmente, loga também no error_log do servidor
+                                //         error_log("Erro ao enviar email da nota {$numNf}: " . $e->getMessage());
+                                //     }
+                                // }
 
                                 //IMPRESSAO OLD
                                 $printDanfe = new p_nfephp_imprime_danfe();
@@ -656,22 +816,17 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                                     //OLD 
                                     //$printDanfe->printDanfe($idGerado, $objNotaFiscal->getNumero(), $objNotaFiscal->getSerie(), $result['cDanfe'], $objNotaFiscal->getDoc(), $this->m_opcao);
 
-                                    //NEW
-                                    $dir = dirname(__FILE__);
-                                    $this->smarty->display($dir . "/../../template/ped/pedido_venda_gerente_novo.tpl");
-
-                                    //create function
+                                    //NEW   
                                     echo "<script>";
+                                    echo "window.open('index.php?mod=est&opcao=imprimir&form=nota_fiscal_boleto_bancario&id=" . $idGerado . "', '_blank');";echo "</script>";
 
+                                    //NEW - chama o controle do form gerente pedido para atualizar o historico do form gerente pedido
+                                    define('APENAS_FUNCOES', true);
+                                    require_once("p_pedido_venda_gerente_novo.php");
+                                    
+                                    $objeto_gerencia_pedido = new p_pedido_venda_conferecia_novo($this->data_history, '', '', '');
+                                    $objeto_gerencia_pedido->controle();
 
-                                    echo "function printDanfe(id) {
-                                            window.open('index.php?mod=est&origem=imprimeDanfe&opcao=imprimir&form=nfephp_imprime_danfe&id='+id, 'DANFE', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes');
-                                        }";
-
-                                    echo "printDanfe(" . $idGerado . ");";
-                                    //simula click
-                                    echo "submitTodosPedidos();";
-                                    echo "</script>";
                                 }
                             } elseif ($result['cStatus'] == '105' or $result['cStatus'] == '103') { //LOTE EM PROCESSAMENTO
 
@@ -718,19 +873,19 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
                         $transaction->rollback($transaction->id_connection);
                         // $this->desenhaCadastroPedido($result."<br>".$e->getMessage());
                         // throw new Exception($e->getMessage()."Nf Não foi gerado " );
-                        $this->desenhaCadastroPedido($e->getMessage());
+                        $this->desenhaCadastroPedido($e->getMessage(), 'error');
                     } catch (Exception $e) {
                         //echo 'Caught exception: ',  $e->getMessage(), "\n";
                         if ($this->nfAberto == true):
                             $transaction->commit($transaction->id_connection);
                         else:
-                            if (isset($conn)):
+                            if (isset($transaction)):
                                 $transaction->rollback($transaction->id_connection);
                             endif;
                         endif;
                         // $this->desenhaCadastroPedido("Identificador NF: ".$idGerado."<br>".$e->getMessage()."<br>");
                         // $this->desenhaCadastroPedido($result."<br>".$e->getMessage());
-                        $this->desenhaCadastroPedido($e->getMessage());
+                        $this->desenhaCadastroPedido($e->getMessage(), 'error');
                         break;
                     }
                     /*if ($result):
@@ -743,109 +898,337 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
 
                 }
                 break;
+                case 'geraEspelhoJson':
+                    if (!$this->verificaDireitoUsuario('PedGeraNf', 'C')) {
+                        break;
+                    }
+
+                    try {
+                        $arrPedido   = $this->select_pedidoVenda();
+                        $arrProdutos = $this->select_pedido_item_id('1');
+
+                        if (!$arrPedido || !$arrProdutos) {
+                            $this->m_msg = "Erro ao gerar espelho JSON da NF-e";
+                            throw new Exception($this->m_msg);
+                        }
+
+                        $contexto = [
+                            'empresa_id' => $this->m_empresaid,
+                            'filial_id'  => $this->m_empresacentrocusto,
+                            'tp_amb'     => isset($this->m_tp_amb) ? $this->m_tp_amb : 2,
+                            'id_nf'      => null,
+                            'idNatop'    => $this->getIdNatop(),
+                        ];
+
+                        $nfeJsonTags = new c_nfe_json_tags();
+                        $json        = $nfeJsonTags->monta_json_espelho('PED', $arrPedido, $arrProdutos, $contexto);
+
+                        $espelho = new p_nfe_json_espelho();
+                        $espelho->monta_contexto($json);
+                        $xml = $espelho->processa_blocos([
+                            'ide',
+                            'emitente',
+                            'destinatario',
+                            'produtos',
+                            'totais',
+                            'transporte',
+                            'cobranca_pagamentos',
+                            'infAdic',
+                        ]);
+
+                        if (!preg_match('/<infNFe[^>]*Id="NFe(\d+)"/', $xml, $m)) {
+                            throw new Exception('Não foi possível obter a chave da NF-e do XML gerado.');
+                        }
+
+                        $espelhoNfe = new p_espelho_nfe();
+                        $pdfUrl     = $espelhoNfe->gera_DANFE($xml, $m[1], null);
+
+                        if (empty($pdfUrl)) {
+                            throw new Exception('Erro ao gerar DANFE de espelho.');
+                        }
+
+                        echo "<script type=\"text/javascript\">
+                                window.open('".$pdfUrl."', 'DANFE_ESPELHO',
+                                    'toolbar=no,location=no,resizable=yes,menubar=no,width=950,height=900,scrollbars=yes');
+                              </script>";
+                        $this->formNf = true;
+                        $this->desenhaCadastroPedido("");
+                        exit;
+                    } catch (Error $e) {
+                        $this->formNf = true;
+
+                        $msg = $e->getMessage();
+                        $msg .= $this->montaBotoesAjudaErroEspelho($msg, $arrPedido ?? []);
+
+                        $this->desenhaCadastroPedido($msg, 'error');
+                        break;
+                    } catch (Exception $e) {
+                        $this->formNf = true;
+
+                        $msg = $e->getMessage();
+                        $msg .= $this->montaBotoesAjudaErroEspelho($msg, $arrPedido ?? []);
+
+                        $this->desenhaCadastroPedido($msg, 'error');
+                        break;
+                    }
+                break;
             case 'cadastraFinanceiro':
                 if ($this->verificaDireitoUsuario('PedGeraNf', 'C')) {
                     $this->formNf = false;
-                    //configuracao de parametros
-                    $parametros = new c_banco;
-                    $parametros->setTab("EST_NAT_OP");
-                    $arrNatOp = $parametros->getRecord("ID=" . $this->getIdNatop());
-                    $integraFin = $arrNatOp[0]["INTEGRAFIN"];
 
-                    $this->descCondPgto = (isset($this->parmPost['descCondPgto']) ? $this->parmPost['descCondPgto'] : "");
-                    $arrParcelas = $this->formParcelasNfe($this->descCondPgto, $this->getTotal('B'));
-
-                    // ************** 
-                    // lanca parcelas financeiro
-                    //***************
-                    $objFinanceiro = new c_lancamento();
-
-                    $arrParamFin['PESSOA'] = $this->getCliente();
-                    $arrParamFin['DOCTO'] = $this->getId();
-                    $arrParamFin['SERIE'] = 'PED';
-                    $arrParamFin['GENERO'] = $this->getGenero();
-                    $arrParamFin['CENTROCUSTO'] = isset($arrPedido[0]['CCUSTO']) ? $arrPedido[0]['CCUSTO'] : $this->m_empresacentrocusto;
-                    $arrParamFin['USER'] = $this->m_userid;
-                    $arrParamFin['ORIGEM'] = "PED";
-                    $arrParamFin['NUMLCTO'] = $this->getId();
-                    $arrParamFin['TIPOLANCAMENTO'] = "R";
-                    $arrParamFin['OBS'] = $arrPedido[0]['OBS'];
-                    if ($integraFin == 'S') {
-                        $resultAdd = $objFinanceiro->addParcelas($arrParamFin, $arrParcelas);
-
-                        if ($this->m_opcao == "pedido_venda_gerente_novo" or $this->m_opcao == "pedido_venda_gerente") {
-                            if (is_int($resultAdd)) {
-                                echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
-                                echo "<script>
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Sucesso',
-                                    width: 510,
-                                    text: 'Financeiro cadastrado!',
-                                    confirmButtonText: 'OK'
-                                });
-                                </script>";
-                            } else {
-                                echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
-                                echo "<script>
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: '',
-                                    width: 510,
-                                    text: 'Erro ao cadastrar financeiro!',
-                                    confirmButtonText: 'OK'
-                                });
-                                </script>";
-                            }
-                        } else {
-                            if ($resultAdd == null) {
-                                //Altera situação da nota fiscal
-                                $objClassNf = new c_nota_fiscal;
-                                $objClassNf->setId($arrParamFin["DOCTO"]);
-                                $objClassNf->alteraSituacao('B');
-                                //para impressao das novas msgs
-                                echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
-                                echo "<script>
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Sucesso',
-                                    width: 510,
-                                    text: 'Financeiro cadastrado!',
-                                    confirmButtonText: 'OK'
-                                });
-                                </script>";
-                            } else {
-                                echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
-                                echo "<script>
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: '',
-                                    width: 510,
-                                    text: 'Erro ao cadastrar financeiro!',
-                                    confirmButtonText: 'OK'
-                                });
-                                </script>";
-                            }
-                        }
-                    } else {
-                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                    $arrPedido = $this->select_pedidoVenda();
+                    $objContaBloq = new c_conta();
+                    if (is_array($arrPedido) && strtoupper((string) $objContaBloq->contaBloqueada((int) ($arrPedido[0]['CLIENTE'] ?? 0))) === 'S') {
+                        echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script>";
                         echo "<script>
-                        Swal.fire({
-                            icon: 'error',
-                            title: '',
-                            width: 510,
-                            text: 'Natureza de operação NÃO integra financeiro!',
-                            confirmButtonText: 'OK'
-                        });
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Cliente bloqueado',
+                                text: 'Cliente bloqueado. Verifique com o financeiro.',
+                                confirmButtonText: 'OK'
+                            });
                         </script>";
+                        break;
+                    }
+                    if (trim((string) ($arrPedido[0]['SERIE'] ?? '')) === '65') {
+                        try {
+                            $this->aplicaParametrosCupomFiscal();
+                        } catch (Exception $e) {
+                            $this->desenhaCadastroPedido($e->getMessage(), 'error');
+                            break;
+                        }
                     }
 
-                    //$objPed = new c_pedidoVenda();
-                    //$objPed->setId($this->getId());
-                    //$objPed->atualizarField("SITUACAO", '3');
+                    $cond_pagamento = $this->getCondPg();
 
-                    $objPedGerente = new p_pedido_venda_conferecia_novo('', '', '', '');
-                    $objPedGerente->controle('');
+                    $busca_cond_pgto = new c_banco;
+                    $busca_cond_pgto->setTab("FAT_COND_PGTO");
+                    $arrCondPgto = $busca_cond_pgto->getRecord("ID=" . $cond_pagamento);
+                    $situacaoLcto = $arrCondPgto[0]["SITUACAOLCTO"];
+                    $busca_cond_pgto->close_connection();
+
+                    // Testa se a condição de pagamento é de extrato de pagamento
+                    if ($situacaoLcto == 'E') {
+
+                        // Busca gênero de extrato
+                        $est_parametro = new c_parametro;
+                        $est_parametro = $est_parametro->searchEstParametroFinanceiro($this->m_empresacentrocusto);
+                        if ($est_parametro) {
+                            $genero_extrato = $est_parametro[0]["GENERO_EXTRATO"];
+                        }
+
+                        // Monta dados para cadastro de parcela de extrato
+                        $dados_parcela_extrato = [
+                            'PESSOA' => $_POST["cliente"],
+                            'PESSOAFORNECEDOR' => '',
+                            'TIPOLANCAMENTO' => $est_parametro[0]["TIPOLANCAMENTO"],
+                            'SITUACAOLANCAMENTO' => 'A',
+                            'LANCAMENTO' => date('Y-m-d H:i:s'),
+                            'COMPETENCIA' => $_POST["venc1"],
+                            'GENERO' => $est_parametro[0]["GENERO_EXTRATO"],
+                            'CENTROCUSTO' => $this->m_empresacentrocusto,
+                            'VALOR' => $_POST["valor1"],
+                            'OBS' =>  'PEDIDO: ' . $this->getId() . ' ' . $_POST["obs1"] ,
+                        ];
+
+                        // Cria objeto de extrato
+                        $obj_extrato = new c_extrato();
+                        $result = $obj_extrato->addParcelaExtratoOrigemPS($dados_parcela_extrato);
+
+                        // Testa resultado da inclusão de parcela de extrato
+                        if ($result) {
+
+                            //atualiza situação do pedido para 9 - PAGO
+                            $objPed = new c_pedidoVenda();
+                            $objPed->setId($this->getId());
+                            $objPed->atualizarField("SITUACAO", '9');
+
+                            $textoExtratoSucesso = 'Parcela cadastrada no extrato!';
+                            try {
+                                $this->pedidoPsPosFinanceiroBaixaEstoque(null);
+                            } catch (Exception $eExtratoPs) {
+                                $textoExtratoSucesso .= ' Atenção na baixa de estoque: ' . $eExtratoPs->getMessage();
+                            }
+
+                            // Exibe mensagem de sucesso
+                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script>
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Parcela cadastrada no extrato!',
+                                text: " . $textoExtratoSucesso . ",
+                                width: 510,
+                                timer: 2000,
+                                confirmButtonText: 'OK'
+                            });
+                            </script>";
+                        } else {
+                            // Exibe mensagem de erro
+                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Erro ao cadastrar parcela de extrato!',
+                                width: 510,
+                                timer: 2000,
+                                confirmButtonText: 'OK'
+                            });
+                            </script>";
+                        }
+                    } else {
+
+                        //configuracao de parametros
+                        $parametros = new c_banco;
+                        $parametros->setTab("EST_NAT_OP");
+                        $arrNatOp = $parametros->getRecord("ID=" . $this->getIdNatop());
+                        $integraFin = $arrNatOp[0]["INTEGRAFIN"];
+
+                        $this->descCondPgto = (isset($this->parmPost['descCondPgto']) ? $this->parmPost['descCondPgto'] : "");
+                        $arrParcelas = $this->formParcelasNfe($this->descCondPgto, $this->getTotal('B'));
+
+                        // ************** 
+                        // lanca parcelas financeiro
+                        //***************
+                        $objFinanceiro = new c_lancamento();
+
+                        $arrParamFin['PESSOA'] = $this->getCliente();
+                        $arrParamFin['DOCTO'] = $this->getId();
+                        $arrParamFin['SERIE'] = 'PED';
+                        $arrParamFin['GENERO'] = $this->getGenero();
+                        $arrParamFin['CENTROCUSTO'] = isset($arrPedido[0]['CCUSTO']) ? $arrPedido[0]['CCUSTO'] : $this->m_empresacentrocusto;
+                        $arrParamFin['USER'] = $this->m_userid;
+                        $arrParamFin['ORIGEM'] = "PED";
+                        $arrParamFin['NUMLCTO'] = $this->getId();
+                        $arrParamFin['TIPOLANCAMENTO'] = "R";
+                        $arrParamFin['OBS'] = $arrPedido[0]['OBS'];
+                        if ($integraFin == 'S') {
+                            $posFinanceiroPs = isset($this->parmPost['pos_financeiro_ps']) ? (int) $this->parmPost['pos_financeiro_ps'] : 3;
+                            if (!in_array($posFinanceiroPs, [3, 9, 13], true)) {
+                                $posFinanceiroPs = 3;
+                            }
+                            if ((int) ($arrPedido[0]['SITUACAO'] ?? 0) === 13) {
+                                $posFinanceiroPs = 13;
+                            }
+
+                            $txPedidoPs = new c_banco();
+                            $txPedidoPs->inicioTransacao($txPedidoPs->id_connection);
+                            $connFinPs = $txPedidoPs->id_connection;
+
+                            $existeFinAtivo = $objFinanceiro->select_lancamento_doc('PED', $this->getId());
+                            if (is_array($existeFinAtivo) && count($existeFinAtivo) > 0) {
+                                $resultAdd = true;
+                            } else {
+                                $resultAdd = $objFinanceiro->addParcelas($arrParamFin, $arrParcelas, $connFinPs);
+                            }
+
+                            if ($this->m_opcao == "pedido_venda_gerente_novo" or $this->m_opcao == "pedido_venda_gerente" or $this->t_origem == 'pedido_ps') {
+                                $financeiroOk = ($resultAdd === true) || is_int($resultAdd);
+                            } else {
+                                $financeiroOk = ($resultAdd === null) || ($resultAdd === true);
+                            }
+
+                            if ($financeiroOk) {
+                                try {
+                                    $this->pedidoPsPosFinanceiroBaixaEstoque($connFinPs);
+                                    $objPedPsSit = new c_pedidoVenda();
+                                    $objPedPsSit->setId($this->getId());
+                                    $objPedPsSit->atualizarField('SITUACAO', (string) $posFinanceiroPs, $connFinPs);
+                                    if (is_int($resultAdd) && $this->usarCredito == 'S') {
+                                        $objFinanceiro->aplicaCreditoNasParcelasPedidoNf($this->getId(), $this->getCliente(), $this->credito, $connFinPs);
+                                    }
+                                    $txPedidoPs->commit($txPedidoPs->id_connection);
+                                } catch (Exception $ePedidoPsFin) {
+                                    $txPedidoPs->rollback($txPedidoPs->id_connection);
+                                    $financeiroOk = false;
+                                }
+                            } else {
+                                $txPedidoPs->rollback($txPedidoPs->id_connection);
+                            }
+                            if (is_int($resultAdd) && $this->usarCredito == 'S' && $financeiroOk) {
+                                $objPed = new c_pedidoVenda();
+                                $objPed->setId($this->getId());
+                                $objPed->atualizaSaldoCredito($this->credito, $this->getTotal('B'));
+                            }
+
+                            if ($this->m_opcao == "pedido_venda_gerente_novo" or $this->m_opcao == "pedido_venda_gerente") {
+                                if ($financeiroOk) {
+                                    echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                                    echo "<script>
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Sucesso',
+                                        width: 510,
+                                        text: 'Financeiro cadastrado!',
+                                        confirmButtonText: 'OK'
+                                    });
+                                    </script>";
+                                } else {
+                                    echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                                    echo "<script>
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: '',
+                                        width: 510,
+                                        text: 'Erro ao cadastrar financeiro!',
+                                        confirmButtonText: 'OK'
+                                    });
+                                    </script>";
+                                }
+                            } else {
+                                if ($financeiroOk) {
+                                    if ($this->t_origem != 'pedido_ps') {
+                                        $objClassNf = new c_nota_fiscal;
+                                        $objClassNf->setId($arrParamFin["DOCTO"]);
+                                        $objClassNf->alteraSituacao('B');
+                                    }
+                                    echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                                    echo "<script>
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Sucesso',
+                                        width: 510,
+                                        text: 'Financeiro cadastrado!',
+                                        confirmButtonText: 'OK'
+                                    });
+                                    </script>";
+                                } else {
+                                    echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                                    echo "<script>
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: '',
+                                        width: 510,
+                                        text: 'Erro ao cadastrar financeiro!',
+                                        confirmButtonText: 'OK'
+                                    });
+                                    </script>";
+                                }
+                            }
+                        } else {
+                            echo "<script type='text/javascript' src='" . ADMsweetAlert2 . "/dist/sweetalert2.all.min.js'></script> ";
+                            echo "<script>
+                            Swal.fire({
+                                icon: 'error',
+                                title: '',
+                                width: 510,
+                                text: 'Natureza de operação NÃO integra financeiro!',
+                                confirmButtonText: 'OK'
+                            });
+                            </script>";
+                        }
+                    }
+
+
+                    if ($this->t_origem == 'pedido_ps') {
+                        require_once(ADMforms . "/ped/p_pedido_ps.php");
+                        $objeto_pedido_ps = new p_pedido_ps();
+                        $objeto_pedido_ps->m_letra = $this->getId();
+
+                    } else {
+                        require_once(ADMforms . "/ped/p_pedido_venda_gerente_novo.php");
+                        $objPedGerente = new p_pedido_venda_conferecia_novo('', '', '', '');
+                        $objPedGerente->controle('');
+                    }
                 }
                 break;
             case 'cadastraFinanceiroNotaFiscal':
@@ -943,6 +1326,39 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
         }
     }
 
+    /**
+     * @param array<int,array<string,mixed>>|false|null $arrPedido
+     */
+    /**
+     * @param array<int,array<string,mixed>>|false|null $arrPedido
+     */
+    private function pedidoEmEncomenda($arrPedido = null): bool
+    {
+        if ($arrPedido === null) {
+            $arrPedido = $this->select_pedidoVenda();
+        }
+        return is_array($arrPedido) && (int) ($arrPedido[0]['SITUACAO'] ?? 0) === 13;
+    }
+
+    /**
+     * @param array<int,array<string,mixed>>|false|null $arrPedido
+     */
+    private function ehCupomFiscalContext($arrPedido = null): bool
+    {
+        if (trim((string) $this->tipoDocFiscal) === '65') {
+            return true;
+        }
+        if ($arrPedido === null) {
+            $arrPedido = $this->select_pedidoVenda();
+        }
+        if (is_array($arrPedido) && isset($arrPedido[0])) {
+            if (trim((string) ($arrPedido[0]['SERIE'] ?? '')) === '65') {
+                return true;
+            }
+        }
+        return false;
+    }
+
     function desenhaCadastroPedido($mensagem = NULL, $tipoMsg = NULL)
     {
 
@@ -955,36 +1371,76 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
 
         //$pedido = $this->select_pedidoVenda();
         $this->setPedidoVenda(); // seta dados pedido e cliente
+        $arrPedidoDoc = $this->select_pedidoVenda();
+        $pedidoSituacao = (int) ($arrPedidoDoc[0]['SITUACAO'] ?? 0);
+        if ($pedidoSituacao === 13 && $this->formNf === true) {
+            $this->formNf = false;
+            if ($mensagem === null || $mensagem === '') {
+                $mensagem = 'Pedido em <b>encomenda</b> — emissão de NF bloqueada até liberação de estoque.';
+                $tipoMsg = 'warning';
+            }
+        }
+        $tipoDocPedido = trim((string) ($arrPedidoDoc[0]['SERIE'] ?? ''));
 
-        //parametro de pesquisa
-        $parametros = new c_banco;
-        $parametros->setTab("EST_PARAMETRO");
-        $cfop = $parametros->getParametros("CFOP");
-        $natOperacao = $parametros->getParametros("NATOPERACAO");
+        $centrocustoParam = !empty($this->getCentroCusto()) ? $this->getCentroCusto() : $this->m_empresacentrocusto;
+        $ehCupomFiscal = $this->ehCupomFiscalContext(is_array($arrPedidoDoc) ? $arrPedidoDoc : null);
+        if ($ehCupomFiscal) {
+            $this->tipoDocFiscal = '65';
+        }
+        $modeloParam = ($ehCupomFiscal || $tipoDocPedido === '65') ? '65' : '55';
+        $objParametro = new c_parametro();
+        $paramFilial = $objParametro->getParametroFinanceiroSaida($centrocustoParam, $modeloParam);
+
+        $cfop = $paramFilial['CFOP'] ?? null;
+        $natOperacao = $paramFilial['NATOPERACAO'] ?? null;
         $condPgto = $this->getCondPg();
         if ($condPgto == 0):
-            $condPgto = $parametros->getParametros("CONDPGTO");
+            $condPgto = $paramFilial['CONDPGTO'] ?? null;
         endif;
-        $genero = $parametros->getParametros("GENERO");
-        $conta = $parametros->getParametros("CONTA");
-        $serie = $parametros->getParametros("SERIE");
-        $parametros->close_connection();
+        $genero = $paramFilial['GENERO'] ?? null;
+        $conta = $paramFilial['CONTA'] ?? null;
+        $serie = $paramFilial['SERIE'] ?? null;
 
-
-        // metodo SET dos dados do FORM para o TABLE
-        if (isset($this->parmPost['idNatop'])):
+        if ($ehCupomFiscal) {
+            try {
+                $this->aplicaParametrosCupomFiscal();
+                $this->vendaPresencial = 'S';
+            } catch (Exception $e) {
+                if ($mensagem === null || $mensagem === '') {
+                    $mensagem = $e->getMessage();
+                }
+                if ($tipoMsg === null || $tipoMsg === '') {
+                    $tipoMsg = 'error';
+                }
+            }
+        } elseif (isset($this->parmPost['idNatop'])) {
             $this->setIdNatop($this->parmPost['idNatop']);
-        else:
-            if ($this->getIdNatop() == 'NULL'):
-                $this->setIdNatop($natOperacao);
-            endif;
-        endif;
-        $this->setSerie(isset($this->parmPost['serie']) ? $this->parmPost['serie'] : $serie);
+        } elseif ($this->getIdNatop() == 'NULL') {
+            $this->setIdNatop($natOperacao);
+        }
+        if (!$ehCupomFiscal) {
+            if (isset($this->parmPost['serie']) && $this->parmPost['serie'] !== '') {
+                $this->setSerie($this->parmPost['serie']);
+            } elseif ($tipoDocPedido === '55') {
+                $this->setSerie($serie);
+            } else {
+                $pedSerie = trim((string) ($arrPedidoDoc[0]['SERIE'] ?? ''));
+                $this->setSerie(($pedSerie !== '' && $pedSerie !== '65' && $pedSerie !== '55') ? $pedSerie : $serie);
+            }
+        }
         if ($this->alteraCondPgto == true) {
             $this->setCondPg(isset($this->parmPost['condPgto']) ? $this->parmPost['condPgto'] : $condPgto);
         }
-        $this->setGenero(isset($this->parmPost['genero']) ? $this->parmPost['genero'] : $genero);
-        $this->setContaDeposito(isset($this->parmPost['conta']) ? $this->parmPost['conta'] : $conta);
+        if (isset($this->parmPost['genero']) && $this->parmPost['genero'] !== '') {
+            $this->setGenero($this->parmPost['genero']);
+        } elseif (!empty($genero)) {
+            $this->setGenero($genero);
+        }
+        if (isset($this->parmPost['conta']) && $this->parmPost['conta'] !== '') {
+            $this->setContaDeposito($this->parmPost['conta']);
+        } elseif (!empty($conta)) {
+            $this->setContaDeposito($conta);
+        }
 
 
         $this->smarty->assign('pathCliente', ADMhttpCliente);
@@ -1000,12 +1456,11 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
         $this->smarty->assign('pedido', $this->getPedido());
         $this->smarty->assign('cliente', $this->getCliente());
         $this->smarty->assign('data', $this->getEmissao('F'));
+        $this->smarty->assign('t_origem', $this->t_origem);
+        $this->smarty->assign('pedidoSituacao', $pedidoSituacao);
+        $this->smarty->assign('pedidoEncomenda', $pedidoSituacao === 13);
+        $this->smarty->assign('posFinanceiroPs', $pedidoSituacao === 13 ? 13 : 3);
 
-        //separa valores de produto e de servico
-        // $consulta = new c_banco;
-        // $consulta->setTab("FAT_PEDIDO");
-        // $valorServico = $consulta->getField("VALORSERVICOS", " ID =".$this->getPedido());
-        // $consulta->close_connection();
         try {
             $totalPed = $this->getTotal();
             $totalServ = $this->getValorServicos();
@@ -1044,6 +1499,7 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
         $this->smarty->assign('volPesoBruto', $this->volPesoBruto);
         $this->smarty->assign('dataSaidaEntrada', $this->dataSaidaEntrada);
         $this->smarty->assign('obs', $this->obs);
+        $this->smarty->assign('saldoCredito', $this->getSaldoCredito());
 
         // ########## NATUREZA OPERACAO ##########
         $consulta = new c_banco();
@@ -1074,10 +1530,12 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
             $condPgto_ids[$i] = $result[$i]['ID'];
             $condPgto_names[$i] = $result[$i]['DESCRICAO'];
         }
+        $financeiroCondExtratoTpl = ($situacaoLcto === 'E');
         $this->smarty->assign('descCondPgto', "$descCondPgto");
         $this->smarty->assign('condPgto_ids', $condPgto_ids);
         $this->smarty->assign('condPgto_names', $condPgto_names);
         $this->smarty->assign('condPgto_id', $this->getCondPg());
+        $this->smarty->assign('financeiroCondExtrato', $financeiroCondExtratoTpl);
 
 
         // COMBOBOX GENERO
@@ -1177,8 +1635,11 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
         }
         $this->smarty->assign('boolean_ids', $boolean_ids);
         $this->smarty->assign('boolean_names', $boolean_names);
-        $this->smarty->assign('vendaPresencial', 'N');
-
+        $this->smarty->assign('vendaPresencial', $ehCupomFiscal ? 'S' : 'N');
+        $this->smarty->assign('ehCupomFiscal', $ehCupomFiscal);
+        $this->smarty->assign('tipoDocFiscal', $ehCupomFiscal ? '65' : '');
+        $this->smarty->assign('cpfNota', trim((string) ($this->parmPost['cpf'] ?? '')));
+        $this->smarty->assign('tipoDocPedido', $tipoDocPedido);
         $consultaFin = new c_banco();
         $consultaFin->setTab("FIN_LANCAMENTO");
         $numPedFin = $consultaFin->getField("NUMLCTO", "NUMLCTO = '" . $this->getPedido() . "' AND ORIGEM ='PED' AND SITPGTO<>'C'");
@@ -1222,12 +1683,21 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
             $mensagem .= "Pedido sem parcelas de Produto!";
             $this->smarty->assign('parcelasCadastrada', true);
         }
-        $this->smarty->assign('mensagem', $mensagem);
+        $this->smarty->assign('mensagem', $mensagem ?? '');
         $this->smarty->assign('fin', $fin);
         if ($this->formNf == true)
             $this->smarty->assign('formNf', true);
         else
             $this->smarty->assign('formNf', false);
+
+        // Parametro usado para historico do form gerente pedido
+        $this->smarty->assign('data_history', $this->data_history);
+
+        $this->smarty->assign('mod', 'ped');
+        $this->smarty->assign('form', 'pedido_venda_nf_pecas_novo');
+        if ($this->m_opcao === '' || $this->m_opcao === null) {
+            $this->smarty->assign('opcao', 'pedido_venda_gerente_novo');
+        }
 
         $this->smarty->display('pedido_venda_nf_cadastro_pecas_novo.tpl');
     }
@@ -1321,11 +1791,20 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
         $this->smarty->assign('condPgto_ids', $condPgto_ids);
         $this->smarty->assign('condPgto_names', $condPgto_names);
         $this->smarty->assign('condPgto_id', $this->getCondPg());
+        $this->smarty->assign('financeiroCondExtrato', ($situacaoLcto === 'E'));
 
+        $objParametro = new c_parametro();
+        $generoEntrada = $objParametro->getGeneroEntradaFinanceiro($this->m_empresacentrocusto);
+        $generoPadrao = !empty($objNotaFiscal[0]['GENERO']) ? $objNotaFiscal[0]['GENERO'] : $generoEntrada;
+        if (isset($this->parmPost['genero']) && $this->parmPost['genero'] !== '') {
+            $this->setGenero($this->parmPost['genero']);
+        } elseif (!empty($generoPadrao)) {
+            $this->setGenero($generoPadrao);
+        }
 
         // COMBOBOX GENERO
         $consulta = new c_banco();
-        $sql = "SELECT GENERO AS ID, DESCRICAO FROM fin_genero ORDER BY descricao;";
+        $sql = "SELECT GENERO AS ID, DESCRICAO FROM fin_genero WHERE tipolancamento = 'P' ORDER BY descricao;";
         $consulta->exec_sql($sql);
         $consulta->close_connection();
         $result = $consulta->resultado;
@@ -1478,6 +1957,86 @@ class p_pedido_venda_nf_pecas_novo extends c_pedidoVendaNf
         $this->smarty->display('pedido_venda_nf_mostra.tpl');
     }
 
+    /**
+     * Monta botões de atalho conforme o tipo de erro (cliente, produto, tributação etc.)
+     *
+     * @param string $mensagemErro
+     * @param array  $arrPedido
+     * @return string HTML com botões (pode ser string vazia)
+     */
+    private function montaBotoesAjudaErroEspelho($mensagemErro, array $arrPedido)
+    {
+        $html = '';
+        $tipoErro = null;
+        if (preg_match('/TipoErro=(\d)/', $mensagemErro, $mTipo)) {
+            $tipoErro = (int) $mTipo[1];
+        }
+
+        if ($tipoErro === 1 ) {
+            if (!empty($this->getCliente())) {
+                $urlCliente = ADMhttpCliente . '/index.php?mod=crm&submenu=alterar&form=contas&param=' . $this->getCliente();
+                $html .= '<br><button type="button" style="font-size:12px !important;" class="btn btn-primary" '
+                    . 'onclick="openNewWin(\'' . $urlCliente . '\')">'
+                    . 'Abrir cadastro do cliente em nova guia'
+                    . '</button>';
+            }
+            return $html;
+        }
+        if ($tipoErro === 2 ) {
+            if (!empty($this->getIdNatop())) {
+                $urlNatOp = ADMhttpCliente . '/index.php?mod=est&form=nat_tributos&submenu=cadastrar&idNatop=' . $this->getIdNatop();
+                $html .= '<br><button type="button" style="font-size:12px !important;" class="btn btn-primary" '
+                    . 'onclick="openNewWin(\'' . $urlNatOp . '\')">'
+                    . 'Abrir Natureza de Operação '
+                    . '</button>';
+            }
+            return $html;
+        }
+        if ($tipoErro === 3) {
+            $urlProduto = ADMhttpCliente . '/index.php?mod=est&form=produto&opcao=pesquisarpecas&from=pedido_ps';
+            $html .= '<br><button type="button" style="font-size:12px !important;" class="btn btn-primary" '
+                . 'onclick="openNewWin(\'' . $urlProduto . '\')">'
+                . 'Abrir pesquisa de produtos em nova guia'
+                . '</button>';
+            return $html;
+        }
+
+        return $html;
+    }
+
+    /**
+     * Natureza de operação, série e demais defaults do EST_PARAMETRO modelo 65 (NFC-e).
+     *
+     * @throws Exception
+     */
+    private function aplicaParametrosCupomFiscal(): void
+    {
+        $objCupom = new c_cupom();
+        $param = $objCupom->getParametroNfce((int) $this->m_empresacentrocusto);
+        if (!$param) {
+            throw new Exception('Parâmetros NFC-e (modelo 65) não configurados para esta filial.');
+        }
+        if (trim((string) ($param['SERIE'] ?? '')) === '') {
+            throw new Exception('Série NFC-e não configurada em EST_PARAMETRO (modelo 65).');
+        }
+        if (trim((string) ($param['NATOPERACAO'] ?? '')) === '') {
+            throw new Exception('Natureza de operação NFC-e não configurada em EST_PARAMETRO (modelo 65).');
+        }
+
+        $this->setSerie((string) $param['SERIE']);
+        $this->setIdNatop((string) $param['NATOPERACAO']);
+        if ($this->getCondPg() === '' || $this->getCondPg() === null || (int) $this->getCondPg() === 0) {
+            $this->setCondPg($param['CONDPGTO']);
+        }
+        if (!isset($this->parmPost['genero']) || $this->parmPost['genero'] === '') {
+            if (!empty($param['GENERO'])) {
+                $this->setGenero((string) $param['GENERO']);
+            }
+        }
+        if ($this->getContaDeposito() === '' || $this->getContaDeposito() === null) {
+            $this->setContaDeposito((string) $param['CONTA']);
+        }
+    }
     //fim mostragrupos
     //-------------------------------------------------------------
 }

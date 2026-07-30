@@ -78,6 +78,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <input name=id type=hidden value="">
     <input name=letra type=hidden value={$letra}>
     <input name=submenu type=hidden value={$subMenu}>
+    <input name=param type=hidden id="param" value="">
 
 
     <div class="">
@@ -319,6 +320,35 @@ document.addEventListener('DOMContentLoaded', function() {
                   </div>
                 </div>
 
+                <!-- Pedidos Campanha -->
+                <div id="instrucoes-importaPedidoCampanha" class="instrucoes-importacao">
+                  <h4><i class="fa fa-info-circle"></i> Como Preencher a Planilha - Pedidos Campanha</h4>
+                  <p><strong>Formato:</strong> Excel (.xls) com <span class="destaque">múltiplas colunas</span></p>
+                  
+                  <h5>Colunas da Planilha (nesta ordem):</h5>
+                  <ol>
+                    <li><strong>Coluna 2</strong> - CNPJ do Cliente (deve existir)</li>
+                    <li><strong>Coluna 7</strong> - Número do Pedido</li>
+                    <li><strong>Coluna 8</strong> - Data e Hora do Pedido</li>
+                    <li><strong>Coluna 9</strong> - Código de Barras ou Código Fabricante do Produto</li>
+                    <li><strong>Coluna 10</strong> - Descrição do Item</li>
+                    <li><strong>Coluna 12</strong> - Quantidade Solicitada</li>
+                    <li><strong>Coluna 13</strong> - Valor Unitário</li>
+                    <li><strong>Coluna 14</strong> - Valor Total do Item</li>
+                  </ol>
+
+                  <div class="obs">
+                    <strong><i class="fa fa-exclamation-triangle"></i> Importante:</strong>
+                    <ul>
+                      <li>Cliente (CNPJ) <span class="destaque">deve estar cadastrado</span> antes da importação</li>
+                      <li>Produtos devem existir no cadastro (por código de barras ou código fabricante)</li>
+                      <li>Selecione a <span class="destaque">Natureza de Operação</span> e <span class="destaque">Condição de Pagamento</span> abaixo</li>
+                      <li>Sistema agrupa itens por número de pedido automaticamente</li>
+                      <li>Planilha deve começar na linha 8 (linhas 1-7 são ignoradas)</li>
+                    </ul>
+                  </div>
+                </div>
+
                 <!-- Atualizar IBPT -->
                 <div id="instrucoes-ibpt" class="instrucoes-importacao">
                   <h4><i class="fa fa-info-circle"></i> Como Importar - Tabela IBPT (Impostos)</h4>
@@ -349,7 +379,125 @@ document.addEventListener('DOMContentLoaded', function() {
                   </div>
                 </div>
 
+                <!-- Importar CST IBS/CBS -->
+                <div id="instrucoes-cstibscbs" class="instrucoes-importacao">
+                  <h4><i class="fa fa-info-circle"></i> Como Importar - CST IBS/CBS (Reforma Tributária)</h4>
+                  <p><strong>Formato:</strong> Excel (.xls ou .xlsx) com <span class="destaque">10 colunas</span></p>
+                  
+                  <h5>Colunas da Planilha (nesta ordem):</h5>
+                  <ol>
+                    <li><strong class="destaque">CST*</strong> - Código do CST (3 caracteres) - <span class="destaque">Obrigatório - Chave Única</span></li>
+                    <li><strong>DESCRIÇÃO</strong> - Descrição completa do CST</li>
+                    <li><strong>IND_G_IBS_CBS</strong> - Indicador Grupo IBS/CBS (0 ou 1)</li>
+                    <li><strong>IND_G_IBS_CBS_MONO</strong> - Indicador Grupo IBS/CBS Monofásico (0 ou 1)</li>
+                    <li><strong>IND_G_RED</strong> - Indicador Grupo Redução (0 ou 1)</li>
+                    <li><strong>IND_G_DIF</strong> - Indicador Grupo Diferimento (0 ou 1)</li>
+                    <li><strong>IND_G_TRANSF_CRED</strong> - Indicador Grupo Transferência Crédito (0 ou 1)</li>
+                    <li><strong>IND_G_CRED_PRES_IBS_ZFM</strong> - Indicador Grupo Crédito Presumido IBS ZFM (0 ou 1)</li>
+                    <li><strong>IND_G_AJUSTE_COMPET</strong> - Indicador Grupo Ajuste Competência (0 ou 1)</li>
+                    <li><strong>IND_REDUTOR_BC</strong> - Indicador Redutor Base de Cálculo (0 ou 1)</li>
+                  </ol>
+
+                  <div class="obs">
+                    <strong><i class="fa fa-exclamation-triangle"></i> Importante - Ordem de Importação:</strong>
+                    <ul>
+                      <li><span class="destaque">IMPORTAR PRIMEIRO!</span> Esta tabela deve ser importada <strong>antes</strong> da tabela CClasstrib</li>
+                      <li>A tabela CClasstrib possui chave estrangeira (FK) para esta tabela</li>
+                      <li>Se o CST já existir, o registro será <strong>atualizado</strong></li>
+                      <li>Se não existir, será <strong>inserido</strong></li>
+                      <li>Campos de indicadores devem conter apenas 0 ou 1</li>
+                      <li>Planilha deve ter <span class="destaque">linha de cabeçalho</span> (linha 1 será ignorada)</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <!-- Importar CClasstrib -->
+                <div id="instrucoes-cclasstrib" class="instrucoes-importacao">
+                  <h4><i class="fa fa-info-circle"></i> Como Importar - Classificação Tributária (CClasstrib)</h4>
+                  <p><strong>Formato:</strong> Excel (.xls ou .xlsx) com <span class="destaque">35 colunas</span></p>
+                  
+                  <h5>Campos Texto (colunas 1-8):</h5>
+                  <ol>
+                    <li><strong class="destaque">CST-IBS/CBS*</strong> - Código CST (3 caracteres) - <span class="destaque">Deve existir na tabela CST IBS/CBS</span></li>
+                    <li><strong>Descrição CST-IBS/CBS</strong> - Descrição do CST (ignorado na importação)</li>
+                    <li><strong class="destaque">cClassTrib*</strong> - Código (6 caracteres) - <span class="destaque">Obrigatório - Chave Única</span></li>
+                    <li><strong>Nome cClassTrib</strong> - Nome resumido (máx 100 caracteres)</li>
+                    <li><strong>Descrição cClassTrib</strong> - Descrição completa (máx 260 caracteres)</li>
+                    <li><strong>LC Redação</strong> - Redação da Lei Complementar</li>
+                    <li><strong>LC 214/25</strong> - Referência LC 214/25 (máx 20 caracteres)</li>
+                    <li><strong>Tipo de Alíquota</strong> - Tipo de Alíquota (máx 20 caracteres)</li>
+                  </ol>
+
+                  <h5>Indicadores Principais (colunas 9-17) - usar 0 ou 1:</h5>
+                  <ol start="9">
+                    <li><strong>pRedIBS</strong> - Predefinido IBS</li>
+                    <li><strong>pRedCBS</strong> - Predefinido CBS</li>
+                    <li><strong>ind_gTribRegular</strong> - Indicador Tributação Regular</li>
+                    <li><strong>ind_gCredPresOper</strong> - Indicador Crédito Presumido Operação</li>
+                    <li><strong>ind_gMonoPadrao</strong> - Indicador Monofásico Padrão</li>
+                    <li><strong>ind_gMonoReten</strong> - Indicador Monofásico Retenção</li>
+                    <li><strong>ind_gMonoRet</strong> - Indicador Monofásico Retido</li>
+                    <li><strong>ind_gMonoDif</strong> - Indicador Monofásico Diferido</li>
+                    <li><strong>ind_gEstornoCred</strong> - Indicador Estorno Crédito</li>
+                  </ol>
+
+                  <h5>Campos Data (colunas 18-20) - formato AAAA-MM-DD ou DD/MM/AAAA:</h5>
+                  <ol start="18">
+                    <li><strong>dIniVig</strong> - Data Início Vigência</li>
+                    <li><strong>dFimVig</strong> - Data Fim Vigência</li>
+                    <li><strong>DataAtualização</strong> - Data Atualização</li>
+                  </ol>
+
+                  <h5>Indicadores por Documento Fiscal (colunas 21-35) - usar 0 ou 1:</h5>
+                  <ol start="21">
+                    <li><strong>indNFeABI</strong> - NF-e ABI</li>
+                    <li><strong>indNFe</strong> - NF-e</li>
+                    <li><strong>indNFCe</strong> - NFC-e</li>
+                    <li><strong>indCTe</strong> - CT-e</li>
+                    <li><strong>indCTeOS</strong> - CT-e OS</li>
+                    <li><strong>indBPe</strong> - BP-e</li>
+                    <li><strong>indBPeTA</strong> - BP-e TA</li>
+                    <li><strong>indBPeTM</strong> - BP-e TM</li>
+                    <li><strong>indNF3e</strong> - NF3-e</li>
+                    <li><strong>indNFSe</strong> - NFS-e</li>
+                    <li><strong>indNFSe Via</strong> - NFS-e VIA</li>
+                    <li><strong>indNFCom</strong> - NF Comunicação</li>
+                    <li><strong>indNFAg</strong> - NF Agro</li>
+                    <li><strong>indNFGas</strong> - NF Gás</li>
+                    <li><strong>indDERE</strong> - DERE</li>
+                  </ol>
+
+                  <div class="obs">
+                    <strong><i class="fa fa-exclamation-triangle"></i> Importante:</strong>
+                    <ul>
+                      <li>O campo <span class="destaque">CST-IBS/CBS (coluna 1)</span> deve existir na tabela EST_CST_IBS_CBS</li>
+                      <li>Se o cClassTrib já existir, o registro será <strong>atualizado</strong></li>
+                      <li>Se não existir, será <strong>inserido</strong></li>
+                      <li>Campos de indicadores devem conter apenas 0 ou 1</li>
+                      <li>Campos de data podem ficar vazios</li>
+                      <li>Planilha deve ter <span class="destaque">linha de cabeçalho</span> (linha 1 será ignorada)</li>
+                    </ul>
+                  </div>
+                </div>
+
               </div> <!-- col-md-12 instruções -->
+
+              <!-- Campos adicionais para Pedidos Campanha -->
+              <div class="row importaPedidoCampanha" id="camposPedidoCampanha" style="display: none;">
+                <div class="col-md-6 col-sm-12 col-xs-12">
+                  <label>Natureza de operação</label>
+                  <select class="form-control" name=natureza id="natureza">
+                    {html_options values=$natureza_ids selected=$natureza_id output=$natureza_names}
+                  </select>
+                </div>
+
+                <div class="col-md-6 col-sm-12 col-xs-12">
+                  <label>Condição de pagamento</label>
+                  <select class="form-control" name=condPag id="condPag">
+                    {html_options values=$condPag_ids selected=$condPag_id output=$condPag_names}
+                  </select>
+                </div>
+              </div>
 
               <div class="clearfix"></div>
               <div class="form-group">
@@ -365,5 +513,46 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
   {include file="template/database.inc"}
+
+<script>
+  // Verifica se o valor selecionado no menu suspenso é igual a "importaPedidoCampanha"
+  document.getElementById('arqImporta').addEventListener('change', function() {
+    var selectedValue = this.value;
+    var camposDiv = document.getElementById('camposPedidoCampanha');
+    if (selectedValue === 'importaPedidoCampanha') {
+      // Se for igual, mostra os campos de natureza e condição de pagamento
+      if (camposDiv) {
+        camposDiv.style.display = 'block';
+      }
+    } else {
+      // Se não for igual, esconde os campos
+      if (camposDiv) {
+        camposDiv.style.display = 'none';
+      }
+    }
+  });
+
+  // Atualiza o campo param quando os selects mudarem
+  function atualizaParam() {
+    var condPag = document.getElementById('condPag') ? document.getElementById('condPag').value : '';
+    var natureza = document.getElementById('natureza') ? document.getElementById('natureza').value : '';
+    var paramField = document.getElementById('param');
+    if (paramField) {
+      paramField.value = condPag + '|' + natureza;
+    }
+  }
+
+  // Adiciona eventos aos selects
+  document.addEventListener('DOMContentLoaded', function() {
+    var condPag = document.getElementById('condPag');
+    var natureza = document.getElementById('natureza');
+    if (condPag) {
+      condPag.addEventListener('change', atualizaParam);
+    }
+    if (natureza) {
+      natureza.addEventListener('change', atualizaParam);
+    }
+  });
+</script>
 
 <!-- /Datatables -->

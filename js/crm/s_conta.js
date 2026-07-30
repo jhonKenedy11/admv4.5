@@ -23,6 +23,22 @@ document.addEventListener('keydown', function (event) {
     }
 });
 
+function showHint(input) {
+    
+    // Se for um elemento HTML (input), pega o valor dele
+    let valor = (typeof input === 'object' && input.value !== undefined) ? input.value : input;
+    
+    // Remove tudo que não seja número usando regex
+    let apenasNumeros = String(valor).replace(/\D/g, '');
+    
+    // Se for um elemento input, atualiza o valor dele
+    if (typeof input === 'object' && input.value !== undefined) {
+        input.value = apenasNumeros;
+    }
+    
+    return apenasNumeros;
+}
+
 function submitConfirmar() {     
     
     f = document.lancamento;
@@ -164,6 +180,10 @@ function limpa_formulário_cep() {
     document.getElementById('cidade').value = ("");
     document.getElementById('estado').value = ("");
     document.getElementById('codMunicipio').value = ("");
+    // Permite edição somente quando vazio
+    if (document.getElementById('codMunicipio').value === '') {
+        document.getElementById('codMunicipio').removeAttribute('readonly');
+    }
     document.getElementById('tipo').value = '';
 }
 
@@ -174,7 +194,16 @@ function meu_callback(conteudo) {
         document.getElementById('endereco').value = (conteudo.logradouro);
         document.getElementById('bairro').value = (conteudo.bairro);
         document.getElementById('cidade').value = (conteudo.localidade);
-        document.getElementById('codMunicipio').value = (conteudo.ibge);
+        
+        // Preenche código do município se encontrado
+        if (conteudo.ibge && conteudo.ibge !== '') {
+            document.getElementById('codMunicipio').value = (conteudo.ibge);
+            document.getElementById('codMunicipio').setAttribute('readonly', true);
+        } else {
+            // Se não veio IBGE, deixa editável
+            document.getElementById('codMunicipio').removeAttribute('readonly');
+        }
+        
         document.getElementById('estado').value = (conteudo.uf);
         document.getElementById('numero').focus();
 
@@ -185,6 +214,10 @@ function meu_callback(conteudo) {
     else {
         //CEP não Encontrado.
         limpa_formulário_cep();
+        // Deixa editável quando CEP não encontrado e campo vazio
+        if (document.getElementById('codMunicipio').value === '') {
+            document.getElementById('codMunicipio').removeAttribute('readonly');
+        }
         Swal.fire({
             icon: 'warning',
             title: 'Atenção!',
@@ -215,7 +248,7 @@ async function pesquisacep(valor) {
             document.getElementById('bairro').value = "...";
             document.getElementById('cidade').value = "...";
             document.getElementById('estado').value = "...";
-            document.getElementById('codMunicipio').value = "...";
+            document.getElementById('codMunicipio').value = "";
 
             try {
                 // Usa o sistema de fallback automático (ViaCEP -> BrasilAPI -> ApiCEP)
@@ -226,7 +259,16 @@ async function pesquisacep(valor) {
                     document.getElementById('endereco').value = conteudo.logradouro || '';
                     document.getElementById('bairro').value = conteudo.bairro || '';
                     document.getElementById('cidade').value = conteudo.localidade || '';
-                    document.getElementById('codMunicipio').value = conteudo.ibge || '';
+                    
+                    // Preenche código do município se encontrado
+                    if (conteudo.ibge && conteudo.ibge !== '') {
+                        document.getElementById('codMunicipio').value = conteudo.ibge;
+                        document.getElementById('codMunicipio').setAttribute('readonly', true);
+                    } else {
+                        // Se não veio IBGE, deixa editável
+                        document.getElementById('codMunicipio').removeAttribute('readonly');
+                    }
+                    
                     document.getElementById('estado').value = conteudo.uf || '';
                     document.getElementById('numero').focus();
 
@@ -235,10 +277,14 @@ async function pesquisacep(valor) {
                 } else {
                     // CEP não encontrado em nenhuma API
                     limpa_formulário_cep();
+                    // Deixa editável quando CEP não encontrado e campo vazio
+                    if (document.getElementById('codMunicipio').value === '') {
+                        document.getElementById('codMunicipio').removeAttribute('readonly');
+                    }
                     Swal.fire({
                         icon: 'warning',
                         title: 'Atenção!',
-                        text: 'CEP não encontrado.',
+                        text: 'CEP não encontrado. Digite as informações manualmente.',
                         timer: 2000,
                         timerProgressBar: true,
                         showConfirmButton: false
@@ -247,6 +293,10 @@ async function pesquisacep(valor) {
             } catch (error) {
                 // Erro na busca
                 limpa_formulário_cep();
+                // Deixa editável quando erro e campo vazio
+                if (document.getElementById('codMunicipio').value === '') {
+                    document.getElementById('codMunicipio').removeAttribute('readonly');
+                }
                 console.error('Erro ao buscar CEP:', error);
                 Swal.fire({
                     icon: 'error',
@@ -304,11 +354,14 @@ function submitVoltar(consulta = '') {
 } // fim submitVoltar
 
 function submitLetra(letra_pesquisa = '') {
-    debugger
     f = document.lancamento;
     console.log(f);
+
+    // Pega o ID do input visível (existem 2 inputs com name="id" no template, um hidden e um visível)
+    var pesId = document.getElementById('id') ? document.getElementById('id').value : '';
+
     if ((f.pesNome.value == '') && (f.idClasse.value == '') && (f.idPessoa.value == '') && (f.idEstado.value == '')
-        && (f.idVendedor.value == '') && (f.pesCidade.value == '') && (f.idAtividade.value == '') && (letra_pesquisa == '') && (f.pesCnpjCpf.value == '')) {
+        && (f.idVendedor.value == '') && (f.pesCidade.value == '') && (f.idAtividade.value == '') && (letra_pesquisa == '') && (f.pesCnpjCpf.value == '') && (pesId == '')) {
         swal.fire({
             text: 'Digite algum filtro de pesquisa.',
             title: 'Atenção!',
@@ -323,7 +376,7 @@ function submitLetra(letra_pesquisa = '') {
         f.form.value = 'contas';
         f.submenu.value = 'letra';
         if (letra_pesquisa == '')
-            f.letra.value = f.pesNome.value + "|" + f.idClasse.value + "|" + f.idPessoa.value + "|" + f.idEstado.value + "|" + f.idVendedor.value + "|" + f.pesCidade.value + "|" + f.idAtividade.value + "|" + f.pesCnpjCpf.value;
+            f.letra.value = f.pesNome.value + "|" + f.idClasse.value + "|" + f.idPessoa.value + "|" + f.idEstado.value + "|" + f.idVendedor.value + "|" + f.pesCidade.value + "|" + f.idAtividade.value + "|" + f.pesCnpjCpf.value + "||" + pesId;
         else
             f.letra.value = letra_pesquisa + "|||||||||";
         f.submit();
@@ -336,22 +389,25 @@ function submitLetraPesquisa(nome = null, id = null, check = null) {
     f.form.value = 'contas';
     f.submenu.value = 'letra';
 
-    if(nome != null){
+    var inputId = document.getElementById('id');
+
+    if (nome != null) {
         f.pesNome.value = nome;
     }
-    
-    if(id != null){
-        f.id.value = id
+
+    if (id != null && inputId) {
+        inputId.value = id;
     }
 
-    if(check != null){
+    if (check != null) {
         f.check.value = check;
     }
-   
-    f.letra.value = f.pesNome.value + '|' + f.id.value + '|' + f.check.value;
-    
+
+    var clienteId = inputId ? inputId.value : '';
+    f.letra.value = f.pesNome.value + '|' + clienteId + '|' + f.check.value;
+
     f.submit();
-  }
+}
 
   function submitLetraPed(nome=null) {
 
@@ -451,11 +507,10 @@ function fechaFornecedorPar(id, nome) {
     window.close();
 }
 
-async function fechaLancamento(id, nome, opcao, credito = '', cep='', codMunicipio='', bloqueado='', id_representante='') {
-    debugger
+async function fechaLancamento(id, nome, opcao, credito = '', cep='', codMunicipio='', bloqueado='', id_representante='', from='') {
     f = window.opener.document.lancamento;
-     
-    if (bloqueado == "BLOQUEADO") {
+
+    if (bloqueado == "BLOQUEADO" && from != 'lancamento') {
         swal.fire({
             icon: 'error',
             title: 'Atenção!',
@@ -480,9 +535,12 @@ async function fechaLancamento(id, nome, opcao, credito = '', cep='', codMunicip
             if (opcao == "pesquisartransportador") {
                 f.transportador.value = id;
                 f.transpNome.value = nome;
-            } else if(f.form.value == 'contas_acompanhamento' || f.form.value == 'contrato' || f.form.value == 'apontamento_os_mobile'){  
+            } else if(f.form.value == 'contas_acompanhamento' || f.form.value == 'contrato' || f.form.value == 'apontamento_os_mobile' ){  
                 f.pessoa.value = id;
                 f.nome.value = nome;
+            } else if(f.form.value == 'tabela_preco'){
+                f.pessoa.value = id;
+                f.nomePessoa.value = nome;
             } else {
                 if (opcao == "pesquisarfornecedor") {
                     f.fornecedor.value = id;
@@ -490,6 +548,9 @@ async function fechaLancamento(id, nome, opcao, credito = '', cep='', codMunicip
                 } else if (f.form.value =="manifesto_fiscal"){
                     f.condutor.value = id;
                     f.nomecondutor.value = nome;
+                } else if (f.form.value == 'cotacao') {
+                    f.pessoa.value = id;
+                    f.nome.value = nome;
                 } else {
                     f.fornecedor.value = '';
                     f.pessoa.value = id;
@@ -528,6 +589,10 @@ function fechaPesquisaAtendimento(id, nome, contato) {
     f.pessoa.value = id;
     f.nome.value = nome;
     f.contato.value = contato;        
+
+    if (typeof window.opener.carregarObras === 'function') {
+        window.opener.carregarObras(id);
+    }
 
     window.close();
 }
@@ -687,6 +752,226 @@ function returnPedidos(response){
             title: 'Atenção!',
             dangerMode: true });
     }
+}
+
+function moedaParaNumero(valor) {
+    if (valor === null || valor === undefined) return 0;
+    let normalizado = String(valor).trim();
+    if (normalizado === '') return 0;
+    normalizado = normalizado.replace(/\./g, '').replace(',', '.');
+    let numero = parseFloat(normalizado);
+    return isNaN(numero) ? 0 : numero;
+}
+
+function numeroParaMoeda(valor) {
+    return Number(valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function normalizaDataISO(data) {
+    if (!data) return '';
+    const v = String(data).trim();
+    const sep = v.indexOf('-') > -1 ? '-' : (v.indexOf('/') > -1 ? '/' : '');
+    if (!sep) return v;
+    const p = v.split(sep);
+    if (p.length !== 3) return v;
+    return p[0].length === 4 ? `${p[0]}-${p[1]}-${p[2]}` : `${p[2]}-${p[1]}-${p[0]}`;
+}
+
+function formatarDataBR(dataISO) {
+    if (!dataISO) return '';
+    if (String(dataISO).indexOf('/') > -1) return String(dataISO);
+    const partes = String(dataISO).split('-');
+    if (partes.length !== 3) return dataISO;
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+}
+
+function limparModalCredito() {
+    $('#id_credito_modal,#pedido_credito_modal,#nritem_credito_modal').val('');
+    $('#quantidade_credito_modal,#unitario_credito_modal,#valor_credito_modal,#utilizado_credito_modal').val('0,00');
+    $('#emissao_credito_modal,#pedidoutilizado_credito_modal').val('');
+    $('#modalCreditoTitle').text('Cadastrar Crédito');
+    $('#btnSalvarAtualizarCredito').removeClass('btn-info').addClass('btn-success').text('Salvar');
+}
+
+function abrirModalCredito(id = '', pedido = '', nritem = '', quantidade = 0, unitario = 0, valor = 0, utilizado = 0, emissao = '', pedidoutilizado = '') {
+    if (!id) {
+        limparModalCredito();
+    } else {
+        const iso = normalizaDataISO(emissao);
+        $('#id_credito_modal').val(id);
+        $('#pedido_credito_modal').val(pedido);
+        $('#nritem_credito_modal').val(nritem);
+        $('#quantidade_credito_modal').val(numeroParaMoeda(quantidade));
+        $('#unitario_credito_modal').val(numeroParaMoeda(unitario));
+        $('#valor_credito_modal').val(numeroParaMoeda(valor));
+        $('#utilizado_credito_modal').val(numeroParaMoeda(utilizado));
+        $('#emissao_credito_modal').val(iso ? formatarDataBR(iso) : '');
+        $('#pedidoutilizado_credito_modal').val(pedidoutilizado || '');
+        $('#modalCreditoTitle').text('Editar Crédito');
+        $('#btnSalvarAtualizarCredito').removeClass('btn-success').addClass('btn-info').text('Atualizar');
+    }
+    $('#ModalCredito').modal('show');
+}
+
+function salvarCredito() {
+    const dados = {
+        id_credito: $('#id_credito_modal').val(),
+        cliente_id: $('input[name="id"]').val(),
+        pedido: $('#pedido_credito_modal').val(),
+        nritem: $('#nritem_credito_modal').val(),
+        quantidade: moedaParaNumero($('#quantidade_credito_modal').val()),
+        unitario: moedaParaNumero($('#unitario_credito_modal').val()),
+        valor: moedaParaNumero($('#valor_credito_modal').val()),
+        utilizado: moedaParaNumero($('#utilizado_credito_modal').val()),
+        emissao: normalizaDataISO($.trim($('#emissao_credito_modal').val())),
+        pedidoutilizado: $('#pedidoutilizado_credito_modal').val()
+    };
+
+    if (!dados.pedido || !dados.nritem) {
+        Swal.fire({ title: 'Atenção!', text: 'Informe Pedido e Nr Item.', icon: 'warning' });
+        return;
+    }
+
+    $.ajax({
+        type: 'POST',
+        url: 'index.php?mod=crm&form=contas&submenu=cadastraCredito&opcao=blank&id=' + dados.cliente_id,
+        data: dados,
+        success: function (resp) {
+            if (String(resp).trim() === 'success') {
+                $('#ModalCredito').modal('hide');
+                Swal.fire({
+                    text: 'Crédito salvo com sucesso!',
+                    title: 'Sucesso!',
+                    icon: 'success',
+                    showConfirmButton: false,
+                    timer: 1500
+                }).then(() => carregarListaCreditos());
+            } else {
+                Swal.fire({ title: 'Erro!', text: 'Erro ao salvar crédito.', icon: 'error' });
+            }
+        },
+        error: function () {
+            Swal.fire({ title: 'Erro!', text: 'Erro na requisição.', icon: 'error' });
+        }
+    });
+}
+
+function excluirCredito(idCredito) {
+    const clienteId = $('input[name="id"]').val();
+    Swal.fire({
+        title: 'Confirmar exclusão?',
+        text: 'Deseja excluir este crédito?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Excluir',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (!result.isConfirmed) return;
+
+        $.ajax({
+            type: 'POST',
+            url: 'index.php?mod=crm&form=contas&submenu=excluiCredito&opcao=blank&id=' + clienteId,
+            data: { id_credito: idCredito, cliente_id: clienteId },
+            success: function (resp) {
+                if (String(resp).trim() === 'success') {
+                    carregarListaCreditos();
+                } else {
+                    Swal.fire({ title: 'Erro!', text: 'Não foi possível excluir o crédito.', icon: 'error' });
+                }
+            },
+            error: function () {
+                Swal.fire({ title: 'Erro!', text: 'Erro na requisição.', icon: 'error' });
+            }
+        });
+    });
+}
+
+function carregarListaCreditos() {
+    const clienteId = $('input[name="id"]').val();
+    if (!clienteId || $('#lista-creditos').length === 0) return;
+
+    $.ajax({
+        url: 'index.php?mod=crm&form=contas&submenu=listaCreditosAjax&opcao=blank&id=' + clienteId,
+        type: 'GET',
+        dataType: 'json',
+        success: function (creditos) {
+            const tbody = $('#lista-creditos');
+            tbody.empty();
+
+            if (!creditos || creditos.length === 0) {
+                tbody.append('<tr><td colspan="10">Nenhum crédito cadastrado</td></tr>');
+                return;
+            }
+
+            let totalValor = 0;
+            let totalUtilizado = 0;
+            let totalSaldo = 0;
+
+            creditos.forEach(function (credito) {
+                const valor = parseFloat(credito.VALOR || 0);
+                const utilizado = parseFloat(credito.UTILIZADO || 0);
+                const saldo = valor - utilizado;
+                totalValor += valor;
+                totalUtilizado += utilizado;
+                totalSaldo += saldo;
+                const pedido = String(credito.PEDIDO || '').replace(/'/g, "\\'");
+                const nritem = String(credito.NRITEM || '').replace(/'/g, "\\'");
+                const emissao = String(credito.EMISSAO || '').replace(/'/g, "\\'");
+                const pedUtilizado = String(credito.PEDIDOUTILIZADO || '').replace(/'/g, "\\'");
+
+                const linha = `
+                    <tr>
+                        <td>${credito.PEDIDO || ''}</td>
+                        <td>${credito.NRITEM || ''}</td>
+                        <td>${numeroParaMoeda(credito.QUANTIDADE || 0)}</td>
+                        <td>${numeroParaMoeda(credito.UNITARIO || 0)}</td>
+                        <td>${numeroParaMoeda(valor)}</td>
+                        <td>${numeroParaMoeda(utilizado)}</td>
+                        <td>${numeroParaMoeda(saldo)}</td>
+                        <td>${credito.PEDIDOUTILIZADO || ''}</td>
+                        <td>${formatarDataBR(credito.EMISSAO || '')}</td>
+                        <td style="text-align:center;">
+                            <button type="button" class="btn btn-info btn-xs" style="min-width: 60px;"
+                                onclick="abrirModalCredito('${credito.ID}', '${pedido}', '${nritem}', '${credito.QUANTIDADE || 0}', '${credito.UNITARIO || 0}', '${credito.VALOR || 0}', '${credito.UTILIZADO || 0}', '${emissao}', '${pedUtilizado}')">
+                                Editar
+                            </button>
+                            <button type="button" class="btn btn-danger btn-xs" style="min-width: 60px;"
+                                onclick="excluirCredito('${credito.ID}')">
+                                Excluir
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tbody.append(linha);
+            });
+
+            tbody.append(`
+                <tr>
+                    <td><strong>Totais</strong></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td><strong>R$ ${numeroParaMoeda(totalValor)}</strong></td>
+                    <td><strong>R$ ${numeroParaMoeda(totalUtilizado)}</strong></td>
+                    <td><strong>R$ ${numeroParaMoeda(totalSaldo)}</strong></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            `);
+        },
+        error: function () {
+            Swal.fire({ title: 'Erro!', text: 'Erro ao carregar lista de créditos.', icon: 'error' });
+        }
+    });
+}
+
+function submitCadastraCredito() {
+    salvarCredito();
+}
+
+function submitExcluirCredito(idCredito) {
+    excluirCredito(idCredito);
 }
 
 // Função para abrir a modal de obra
@@ -1082,6 +1367,7 @@ function openModalAddress() {
         let ddd         = document.querySelector('.modal-body-address #ddd-address');
         let fone        = document.querySelector('.modal-body-address #fone-address');
         let foneContato = document.querySelector('.modal-body-address #foneContato-address');
+        let codMunicipio = document.querySelector('.modal-body-address #codmunicipio-address');
         let status      = document.querySelector('#status-address');
 
         // insira as informações nos campos da modal
@@ -1098,6 +1384,7 @@ function openModalAddress() {
         ddd.value         = arguments[12];
         fone.value        = arguments[13];
         foneContato.value = arguments[15];
+        codMunicipio.value = arguments[18];
 
         if (arguments[17] === "A") {
             status.checked = false;
@@ -1113,7 +1400,7 @@ function openModalAddress() {
 
 //logica para consultar cep da modal address e preencher campos - jhon Kenedy
 async function pesquisarEndereco(cep) {
-     
+    
     try {
         const cepSemMascara = cep.replace(/\D/g, '');
         const validacep = /^[0-9]{8}$/;
@@ -1157,7 +1444,7 @@ async function buscarCepComFallback(cep) {
                 bairro: data.neighborhood,
                 localidade: data.city,
                 uf: data.state,
-                ibge: data.location?.coordinates?.latitude || '',
+                ibge: '', // BrasilAPI não retorna IBGE no endpoint de CEP
                 gia: '',
                 ddd: '',
                 siafi: ''
@@ -1224,6 +1511,17 @@ function preencherFormulario(endereco) {
     document.querySelector('.modal-body-address #estado-address').value = limparTexto(endereco.uf);
     document.querySelector('.modal-body-address #bairro-address').value = limparTexto(endereco.bairro);
     document.querySelector('.modal-body-address #cep-address').defaultValue = endereco.cep;
+    
+    // Preenche código do município se encontrado
+    if (endereco.ibge && endereco.ibge !== '') {
+        document.querySelector('.modal-body-address #codmunicipio-address').value = endereco.ibge;
+        document.querySelector('.modal-body-address #codmunicipio-address').setAttribute('readonly', true);
+    } else {
+        // Se não veio IBGE, deixa editável
+        document.querySelector('.modal-body-address #codmunicipio-address').value = '';
+        document.querySelector('.modal-body-address #codmunicipio-address').removeAttribute('readonly');
+    }
+    
     document.querySelector('.modal-body-address #numero-address').value = '';
     document.querySelector('.modal-body-address #complemento-address').value = '';
     document.querySelector('.modal-body-address #numero-address').focus();
@@ -1237,6 +1535,10 @@ async function pesquisarEnderecoECarregarFormulario(cep) {
         preencherFormulario(endereco);
     } catch (error) {
         limparFormularioCep();
+        // Deixa editável quando CEP não encontrado e campo vazio
+        if (document.querySelector('.modal-body-address #codmunicipio-address').value === '') {
+            document.querySelector('.modal-body-address #codmunicipio-address').removeAttribute('readonly');
+        }
         Swal.fire({
             icon: 'warning',
             title: 'Atenção!',
@@ -1253,6 +1555,9 @@ function limparFormularioCep(){
     document.querySelector('.modal-body-address #numero-address').value = "";
     document.querySelector('.modal-body-address #cidade-address').value = "";
     document.querySelector('.modal-body-address #estado-address').value = "";
+    document.querySelector('.modal-body-address #codmunicipio-address').value = "";
+    // Permite edição quando campo está vazio
+    document.querySelector('.modal-body-address #codmunicipio-address').removeAttribute('readonly');
 }
 
 function limparTexto(texto) {
@@ -1273,6 +1578,7 @@ function insertAddress(){
     // Validação obrigatória
     const cep = document.getElementById('cep-address').value.trim();
     const titulo = document.getElementById('tituloEndereco-address').value.trim();
+    const codMunicipio = document.getElementById('codmunicipio-address').value.trim();
 
     if (titulo === '') {
         Swal.fire({
@@ -1292,6 +1598,19 @@ function insertAddress(){
         document.getElementById('cep-address').focus();
         return;
     }
+    if (codMunicipio === '') {
+        document.getElementById('codmunicipio-address').style.border = 'solid 2px #f500009e';
+        document.getElementById('codmunicipio-address').addEventListener('blur', function(){
+            document.getElementById('codmunicipio-address').style.border = '1px solid #ccc';
+        });
+        Swal.fire({
+            text: 'Código do municipio não preenchido, verifique o CEP para corrigir!',
+            title: 'Atenção', 
+            dangerMode: true
+        });
+        document.getElementById('codmunicipio-address').focus();
+        return;
+    }
 
     const objAddress = {
         id_address : document.getElementById('id-address').value,
@@ -1308,6 +1627,7 @@ function insertAddress(){
         bairro: document.getElementById('bairro-address').value,
         cidade: document.getElementById('cidade-address').value,
         estado: document.getElementById('estado-address').value,
+        codMunicipio: document.getElementById('codmunicipio-address').value,
         status: document.getElementById('status-address').checked,
 
     }
@@ -1376,7 +1696,7 @@ function searchAdrressClient(id){
 
 }
 
-function openModalAddress(id, cliente, descricao, tipoend, tituloend, endereco, numero, complemento, bairro, cidade, uf, cep, fonearea, fone, foneramal, fonecontato, endentregapadrao, status) {
+function openModalAddress(id, cliente, descricao, tipoend, tituloend, endereco, numero, complemento, bairro, cidade, uf, cep, fonearea, fone, foneramal, fonecontato, endentregapadrao, status, codmunicipio) {
     // Limpa os campos do modal
     $('#id-address').val(id || '');
     $('#descricao-address').val(descricao || '');
@@ -1391,6 +1711,15 @@ function openModalAddress(id, cliente, descricao, tipoend, tituloend, endereco, 
     $('#ddd-address').val(fonearea || '');
     $('#fone-address').val(fone || '');
     $('#foneContato-address').val(fonecontato || '');
+    $('#codmunicipio-address').val(codmunicipio || '');
+
+    // Define readonly apenas se codmunicipio estiver preenchido
+    const codMunicipioField = document.getElementById('codmunicipio-address');
+    if (codmunicipio && codmunicipio !== '') {
+        codMunicipioField.setAttribute('readonly', true);
+    } else {
+        codMunicipioField.removeAttribute('readonly');
+    }
 
     // Define o estado do checkbox de status
     if (status === 'I') {
@@ -1398,5 +1727,70 @@ function openModalAddress(id, cliente, descricao, tipoend, tituloend, endereco, 
     } else {
         $('#status-address').prop('checked', false);
     }
+}
+
+function abrirModalInfoCampo(trigger) {
+    var el = trigger.closest ? trigger.closest('.info-campo-trigger') : null;
+    if (!el) {
+        return;
+    }
+
+    var dados = el.querySelector('.info-campo-dados');
+    if (!dados) {
+        return;
+    }
+
+    function getInfo(name) {
+        var node = dados.querySelector('[data-info="' + name + '"]');
+        return node ? node.innerHTML : '';
+    }
+
+    var tituloEl = document.getElementById('modalInfoCampoTitulo');
+    var subtituloEl = document.getElementById('modalInfoCampoSubtitulo');
+    var gifEl = document.getElementById('modalInfoCampoGif');
+    var textoEl = document.getElementById('modalInfoCampoTexto');
+    var modalEl = document.getElementById('ModalInfoCampo');
+
+    if (!tituloEl || !modalEl) {
+        return;
+    }
+
+    tituloEl.innerHTML = getInfo('titulo-modal');
+
+    var subtitulo = getInfo('subtitulo');
+    subtituloEl.innerHTML = subtitulo;
+    subtituloEl.style.display = subtitulo.replace(/<[^>]+>/g, '').trim() ? '' : 'none';
+
+    var gifHtml = getInfo('gif');
+    gifEl.innerHTML = gifHtml;
+    gifEl.style.display = gifHtml.replace(/<[^>]+>|&nbsp;|\s/g, '').trim() ? '' : 'none';
+
+    textoEl.innerHTML = getInfo('texto');
+
+    if (modalEl.parentNode !== document.body) {
+        document.body.appendChild(modalEl);
+    }
+
+    if (typeof jQuery !== 'undefined' && jQuery.fn.modal) {
+        jQuery(modalEl).modal('show');
+    }
+}
+
+function initModalInfoCampo() {
+    if (typeof jQuery === 'undefined') {
+        return;
+    }
+
+    var modalEl = document.getElementById('ModalInfoCampo');
+    if (modalEl && modalEl.parentNode !== document.body) {
+        document.body.appendChild(modalEl);
+    }
+
+    jQuery(document).off('click.infoCampo', '.info-campo-trigger');
+    jQuery(document).on('click.infoCampo', '.info-campo-trigger', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        abrirModalInfoCampo(this);
+    });
 }
 

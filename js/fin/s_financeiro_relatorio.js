@@ -31,6 +31,9 @@ function controlInputs(report)
         case "rel_financeiro_data_entrega":
             controlInputsRelFinanceiroDataEntrega();
             break;
+        case "dre_anual":
+            controlInputsDREAnual();
+            break;
         }
     }
     
@@ -56,6 +59,8 @@ function controlInputsFluxoCaixa()
     // Habilitar: Período, Referência, Tipo Lançamento, Situação Lançamento, Conta, Centro Custo
     // Desabilitar: Situação Documento, Tipo Documento, Pessoa, Gênero
     
+    $('#periodo_container').show();
+    $('#ano_container').hide();
     $('#data_consulta').prop('disabled', false);
     $('#referencia').prop('disabled', false);
     $('#tipolanc').prop('disabled', false);
@@ -74,6 +79,8 @@ function controlInputsConsolidacao()
     // Habilitar: Período, Referência, Tipo Lançamento, Situação Lançamento, Conta, Centro Custo
     // Desabilitar: Situação Documento, Tipo Documento, Pessoa, Gênero
     
+    $('#periodo_container').show();
+    $('#ano_container').hide();
     $('#data_consulta').prop('disabled', false);
     $('#referencia').prop('disabled', false);
     $('#tipolanc').prop('disabled', false);
@@ -92,6 +99,8 @@ function controlInputsResumoGenero()
     // Habilitar: Período, Referência, Tipo Lançamento, Situação Lançamento, Centro Custo, Gênero
     // Desabilitar: Situação Documento, Tipo Documento, Conta, Pessoa
     
+    $('#periodo_container').show();
+    $('#ano_container').hide();
     $('#data_consulta').prop('disabled', false);
     $('#referencia').prop('disabled', false);
     $('#tipolanc').prop('disabled', false);
@@ -110,6 +119,8 @@ function controlInputsCentroCustoAnalitico()
     // Habilitar: Período, Referência, Tipo Lançamento, Situação Lançamento, Centro Custo, Gênero
     // Desabilitar: Situação Documento, Tipo Documento, Conta, Pessoa
     
+    $('#periodo_container').show();
+    $('#ano_container').hide();
     $('#data_consulta').prop('disabled', false);
     $('#referencia').prop('disabled', false);
     $('#tipolanc').prop('disabled', false);
@@ -128,6 +139,8 @@ function controlInputsCentroCustoSintetico()
     // Habilitar: Período, Referência, Tipo Lançamento, Situação Lançamento, Centro Custo
     // Desabilitar: Situação Documento, Tipo Documento, Conta, Pessoa, Gênero
     
+    $('#periodo_container').show();
+    $('#ano_container').hide();
     $('#data_consulta').prop('disabled', false);
     $('#referencia').prop('disabled', false);
     $('#tipolanc').prop('disabled', false);
@@ -146,6 +159,8 @@ function controlInputsDREFinanceiro()
     // Habilitar: Período, Referência, Tipo Lançamento, Situação Lançamento, Centro Custo, Gênero
     // Desabilitar: Situação Documento, Tipo Documento, Conta, Pessoa
     
+    $('#periodo_container').show();
+    $('#ano_container').hide();
     $('#data_consulta').prop('disabled', false);
     $('#referencia').prop('disabled', false);
     $('#tipolanc').prop('disabled', false);
@@ -164,6 +179,8 @@ function controlInputsRelFinanceiroDataEntrega()
     // Habilitar: Período, Referência, Tipo Lançamento, Situação Lançamento, Pessoa
     // Desabilitar: Situação Documento, Tipo Documento, Conta, Centro Custo, Gênero
     
+    $('#periodo_container').show();
+    $('#ano_container').hide();
     $('#data_consulta').prop('disabled', false);
     $('#referencia').prop('disabled', false);
     $('#tipolanc').prop('disabled', false);
@@ -175,6 +192,23 @@ function controlInputsRelFinanceiroDataEntrega()
     $('#conta').prop('disabled', true);
     $('#filial').prop('disabled', true);
     $('#genero').prop('disabled', true);
+}
+
+function controlInputsDREAnual()
+{
+    // DRE Anual: só Ano (janeiro a dezembro). Esconde período, mostra seletor de ano.
+    
+    $('#periodo_container').hide();
+    $('#ano_container').show();
+    $('#referencia').prop('disabled', false);
+    $('#tipolanc').prop('disabled', false);
+    $('#sitlanc').prop('disabled', false);
+    $('#sitdocto').prop('disabled', false);
+    $('#tipoDocto').prop('disabled', false);
+    $('#conta').prop('disabled', false);
+    $('#filial').prop('disabled', false);
+    $('#pessoa').prop('disabled', false);
+    $('#genero').prop('disabled', false);
 }
 
 function Cancelar() {
@@ -382,14 +416,23 @@ function mountParameters()
         let params = {};
         let form = document.getElementById("form_report");
 
-        // Período - tratamento especial para daterangepicker
-        if (document.getElementById("data_consulta")) {
-            const dataConsulta = document.getElementById("data_consulta").value;
-            if (dataConsulta && dataConsulta.trim() !== '') {
-                const dates = dataConsulta.split(' - ');
-                if (dates.length === 2 && dates[0].trim() && dates[1].trim()) {
-                    params.dataIni = dates[0].trim();
-                    params.dataFim = dates[1].trim();
+        // DRE Anual: envia só o ano (backend usa 01/01 a 31/12)
+        const report = document.getElementById("tipoRelatorio") ? document.getElementById("tipoRelatorio").value : '';
+        if (report === 'dre_anual' && document.getElementById("ano")) {
+            const ano = document.getElementById("ano").value;
+            if (ano && ano.trim() !== '') {
+                params.ano = ano.trim();
+            }
+        } else {
+            // Período - tratamento especial para daterangepicker
+            if (document.getElementById("data_consulta")) {
+                const dataConsulta = document.getElementById("data_consulta").value;
+                if (dataConsulta && dataConsulta.trim() !== '') {
+                    const dates = dataConsulta.split(' - ');
+                    if (dates.length === 2 && dates[0].trim() && dates[1].trim()) {
+                        params.dataIni = dates[0].trim();
+                        params.dataFim = dates[1].trim();
+                    }
                 }
             }
         }

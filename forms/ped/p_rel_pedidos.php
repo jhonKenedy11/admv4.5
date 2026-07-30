@@ -204,10 +204,12 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
 
                 $this->m_object = (object) array(
                     "obra" => $this->m_obra,
+                    "situacao" => $this->m_situacao,
                     "cliente_nome" => $this->m_cliente_nome,
                     "cliente_id" => $this->m_cliente_id,
                     "centro_custo" => $this->m_centro_custo,
                     "motivo" => $this->m_motivo,
+                    "vendedor" => $this->m_vendedor,
                     "data_ini" => $this->m_data_ini,
                     "data_fim" => $this->m_data_fim,
                     "tipo_relatorio" => $this->m_tipo_relatorio
@@ -231,6 +233,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
                 break;
             case 'relatorioFaturaGeralA':
 
+                $this->m_rel_situacao = 'A';
                 $this->m_object = (object) array(
                     "obra" => $this->m_obra,
                     "situacao" => $this->m_situacao,
@@ -240,8 +243,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
                     "condicao_pagamento" => $this->m_condicao_pagamento,
                     "data_ini" => $this->m_data_ini,
                     "data_fim" => $this->m_data_fim,
-                    "tipo_relatorio" => $this->m_tipo_relatorio,
-                    $this->rel_situacao = 'A'
+                    "tipo_relatorio" => $this->m_tipo_relatorio
                 );
                 $this->geraRelatorioVenda();
                 break;
@@ -292,12 +294,12 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
             || $this->m_tipo_relatorio == 'relatorioFaturaGeralA' || $this->m_tipo_relatorio == 'relatorioItemEntrega'
         ) {
             $lancItem = [];
-            $lanc = $lanc ?? [];
+            $lanc = is_array($lanc) ? $lanc : [];
             for ($i = 0; $i < count($lanc); $i++) {
                 $resp = $this->m_tipo_relatorio == 'relatorioFaturaGeral' || $this->m_tipo_relatorio == 'relatorioFaturaGeralA'
-                    ? $this->select_fatura_pedidos_venda($lanc[$i]['PEDIDO'], $this->rel_situacao, 'C', 'A')
+                    ? $this->select_fatura_pedidos_venda($lanc[$i]['PEDIDO'], $this->m_rel_situacao)
                     : $this->select_pedidos_item_geral($lanc[$i]['PEDIDO'], $this->m_item_estoque);
-                $resp = $resp ?? [];
+                $resp = is_array($resp) ? $resp : [];
                 for ($k = 0; $k < count($resp); $k++) {
                     if ($lancItem[0] == '') {
                         $lancItem[$k] = $resp[$k];
@@ -327,7 +329,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
         //$fin = c_pedidoVendaNf::calculaParcelasNfe($descCondPgto, $lanc[0]['TOTAL']);
         endif;
 
-        $lanc = $lanc ?? [];
+        $lanc = is_array($lanc) ? $lanc : [];
         $this->smarty->assign('descCondPgto', $descCondPgto);
         $this->smarty->assign('periodoIni', $this->m_par[1]);
         $this->smarty->assign('periodoFim', $this->m_par[2]);
@@ -342,7 +344,7 @@ class p_rel_pedidos extends c_pedido_venda_relatorios
         $consulta->close_connection();
 
 
-        $result = $consulta->resultado ?? [];
+        $result = is_array($consulta->resultado) ? $consulta->resultado : [];
 
 
         if (sizeof($result) > 0) {

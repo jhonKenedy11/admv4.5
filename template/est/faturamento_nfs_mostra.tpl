@@ -111,6 +111,21 @@
         color: #0c5460;
         border: 1px solid #bee5eb;
     }
+    .x_panel {
+        border-left: 4px solid rgb(65, 108, 109);
+        background: #f8f9fa;
+    }
+        /* Título com identidade de LOG */
+    .x_title {
+        background: linear-gradient(135deg, rgb(65, 108, 109) 0%, #2d3748 100%);
+        color: white !important;
+        padding: 15px;
+        border-radius: 5px 5px 0 0;
+        margin: -1px -1px 15px -1px;
+    }
+    .x_title h2 small {
+        color: #cbd5e0 !important;
+    }
 </style>
 
 <script src="{$bootstrap}/jquery/dist/jquery.3.5.1.min.js"></script>
@@ -123,7 +138,7 @@
                 <div class="x_panel">
                 
                     <div class="x_title">
-                        <h2><i class="fa fa-search"></i> Pesquisa de Faturas NFS</h2>
+                        <h2><i class="fa fa-search"></i> Pesquisa De Ordem de Serviço</h2>
                         <div class="clearfix"></div>
                     </div>
                     

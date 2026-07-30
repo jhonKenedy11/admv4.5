@@ -249,6 +249,23 @@ Class p_pedido_relatorios extends c_pedidoVenda {
         $this->smarty->assign('obra_names', $obra_names);
         // ########## FIM COMBOBOX OBRA ##########
 
+        // COMBOBOX GRUPO (relatório compra por encomenda)
+        $consulta = new c_banco();
+        $sql = "SELECT G.GRUPO AS ID, MAX(G.DESCRICAO) AS DESCRICAO FROM EST_GRUPO G GROUP BY G.GRUPO ORDER BY DESCRICAO";
+        $consulta->exec_sql($sql);
+        $result = $consulta->resultado ?? [];
+        $consulta->close_connection();
+
+        $grupo_ids = [''];
+        $grupo_names = ['Todos os grupos'];
+        for ($i = 0; $i < count($result); $i++) {
+            $grupo_ids[$i + 1] = $result[$i]['ID'];
+            $grupo_names[$i + 1] = $result[$i]['DESCRICAO'];
+        }
+        $this->smarty->assign('grupo_ids', $grupo_ids);
+        $this->smarty->assign('grupo_names', $grupo_names);
+        $this->smarty->assign('grupo_id', '');
+
         $this->smarty->display('pedido_relatorios.tpl');
     } //fim mostraRelatorio
 

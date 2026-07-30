@@ -11,6 +11,7 @@
 
 $dir = dirname(__FILE__);
 include_once($dir . "/../../class/ped/c_pedido_ps.php");
+include_once($dir . "/../../class/ped/c_pedido_venda_tools.php");
 include_once($dir . "/../../class/est/c_produto.php");
 include_once($dir . "/../../bib/c_date.php");
 include_once($dir . "/../../bib/c_tools.php");
@@ -177,6 +178,9 @@ public function incluiPecasAtendimentoControle($arrPeca, $idAtendimento){
         $this->setVlrUnitarioProduto($peca[7]);
         $this->setDescontoProduto($peca[9]);
         $this->setPercDescontoProduto($peca[8]);
+        $this->setNumeroOc($peca[14]);
+        $this->setNItemPed($peca[15]);
+        $this->setDataEntregaPeca($peca[16]);
         $totalPeca = ($this->getQuantidadeProduto('B') * $this->getVlrUnitarioProduto('B') - $this->getDescontoProduto('B'));
         $this->setTotalProduto($totalPeca, true);
 
@@ -247,6 +251,9 @@ public function alteraPecasAtendimentoControle($arrPeca){
         $this->setVlrUnitarioProduto($m_item[7]);
         $this->setDescontoProduto($m_item[9]);
         $this->setPercDescontoProduto($m_item[8]);
+        $this->setNumeroOc($m_item[14]);
+        $this->setNItemPed($m_item[15]);
+        $this->setDataEntregaPeca($m_item[16]);
         $totalPeca = ($this->getQuantidadeProduto('B') * $this->getVlrUnitarioProduto('B') - $this->getDescontoProduto('B'));
         $this->setTotalProduto($totalPeca, true);
 
@@ -346,6 +353,46 @@ public function recalcularDescontoPecas($idAtendimento, $descontoAtendimento){
         throw new Exception($e->getMessage()."Problemas ao fazer o recalculo do Desconto." );
     }
 }
+
+    /**
+     * Resolve destino na confirmação cotação→pedido conforme estoque e FAT_PARAMETRO.ENCOMENDA.
+     *
+     * @return array{destino: int, msg: string} destino: 6=pedido, 13=encomenda, 0=bloquear
+     */
+    public function pedidoPsResolverConfirmacaoEstoque(int $idPedido): array
+    {
+        $parametros = $this->getFatParametrosFilial();
+
+        $paramEst = new c_banco();
+        $paramEst->setTab('EST_PARAMETRO');
+        $controlaEstoque = $paramEst->getField('CONTROLAESTOQUE', 'FILIAL=' . $this->m_empresacentrocusto);
+        $paramEst->close_connection();
+
+        if ($controlaEstoque !== 'S') {
+            return ['destino' => 6, 'msg' => ''];
+        }
+
+        $this->setId($idPedido);
+        $this->buscaPedido();
+        $itensPed = $this->select_pedido_item_id();
+        if (!is_array($itensPed) || count($itensPed) === 0) {
+            return ['destino' => 6, 'msg' => ''];
+        }
+        $cce = (int) ($this->getCentroCustoEntrega() ?: $this->m_empresacentrocusto);
+
+        $msg = $this->validaEstoquePedidoPs($idPedido, $cce);
+
+        if ($msg === null || $msg === '') {
+            return ['destino' => 6, 'msg' => ''];
+        }
+
+        $encomendaAtiva = strtoupper((string) ($parametros['encomenda'] ?? 'N')) === 'S';
+        if ($encomendaAtiva) {
+            return ['destino' => 13, 'msg' => (string) $msg];
+        }
+
+        return ['destino' => 0, 'msg' => (string) $msg];
+    }
 
 }	//	END OF THE CLASS
 

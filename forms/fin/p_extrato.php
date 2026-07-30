@@ -26,9 +26,14 @@ private $m_letra = NULL;
 private $m_par = NULL;
 public $smarty = NULL;
 public $genero = NULL;
+public $generoRec = NULL;
 public $centroCusto = NULL;
 public $datavenc = NULL;
 public $conta = NULL;
+public $generoPag = NULL;
+public $centroCustoPag = NULL;
+public $dataPag = NULL;
+public $contaPag = NULL;
 
 
 
@@ -38,6 +43,7 @@ function __construct(){
 
         //Assim obtém os dados passando pelo filtro contra INJECTION ( segurança PHP )
         $parmPost = filter_input_array(INPUT_POST, FILTER_DEFAULT);
+        $parmGet = filter_input_array(INPUT_GET, FILTER_DEFAULT);
 
         // Cria uma instancia variaveis de sessao
         session_start();
@@ -53,13 +59,17 @@ function __construct(){
         $this->smarty->cache_dir = ADMraizCliente . "/smarty/cache/";
 
         // inicializa variaveis de controle
-        $this->m_submenu = isset($parmPost['submenu']) ? $parmPost['submenu'] : '';
-        $this->m_letra = isset($parmPost['letra']) ? $parmPost['letra'] : '';
+        $this->m_submenu = (isset($parmGet['submenu']) ? $parmGet['submenu'] : (isset($parmPost['submenu']) ? $parmPost['submenu'] : ''));
+        $this->m_letra = (isset($parmGet['letra']) ? $parmGet['letra'] : (isset($parmPost['letra']) ? $parmPost['letra'] : ''));
         $this->m_par = explode("|", $this->m_letra);
-        $this->genero = isset($parmPost['genero']) ? $parmPost['genero'] : '';
+        $this->generoRec = isset($parmPost['generoRec']) ? $parmPost['generoRec'] : '';
         $this->centroCusto = isset($parmPost['centrocusto']) ? $parmPost['centrocusto'] : '';
         $this->datavenc = isset($parmPost['datavenc']) ? $parmPost['datavenc'] : '';
         $this->conta = isset($parmPost['conta']) ? $parmPost['conta'] : '';
+        $this->generoPag = isset($parmPost['generoPag']) ? $parmPost['generoPag'] : '';
+        $this->centroCustoPag = isset($parmPost['centrocustoPag']) ? $parmPost['centrocustoPag'] : '';
+        $this->dataPag = isset($parmPost['dataPag']) ? $parmPost['dataPag'] : '';
+        $this->contaPag = isset($parmPost['contaPag']) ? $parmPost['contaPag'] : '';
 
         // caminhos absolutos para todos os diretorios biblioteca e sistema
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
@@ -79,6 +89,11 @@ function __construct(){
         $this->setCompetencia(isset($parmPost['dataCompetencia']) ? $parmPost['dataCompetencia'] : '');
         $this->setObs(isset($parmPost['obs']) ? $parmPost['obs'] : '');
 
+        // dados para exportacao e relatorios
+        $this->smarty->assign('titulo', "Lançamentos Extrato");
+        $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6,7,8]"); 
+        $this->smarty->assign('disableSort', "[ 8 ]"); 
+        $this->smarty->assign('numLine', "50");  
         // include do javascript
         // include ADMjs . "/fin/s_lancamento.js";
     
@@ -128,7 +143,12 @@ function controle(){
             break;
         case 'inclui':
             if ($this->verificaDireitoUsuario('FinExtrato', 'I')){
-                    $this->mostraExtrato($this->incluiExtrato());
+                    $result = $this->incluiExtrato();
+                    if($result){
+                        $this->mostraExtrato('Financeiro cadastrado!');
+                    }else{
+                        $this->mostraExtrato('Erro ao cadastrar o financeiro!');
+                    }
             }		
             break;
         case 'altera':
@@ -148,8 +168,25 @@ function controle(){
         case 'cadastroresumo':
             if ($this->verificaDireitoUsuario('FinExtrato', 'S')){
                 $lanc = $this->select_extrato_resumo($this->m_letra);
-                $result = $this->addLancamentoFinanceiro($lanc, $this->m_letra, $this->centroCusto, $this->genero, $this->datavenc, $this->conta);
+                $result = $this->addLancamentoFinanceiro($lanc, $this->m_letra, $this->centroCusto, $this->generoRec, $this->datavenc, $this->conta,
+                     $this->centroCustoPag, $this->generoPag, $this->dataPag, $this->contaPag);
                 $this->mostraExtrato($result);
+            }
+            break;
+        case 'relatorio':
+            if ($this->verificaDireitoUsuario('FinExtrato', 'C')){
+                    $lanc = [];
+                    if ($this->m_letra != ''){
+                        $lanc = $this->select_extrato_letra($this->m_letra);
+                    }
+                    $this->smarty->assign('pathImagem', $this->img);
+                    $this->smarty->assign('pathCliente', ADMhttpCliente);
+                    $this->smarty->assign('letra', $this->m_letra);
+                    $this->smarty->assign('dataImp', date("d/m/Y H:i:s"));
+                    $this->smarty->assign('dataIni', $this->m_par[1]);
+                    $this->smarty->assign('dataFim', $this->m_par[2]);
+                    $this->smarty->assign('lanc', $lanc);
+                    $this->smarty->display('extrato_relatorio_detalhado.tpl');
             }
             break;
         default:
@@ -331,7 +368,7 @@ function mostraExtrato($mensagem){
     // calculo totais
     $totalRec = 0;
     $totalPag = 0;
-    $lanc = is_array($lanc) ? $lanc : [];
+    $lanc = $lanc ?? [];
     for ($i=0; $i < count($lanc); $i++){
         if ($lanc[$i]['TIPOLANCAMENTO'] == 'RECEBIMENTO') {
             $totalRec += $lanc[$i]['VALOR'];
@@ -343,6 +380,12 @@ function mostraExtrato($mensagem){
     $this->smarty->assign('totalPag', $totalPag);
     $this->smarty->assign('saldo', $totalRec - $totalPag);
 
+
+    // dados para exportacao e relatorios
+    $this->smarty->assign('titulo', "Lançamentos Extrato");
+    $this->smarty->assign('colVis', "[ 0,1,2,3,4,5,6,7 ]"); 
+    $this->smarty->assign('disableSort', "[ 7 ]"); 
+    $this->smarty->assign('numLine', "50"); 
 
     $this->smarty->display('extrato_mostra.tpl');
 	
@@ -359,6 +402,13 @@ function mostraResumoExtrato(){
     	$lanc = $this->select_extrato_resumo($this->m_letra);
     }
 	
+    // TESTA SE VALORES NEGATIVOS (pagamento)
+    $mostraRecebimento = 'N';
+    for ($i=0; $i < count($lanc); $i++){
+        if ($lanc[$i]['TOTAL'] < 0) $mostraRecebimento = 'S';
+    }    
+    $this->smarty->assign('mostraRecebimento', $mostraRecebimento);
+
     $this->setPessoa($this->m_par[3]);
     $this->setPessoaNome();
     $this->smarty->assign('pessoa', $this->getPessoa());
@@ -374,9 +424,13 @@ function mostraResumoExtrato(){
 	
     $this->smarty->assign('dataIni', $this->m_par[1]);
     $this->smarty->assign('dataFim', $this->m_par[2]);
-    $this->smarty->assign('genero', $this->genero);
+    $this->smarty->assign('generoRec', $this->generoRec);
     $this->smarty->assign('centrocusto', $this->centroCusto);
     $this->smarty->assign('datavenc', $this->datavenc);
+
+    $this->smarty->assign('generoPag', $this->generoPag);
+    $this->smarty->assign('centrocustoPag', $this->centroCustoPag);
+    $this->smarty->assign('dataPag', $this->dataPag);
 
     // centrocusto
     $consulta = new c_banco();
@@ -386,48 +440,15 @@ function mostraResumoExtrato(){
     $result = $consulta->resultado;
     $centrocusto_ids[0] = '';
     $centrocusto_names[0] = '';
-    for ($i = 1; $i < count($result); $i++) {
+    for ($i = 0; $i < count($result); $i++) {
         $centrocusto_ids[$i] = $result[$i]['ID'];
         $centrocusto_names[$i] = $result[$i]['DESCRICAO'];
     }
     $this->smarty->assign('centrocusto_ids', $centrocusto_ids);
     $this->smarty->assign('centrocusto_names', $centrocusto_names);
     $this->smarty->assign('centrocusto_id', $this->centroCusto);
+    $this->smarty->assign('centrocustoPag_id', $this->centroCustoPag);
 
-    // conta bancaria
-    $consulta = new c_banco();
-    $sql = "select conta as id, nomeinterno as descricao from fin_conta  where status ='A'";
-    $consulta->exec_sql($sql);
-    $consulta->close_connection();
-    $result = $consulta->resultado;
-    for ($i=0; $i < count($result); $i++){
-            $conta_ids[$i] = $result[$i]['ID'];
-            $conta_names[$i] = ucwords(strtolower($result[$i]['DESCRICAO']));
-    }
-    $this->smarty->assign('conta_ids', $conta_ids);
-    $this->smarty->assign('conta_names', $conta_names);
-    $this->smarty->assign('conta_id', $this->conta);	
-
-    // dados para exportacao e relatorios
-    $this->smarty->assign('titulo', "Resumo Lançamentos Financeiros");
-    $this->smarty->assign('colVis', "[ 0,1,2,3 ]"); 
-    $this->smarty->assign('disableSort', "[ 3 ]"); 
-    $this->smarty->assign('numLine', "100"); 
-    $consulta = new c_banco();
-    $sql = "SELECT genero AS id, descricao FROM fin_genero where tipolancamento='R'";
-    $consulta->exec_sql($sql);
-    $consulta->close_connection();
-    $result = $consulta->resultado;
-    $generoRec_ids[0] = '';
-    $generoRec_names[0] = '';
-    for ($i=1; $i < count($result); $i++){
-            $generoRec_ids[$i] = $result[$i]['ID'];
-            $generoRec_names[$i] = $result[$i]['ID']." - ".ucwords(strtolower($result[$i]['DESCRICAO']));
-    }
-    $this->smarty->assign('generoRec_ids', $generoRec_ids);
-    $this->smarty->assign('generoRec_names', $generoRec_names);
-    $this->smarty->assign('generoRec_id', $this->generoRec);
-    
     // genero documento Recebimento
     $consulta = new c_banco();
     $sql = "SELECT genero AS id, descricao FROM fin_genero where tipolancamento='R'";
@@ -459,6 +480,29 @@ function mostraResumoExtrato(){
     $this->smarty->assign('generoPag_ids', $generoPag_ids);
     $this->smarty->assign('generoPag_names', $generoPag_names);
     $this->smarty->assign('generoPag_id', $this->generoPag);
+
+
+    // conta bancaria
+    $consulta = new c_banco();
+    $sql = "select conta as id, nomeinterno as descricao from fin_conta  where status ='A'";
+    $consulta->exec_sql($sql);
+    $consulta->close_connection();
+    $result = $consulta->resultado;
+    for ($i=0; $i < count($result); $i++){
+            $conta_ids[$i] = $result[$i]['ID'];
+            $conta_names[$i] = ucwords(strtolower($result[$i]['DESCRICAO']));
+    }
+    $this->smarty->assign('conta_ids', $conta_ids);
+    $this->smarty->assign('conta_names', $conta_names);
+    $this->smarty->assign('conta_id', $this->conta);	
+    $this->smarty->assign('contaPag_id', $this->contaPag);	
+
+    // dados para exportacao e relatorios
+    $this->smarty->assign('titulo', "Resumo Lançamentos Financeiros");
+    $this->smarty->assign('colVis', "[ 0,1,2,3 ]"); 
+    $this->smarty->assign('disableSort', "[ 3 ]"); 
+    $this->smarty->assign('numLine', "100"); 
+
 
     $this->smarty->display('extrato_resumo_mostra.tpl');
 	

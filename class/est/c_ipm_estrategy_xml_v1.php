@@ -322,7 +322,7 @@ class IpmStrategyXml
         $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><nfse/>');
 
         // variavel usada para testar o xml 
-        $var_teste = true;
+        $var_teste = false;
 
         if($var_teste == true) {
             $xml->addChild('nfse_teste', 1);
@@ -340,9 +340,31 @@ class IpmStrategyXml
         if (isset($dadosNFS['valor_desconto']) && $dadosNFS['valor_desconto'] > 0) {
             $nf->addChild('valor_desconto', number_format($dadosNFS['valor_desconto'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
         }
+
         if (isset($dadosNFS['valor_ir']) && $dadosNFS['valor_ir'] > 0) {
             $nf->addChild('valor_ir', number_format($dadosNFS['valor_ir'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
         }
+
+        if (isset($dadosNFS['valor_inss']) && $dadosNFS['valor_inss'] > 0) {
+            $nf->addChild('valor_inss', number_format($dadosNFS['valor_inss'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
+        }
+
+        if (isset($dadosNFS['valor_contribuicao_social']) && $dadosNFS['valor_contribuicao_social'] > 0) {
+            $nf->addChild('valor_contribuicao_social', number_format($dadosNFS['valor_contribuicao_social'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
+        }
+
+        if (isset($dadosNFS['valor_rps']) && $dadosNFS['valor_rps'] > 0) {
+            $nf->addChild('valor_rps', number_format($dadosNFS['valor_rps'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
+        }
+
+        if (isset($dadosNFS['valor_pis']) && $dadosNFS['valor_pis'] > 0) {
+            $nf->addChild('valor_pis', number_format($dadosNFS['valor_pis'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
+        }
+
+        if (isset($dadosNFS['valor_cofins']) && $dadosNFS['valor_cofins'] > 0) {
+            $nf->addChild('valor_cofins', number_format($dadosNFS['valor_cofins'], 2, ',', '')); // Formato brasileiro: vírgula como decimal
+        }
+
         if (!empty($dadosNFS['observacao'])) {
             $nf->addChild('observacao', htmlspecialchars($dadosNFS['observacao'])); // Observations 
         }
@@ -422,8 +444,81 @@ class IpmStrategyXml
 
         return $this->xmlString;
 
+    }
 
 
+
+
+    /**
+     * Gera o XML para cancelamento de NFS-e da IPM.
+     *
+     * @param string $json String JSON contendo os dados para cancelamento:
+     *                     - numero: Número da NFS-e (obrigatório, numérico 9 dígitos)
+     *                     - serie_nfse: Série da NFS-e (obrigatório, numérico 9 dígitos)
+     *                     - observacao: Motivo do cancelamento (obrigatório, até 1000 caracteres)
+     *                     - prestador: 
+     *                       - cpfcnpj: CPF/CNPJ do prestador (obrigatório, numérico 14 dígitos)
+     *                       - cidade: Código TOM da cidade (obrigatório, numérico 9 dígitos)
+     * @return array Array contendo o XML de cancelamento formatado e o identificador da NFS-e.
+     */
+    function mountXmlCancelInvoice(array $nfs_data, string $motivo_cancelamento): string
+    {
+        // Validar campos obrigatórios
+        if (empty($nfs_data[0]["NUMERO"])) {
+            throw new \InvalidArgumentException('Número da NFS-e é obrigatório para cancelamento');
+        }
+        if (empty($nfs_data[0]["SERIE"])) {
+            throw new \InvalidArgumentException('Série da NFS-e é obrigatória para cancelamento');
+        }
+        if (empty($motivo_cancelamento)) {
+            throw new \InvalidArgumentException('Observação (motivo) é obrigatória para cancelamento');
+        }
+        if (empty($nfs_data[0]["PRESTADOR_CPFCNPJ"])) {
+            throw new \InvalidArgumentException('CPF/CNPJ do prestador é obrigatório para cancelamento');
+        }
+        if (empty($nfs_data[0]["PRESTADOR_CIDADE_CODIGO"])) {
+            throw new \InvalidArgumentException('Código da cidade do prestador é obrigatório para cancelamento');
+        }
+
+        // Inicia a construção do XML
+        $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><nfse/>');
+
+        // --- <nf> Tag (Mandatory) ---
+        $nf = $xml->addChild('nf'); // Agrupador com dados da NFS-e para cancelamento
+
+        // Número da NFS-e (obrigatório, numérico 9 dígitos)
+        $nf->addChild('numero', str_pad((string)$nfs_data[0]["NUMERO"], 9, '0', STR_PAD_LEFT));
+        
+        // Série da NFS-e (obrigatório, numérico 9 dígitos)
+        $nf->addChild('serie_nfse', str_pad((string)$nfs_data[0]["SERIE"], 9, '0', STR_PAD_LEFT));
+        
+        // Situação deve ser "C" para cancelamento (obrigatório)
+        $nf->addChild('situacao', 'C');
+        
+        // Motivo do cancelamento (obrigatório, até 1000 caracteres)
+        $nf->addChild('observacao', htmlspecialchars(substr($motivo_cancelamento, 0, 1000)));
+
+        // --- <prestador> Tag (Mandatory) ---
+        $prestador = $xml->addChild('prestador'); // Dados do prestador
+        
+        // CPF/CNPJ do emissor da nota (obrigatório, numérico 14 dígitos)
+        $prestador->addChild('cpfcnpj', preg_replace('/[^0-9]/', '', $nfs_data[0]["PRESTADOR_CPFCNPJ"]));
+        
+        // Código da cidade onde o emissor está estabelecido (obrigatório, numérico 9 dígitos)
+        $prestador->addChild('cidade', str_pad((string)$nfs_data[0]["PRESTADOR_CIDADE_CODIGO"], 9, '0', STR_PAD_LEFT));
+
+        // Formata o XML para melhor visualização e o salva em uma variável
+        $dom = dom_import_simplexml($xml)->ownerDocument;
+        $dom->formatOutput = true;
+        $this->xmlString = $dom->saveXML();
+
+        // Identificador único para o arquivo de cancelamento
+        //$identificador = time() . '-cancel-' . $nfs_data['numero'] . '-' . uniqid();
+        
+        // Salva o XML de cancelamento
+        //$this->savedXml($this->xmlString, $identificador, ADMambDesc, "nf");
+
+        return $this->xmlString;
     }
 
     /**
@@ -496,6 +591,170 @@ class IpmStrategyXml
             throw new \InvalidArgumentException(implode("\n", $errors));
         }
         return true;
+    }
+
+    /**
+     * Extrai todos os dados da NFS-e do XML de retorno de sucesso
+     *
+     * @param string $responseXml XML de resposta do webservice
+     * @return array Dados extraídos da NFS-e
+     */
+    public function extrairDadosNfseRetorno(string $responseXml): array
+    {
+        try {
+            // Converter de ISO-8859-1 para UTF-8
+            $xmlUtf8 = mb_convert_encoding($responseXml, 'UTF-8', 'ISO-8859-1');
+            
+            // Atualizar o encoding no cabeçalho XML para UTF-8
+            $xmlUtf8 = preg_replace('/encoding="ISO-8859-1"/i', 'encoding="UTF-8"', $xmlUtf8);
+            
+            $xml = simplexml_load_string($xmlUtf8);
+            
+            if ($xml === false) {
+                return [];
+            }
+            
+            // Extrair todos os dados disponíveis
+            $dados = [
+                'numero_nfse' => isset($xml->numero_nfse) ? (int)$xml->numero_nfse : null,
+                'serie_nfse' => isset($xml->serie_nfse) ? (int)$xml->serie_nfse : null,
+                'data_nfse' => isset($xml->data_nfse) ? (string)$xml->data_nfse : null,
+                'hora_nfse' => isset($xml->hora_nfse) ? (string)$xml->hora_nfse : null,
+                'situacao_codigo_nfse' => isset($xml->situacao_codigo_nfse) ? (int)$xml->situacao_codigo_nfse : null,
+                'situacao_descricao_nfse' => isset($xml->situacao_descricao_nfse) ? (string)$xml->situacao_descricao_nfse : null,
+                'link_nfse' => isset($xml->link_nfse) ? (string)$xml->link_nfse : null,
+                'cod_verificador_autenticidade' => isset($xml->cod_verificador_autenticidade) ? (string)$xml->cod_verificador_autenticidade : null,
+            ];
+            
+            // Filtrar apenas valores não nulos
+            return array_filter($dados, function($value) {
+                return $value !== null;
+            });
+            
+        } catch (\Exception $e) {
+            error_log("Erro ao extrair dados da NFS-e: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Valida e extrai dados do XML de retorno de cancelamento de NFS-e
+     * 
+     * Layout esperado conforme manual IPM (NTE 35/2021):
+     * 
+     * Caso 1 - Erro geral (sem estrutura de documentos):
+     * <retorno>
+     *   <mensagem>
+     *     <codigo>00206 - Nenhuma NFSe foi encontrada...</codigo>
+     *   </mensagem>
+     * </retorno>
+     * 
+     * Caso 2 - Erro/sucesso específico da nota:
+     * <retorno>
+     *   <documentos>
+     *     <nfse>
+     *       <dados>
+     *         <numero>123</numero>
+     *         <serie>1</serie>
+     *       </dados>
+     *       <mensagem>
+     *         <codigo>[12345] - Descrição do erro</codigo>
+     *       </mensagem>
+     *     </nfse>
+     *   </documentos>
+     * </retorno>
+     *
+     * @param string $responseXml XML de resposta do webservice
+     * @return array ['sucesso' => bool, 'mensagem' => string, 'dados' => array]
+     */
+    public function validarRetornoCancelamento(string $responseXml): array
+    {
+        try {
+            // Converter de ISO-8859-1 para UTF-8
+            $xmlUtf8 = mb_convert_encoding($responseXml, 'UTF-8', 'ISO-8859-1');
+            
+            // Atualizar o encoding no cabeçalho XML para UTF-8
+            $xmlUtf8 = preg_replace('/encoding="ISO-8859-1"/i', 'encoding="UTF-8"', $xmlUtf8);
+            
+            $xml = simplexml_load_string($xmlUtf8);
+            
+            if ($xml === false) {
+                return [
+                    'sucesso' => false,
+                    'mensagem' => 'XML de retorno inválido',
+                    'dados' => [],
+                    'responseXml' => $responseXml
+                ];
+            }
+
+            // Inicializa array de dados extraídos
+            $dadosExtraidos = [
+                'numero' => null,
+                'serie' => null,
+                'mensagens_erro' => []
+            ];
+
+            $temErro = false;
+
+            // CASO 1: Verifica mensagens de erro diretas em <retorno><mensagem><codigo>
+            // Exemplo: Erro geral como "NFSe não encontrada"
+            if (isset($xml->mensagem->codigo)) {
+                foreach ($xml->mensagem->codigo as $codigoErro) {
+                    $mensagemErro = trim((string)$codigoErro);
+                    if (!empty($mensagemErro)) {
+                        $dadosExtraidos['mensagens_erro'][] = $mensagemErro;
+                        $temErro = true;
+                    }
+                }
+            }
+
+            // CASO 2: Verifica estrutura completa com documentos
+            // Extrai dados da tag <retorno><documentos><nfse><dados>
+            if (isset($xml->documentos->nfse->dados)) {
+                $dados = $xml->documentos->nfse->dados;
+                $dadosExtraidos['numero'] = isset($dados->numero) ? (int)$dados->numero : null;
+                $dadosExtraidos['serie'] = isset($dados->serie) ? (int)$dados->serie : null;
+            }
+
+            // Verifica se há mensagens de erro na tag <documentos><nfse><mensagem><codigo>
+            if (isset($xml->documentos->nfse->mensagem->codigo)) {
+                // Pode ter múltiplas tags <codigo>
+                foreach ($xml->documentos->nfse->mensagem->codigo as $codigoErro) {
+                    $mensagemErro = trim((string)$codigoErro);
+                    if (!empty($mensagemErro)) {
+                        $dadosExtraidos['mensagens_erro'][] = $mensagemErro;
+                        $temErro = true;
+                    }
+                }
+            }
+
+            // Determina sucesso ou falha
+            if ($temErro) {
+                return [
+                    'sucesso' => false,
+                    'mensagem' => implode('<br>', $dadosExtraidos['mensagens_erro']),
+                    'dados' => $dadosExtraidos,
+                    'responseXml' => $responseXml
+                ];
+            } else {
+                // Se não há erros, o cancelamento foi bem-sucedido
+                return [
+                    'sucesso' => true,
+                    'mensagem' => 'NFS-e cancelada com sucesso',
+                    'dados' => $dadosExtraidos,
+                    'responseXml' => $responseXml
+                ];
+            }
+            
+        } catch (\Exception $e) {
+            error_log("Erro ao validar retorno de cancelamento: " . $e->getMessage());
+            return [
+                'sucesso' => false,
+                'mensagem' => 'Erro ao processar XML de retorno: ' . $e->getMessage(),
+                'dados' => [],
+                'responseXml' => $responseXml
+            ];
+        }
     }
 }
 

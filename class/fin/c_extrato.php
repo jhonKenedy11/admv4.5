@@ -260,7 +260,7 @@ public function select_extrato_resumo($letra){
         $banco->exec_sql($sql);
 		$banco->close_connection();
 		
-        $result = is_array($banco->resultado) ? $banco->resultado : [];
+        $result = $banco->resultado ?? [];
         for ($i=0; $i < count($result); $i++){
 			$result[$i]['TOTAL'] = $result[$i]['PAGAMENTO'] - $result[$i]['RECEBIMENTO'];
         }
@@ -284,57 +284,63 @@ public function select_extrato_letra($letra){
         $dataIni = c_date::convertDateTxt($par[1]);
         $dataFim = c_date::convertDateTxt($par[2]);
         $iswhere = "WHERE ";
+        $where   = "";
 
-        $sqln  = "SELECT a.*, c.nomereduzido, c.nome, c.cidade, s.padrao as situacaolancamento, t.padrao as tipoLancamento, g.descricao as descgenero ";
+        $sqln  = "SELECT a.*, c.nomereduzido, c.nome, c.cidade, s.padrao as situacaolancamento, t.padrao as tipoLancamento, g.descricao as descgenero, c.cnpjcpf  ";
         $sqln .= "FROM FIN_EXTRATO a ";
         $sqln .= "inner join fin_cliente c on c.cliente = a.pessoa ";
         $sqln .= "inner join fin_genero g on g.genero = a.genero ";
         $sqln .= "inner join amb_ddm s on ((s.alias='FIN_MENU') and (s.campo='SituacaoExtrato') and (s.tipo = a.situacaoLancamento)) ";
         $sqln .= "inner join amb_ddm t on ((t.alias='FIN_MENU') and (t.campo='TipoLanc') and (t.tipo = a.tipoLancamento)) ";
         $sqln .= " ";
+
+        // Sempre garante a posição-base da situação de lançamento para que o
+        // cálculo de $posTipoLanc funcione mesmo quando o filtro de situação
+        // não é selecionado (caso contrário $posSitLanc fica indefinido).
+        $posSitLanc = 5;
+
         if (array_sum($par) > 0){
                 // data
-                $where .= "WHERE ";
                 if ($par[0] != 'nao'){
-                        $where .= "(a.".$par[0]." >= '".$dataIni."') and (a.".$par[0]." <= '".$dataFim."') ";
+                        $where .= $iswhere."(a.".$par[0]." >= '".$dataIni."') and (a.".$par[0]." <= '".$dataFim."') ";
                         $iswhere = " AND ";
                 }
 
                 // pessoa
-                if ($par[3] != '0'){
+                if ($par[3] != '0' and $par[3] != ''){
                         $where .= $iswhere."(a.pessoa = ".$par[3].") ";
                         $iswhere = " AND ";
                 }
 
                 // genero
-                if ($par[4] != ''){
-                        $where .= $iswhere."(a.genero = ".$par[4].") ";
+                if ($par[4] != '' and $par[4] != '0'){
+                        $where .= $iswhere."(a.genero = '".$par[4]."') ";
                         $iswhere = " AND ";
                 }
 
                 // sit lancamento
-                if ($par[5] != '0'){
-                        $posSitLanc = 5;
+                if ($par[$posSitLanc] != '0' and $par[$posSitLanc] != ''){
                         $i = $posSitLanc + 1;
                         $where .= $iswhere."(a.situacaoLancamento in ('".$par[$i]."'";
                         $i++;
-                        while ($i <= ($par[5]+5)) { 
+                        while ($i <= ($par[$posSitLanc]+$posSitLanc)) {
                                 $where .= ",'".$par[$i]."' ";
-                                $i++;}				
+                                $i++;}
                         $where .= ")) ";
                         $iswhere = " AND ";
                 }
 
                 // tipo lancamento
-                $posTipoLanc = $posSitLanc + $par[$posSitLanc] + 1;
-                if ($par[$posTipoLanc] != '0'){
-                        $i = $posTipoLanc + 1;	
+                $posTipoLanc = $posSitLanc + (int)$par[$posSitLanc] + 1;
+                if ($par[$posTipoLanc] != '0' and $par[$posTipoLanc] != ''){
+                        $i = $posTipoLanc + 1;
                         $where .= $iswhere."(a.tipoLancamento in ('".$par[$i]."'";
                         $i++;
                         while ($i <= ($par[$posTipoLanc]+$posTipoLanc)) {
                                 $where .= ",'".$par[$i]."' ";
-                                $i++; }				
+                                $i++; }
                         $where .= ")) ";
+                        $iswhere = " AND ";
                 }
         }
 
@@ -346,13 +352,14 @@ public function select_extrato_letra($letra){
 
 }// fim select_extrato_letra
 
- /**
+/**
+
  * @name addParcelasNf
  * @description adiciona parcelas referente a Nf
  * @param int $this->getQuantParc - quantidade de parcelas adicionais
  * @return int $count - numero de parcelas adicionadas
  */
-public function addLancamentoFinanceiro($arrLancamentoFin = NULL, $letra, $centrocusto, $genero, $vencimento, $conta = 1){
+public function addLancamentoFinanceiro($arrLancamentoFin = NULL, $letra, $centrocusto, $genero, $vencimento, $conta = 1, $centrocustoPag, $generoPag, $pagamento, $contaPag = 1){
 
 	$par = explode("|", $letra);
 	$dataIni = c_date::convertDateTxt($par[1]);
@@ -363,35 +370,55 @@ public function addLancamentoFinanceiro($arrLancamentoFin = NULL, $letra, $centr
 	$transaction = new c_banco();
 	$transaction->inicioTransacao($transaction->id_connection);
 	
-
+	$m_tipoLancamento = '';
+	$m_modoPgto = '';
+	$m_tipoDoc = '';
+	$m_genero = '';
+	$m_centrocusto = '';
+	$m_vencimento = '';
+	$m_conta = '';
+	$m_valor = '';
 
 	try {
 		$objFinanceiro = new c_lancamento();
 
+		// Resumo Negativo - Sede paga para o associado (Pagamento sistema)
+		// Resnumo Positivo - Sede recebe do associado (Recebimento sistema)
 		for ($i = 0; $i < count($arrLancamentoFin); $i++) {
 			if ($arrLancamentoFin[$i]['TOTAL'] < 0){
-				$tipoLancamento = 'P';
-				$modoPgto = 'C';
-				$tipoDoc = 'R';
-				$valor = $arrLancamentoFin[$i]['TOTAL'] * -1;
+				$m_tipoLancamento = 'P';
+				$m_modoPgto = 'C';
+				$m_tipoDoc = 'R';
+				$m_genero = $generoPag;
+				$m_centrocusto = $centrocustoPag;
+				$m_vencimento = $pagamento;
+				$m_conta = $contaPag;
+				$m_valor = $arrLancamentoFin[$i]['TOTAL'] * -1;
 			}else {
-				$tipoLancamento = 'R';
-				$modoPgto = 'B';
-				$tipoDoc = 'B';
-				$valor = $arrLancamentoFin[$i]['TOTAL'];
+				$m_tipoLancamento = 'R';
+				$m_modoPgto = 'B';
+				$m_tipoDoc = 'B';
+				$m_genero = $genero;
+				$m_centrocusto = $centrocusto;
+				$m_vencimento = $vencimento;
+				$m_conta = $conta;
+				$m_valor = $arrLancamentoFin[$i]['TOTAL'];
 			}
 
 			$objFinanceiro->setPessoa($arrLancamentoFin[$i]['PESSOA']);
 			$objFinanceiro->setDocto($data[0].$arrLancamentoFin[$i]['PESSOA']); // ano
 			$objFinanceiro->setSerie('EXT');
-			$objFinanceiro->setTipolancamento($tipoLancamento); //??
+			$objFinanceiro->setTipolancamento($m_tipoLancamento); //??
 			$objFinanceiro->setSitdocto('N'); // normal
 			$objFinanceiro->setUsrsitpgto($this->m_userid); //usuario
-			$objFinanceiro->setModopgto($modoPgto); // bancario
+			$objFinanceiro->setModopgto($m_modoPgto); // bancario
 			$objFinanceiro->setOrigem('EXT'); // ??/
 			$objFinanceiro->setNumlcto($data[0].$data[1]); // ??/
-			$objFinanceiro->setGenero($genero); 
-			$objFinanceiro->setCentroCusto($centrocusto);	// centro custo atual
+			$objFinanceiro->setGenero($m_genero); 
+			$objFinanceiro->setCentroCusto($m_centrocusto);	// centro custo atual
+			$objFinanceiro->setConta($m_conta); //array
+			$objFinanceiro->setVencimento($m_vencimento); //arry
+			$objFinanceiro->setMovimento($m_vencimento);
 			$objFinanceiro->setLancamento(date("d/m/Y"));
 			$objFinanceiro->setEmissao(date("d/m/Y"));
 			$objFinanceiro->setMulta(0);
@@ -402,14 +429,11 @@ public function addLancamentoFinanceiro($arrLancamentoFin = NULL, $letra, $centr
 		
 			$objFinanceiro->setParcela($data[1]); // mes
 
-			$objFinanceiro->setTipodocto($tipoDoc); // boleto
+			$objFinanceiro->setTipodocto($m_tipoDoc); // boleto
 			$objFinanceiro->setSitpgto('A'); // aberto
-			$objFinanceiro->setConta($conta); //array
 
-			$objFinanceiro->setVencimento($vencimento); //arry
-			$objFinanceiro->setMovimento($vencimento);
-			$objFinanceiro->setOriginal($valor, true);
-			$objFinanceiro->setTotal($valor, true); //array
+			$objFinanceiro->setOriginal($m_valor, true);
+			$objFinanceiro->setTotal($m_valor, true); //array
 			$objFinanceiro->setObs('EXTRATO - FECHAMENTO PERÍODO: '.$dataIni.' - '.$dataFim, true); //array
 
 			$idInsert = $objFinanceiro->incluiLancamento($transaction->id_connection);
@@ -437,7 +461,32 @@ public function addLancamentoFinanceiro($arrLancamentoFin = NULL, $letra, $centr
 
 } //fim addLancamentoFinanceiro
 
+ /**
+ * @name verificaPendenciaFinanceira
+ * @description pesquisa se existe documentos a receber vencidos
+ * @return bool $banco->resultado - True ou False se encontrou algum registro ou nao
+ */
+public function selectPendenciaFinanceira($letra){
 
+	$par = explode("|", $letra);
+	$pessoa = $par[3];
+    
+	$sql  = "SELECT a.*, c.nome, g.descricao as descgenero, r.descricao AS desccc  ";
+	$sql .= "FROM FIN_LANCAMENTO a ";
+	$sql .= "inner join fin_cliente c on c.cliente = a.pessoa ";
+	$sql .= "inner join fin_genero g on g.genero = a.genero ";
+	$sql .= "inner join fin_centro_custo r on r.centrocusto = a.centrocusto ";
+	$sql .= "WHERE (a.pessoa = ".$pessoa.") AND (A.sitpgto in ('A','N')) ";
+	$sql .= "AND A.TIPOLANCAMENTO = 'R' ";
+	$sql .= "order by vencimento";
+	//ECHO $sql;
+
+	$banco = new c_banco();
+	$banco->exec_sql($sql);
+	$banco->close_connection();
+    $result = $banco->resultado;
+	return $result;
+} //fim verificaPendenciaFinanceira
 
 
  /**
@@ -556,6 +605,27 @@ public function excluiExtrato(){
         return 'Os dados do Lan&ccedil;amento '.$this->getId().' n&atilde;o foram excluidos!';
 	}
 }  // fim excluiExtrato
+
+public function addParcelaExtratoOrigemPS($dadosParcela){
+
+	$this->setPessoa($dadosParcela['PESSOA']);
+	$this->setPessoaFornecedor($dadosParcela['PESSOAFORNECEDOR']);
+	$this->setTipoLancamento($dadosParcela['TIPOLANCAMENTO']);
+	$this->setSituacaoLancamento($dadosParcela['SITUACAOLANCAMENTO']);
+	$this->setGenero($dadosParcela['GENERO']);
+	$this->setCentroCusto($dadosParcela['CENTROCUSTO']);
+	$this->setLancamento($dadosParcela['LANCAMENTO']);
+	$this->setCompetencia($dadosParcela['COMPETENCIA']);
+	$this->setValor($dadosParcela['VALOR']);
+	$this->setObs($dadosParcela['OBS']);
+	$result = $this->incluiExtrato();
+
+	if ($result) {
+		return true;
+	} else {
+		return false;
+	}
+}
 
 }	//	END OF THE CLASS
 ?>

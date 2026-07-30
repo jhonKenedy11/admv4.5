@@ -1,0 +1,273 @@
+{
+  "contexto": {
+    "empresa_id": 1,
+    "filial_id": 1,
+    "tp_amb": 2,
+    "id_nf": 12345
+  },
+  "ide": {
+    "cUF": "41",
+    "cNF": "12345678",
+    "natOp": "VENDA DE MERCADORIA",
+    "indPag": "0",
+    "mod": "55",
+    "serie": "1",
+    "nNF": "1000",
+    "dhEmi": "2025-03-10T14:30:00-03:00",
+    "dhSaiEnt": "2025-03-10T15:00:00-03:00",
+    "tpNF": "1",
+    "idDest": "1",
+    "cMunFG": "4106902",
+    "cMunFGIBS": "",
+    "tpImp": "1",
+    "tpEmis": "1",
+    "tpAmb": "2",
+    "finNFe": "1",
+    "indFinal": "1",
+    "indPres": "1",
+    "procEmi": "0",
+    "verProc": "4.0.43",
+    "refNFe": ""
+  },
+  "emitente": {
+    "CNPJ": "12345678000199",
+    "CPF": "",
+    "xNome": "EMPRESA TESTE LTDA",
+    "xFant": "EMPRESA TESTE",
+    "IE": "1234567890",
+    "IEST": "",
+    "IM": "12345",
+    "CNAE": "4711301",
+    "CRT": "3",
+    "endereco": {
+      "xLgr": "RUA EXEMPLO",
+      "nro": "123",
+      "xCpl": "SALA 01",
+      "xBairro": "CENTRO",
+      "cMun": "4106902",
+      "xMun": "CURITIBA",
+      "UF": "PR",
+      "CEP": "80000000",
+      "cPais": "1058",
+      "xPais": "Brasil",
+      "fone": "4133334444"
+    }
+  },
+  "destinatario": {
+    "CNPJ": "99887766000155",
+    "CPF": "",
+    "idEstrangeiro": "",
+    "xNome": "CLIENTE DEMONSTRACAO SA",
+    "indIEDest": 1,
+    "IE": "123456789",
+    "ISUF": "",
+    "IM": "",
+    "email": "contato@cliente.com.br",
+    "endereco": {
+      "xLgr": "AV CLIENTE",
+      "nro": "500",
+      "xCpl": "ANDAR 2",
+      "xBairro": "BAIRRO CLIENTE",
+      "cMun": "3550308",
+      "xMun": "SAO PAULO",
+      "UF": "SP",
+      "CEP": "01000000",
+      "cPais": "1058",
+      "xPais": "Brasil",
+      "fone": "1133332222"
+    }
+  },
+  "itens": [
+    {
+      "nItem": 1,
+      "cProd": "P001",
+      "cEAN": "0000000000000",
+      "xProd": "PRODUTO TESTE 01",
+      "NCM": "85044021",
+      "EXTIPI": "",
+      "CFOP": "5102",
+      "cBenef": "",
+      "uCom": "UN",
+      "qCom": "10.0000",
+      "vUnCom": "100.00",
+      "vProd": "1000.00",
+      "cEANTrib": "0000000000000",
+      "uTrib": "UN",
+      "qTrib": "10.0000",
+      "vUnTrib": "100.00",
+      "vFrete": "0.00",
+      "vSeg": "0.00",
+      "vDesc": "50.00",
+      "vOutro": "0.00",
+      "indTot": "1",
+      "xPed": "PED123",
+      "nItemPed": "1",
+      "nFCI": "",
+      "CEST": "0100100",
+      "indEscala": "S",
+      "LOTE": "L001",
+      "dFab": "2025-01-01",
+      "dVal": "2026-01-01",
+      "cProdANP": "",
+      "descANP": "",
+      "UFCons": "",
+      "imposto": {
+        "icms": {
+          "orig": "0",
+          "CST": "00",
+          "modBC": "3",
+          "vBC": "950.00",
+          "pICMS": "18.00",
+          "vICMS": "171.00",
+          "pRedBC": "0.00"
+        },
+        "pis": {
+          "CST": "01",
+          "vBC": "950.00",
+          "pPIS": "1.65",
+          "vPIS": "15.68"
+        },
+        "cofins": {
+          "CST": "01",
+          "vBC": "950.00",
+          "pCOFINS": "7.60",
+          "vCOFINS": "72.20"
+        },
+        "ipi": {
+          "cEnq": "999",
+          "CST": "53",
+          "vBC": "0.00",
+          "pIPI": "0.00",
+          "vIPI": "0.00"
+        }
+      }
+    },
+    {
+      "nItem": 2,
+      "cProd": "P002",
+      "cEAN": "0000000000000",
+      "xProd": "PRODUTO TESTE 02",
+      "NCM": "22030000",
+      "EXTIPI": "",
+      "CFOP": "5102",
+      "cBenef": "",
+      "uCom": "CX",
+      "qCom": "5.0000",
+      "vUnCom": "200.00",
+      "vProd": "1000.00",
+      "cEANTrib": "0000000000000",
+      "uTrib": "CX",
+      "qTrib": "5.0000",
+      "vUnTrib": "200.00",
+      "vFrete": "0.00",
+      "vSeg": "0.00",
+      "vDesc": "0.00",
+      "vOutro": "0.00",
+      "indTot": "1",
+      "xPed": "PED123",
+      "nItemPed": "2",
+      "nFCI": "",
+      "CEST": "",
+      "indEscala": "S",
+      "LOTE": "",
+      "dFab": "",
+      "dVal": "",
+      "cProdANP": "210101001",
+      "descANP": "CERVEJA DE MALTE",
+      "UFCons": "PR",
+      "imposto": {
+        "icms": {
+          "orig": "0",
+          "CST": "00",
+          "modBC": "3",
+          "vBC": "1000.00",
+          "pICMS": "18.00",
+          "vICMS": "180.00",
+          "pRedBC": "0.00"
+        },
+        "pis": {
+          "CST": "01",
+          "vBC": "1000.00",
+          "pPIS": "1.65",
+          "vPIS": "16.50"
+        },
+        "cofins": {
+          "CST": "01",
+          "vBC": "1000.00",
+          "pCOFINS": "7.60",
+          "vCOFINS": "76.00"
+        },
+        "ipi": {
+          "cEnq": "999",
+          "CST": "53",
+          "vBC": "0.00",
+          "pIPI": "0.00",
+          "vIPI": "0.00"
+        }
+      }
+    }
+  ],
+  "totais": {
+    "vBC": 1950.00,
+    "vICMS": 351.00,
+    "vICMSDeson": 0.00,
+    "vFCP": 0.00,
+    "vBCST": 0.00,
+    "vST": 0.00,
+    "vFCPST": 0.00,
+    "vFCPSTRet": 0.00,
+    "vProd": 2000.00,
+    "vFrete": 0.00,
+    "vSeg": 0.00,
+    "vDesc": 50.00,
+    "vII": 0.00,
+    "vIPI": 0.00,
+    "vIPIDevol": 0.00,
+    "vPIS": 32.18,
+    "vCOFINS": 148.20,
+    "vOutro": 0.00,
+    "vNF": 1982.38,
+    "vTotTrib": 0.00,
+    "vIBSUF": 0.00,
+    "vIBSMun": 0.00,
+    "vCBS": 0.00
+  },
+  "transporte": {
+    "modFrete": "0",
+    "transportador": {
+      "CNPJ": "55443322000188",
+      "CPF": "",
+      "xNome": "TRANSPORTADORA TESTE LTDA",
+      "IE": "123456789",
+      "xEnder": "ROD BR-116 KM 100",
+      "xMun": "CURITIBA",
+      "UF": "PR"
+    }
+  },
+  "cobranca": {
+    "dup": [
+      {
+        "nDup": "001",
+        "dVenc": "2025-04-10",
+        "vDup": "991.19"
+      },
+      {
+        "nDup": "002",
+        "dVenc": "2025-05-10",
+        "vDup": "991.19"
+      }
+    ]
+  },
+  "pagamentos": [
+    {
+      "indPag": "1",
+      "tPag": "15",
+      "xPag": "Boleto bancário",
+      "vPag": "1982.38"
+    }
+  ],
+  "infAdic": {
+    "infCpl": "Tributação conforme legislação vigente. Documento de teste para espelho.",
+    "infAdFisco": ""
+  }
+}

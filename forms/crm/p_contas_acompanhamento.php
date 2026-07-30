@@ -92,14 +92,20 @@ Class p_acompanhamento extends c_contas_acompanhamento {
         $this->setPessoa(isset($parmGet['pessoa']) ? $parmGet['pessoa'] : (isset($parmPost['pessoa']) ? $parmPost['pessoa'] : ''));
         if (isset($parmPost['dataContato'])) {    $this->setDataContato($parmPost['dataContato']);} else {    $this->setDataContato(null);};
         if (isset($parmPost['acao'])) {    $this->setAcao($parmPost['acao']);} else {    $this->setAcao('');};
-        if (isset($parmPost['vendedorAcomp'])) {    $this->setVendedorAcomp($parmPost['vendedorAcomp']);} else {    $this->setVendedorAcomp('');};
+        $vendedorAcompPost = isset($parmPost['vendedorAcomp']) ? trim((string) $parmPost['vendedorAcomp']) : '';
+        if ($vendedorAcompPost === '' && isset($this->m_userid) && (string) $this->m_userid !== '') {
+            $vendedorAcompPost = (string) $this->m_userid;
+        }
+        $this->setVendedorAcomp($vendedorAcompPost);
         if (isset($parmPost['proximoContato'])) {    $this->setProximoContato($parmPost['proximoContato']);} else {    $this->setProximoContato('');};
         if (isset($parmPost['resultContato'])) {    $this->setResultContato($parmPost['resultContato']);} else {    $this->setResultContato('');};
         if (isset($parmPost['veiculo'])) {    $this->setVeiculo($parmPost['veiculo']);} else {    $this->setVeiculo('');};
         if (isset($parmPost['origem'])) {    $this->setOrigem($parmPost['origem']);} else {    $this->setOrigem('');};
         if (isset($parmPost['destino'])) {    $this->setDestino($parmPost['destino']);} else {    $this->setDestino('');};
         if (isset($parmPost['km'])) {    $this->setKM($parmPost['km']);} else {    $this->setKM('');};
-        $this->setUserId(isset($this->m_userid) ? $this->m_userid : '');        
+        $this->setUserId(isset($this->m_userid) ? $this->m_userid : '');     
+        $this->setIdAcomp(isset($parmPost['idAcomp']) ? $parmPost['idAcomp'] : '');
+        $this->setStatus(isset($parmPost['status']) ? $parmPost['status'] : '');
     }
 
     /**
@@ -119,16 +125,16 @@ Class p_acompanhamento extends c_contas_acompanhamento {
                 break;
             case 'alterar':
                 if ($this->verificaDireitoUsuario('FinPessoa', 'I')) {
-                    $this->buscaCadastroAcompanhamento();
-                    $this->desenhaCadastroAcompanhamento('');
+                    if ($this->buscaCadastroAcompanhamento()) {
+                        $this->desenhaCadastroAcompanhamento('');
+                    }
                 }
                 break;
             case 'altera':
                 if ($this->verificaDireitoUsuario('FinPessoa', 'I')) {
                     $this->alteraPessoaAcomp();
                     if ($this->m_dashboard_origem == 'dashboard_crm') { // jhon
-                        $returnAjax = 'Registro salvo!';
-                        echo $returnAjax;
+                        exit;
                     } else {
                          $this->mostraAcompanhamento('Registro salvo.');
                     }
@@ -156,8 +162,7 @@ Class p_acompanhamento extends c_contas_acompanhamento {
                     }
                     else{
                         if ($this->m_dashboard_origem == 'dashboard_crm') { // jhon
-                            $returnAjax = 'Registro salvo!';
-                            echo $returnAjax;
+                            exit;
                         }else{
                             if($resultInsert == ''){
                                 $msgPedido = "Registro inserido com sucesso!";
@@ -196,6 +201,15 @@ Class p_acompanhamento extends c_contas_acompanhamento {
             
                 echo json_encode($clienteResult);
 
+                break;
+            case 'buscaAcompanhamentoAjax':
+                if ($this->verificaDireitoUsuario('FinPessoa', 'I')) {
+                    if(!empty($this->getIdAcomp())){
+                        $rows = $this->selectAcompanhamentoId();
+                        echo json_encode($rows[0]);
+                    }
+                    exit;
+                }
                 break;
             default:
                 if ($this->verificaDireitoUsuario('FinPessoa', 'C')) {

@@ -1,6 +1,6 @@
 <!-- page content -->
     <script type="text/javascript" src="{$pathJs}/cat/s_os_imagem.js"> </script>
-    
+    <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
 
         <div class="right_col" role="main">                
     <form class="full" NAME="lancamento" METHOD="POST" class="form-horizontal form-label-left" novalidate ACTION={$SCRIPT_NAME} enctype="multipart/form-data">
@@ -112,7 +112,7 @@
 
     </form>
 
-    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"> </script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"> </script>
 
     {include file="template/database.inc"}  
     

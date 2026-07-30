@@ -31,32 +31,39 @@ COMMIT WORK;
 
 EST_MANIFESTO_EVENTO
 
+-- Solução para erro errno: 150 "Foreign key constraint is incorrectly formed"
+-- O erro geralmente ocorre por discrepância nos tipos de colunas ou ausência do índice primary/unique na referência.
+-- 1. Garanta que EST_NOTA_FISCAL.IDNF seja PRIMARY KEY ou possua UNIQUE INDEX e seja do MESMO TIPO que o campo referenciado (INTEGER).
+
 CREATE TABLE EST_MANIFESTO_EVENTO (
-    IDMANIFESTORET INTEGER,
-    TPEVENTO VARCHAR(6),
-    NSEQEVENTO VARCHAR(2),
-    DATAHORAEVENTO TIMESTAMP,
-    XMLPED BLOB SUB_TYPE 1 SEGMENT SIZE 80,
-    XMLLOTE BLOB SUB_TYPE 1 SEGMENT SIZE 80,
-    XMLPROC BLOB SUB_TYPE 1 SEGMENT SIZE 80,
-    JUSTIFICATIVA VARCHAR(255),
-    PROTOCOLO VARCHAR(15),
-    USREMISSAO SMALLINT,
-    CHAVEACESSO VARCHAR(44),
-    XEVENTO VARCHAR(60),
-    CNPJCPF VARCHAR(14));
+    IDMANIFESTORET  INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    IDNF            INT NOT NULL,
+    TPEVENTO        VARCHAR(6),
+    NSEQEVENTO      VARCHAR(2),
+    DATAHORAEVENTO  DATETIME,
+    XMLPED          LONGTEXT,
+    XMLLOTE         LONGTEXT,
+    XMLPROC         LONGTEXT,
+    JUSTIFICATIVA   VARCHAR(255),
+    PROTOCOLO       VARCHAR(15),
+    USREMISSAO      SMALLINT,
+    CHAVEACESSO     VARCHAR(44),
+    XEVENTO         VARCHAR(60),
+    CNPJCPF         VARCHAR(14),
+    USERINSERT      INT,
+    DATEINSERT      DATETIME,
+    CONSTRAINT fk_manifesto_evento_nf FOREIGN KEY (IDNF) REFERENCES EST_NOTA_FISCAL(IDNF)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
-COMMIT WORK;
 
 ------------------------------------------
 
 CREATE TABLE EST_MANIFESTO_ORGAO (
     CORGAOUFEMI VARCHAR(2),
     CORGAOUFAUT VARCHAR(2));
-
-
-COMMIT WORK;
 */
 
 /**
@@ -106,15 +113,6 @@ class c_manifesto_fiscal_sefaz extends c_user{
         $this->from_array($_SESSION['user_array']);
 
         $this->slash = '/';
-
-        define( 'BASE_DIR_MDFE_CFG', ADMmdfe.$this->slash.$this->m_empresaid.$this->slash.'config'); 
-        define( 'BASE_DIR_MDFE_AMB', ADMmdfe.$this->slash.$this->m_empresaid.$this->slash.ADMambDesc);
-        define( 'BASE_HTTP_MDFE_AMB', ADMhttpCliente.$this->slash.'mdfe'.$this->slash.$this->m_empresaid.$this->slash.ADMambDesc.$this->slash); 
-        define( 'BASE_DIR_CERT', ADMnfe.$this->slash.$this->m_empresaid.$this->slash.'certs'.$this->slash);
-
-        //define('BASE_DIR_CERT', ADMnfe . $this->slash . $this->m_empresaid . $this->slash . 'certs' . $this->slash);
-
-        
     }
 
     //INICIO GETTERS E SETTERS est_manifesto_fiscal
@@ -123,7 +121,10 @@ class c_manifesto_fiscal_sefaz extends c_user{
     public function getId() {return $this->id; }
 
     public function setIdNf($idNf) {$this->idNf = $idNf;}
-    public function getIdNf() {return $this->idNf; }    
+    public function getIdNf() {return $this->idNf; }
+
+    public function setNumMdf($mdf) {$this->mdf = $mdf;}
+    public function getNumMdf() {return $this->mdf; }
 
     public function setChaveAcessoMdfe($chaveacessomdfe) {$this->chaveacessomdfe = $chaveacessomdfe; }
     public function getChaveAcessoMdfe() {return $this->chaveacessomdfe; }
@@ -201,6 +202,54 @@ class c_manifesto_fiscal_sefaz extends c_user{
     public function setProtocoloCancelamento($protocolocancelamento) {$this->protocolocancelamento = $protocolocancelamento;}
     public function getProtocoloCancelamento() {return $this->protocolocancelamento;}
 
+    public function setJustificativaCancelamento($justificativacancelamento) {$this->justificativacancelamento = $justificativacancelamento;}
+    public function getJustificativaCancelamento() {return $this->justificativacancelamento;}
+
+    public function setProtocoloEncerramento($protocoloencerramento) {$this->protocoloencerramento = $protocoloencerramento;}
+    public function getProtocoloEncerramento() {return $this->protocoloencerramento;}
+
+    public function setPathDanfe($path) {$this->pathDanfe = $path;}
+    public function getPathDanfe() {return $this->pathDanfe;}
+
+    public function setDigVal($digval) {$this->digval = $digval;}
+    public function getDigVal() {return $this->digval;}
+
+    public function setVerAplic($veraplic) {$this->veraplic = $veraplic;}
+    public function getVerAplic() {return $this->veraplic;}
+
+    public function setDhRecbto($dhRecbto) {
+        $dhRecbto = str_replace("T", " ", $dhRecbto);
+        $this->dhRecbto = $dhRecbto;
+    }
+    public function getDhRecbto() {return $this->dhRecbto;}
+
+    public function setInfMunCarrega($infmuncarrega) {$this->infmuncarrega = $infmuncarrega;}
+    public function getInfMunCarrega() {return $this->infmuncarrega;}
+
+    public function setQuantCte($quantcte) {$this->quantcte = $quantcte;}
+    public function getQuantCte() {return $this->quantcte;}
+
+    public function setQuantNfe($quantnfe) {$this->quantnfe = $quantnfe;}
+    public function getQuantNfe() {return $this->quantnfe;}
+
+    public function setQuantMdfe($quantmdfe) {$this->quantmdfe = $quantmdfe;}
+    public function getQuantMdfe() {return $this->quantmdfe;}
+
+    public function setTotalCarga($totalcarga) {$this->totalcarga = $totalcarga;}
+    public function getTotalCarga($format = null) {
+        if (isset($this->totalcarga)) {
+            switch ($format) {
+                case 'B':
+                    return c_tools::moedaBd($this->totalcarga);
+                case 'F':
+                    return number_format((float) $this->totalcarga, 2, ',', '.');
+                default:
+                    return $this->totalcarga;
+            }
+        }
+        return 0;
+    }
+
     public function setUnidadeCarga($unidadecarga) {$this->unidadecarga = $unidadecarga;}
     public function getUnidadeCarga() {return $this->unidadecarga;}
 
@@ -264,6 +313,36 @@ class c_manifesto_fiscal_sefaz extends c_user{
     public function setVeiculoTracao($veiculotracao) {$this->veiculotracao = $veiculotracao;}
     public function getVeiculoTracao() {return $this->veiculotracao;}
 
+    public function setRodoCodAgPorto($rodocodagporto) {$this->rodocodagporto = $rodocodagporto;}
+    public function getRodoCodAgPorto() {return $this->rodocodagporto;}
+
+    public function setVeiculoReboque1($veiculoreboque1) {$this->veiculoreboque1 = $veiculoreboque1;}
+    public function getVeiculoReboque1() {return $this->veiculoreboque1;}
+
+    public function setVeiculoReboque2($veiculoreboque2) {$this->veiculoreboque2 = $veiculoreboque2;}
+    public function getVeiculoReboque2() {return $this->veiculoreboque2;}
+
+    public function setVeiculoReboque3($veiculoreboque3) {$this->veiculoreboque3 = $veiculoreboque3;}
+    public function getVeiculoReboque3() {return $this->veiculoreboque3;}
+
+    public function setProdPredTipoCarga($prodpredtipocarga) {$this->prodpredtipocarga = $prodpredtipocarga;}
+    public function getProdPredTipoCarga() {return $this->prodpredtipocarga;}
+
+    public function setProdPredDescricao($prodpreddescricao) {$this->prodpreddescricao = $prodpreddescricao;}
+    public function getProdPredDescricao() {return $this->prodpreddescricao;}
+
+    public function setProdPredGtin($prodpredgtin) {$this->prodpredgtin = $prodpredgtin;}
+    public function getProdPredGtin() {return $this->prodpredgtin;}
+
+    public function setProdPredNcm($prodpredncm) {$this->prodpredncm = $prodpredncm;}
+    public function getProdPredNcm() {return $this->prodpredncm;}
+
+    public function setProdPredCepLocalCarrega($prodpredceplocalcarrega) {$this->prodpredceplocalcarrega = $prodpredceplocalcarrega;}
+    public function getProdPredCepLocalCarrega() {return $this->prodpredceplocalcarrega;}
+
+    public function setProdPredCepLocalDescarreg($prodpredceplocaldescarrega) {$this->prodpredceplocaldescarrega = $prodpredceplocaldescarrega;}
+    public function getProdPredCepLocalDescarreg() {return $this->prodpredceplocaldescarrega;}
+
 
     //FIM GETTERS E SETTERS
 
@@ -271,17 +350,10 @@ class c_manifesto_fiscal_sefaz extends c_user{
     
 
 
-    public function enviaEventoManifesto($idNf=null, $typeEvent=null, $param='')
+    public function enviaEventoManifesto($idNf = null, $typeEvent = null, $param = '')
     {
-        /*
-        Evento	                    Código	 Justificativa Obrigatória
-        Confirmação da Operação	    210200	            Não
-        Ciência da Emissão	        210210	            Não
-        Desconhecimento da Operação	210220	            Não
-        Operação não Realizada	    210240	            Sim
-        */
         if ($typeEvent == 'confirma') {
-            $codEvent = '210210';
+            $codEvent = '210200';
             $codStatus = 'CO';
         } elseif ($typeEvent == 'desconhecimento') {
             $codEvent = '210220';
@@ -289,67 +361,76 @@ class c_manifesto_fiscal_sefaz extends c_user{
         } elseif ($typeEvent == 'naorealizada') {
             $codEvent = '210240';
             $codStatus = 'OR';
+            if (mb_strlen(trim((string) $param)) < 15) {
+                return ['success' => false, 'message' => 'Justificativa obrigatória com no mínimo 15 caracteres.'];
+            }
+        } else {
+            return ['success' => false, 'message' => 'Tipo de evento inválido.'];
         }
 
-        //array contendo dados do manifesto
         $objNotaFiscal = new c_nota_fiscal();
         $objNotaFiscal->setId($idNf);
         $nfArray = $objNotaFiscal->select_nota_fiscal();
+        $chNFe = $nfArray[0]['CHNFE'] ?? '';
 
-        if($nfArray){
-            $this->slash = '/';
+        if (!$nfArray || $chNFe === '') {
+            return ['success' => false, 'message' => 'Nota fiscal ou chave de acesso não localizada.'];
+        }
+
+        $this->slash = '/';
+        if (!defined('BASE_DIR_CERT')) {
             define('BASE_DIR_CERT', ADMnfe . $this->slash . $this->m_empresaid . $this->slash . 'certs' . $this->slash);
+        }
 
+        try {
             $configJson = c_tools::buscaConfig($this->m_empresaid);
             $certificadoDigital = c_tools::buscaCertificado($this->m_empresaid);
             $certificadoPW = c_tools::buscaCertificadoSenha($this->m_empresaid);
+            $tools = new NFePHP\NFe\Tools($configJson, NFePHP\Common\Certificate::readPfx($certificadoDigital, $certificadoPW));
+            $tools->model('55');
 
-            try {
-                $tools = new NFePHP\NFe\Tools($configJson, NFePHP\Common\Certificate::readPfx($certificadoDigital, $certificadoPW));
+            $response = $tools->sefazManifesta($chNFe, $codEvent, $param, 1);
+            $stdRes = (new NFePHP\NFe\Common\Standardize($response))->toStd();
 
-                $tools->model('55');
-
-                $chNFe = $nfArray[0]['CHNFE'];
-                //$chNFe = "35230867903765000102550000003838141245782445"; //chave de 44 digitos da nota do fornecedor
-                $tpEvento = $codEvent; //ciencia da operação
-                $xJust = $param; //a ciencia não requer justificativa
-                $nSeqEvento = 1; //a ciencia em geral será numero inicial de uma sequencia para essa nota e evento
-
-                $response = $tools->sefazManifesta($chNFe, $tpEvento, $xJust = $param, $nSeqEvento = 1);
-
-                /*
-                XML RETORNO  - duplicidade de evento
-                "<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soap:Body><nfeRecepcaoEventoNFResult xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4"><retEnvEvento versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfe"><idLote>202308021955405</idLote><tpAmb>1</tpAmb><verAplic>AN_1.5.0</verAplic><cOrgao>91</cOrgao><cStat>128</cStat><xMotivo>Lote de evento processado</xMotivo><retEvento versao="1.00"><infEvento><tpAmb>1</tpAmb><verAplic>AN_1.5.0</verAplic><cOrgao>91</cOrgao><cStat>573</cStat><xMotivo>Rejeicao: Duplicidade de evento</xMotivo><chNFe>41230808611463000100550010003540211455122117</chNFe><tpEvento>210210</tpEvento><xEvento>Ciencia da Operacao</xEvento><nSeqEvento>1</nSeqEvento><dhRegEvento>2023-08-02T19:55:40-03:00</dhRegEvento></infEvento></retEvento></retEnvEvento></nfeRecepcaoEventoNFResult></soap:Body></soap:Envelope>"
-
-                XML RETORNO
-                "<?xml version="1.0" encoding="utf-8"?><soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><soap:Body><nfeRecepcaoEventoNFResult xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4"><retEnvEvento versao="1.00" xmlns="http://www.portalfiscal.inf.br/nfe"><idLote>202308031152208</idLote><tpAmb>1</tpAmb><verAplic>AN_1.5.0</verAplic><cOrgao>91</cOrgao><cStat>128</cStat><xMotivo>Lote de evento processado</xMotivo><retEvento versao="1.00"><infEvento><tpAmb>1</tpAmb><verAplic>AN_1.5.0</verAplic><cOrgao>91</cOrgao><cStat>573</cStat><xMotivo>Rejeicao: Duplicidade de evento</xMotivo><chNFe>35230867903765000102550000003838141245782445</chNFe><tpEvento>210210</tpEvento><xEvento>Ciencia da Operacao</xEvento><nSeqEvento>1</nSeqEvento><dhRegEvento>2023-08-03T11:52:20-03:00</dhRegEvento></infEvento></retEvento></retEnvEvento></nfeRecepcaoEventoNFResult></soap:Body></soap:Envelope>"
-                */
-
-                $st = new NFePHP\NFe\Common\Standardize($response);
-                //nesse caso $std irá conter uma representação em stdClass do XML
-                $stdRes = $st->toStd();
-                //nesse caso o $arr irá conter uma representação em array do XML
-                // $arr = $st->toArray();
-
-                //PROCESSO PARA ATUALIZAR A NOTA 
-
-                if(isset($stdRes->retEvento)){
-
-                    $this->insertManifestoEventoSefaz($idNf, $stdRes, $param);
-                    $this->updateNotaFiscal($idNf, $codStatus);
-
-                }else{
-                    throw new Exception('Tag $stdRes->retEvento não localizada!');
-                }
-
-            } catch (\Exception $e) {
-                echo $e->getMessage();
+            if (!isset($stdRes->retEvento->infEvento)) {
+                throw new \Exception('Resposta inválida da SEFAZ.');
             }
 
+            $cStatEvento = (string) ($stdRes->retEvento->infEvento->cStat ?? '');
+            $xMotivo = (string) ($stdRes->retEvento->infEvento->xMotivo ?? '');
 
+            if (in_array($cStatEvento, ['135', '136'], true)) {
+                $this->insertManifestoEventoSefaz($idNf, $stdRes, $param);
+                $this->updateNotaFiscal($idNf, $codStatus);
+            } elseif ($cStatEvento === '573') {
+                $this->updateNotaFiscal($idNf, $codStatus);
+            } else {
+                return ['success' => false, 'message' => $xMotivo !== '' ? $xMotivo : 'Evento rejeitado pela SEFAZ.'];
+            }
+
+            if ($cStatEvento === '573') {
+                $message = 'Evento já registrado anteriormente na SEFAZ.';
+            } elseif ($cStatEvento === '136') {
+                $message = 'Evento registrado na SEFAZ. A NF-e ainda não estava disponível para vinculação; o download do XML será tentado assim que a Receita liberar.';
+            } else {
+                $message = 'Evento registrado com sucesso.';
+            }
+
+            if (in_array($typeEvent, ['confirma', 'desconhecimento'], true)) {
+                $xmlnf = c_nota_fiscal::select_xml_nota_fiscal($idNf);
+                $temXml = !empty($xmlnf[0]['XMLCONSULTA']) && stripos($xmlnf[0]['XMLCONSULTA'], '<infNFe') !== false;
+                if (!$temXml) {
+                    $xmlRet = $this->downloadChaveAcesso($idNf, $chNFe);
+                    if ($xmlRet && !is_array($xmlRet)) {
+                        $message .= ' XML gravado no sistema.';
+                    }
+                }
+            }
+
+            return ['success' => true, 'message' => $message];
+        } catch (\Exception $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
         }
-       
-
     }
     //=========================FIM eventoCienciaEmissao===================================
 
@@ -365,7 +446,9 @@ class c_manifesto_fiscal_sefaz extends c_user{
         // define( 'BASE_DIR_NFE_AMB', ADMnfe.$slash.$this->m_empresaid.$slash.ADMambDesc);
         // $path = BASE_DIR_NFE_AMB;
         // define( 'BASE_DIR_NFE_CFG', ADMnfe.$slash.$this->m_empresaid.$slash.'config'); 
-        define('BASE_DIR_CERT', ADMnfe . $slash . $this->m_empresaid . $slash . 'certs' . $slash);
+        if (!defined('BASE_DIR_CERT')) {
+            define('BASE_DIR_CERT', ADMnfe . $slash . $this->m_empresaid . $slash . 'certs' . $slash);
+        }
         // define( 'BASE_DIR_ASSINADA', $path.$slash.'assinadas'.$slash.$anomes.$slash.$chave.$nfExt); 
 
 
@@ -389,36 +472,40 @@ class c_manifesto_fiscal_sefaz extends c_user{
             $std = $stz->toStd();
 
             if ($std->cStat != 138) {
-                echo "Documento não retornado. [$std->cStat] $std->xMotivo";
-                die;
+                // Retorna false em caso de erro para tratamento adequado no chamador
+                return false;
             }
 
             $zip = $std->loteDistDFeInt->docZip;
             $xml = gzdecode(base64_decode($zip));
 
-            //cria objeto do xml para verificar dados
-            //$temp = new NFePHP\NFe\Common\Standardize($xml);
-            $temp = $xml;
-
-            // Usa expressões regulares para substituir as aspas dentro das tags <xprod>
-            $padrao = '/<xProd>(.*?)<\/xProd>/s';
-
-            //A função preg_replace_callback é usada para substituir as correspondências encontradas pela expressão regular. 
-            //Nesse caso, ela percorre o array $temp e para cada correspondência encontrada, executa a função callback definida.
-            $temp = preg_replace_callback($padrao, function ($correspondencias) {
-                $texto_sem_aspas = str_replace(['"', "'"], '', $correspondencias[1]);
-                // Retorna o texto modificado dentro das tags <xprod>
-                return '<xProd>' . $texto_sem_aspas . '</xProd>';
-            }, $temp);
-
-            if ($temp->key !== "resNFe") {
-                $result = $this->insertXml($idNfe, $temp);
-                return $temp;
-            } else {
-                new Exception('Erro ao receber a nota fiscal da receita');
+            // Verifica se o retorno é um resumo (resNFe) em vez do XML completo
+            // Um XML completo teria tag <NFe>, enquanto resumo tem apenas <resNFe>
+            // Verificação simples e direta: se tem resNFe mas não tem NFe, é resumo
+            $temResNFe = (stripos($xml, '<resNFe') !== false);
+            $temNFeCompleto = (stripos($xml, '<NFe') !== false);
+            
+            if ($temResNFe && !$temNFeCompleto) {
+                return ['tipo' => 'resNFe', 'xml' => $xml, 'chave' => $chave];
             }
+
+            $temInfNFe = (stripos($xml, '<infNFe') !== false);
+            if (!$temInfNFe && $temResNFe) {
+                return ['tipo' => 'resNFe', 'xml' => $xml, 'chave' => $chave];
+            }
+
+            $xmlProcessado = c_nota_fiscal::processarXmlNfe($xml);
+
+            if (!empty($xmlProcessado)) {
+                c_nota_fiscal::gravarXmlNota($idNfe, $xmlProcessado);
+                return $xmlProcessado;
+            }
+
+            return false;
         } catch (\Exception $e) {
-            echo str_replace("\n", "<br/>", $e->getMessage());
+            // Retorna false em caso de exceção para tratamento adequado no chamador
+            // A mensagem de erro será tratada no método chamador
+            return false;
         }
     }
 
@@ -467,13 +554,24 @@ class c_manifesto_fiscal_sefaz extends c_user{
         $dataIni = $this->convertDate($stringExp[0]);
         $dataFim = $this->convertDate($stringExp[1]);
     
-        $sql = "SELECT DISTINCT nf.*, ";
+        // Subquery para pegar apenas o ID mais recente de cada chave de acesso (CHNFE)
+        $sql = "SELECT nf.*, ";
         $sql .= "CASE WHEN nfx.xmlconsulta IS NULL OR nfx.xmlconsulta = '' THEN 'FALSE' ELSE 'TRUE' END as xml, ";
         $sql .= "cli.nome, ddm.padrao as desc_situacao ";
         $sql .= "FROM est_nota_fiscal nf ";
         $sql .= "INNER JOIN fin_cliente cli ON nf.pessoa = cli.cliente ";
         $sql .= "LEFT JOIN est_nota_fiscal_xml nfx ON nf.id = nfx.idnf ";
         $sql .= "JOIN amb_ddm ddm ON nf.situacao = ddm.tipo ";
+        $sql .= "AND ddm.alias = 'EST_MENU' AND ddm.campo = 'SITUACAOMANIFESTOSEFAZ' ";
+        $sql .= "INNER JOIN (";
+        $sql .= "    SELECT CHNFE, MAX(ID) as MAX_ID ";
+        $sql .= "    FROM est_nota_fiscal ";
+        $sql .= "    WHERE centrocusto = " . $this->m_empresacentrocusto . " ";
+        $sql .= "    AND situacao IN ('NP', 'OR', 'DO', 'CO') ";
+        $sql .= "    AND emissao >= '" . $dataIni . " 00:00:00' ";
+        $sql .= "    AND emissao <= '" . $dataFim . " 23:59:59' ";
+        $sql .= "    GROUP BY CHNFE";
+        $sql .= ") nf_uniq ON nf.CHNFE = nf_uniq.CHNFE AND nf.ID = nf_uniq.MAX_ID ";
         $sql .= "WHERE (nf.centrocusto = " . $this->m_empresacentrocusto . ") ";
         $sql .= "AND (nf.situacao IN ('NP', 'OR', 'DO', 'CO')) ";
         $sql .= "AND (nf.emissao >= '" . $dataIni . " 00:00:00') ";
@@ -672,6 +770,11 @@ class c_manifesto_fiscal_sefaz extends c_user{
         ADD COLUMN CNPJCPF VARCHAR(14) AFTER XEVENTO;
         */
 
+        $inf = $xml->retEvento->infEvento;
+        $dhEvento = (string) ($inf->dhRegEvento ?? '');
+        $dhEvento = preg_replace('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2}).*$/', '$1 $2', $dhEvento);
+        $cnpjCpf = (string) ($inf->CNPJDest ?? $inf->CPFDest ?? '');
+
         $sql = "INSERT INTO EST_MANIFESTO_EVENTO (";
         $sql .= "IDNF, ";
         $sql .= "TPEVENTO, ";
@@ -683,18 +786,18 @@ class c_manifesto_fiscal_sefaz extends c_user{
         $sql .= "XEVENTO, ";
         $sql .= "CNPJCPF, ";
         $sql .= "USERINSERT, ";
-        $sql .= "DATEINSERT)  value ( '";
+        $sql .= "DATEINSERT) VALUES ('";
 
-        $sql .= $idNf . "', '";
-        $sql .= $xml->retEvento->infEvento->tpEvento . "', '";
-        $sql .= $xml->retEvento->infEvento->nSeqEvento . "', '";
-        $sql .= $xml->retEvento->infEvento->dhRegEvento . "', '";
-        $sql .= $param . "', '";
-        $sql .= $xml->retEvento->infEvento->nProt . "', '";
-        $sql .= $xml->retEvento->infEvento->chNFe . "', '";
-        $sql .= $xml->retEvento->infEvento->xEvento . "', '";
-        $sql .= $xml->retEvento->infEvento->CNPJDest . "', '";
-        $sql .= $this->m_userid . ",'" . date("Y-m-d H:i:s") . "' );";
+        $sql .= (int) $idNf . "', '";
+        $sql .= $inf->tpEvento . "', '";
+        $sql .= $inf->nSeqEvento . "', '";
+        $sql .= $dhEvento . "', '";
+        $sql .= str_replace("'", "''", (string) $param) . "', '";
+        $sql .= $inf->nProt . "', '";
+        $sql .= $inf->chNFe . "', '";
+        $sql .= str_replace("'", "''", (string) ($inf->xEvento ?? '')) . "', '";
+        $sql .= $cnpjCpf . "', ";
+        $sql .= (int) ($this->m_userid ?? 0) . ",'" . date("Y-m-d H:i:s") . "' );";
 
         $banco = new c_banco;
         $banco->exec_sql($sql);
@@ -710,25 +813,14 @@ class c_manifesto_fiscal_sefaz extends c_user{
      * @name insertManifestoEventoSefaz
      * @return NULL quando ok ou msg 
      * 
-        CREATE TABLE EST_NOTA_FISCAL_XML (
-        ID int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
-        IDNF int(11) NOT NULL,
-        XMLCONSULTA MEDIUMBLOB
-        );
+    * CREATE TABLE EST_NOTA_FISCAL_XML (
+    *   ID int(11) NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    *  IDNF int(11) NOT NULL,
+    * XMLCONSULTA MEDIUMBLOB
+    * );
      */
     public function insertXml($idNota, $xml){
-
-        $sql = "INSERT INTO EST_NOTA_FISCAL_XML (";
-        $sql .= "IDNF, ";
-        $sql .= "XMLCONSULTA) VALUE ('";
-        $sql .= $idNota . "', '";
-        $sql .= $xml . "');";
-
-        $banco = new c_banco;
-        $banco->exec_sql_lower_case($sql);
-        //echo strtoupper($sql);
-        $banco->close_connection();
-        return $banco->resultado;
+        return c_nota_fiscal::gravarXmlNota($idNota, $xml);
     }
     //============================================================ // fim insertXml
 
@@ -749,7 +841,55 @@ class c_manifesto_fiscal_sefaz extends c_user{
         return $banco->resultado;
     }
     //============================================================ // fim updateNotaFiscal
-    
+
+    /**
+     * Último registro EST_MANIFESTO e validação da janela de consulta (1h / cStat 589).
+     *
+     * @return array{cStat:string,ultimaNSU:?string,message:string}
+     */
+    public function obterDadosConsultaManifestoSefaz()
+    {
+        $cc = (int) $this->m_empresacentrocusto;
+        $banco = new c_banco();
+        $banco->exec_sql(
+            'SELECT ULTNSU, PROXIMACONSULTA, CSTAT FROM EST_MANIFESTO WHERE CENTROCUSTO = ' . $cc
+            . ' ORDER BY id DESC LIMIT 1'
+        );
+        $banco->close_connection();
+
+        if (!is_array($banco->resultado) || !isset($banco->resultado[0])) {
+            return ['cStat' => 'ready', 'ultimaNSU' => null, 'message' => ''];
+        }
+
+        $row = $banco->resultado[0];
+        $proximaCons = $row['PROXIMACONSULTA'] ?? null;
+
+        if ($proximaCons === null
+            || ($row['CSTAT'] ?? '') == '589'
+            || time() >= strtotime($proximaCons)) {
+            // Evita reiniciar do zero após 589/656 com ULTNSU zerado: usa último NSU válido.
+            $bancoNsu = new c_banco();
+            $bancoNsu->exec_sql(
+                'SELECT ULTNSU FROM EST_MANIFESTO WHERE CENTROCUSTO = ' . $cc
+                . " AND ULTNSU IS NOT NULL AND ULTNSU <> '' AND ULTNSU <> '000000000000000'"
+                . ' ORDER BY id DESC LIMIT 1'
+            );
+            $bancoNsu->close_connection();
+            $ultimaNsu = null;
+            if (is_array($bancoNsu->resultado) && isset($bancoNsu->resultado[0]['ULTNSU'])) {
+                $ultimaNsu = $bancoNsu->resultado[0]['ULTNSU'];
+            } elseif (!empty($row['ULTNSU']) && $row['ULTNSU'] !== '000000000000000') {
+                $ultimaNsu = $row['ULTNSU'];
+            }
+            return ['cStat' => 'ready', 'ultimaNSU' => $ultimaNsu, 'message' => ''];
+        }
+
+        return [
+            'cStat' => '405',
+            'ultimaNSU' => null,
+            'message' => 'Consulta bloqueada, próxima consulta disponivel ' . date('H:i:s', strtotime($proximaCons)) . '.'
+        ];
+    }
 }
 
 

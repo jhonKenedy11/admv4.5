@@ -114,7 +114,8 @@ Class c_inventario_tools extends c_inventario {
             if ($ifControlaEstoque):
                 $objEstProduto = new c_produto_estoque();
                 if ($tipoNf == '0'):
-                    for ($j = 0; $j < $item[5] ; $j++) {
+                    $quantidadeNumerica = intval(str_replace(',', '.', str_replace('.', '', $item[5])));
+                    for ($j = 0; $j < $quantidadeNumerica ; $j++) {
                         $objEstProduto->setIdNfEntrada($lastNF);
                         $objEstProduto->setCodProduto($item[1]);
                         $objEstProduto->setStatus('0');
@@ -129,7 +130,8 @@ Class c_inventario_tools extends c_inventario {
                         $objEstProduto->incluiProdutoEstoque();
                     }//for
                 else:
-                    $objEstProduto->produtoBaixaPerda($centroCusto, $item[1], $item[5], $lastNF);
+                    $quantidadeNumerica = intval(str_replace(',', '.', str_replace('.', '', $item[5])));
+                    $objEstProduto->produtoBaixaPerda($centroCusto, $item[1], $quantidadeNumerica, $lastNF);
                 endif;
             endif;
         }

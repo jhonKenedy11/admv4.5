@@ -249,8 +249,14 @@
                                         <label style="visibility:hidden">btn</label>
                                         <button type="button" class="btn btn-success btn-sm"  onClick="javascript:submitConfirmarPecas();">
                                         <span class="glyphicon glyphicon-ok" aria-hidden="true"></span><span> Confirmar</span></button>                            
-                                    </div> 
-                                     
+                                    </div>
+                                    <div class="col-md-1 col-sm-12 col-xs-12 has-feedback">
+                                        <label style="visibility:hidden">btn</label>
+                                        <button type="button" style="width: 100%; margin-top:-1px;"
+                                            class="btn btn-warning btn-sm"
+                                            onClick="javascript:limpaCamposPeca();">
+                                            <span>Limpar</span></button>
+                                    </div>
                                     
                                 </div>
                             </div>

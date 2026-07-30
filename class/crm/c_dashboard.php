@@ -125,14 +125,6 @@ public function setIdCotacao($idCotacao){
 }
 //############### FIM SETS E GETS ###############
 
-    public function busca_classe() {
-        $classe = $this->select_classe();
-        $this->setClasse($classe[0]['CLASSE']);
-        $this->setDescricao($classe[0]['DESCRICAO']);
-        $this->setBloqueado($classe[0]['BLOQUEADO']);
-    }// busca_classe
-
-
     /**
  * 
  * @name existeClasse
@@ -263,40 +255,6 @@ function comboSql($sql, $par, &$id, &$ids, &$names) {
     }    
 }
 
-//function buscaoMeta($vendedor=null, $ano=null, $mes=null, $centroCusto=null){
-//    //Consulta sem vendedor e sem centro de custo
-//    if(($vendedor =='') || ($vendedor ==null) and ($centroCusto == '') || ($centroCusto == null)){
-//        $sql = "SELECT SUM(MM.META) AS META FROM FAT_META_MENSAL MM ";
-//        $sql .= "where MM.ANO = '$ano' and MM.MES = '$mes' ;";
-//    //Se existir centro de custo sem vendedor
-//    }elseif(($vendedor == '') || ($vendedor == null) and ($centroCusto !== '') || ($centroCusto !== null)){
-//        $sql = "SELECT SUM(MM.META) AS META FROM FAT_META_MENSAL MM ";
-//        $sql .= "where MM.ANO = '$ano' and MM.MES = '$mes' and MM.CCUSTO IN ($centroCusto);";
-//    }else{
-//        $sql = "SELECT FMMV.ID, FMMV.METAID, FMMV.META, FMMV.VENDEDOR ";
-//        $sql .= "FROM FAT_META_MENSAL_VENDEDOR FMMV ";
-//        $sql .= "INNER JOIN FAT_META_MENSAL FMM ON FMMV.METAID = FMM.ID ";
-//        //se não existir vendedr não gera essa condicao
-//        if(($vendedor !== '') and ($vendedor !== null)){
-//            $sql .= "where FMMV.VENDEDOR = '$vendedor' ";
-//        }
-//        //verifica condicao e insere 'where' ou 'and'
-//        $cond =  strpos($sql, 'where') === false ? 'where' : 'and';
-//        $sql .= " $cond FMM.ANO = '$ano' and FMM.MES = '$mes' ";
-//    
-//        if(($centroCusto !== '') and ($centroCusto !== null)){
-//            //verificar cond
-//            $cond =  strpos($sql, 'where') === false ? 'where' : 'and';
-//            $sql .= " $cond FMM.CCUSTO IN ($centroCusto); ";
-//        }
-//    }
-//
-//    //echo strtoupper($sql);
-//	$banco = new c_banco;
-//	$banco->exec_sql($sql);
-//	$banco->close_connection();
-//	return $banco->resultado;
-//}
 
 
 }	//	END OF THE CLASS

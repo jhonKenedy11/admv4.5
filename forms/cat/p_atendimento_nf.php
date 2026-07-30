@@ -89,6 +89,7 @@ Class p_atendimento_nf extends c_atendimento {
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
 
         
         // dados para exportacao e relatorios
@@ -219,7 +220,8 @@ Class p_atendimento_nf extends c_atendimento {
         }
         
         $atendimento = $this->select_atendimento($this->getId());
-        $this->setValorTotal($atendimento[0]['TOTALUTILIZADOPECAS']);  
+        $valorTotal = $this->select_atendimento_total_geral();
+        $this->setValorTotal($valorTotal);  
         $this->setCliente($atendimento[0]['CLIENTE']);   
         $this->setSituacao($sitFinalizado);
         if($this->getCondPgto() == ''){

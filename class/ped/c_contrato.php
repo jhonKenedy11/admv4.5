@@ -118,6 +118,7 @@ class c_contrato extends c_user
                 INNER JOIN FAT_PEDIDO P ON P.ID = S.FAT_PEDIDO_ID 
                 INNER JOIN FIN_CLIENTE U ON P.CLIENTE = U.CLIENTE 
                 LEFT JOIN CAT_ATENDIMENTO CA ON CA.PEDIDO_ID = S.FAT_PEDIDO_ID
+                    AND (CA.CAT_SITUACAO_ID IS NULL OR CA.CAT_SITUACAO_ID <> 8)
                 LEFT JOIN CAT_AT_SERVICOS CAS ON CAS.CAT_ATENDIMENTO_ID = CA.ID 
                     AND CAS.CAT_SERVICOS_ID = S.CAT_SERVICOS_ID
                 WHERE S.FAT_PEDIDO_ID = :id_pedido
@@ -376,7 +377,10 @@ class c_contrato extends c_user
                             cas.DESCSERVICO,
                             cas.UNIDADE,
                             cas.QUANTIDADE,
-                            FS.QUANTIDADE as QUANTIDADE_CONTRATADA,
+                            cas.FAT_PEDIDO_SERVICO_ID,
+                            (SELECT FS2.QUANTIDADE 
+                             FROM FAT_PEDIDO_SERVICO FS2 
+                             WHERE FS2.ID = cas.FAT_PEDIDO_SERVICO_ID) as QUANTIDADE_CONTRATADA,
                             cas.QUANTIDADE_EXECUTADA,
                             cas.VALUNITARIO,
                             cas.TOTALSERVICO,
@@ -398,9 +402,9 @@ class c_contrato extends c_user
                         LEFT JOIN FIN_CLIENTE cli ON cli.CLIENTE = cat.CLIENTE
                         LEFT JOIN CAT_SITUACAO cs ON cs.ID = cat.CAT_SITUACAO_ID
                         LEFT JOIN FAT_PEDIDO fp ON fp.ID = cat.PEDIDO_ID
-                        LEFT JOIN FAT_PEDIDO_SERVICO FS ON FS.FAT_PEDIDO_ID = fp.ID AND FS.CAT_SERVICOS_ID = cas.CAT_SERVICOS_ID
                         WHERE cat.PEDIDO_ID = ? 
                         AND DATE(cat.DATAABERATEND) BETWEEN ? AND ?
+                        AND (cat.CAT_SITUACAO_ID IS NULL OR cat.CAT_SITUACAO_ID <> 8)
                         ORDER BY cat.DATAABERATEND DESC, cas.ID";
                 $obj_banco->prepare($sql);
                 $obj_banco->bindParam(1, $id_pedido);

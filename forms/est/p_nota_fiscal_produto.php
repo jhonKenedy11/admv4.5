@@ -135,8 +135,10 @@ Class p_nota_fiscal_produto extends c_nota_fiscal_produto {
         $this->setDataGarantia(isset($this->parmPost['dataGarantia']) ? $this->parmPost['dataGarantia'] : "");
         $this->setDataConferencia(isset($this->parmPost['dataConferencia']) ? $this->parmPost['dataConferencia'] : "");
         $this->setOrdem(isset($this->parmPost['ordem']) ? $this->parmPost['ordem'] : "");
+        $this->setNItemPed(isset($this->parmPost['nItemPed']) ? $this->parmPost['nItemPed'] : "");
         $this->setProjeto(isset($this->parmPost['projeto']) ? $this->parmPost['projeto'] : "");
-        $this->setCBenef(isset($this->parmPost['cbenef']) ? $this->parmPost['cbenef'] : "");
+        $cbenef = isset($this->parmPost['cbenef']) ? trim($this->parmPost['cbenef']) : '';
+        $this->setCBenef($cbenef === '' ? null : $cbenef);
 
         $this->setModBc(isset($this->parmPost['modBc']) ? $this->parmPost['modBc'] : "");
         $this->setModBcSt(isset($this->parmPost['modBcSt']) ? $this->parmPost['modBcSt'] : "");
@@ -173,6 +175,7 @@ Class p_nota_fiscal_produto extends c_nota_fiscal_produto {
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
         $this->smarty->assign('admClass', ADMclass);
+        $this->smarty->assign('pathSweet', ADMhttpCliente . '/../sweetalert2');
 
         // metodo SET dos dados do FORM para o TABLE
         $this->setId(isset($this->parmPost['id']) ? $this->parmPost['id'] : "");
@@ -621,6 +624,7 @@ Class p_nota_fiscal_produto extends c_nota_fiscal_produto {
         $this->smarty->assign('dataGarantia', "'" . $this->getDataGarantia('F') . "'");
         $this->smarty->assign('dataConferencia', "'" . $this->getDataConferencia('F') . "'");
         $this->smarty->assign('ordem', "'" . $this->getOrdem() . "'");
+        $this->smarty->assign('nItemPed', "'" . $this->getNItemPed() . "'");
         $this->smarty->assign('projeto', $this->getProjeto());
         $this->smarty->assign('percDiferido', "'" . $this->getPercDiferido('F') . "'");
         $this->smarty->assign('valorIcmsDiferido', $this->getValorIcmsDiferido('F'));
@@ -791,15 +795,20 @@ Class p_nota_fiscal_produto extends c_nota_fiscal_produto {
         // Operador de coalescencia para php 8.3 
         $result = $consulta->resultado ?? [];
         
+        // Adiciona opção vazia no início
+        $cbenef_ids = [''];
+        $cbenef_names = [' '];
+        
         for ($i = 1; $i < count($result); $i++) {
-            $cbenef_ids[$i] = $result[$i]['CBENEF'];
-            $cbenef_names[$i] = $result[$i]['CBENEF'].' - '.$result[$i]['DESCRICAO'];
+            $cbenef_ids[] = $result[$i]['CBENEF'];
+            $cbenef_names[] = $result[$i]['CBENEF'].' - '.$result[$i]['DESCRICAO'];
         }
-        array_unshift($cbenef_names, " ");
         $this->smarty->assign('cbenef_ids', $cbenef_ids);
         $this->smarty->assign('cbenef_names', $cbenef_names);
 
-        $this->smarty->assign('cbenef', $this->getCBenef());
+        // Se CBENEF for NULL, passa string vazia para o template
+        $cbenef = $this->getCBenef();
+        $this->smarty->assign('cbenef', ($cbenef === null || $cbenef === '') ? '' : $cbenef);
 
         $this->smarty->assign('cstCofins', $this->getCstCofins());
         $this->smarty->assign('cstPis', $this->getCstPis());

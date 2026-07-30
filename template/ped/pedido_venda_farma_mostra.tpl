@@ -24,7 +24,7 @@
                                     {if $tipoMsg == "success"}
                                         <div class="alert alert-success" role="alert">{$mensagem}</div>
                                     {elseif $tipoMsg == "warning"}
-                                        <div class="alert alert-warning" role="alert">{$mensagem}</div>
+                                        <div class="alert alert-warning" role="alert">{$mensagem|nl2br nofilter}</div>
                                     {elseif $tipoMsg == "danger"}
                                         <div class="alert alert-danger" role="alert">{$mensagem}</div>
                                     {/if}
@@ -73,7 +73,13 @@
                             <input name=agrupar_pedidos type=hidden value={$agrupar_pedidos}>
                             <input name=motivosSelecionados type=hidden value={$motivoSelecionados}>
 
-                            <div class="form-group col-md-4 col-sm-6 col-xs-6">
+                            <div class="form-group col-md-2 col-sm-6 col-xs-6">
+                                <label>C&oacute;d. Pedido</label>
+                                <input class="form-control" id="idPedido" name="idPedido"
+                                    placeholder="ID do Pedido" value={$idPedido}>
+                            </div>
+
+                            <div class="form-group col-md-2 col-sm-6 col-xs-6">
                                 <label>Situa&ccedil;&atilde;o</label>
                                 <select class="select2_multiple form-control" multiple="multiple" id="situacao"
                                     name="situacao">
@@ -117,7 +123,7 @@
                             </div>
 
                             <div class="form-group col-md-6 col-sm-12 col-xs-6">
-                                <label>motivo</label>
+                                <label>Motivo</label>
                                 <select class="select2_multiple form-control" multiple="multiple" id="motivo"
                                     name="motivo">
                                     {html_options values=$motivo_ids output=$motivo_names selected=$motivo_id}
@@ -249,7 +255,7 @@
 
 <!-- daterangepicker -->
 <script type="text/javascript">
-    $('input[name="dataConsulta"]').daterangepicker({
+        $('input[name="dataConsulta"]').daterangepicker({
             startDate: moment("{$dataIni}", "DD/MM/YYYY"),
             endDate: moment("{$dataFim}", "DD/MM/YYYY"),
             ranges: {
@@ -277,8 +283,7 @@
             }
 
         },
-
-        //funcao para recuperar o valor digitado        
+        //funcao para recuperar o valor digirado        
         function(start, end, label) {
             f = document.lancamento;
             f.dataIni.value = start.format('DD/MM/YYYY');

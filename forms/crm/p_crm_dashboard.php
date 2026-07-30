@@ -59,7 +59,7 @@ function __construct(){
         $this->m_idCotacao = $parmPost['idCotacao'];
         $this->m_idCliente = $parmPost['idCliente'];
         $this->m_nomeCliente = $parmPost['nomeCliente'];
-
+        $this->m_obsPerda = isset($parmPost['obsPerda']) ? trim($parmPost['obsPerda']) : '';
         $this->m_motivoSelecionados = $parmPost['motivoSelected'];
         $this->m_idVendaperdida  = $parmPost['idVendaPerdida'];
         $this->m_par = explode("|", $this->m_letra);
@@ -68,6 +68,8 @@ function __construct(){
         $this->smarty->assign('pathJs',  ADMhttpBib.'/js');
         $this->smarty->assign('bootstrap', ADMbootstrap);
         $this->smarty->assign('raizCliente', $this->raizCliente);
+        $this->smarty->assign('pathSweet',  ADMhttpCliente . '/../sweetalert2');
+
         
 }
 
@@ -78,6 +80,7 @@ function __construct(){
 * @return vazio
 */
 function controle(){
+  if ($this->verificaDireitoUsuario('CrmDashboard', 'C')) {
   switch ($this->m_submenu){
     case 'pesquisa':
         $this->mostraDashboard('');
@@ -86,9 +89,11 @@ function controle(){
         $this->acompanhamentos('');
     break;
     case 'motivoGeral':
+        if ($this->verificaDireitoUsuario('CrmDashboard', 'A')){
         $objPedVenda = new c_pedidoVenda;
-        $objPedVenda->setId($this->m_idVendaperdida);        
+        $objPedVenda->setId($this->m_idVendaperdida); 
         $objPedVenda->atualizarMotivoItem($this->m_motivoSelecionados);
+        $objPedVenda->atualizarObsPerda($this->m_obsPerda);
         $objPedVenda->atualizarFieldPedido(7);
         $this->m_submenu = null;
         //Zera o submenu para evitar o reload do form
@@ -100,10 +105,12 @@ function controle(){
                     icon: "success",
                   });
             </script>';      
+        }
     break;
     default:
         $this->mostraDashboard('');
     }
+  }
 
 } // fim controle
 
@@ -224,7 +231,7 @@ function mostraDashboard($mensagem=NULL){
 
     if($vertodoslancamentos == true){
         //Busca Cotacoes
-         $resultBusca = $objDashboard->buscaCotacaoPedidos($dataIni, $dataFim, $vendedor, $centroCusto, $this->m_empresacentrocusto, $vertodoslancamentos);
+        $resultBusca = $objDashboard->buscaCotacaoPedidos($dataIni, $dataFim, $vendedor, $centroCusto, $this->m_empresacentrocusto, $vertodoslancamentos);
 
         //Parametros para busca de meta
         //data ini
@@ -244,7 +251,7 @@ function mostraDashboard($mensagem=NULL){
             }
         }
         //New meta
-        $metas = $objClassPedVenda->metas($dataIni, $dataFim, $wherec, $vendedor) ?? [];
+        $metas = $objClassPedVenda->metas($dataIni, $dataFim, $wherec, $vendedor);
             //Old meta
             //$resultMeta = $objDashboard->buscaoMeta($vendedor, $ano, $mes, $centroCusto);
         for ($i = 0; $i < count($metas); $i++) {
@@ -274,7 +281,7 @@ function mostraDashboard($mensagem=NULL){
             }
         }
         //New meta
-        $metas = $objClassPedVenda->metas($dataIni, $dataFim, $wherec, $vendedor) ?? [];
+        $metas = $objClassPedVenda->metas($dataIni, $dataFim, $wherec, $vendedor);
         //Old meta
         //$resultMeta = $objDashboard->buscaoMeta($this->m_userid, $ano, $mes, $this->m_empresacentrocusto);
     }
@@ -283,7 +290,7 @@ function mostraDashboard($mensagem=NULL){
     $cotHoje   = $resultBusca[0]['COTACAO_HOJE'];
     $conversao = $resultBusca[0]['CONVERSAO'];
     $perdidos  = $resultBusca[0]['PERDIDOS'];
-    $metas = $metas ?? [];
+
     if(count($metas) > 1){
         $pedMes        = $metasFor['NUMVENDAS'];
         $pedMesValor   = $metasFor['VALORVENDIDO'];
@@ -304,19 +311,13 @@ function mostraDashboard($mensagem=NULL){
     }
     
     //total de pedidos do periodo
-    if ($allPedidos > 0) {
-        $percPed = number_format(($pedMes / $allPedidos * 100), 2);
-    } else {
-        $percPed = 0.00; 
-    }
+    $percPed = number_format(($pedMes / $allPedidos * 100) ,2);
+    if($percPed == 'nan'){$percMetaMensal = 0.00;}
     
     //meta
-    if ($pedMesValor != 0 && $vlrMetaMensal != 0) {
-        $percMetaMensal = number_format(($pedMesValor / $vlrMetaMensal) * 100, 2);
-    } else {
-        $percMetaMensal = 0.00;
-    }
-    
+    $percMetaMensal = number_format(($pedMesValor / $vlrMetaMensal) * 100, 2);
+    if($percMetaMensal == 'nan'){$percMetaMensal = 0.00;}
+
     if($percMetaMensal > 100){
         $this->smarty->assign('iconeFaSort', 'asc');    
     }else{

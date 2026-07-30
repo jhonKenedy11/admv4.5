@@ -84,7 +84,7 @@ class c_nfs_response
      * @param array $errosValidacao Lista de erros de validação
      * @param string $message Mensagem principal (opcional)
      */
-    public static function validationError(array $errosValidacao, string $message = 'Erro de validação dos dados'): void
+    public static function validationError(string $message = 'Erro de validação dos dados'): void
     {
         self::setHeaders();
         http_response_code(422); // Unprocessable Entity
@@ -92,7 +92,6 @@ class c_nfs_response
         $response = [
             'success' => false,
             'message' => $message,
-            'erros' => $errosValidacao,
             'tipo' => 'validacao'
         ];
         

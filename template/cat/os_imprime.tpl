@@ -14,6 +14,15 @@
                         <h4>
                               <center><strong>{$empresa[0].NOMEEMPRESA}</strong></center>
                         </h4>
+                        <h2 style="text-align:center">
+                              CNPJ: <strong>
+                                    {if $empresa[0].CNPJ|strlen == 14}
+                                          {$empresa[0].CNPJ|substr:0:2}.{$empresa[0].CNPJ|substr:2:3}.{$empresa[0].CNPJ|substr:5:3}/{$empresa[0].CNPJ|substr:8:4}-{$empresa[0].CNPJ|substr:12:2}
+                                    {else}
+                                          {$empresa[0].CNPJ}
+                                    {/if}
+                              </strong>
+                        </h2>
                   </div>
             
                   <div>

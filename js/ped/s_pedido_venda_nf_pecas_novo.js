@@ -1,7 +1,32 @@
+function formFinanceiroPecasNovo() {
+    var forms = document.querySelectorAll('form[name=lancamento], form#lancamento');
+    var i;
+    for (i = 0; i < forms.length; i++) {
+        var formInput = forms[i].elements['form'] || forms[i].querySelector('input[name=form]');
+        if (formInput && formInput.value === 'pedido_venda_nf_pecas_novo') {
+            return forms[i];
+        }
+    }
+    var credEl = document.querySelector('form input[name=saldoCredito]');
+    if (credEl && credEl.form) {
+        return credEl.form;
+    }
+    var f = document.lancamento;
+    return (f && f.length) ? f[0] : f;
+}
+
+function formFieldValue(form, fieldName, fallback) {
+    if (!form) {
+        return fallback !== undefined ? fallback : '';
+    }
+    var el = form.elements[fieldName] || form.querySelector('[name="' + fieldName + '"]');
+    return el ? el.value : (fallback !== undefined ? fallback : '');
+}
+
 function submitAtual(id, alteraCondPgto='' ) {
      
 
-    f = document.lancamento;
+    f = formFinanceiroPecasNovo();
     f.mod.value = 'ped';
     f.form.value = 'pedido_venda_nf_pecas_novo';
     //f.opcao.value = '';
@@ -16,7 +41,7 @@ function submitAtual(id, alteraCondPgto='' ) {
 function submitCadastro(id) {
      
 
-    f = document.lancamento;
+    f = formFinanceiroPecasNovo();
     f.mod.value = 'ped';
     f.form.value = 'pedido_venda_nf_pecas_novo';
     //f.opcao.value = '';
@@ -28,7 +53,7 @@ function submitCadastro(id) {
 function submitVoltar(formulario) {
      
 
-    f = document.lancamento;
+    f = formFinanceiroPecasNovo();
     f.mod.value = 'ped';
     f.form.value = 'pedido_venda_nf_pecas_novo';
     f.opcao.value = formulario;
@@ -39,16 +64,27 @@ function submitVoltar(formulario) {
 function submitVoltarNovo(formulario) {
      
 
-    f = document.lancamento;
+    f = formFinanceiroPecasNovo();
+
+    if(f.t_origem.value === 'pedido_ps'){
+        f.mod.value = 'ped';
+        f.form.value = 'pedido_ps';
+        f.submenu.value = '';
+        f.submit();
+        return;
+    }
+
     if(f.t_origem.value === 'nota_fiscal'){
         f.mod.value = 'est';
         f.form.value = 'nota_fiscal';
         f.submenu.value = 'alterar';
-    }else{
-        f.mod.value = 'ped';
-        f.form.value = 'pedido_venda_gerente_novo';
-        f.submenu.value = '';
+        f.submit();
+        return;
     }
+
+    f.mod.value = 'ped';
+    f.form.value = 'pedido_venda_gerente_novo';
+    f.submenu.value = '';
     f.submit();
 } // fim submitVoltar
 
@@ -56,7 +92,7 @@ function submitVoltarNovo(formulario) {
 function submitConfirmar(formulario) {
      
 
-    f = document.lancamento;
+    f = formFinanceiroPecasNovo();
     f.mod.value = 'ped';
     f.form.value = 'pedido_venda_nf_pecas_novo_pecas';
     f.opcao.value = formulario;
@@ -69,92 +105,129 @@ function submitConfirmar(formulario) {
     f.submit();
 } // fim submitConfirmar
 
-// function submitCadastraNf(id) {
-//      
-//     f = document.lancamento;
-//     if(vendaPresencial){
-//         let cliente = f.cliente.value;
-//         let natOperacao = f.idNatop.value;
-//         //let validaNatOp = validaNaturezaOperacao(cliente, natOperacao);
-    
-//         //if(validaNatOp == 'null'){ //retorno null significa que os parametros foram aceitos
-//             f.mod.value = 'ped';
-//             f.form.value = 'pedido_venda_nf_pecas_novo';
-//             swal({
-//                 title: "Atenção!",
-//                 icon: "info",
-//                 text: "Deseja prosseguir com a emissão da NF-e e inclusão do faturamento?",
-//                 buttons: true,
-//               })
-//               .then((yes) => {
-//                 if (yes) {
-//                      
-//                     // Cria o HTML personalizado com o ícone animado
-//                     var loadingIconHtml = '<div class="lds-ring"><div></div><div></div><div></div><div></div></div>';
+function pedidoPsEstaEmEncomenda() {
+    var f = document.lancamento;
+    return f && f.pedidoSituacao && parseInt(f.pedidoSituacao.value, 10) === 13;
+}
 
-//                     // Mostra a mensagem de carregamento usando SweetAlert2 com o ícone animado
-//                     var loadingMessage = Swal.fire({
-//                         html: loadingIconHtml + '<p>Aguarde...</p>',
-//                         allowOutsideClick: false,
-//                         showConfirmButton: false,
-//                         didOpen: () => {
-//                             f.submenu.value = 'cadastraNf';
-//                             f.id.value = id;
-//                             f.submit();
-//                         }
-//                     });
+function alertaEncomendaBloqueiaNf() {
+    Swal.fire({
+        icon: 'info',
+        title: 'Pedido em encomenda',
+        html: 'A emissão de NF está bloqueada enquanto o pedido aguarda entrada de estoque.<br>'
+            + 'Cadastre o financeiro e aguarde a liberação do material.',
+        confirmButtonText: 'OK'
+    });
+}
 
-//                 } else {
-//                     f.submenu.value = '';
-//                     return false;
-//                 }
-//               });
-//         // }else{ //se os parametros nao forem aceitos informará msg na tela
-//         //     swal({
-//         //         title: "Atenção!",
-//         //         text: "" + validaNatOp + "",
-//         //         icon: "error",
-//         //         button: "OK",
-//         //         dangerMode: true,
-//         //     });
-//         // }
-//     }
+function submitCadastraNf(id, ehCupomFiscal) {
+    if (pedidoPsEstaEmEncomenda()) {
+        alertaEncomendaBloqueiaNf();
+        return;
+    }
+    f = formFinanceiroPecasNovo();
+    var vendaPresencial = ehCupomFiscal ? 'S' : (document.querySelector('input[name=vendaPresencial]:checked') || {}).value;
+    if (vendaPresencial !== 'S') {
+        prosseguirEmissaoNf(id);
+        return;
+    }
 
-// } // submitAlterar
+    f.mod.value = 'ped';
+    f.form.value = 'pedido_venda_nf_pecas_novo';
 
-function submitCadastraNf(id) {
-     
-    f = document.lancamento;
-    if(vendaPresencial){
-        let cliente = f.cliente.value;
-        let natOperacao = f.idNatop.value;
+    var parcelasCadastrada = (String(formFieldValue(f, 'parcelasCadastrada', '0')) === '1');
+    var saldoNum = parseFloat(String(formFieldValue(f, 'saldoCredito', '0')).replace(',', '.')) || 0;
 
-        //if(validaNatOp == 'null'){ //retorno null significa que os parametros foram aceitos
-        f.mod.value = 'ped';
-        f.form.value = 'pedido_venda_nf_pecas_novo';
+    if (!parcelasCadastrada && saldoNum > 0) {
+            Swal.fire({
+                title: "Usar saldo de crédito",
+                icon: "info",
+                html: 'Saldo disponível: <b>R$ ' + saldoNum + '</b><br><br>Informe o valor que deseja usar:',
+                input: "text",
+                inputValue: saldoNum,
+                inputAttributes: {
+                    min: 0,
+                    max: saldoNum,
+                    step: "0.01"
+                },
+                showDenyButton: true,
+                showCancelButton: true,
+                confirmButtonText: "Usar crédito",
+                denyButtonText: "Não usar crédito",
+                cancelButtonText: "Cancelar",
+                preConfirm: (valorInformado) => {
+                    const valor = parseFloat(String(valorInformado || '0').replace(',', '.'));
+                    if (isNaN(valor) || valor <= 0) {
+                        Swal.showValidationMessage("Informe um valor de crédito maior que zero.");
+                        return false;
+                    }
+                    if (valor > saldoNum) {
+                        Swal.showValidationMessage("O valor informado não pode ser maior que o saldo disponível.");
+                        return false;
+                    }
+                    return valor;
+                }
+            }).then((result) => {
+                if(result.isConfirmed){
+                    f.credito.value = result.value;
+                    f.usarCredito.value = 'S';
+                    f.mod.value = 'ped';
+                    f.form.value = 'pedido_venda_nf_pecas_novo';
+                    f.submenu.value = 'cadastraNf';
+                    f.id.value = id;
+                    f.submit();
+                    return;
+                }
+                if (result.isDenied) {
+                    f.credito.value = 0;
+                    f.usarCredito.value = 'N';
+                    prosseguirEmissaoNf(id, ehCupomFiscal);
+                    return;
+                }
+                f.submenu.value = '';
+                return false;
+            });
+    } else {
+        f.credito.value = 0;
+        f.usarCredito.value = 'N';
+        prosseguirEmissaoNf(id, ehCupomFiscal);
+    }
+}
 
-        Swal.fire({
-            title: "Atenção!",
-            icon: "info",
-            text: "Deseja prosseguir com a emissão da NF-e e inclusão do faturamento?",
-            showCancelButton: true,
-            confirmButtonText: "Sim",
-            cancelButtonText: "Não",
-            customClass: {
-                popup: 'classEmitirNota',
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
+function prosseguirEmissaoNf(id, ehCupomFiscal) {
+    if (pedidoPsEstaEmEncomenda()) {
+        alertaEncomendaBloqueiaNf();
+        return;
+    }
+    f = formFinanceiroPecasNovo();
+    var msgConfirmacao = ehCupomFiscal
+        ? 'Deseja prosseguir com a emissão da NFC-e (cupom fiscal) e inclusão do faturamento?'
+        : 'Deseja prosseguir com a emissão da NF-e e inclusão do faturamento?';
+    var msgAguarde = ehCupomFiscal ? 'Emitindo cupom fiscal...' : 'Aguarde...';
+
+            Swal.fire({
+                title: "Atenção!",
+                icon: "info",
+                text: msgConfirmacao,
+                showCancelButton: true,
+                confirmButtonText: "Sim",
+                cancelButtonText: "Não",
+                customClass: {
+                    popup: 'classEmitirNota',
+                }
+            }).then((result) => {
                  
-                // Cria o HTML personalizado com o ícone animado
+                if (result.isConfirmed) {
+                    
                 var loadingIconHtml = '<div class="lds-ring"><div></div><div></div><div></div><div></div></div>';
 
-                // Mostra a mensagem de carregamento usando SweetAlert2 com o ícone animado
                 Swal.fire({
-                    html: loadingIconHtml + '<p>Aguarde...</p>',
+                    html: loadingIconHtml + '<p>' + msgAguarde + '</p>',
                     allowOutsideClick: false,
                     showConfirmButton: false,
                     didOpen: () => {
+                        f.mod.value = 'ped';
+                        f.form.value = 'pedido_venda_nf_pecas_novo';
                         f.submenu.value = 'cadastraNf';
                         f.id.value = id;
                         f.submit();
@@ -165,7 +238,6 @@ function submitCadastraNf(id) {
                 return false;
             }
         });
-    }
 }
 
 
@@ -190,59 +262,99 @@ function validaNaturezaOperacao(cliente, natOperacao){
 }
 
 
-// function submitCadastraFinanceiro(id) {
-//      
-//     f = document.lancamento;
-//     swal({
-//         title: "Atenção!",
-//         text: "Deseja cadastrar as parcelas no Financeiro?",
-//         icon: "warning",
-//         buttons: true,
-//       })
-//       .then((willDelete) => {
-//         if (willDelete) {
-//              
-//             f.mod.value = 'ped';
-//             f.form.value = 'pedido_venda_nf_pecas_novo';
-//             //Teste para verificar a tela origem
-//             if(f.t_origem.value === 'nota_fiscal'){
-//                 f.submenu.value = 'cadastraFinanceiroNotaFiscal';
-//             }else{
-//                 f.submenu.value = 'cadastraFinanceiro';
-//             }
-//             f.id.value = id;
-//             f.submit();
-//         } else {
-//             return false;
-//         }
-//       });
-// } // submitCadastraFinanceiro
 
 function submitCadastraFinanceiro(id) {
      
-    f = document.lancamento;
+    f = formFinanceiroPecasNovo();
+    let saldoCredito = formFieldValue(f, 'saldoCredito', '0');
+    const parcelasCadastrada = (String(formFieldValue(f, 'parcelasCadastrada', '0')) === '1');
+    const saldoNum = parseFloat(String(saldoCredito || '0').replace(',', '.')) || 0;
+    const isExtrato = (String(formFieldValue(f, 'financeiroCondExtrato', '0')) === '1');
+
+    // Se já existe financeiro (parcelas cadastradas), não deve perguntar para usar o saldo novamente.
+    if (!parcelasCadastrada && saldoNum > 0) {
+        Swal.fire({
+            title: "Usar saldo de crédito",
+            icon: "info",
+            html: 'Saldo disponível: <b>R$ ' + saldoNum + '</b><br><br>Informe o valor que deseja usar:',
+            input: "text",
+            inputValue: saldoNum,
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: "Usar crédito",
+            denyButtonText: "Não usar crédito",
+            cancelButtonText: "Cancelar",
+            preConfirm: (valorInformado) => {
+                const valor = parseFloat(String(valorInformado || '0').replace(',', '.')) || 0;
+                if (valor <= 0) {
+                    Swal.showValidationMessage("Informe um valor de crédito maior que zero.");
+                    return false;
+                }
+                if (valor > saldoNum) {
+                    Swal.showValidationMessage("O valor informado não pode ser maior que o saldo disponível.");
+                    return false;
+                }
+                return valor;
+            }
+        }).then((r) => {
+            if (r.isConfirmed) {
+                f.credito.value = r.value || 0;
+                f.usarCredito.value = 'S';
+            } else if (r.isDenied) {
+                f.credito.value = 0;
+                f.usarCredito.value = 'N';
+            } else {
+                return false;
+            }
+            f.mod.value = 'ped';
+            f.form.value = 'pedido_venda_nf_pecas_novo';
+            f.submenu.value = (f.t_origem.value === 'nota_fiscal') ? 'cadastraFinanceiroNotaFiscal' : 'cadastraFinanceiro';
+            f.id.value = id;
+            f.submit();
+        });
+        return;
+    }
+
+    f.credito.value = 0;
+    f.usarCredito.value = 'N';
+
+    const doSubmit = () => {
+        f.mod.value = 'ped';
+        f.form.value = 'pedido_venda_nf_pecas_novo';
+        f.submenu.value = (formFieldValue(f, 't_origem', '') === 'nota_fiscal') ? 'cadastraFinanceiroNotaFiscal' : 'cadastraFinanceiro';
+        f.id.value = id;
+        f.submit();
+    };
+
+    if (isExtrato) {
+        var posFinExtrato = f.elements['pos_financeiro_ps'];
+        if (posFinExtrato) posFinExtrato.value = '9';
+        doSubmit();
+        return;
+    }
+
+    var sitPedidoFin = parseInt(formFieldValue(f, 'pedidoSituacao', '0'), 10);
+    var tituloFin = sitPedidoFin === 13
+        ? 'Confirmar financeiro da encomenda?'
+        : 'Deseja confirmar o financeiro?';
+    var textoFin = sitPedidoFin === 13
+        ? 'O pedido permanecerá em encomenda até a entrada de estoque. A NF não será emitida agora.'
+        : '';
+
     Swal.fire({
-        title: "Atenção!",
-        text: "Deseja cadastrar as parcelas no Financeiro?",
-        icon: "warning",
+        title: tituloFin,
+        html: textoFin,
+        icon: "question",
         showCancelButton: true,
         confirmButtonText: "Sim",
         cancelButtonText: "Não",
-    }).then((result) => {
-        if (result.isConfirmed) {
-             
-            f.mod.value = 'ped';
-            f.form.value = 'pedido_venda_nf_pecas_novo';
-            // Teste para verificar a tela origem
-            if (f.t_origem.value === 'nota_fiscal') {
-                f.submenu.value = 'cadastraFinanceiroNotaFiscal';
-            } else {
-                f.submenu.value = 'cadastraFinanceiro';
+    }).then((r) => {
+        if (r.isConfirmed) {
+            var posFin = f.elements['pos_financeiro_ps'];
+            if (posFin) {
+                posFin.value = sitPedidoFin === 13 ? '13' : '3';
             }
-            f.id.value = id;
-            f.submit();
-        } else {
-            return false;
+            doSubmit();
         }
     });
 } // submitCadastraFinanceiro
@@ -252,29 +364,38 @@ function abrir(pag) {
     window.open(pag, 'consulta', 'toolbar=no,location=no,menubar=no,width=650,height=550,scrollbars=yes');
 }
 
+// Wrapper global usado pelos botões de erro do espelho (abre nova janela/aba)
+function openNewWin(pag) {
+    window.open(pag, 'consulta', 'toolbar=no,location=no,menubar=no,width=800,height=600,scrollbars=yes,resizable=yes');
+}
+
 function printDanfe(id) {
     window.open('index.php?mod=est&origem=imprimeDanfe&opcao=imprimir&form=nfephp_imprime_danfe&id='+id, 'DANFE', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes');
 }
 
- 
-// Suponhamos que você tenha uma referência para o elemento HTML
-var btnConfirma = document.getElementsByClassName("classEmitirNota");
+function submitGeraEspelhoJson(id) {
+     
+    f = formFinanceiroPecasNovo();
+    f.mod.value = 'ped';
+    f.form.value = 'pedido_venda_nf_pecas_novo';
+    f.submenu.value = 'geraEspelhoJson';
+    f.id.value = id;
+    f.submit();
+} // fim submitGeraEspelhoJson
 
-// Verifique se o elemento possui o atributo aria-label antes de removê-lo
-if (btnConfirma.hasAttribute("aria-label")) {
-    btnConfirma.removeAttribute("aria-label");
-}
-
-// Função para inicializar data atual no campo dataSaidaEntrada se estiver vazio
 document.addEventListener('DOMContentLoaded', function() {
+    var btnConfirma = document.getElementsByClassName('classEmitirNota');
+    if (btnConfirma.length > 0 && btnConfirma[0].hasAttribute('aria-label')) {
+        btnConfirma[0].removeAttribute('aria-label');
+    }
+
     var campoData = document.getElementById('dataSaidaEntrada');
     if (campoData && !campoData.value) {
         var hoje = new Date();
-        var dia = String(hoje.getDate()).padStart(2, '0');
-        var mes = String(hoje.getMonth() + 1).padStart(2, '0');
-        var ano = hoje.getFullYear();
-        var hora = String(hoje.getHours()).padStart(2, '0');
-        var minuto = String(hoje.getMinutes()).padStart(2, '0');
-        campoData.value = dia + '/' + mes + '/' + ano + ' ' + hora + ':' + minuto;
+        campoData.value = String(hoje.getDate()).padStart(2, '0') + '/'
+            + String(hoje.getMonth() + 1).padStart(2, '0') + '/'
+            + hoje.getFullYear() + ' '
+            + String(hoje.getHours()).padStart(2, '0') + ':'
+            + String(hoje.getMinutes()).padStart(2, '0');
     }
 });

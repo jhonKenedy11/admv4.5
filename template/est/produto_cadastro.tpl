@@ -3,6 +3,11 @@
         width: 780px !important;
     }
 
+    .daterangepicker {
+        z-index: 99999 !important;
+    }
+
+
     input[type="number"]::-webkit-outer-spin-button,
     input[type="number"]::-webkit-inner-spin-button {
         -webkit-appearance: none;
@@ -52,6 +57,21 @@
     .select2-results__option {
         border-radius: 5px !important;
     }
+    
+    .col-md-1-5 {
+        position: relative;
+        min-height: 1px;
+        padding-right: 15px;
+        padding-left: 15px;
+    }
+    
+    @media (min-width: 992px) {
+        .col-md-1-5 {
+            width: 12.5%; /* Entre col-md-1 (8.33%) e col-md-2 (16.66%) */
+            float: left;
+        }
+    }
+
 
     /* Oculta a borda de foco do Chrome */
     :focus {
@@ -66,8 +86,11 @@
         background-color: #a33232 !important;
     }
 </style>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <script type="text/javascript" src="{$pathJs}/est/s_produto.js"> </script>
 <script type="text/javascript" src="{$pathSweet}/dist/sweetalert2.all.min.js"></script>
+<script type="text/javascript" src="{$bootstrap}/moment/min/moment.min.js"> </script>
+<link href="css/daterangepicker/daterangepicker.css" rel="stylesheet">    
 <!-- page content -->
 <div class="right_col" role="main" style="padding: 8px;">
     <div class="">
@@ -142,7 +165,7 @@
 
 
                             <br />
-                            <form class="container" novalidate="" action="/echo" method="POST" id="myForm">
+                            <div class="container" novalidate="" id="myForm">
 
                                 <div class="row">
 
@@ -248,6 +271,14 @@
                                     </div>
 
                                     <div class="col-md-2 col-sm-12 col-xs-12">
+                                        <label for="cclasstrib">CClasstrib</label>
+                                        <select class="js-example-basic-single form-control" name="cclasstrib" id="cclasstrib"
+                                            tabindex="11">
+                                            {html_options values=$cclasstrib_ids selected=$cclasstrib output=$cclasstrib_names}
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-2 col-sm-12 col-xs-12">
                                         <label for="cest">CEST</label>
                                         <input class="form-control" type="text" size="30" name="cest" maxlength="15"
                                             tabindex="12" placeholder="Cest" value={$cest}>
@@ -261,13 +292,13 @@
                                         </select>
                                     </div>
 
-                                    <div class="col-md-3 col-sm-12 col-xs-12">
+                                    <div class="col-md-2 col-sm-12 col-xs-12">
                                         <label for="cep">Origem</label>
                                         <select name="origem" class="form-control" tabindex="14">
                                             {html_options values=$origem_ids selected=$origem output=$origem_names}
                                         </select>
                                     </div>
-                                    <div class="col-md-3 col-sm-12 col-xs-12">
+                                    <div class="col-md-2 col-sm-12 col-xs-12">
                                         <label for="tipo">Tributa&ccedil;&atilde;o ICMS</label>
                                         <select class="form-control" name=tribIcms tabindex="14">
                                             {html_options values=$tribIcms_ids selected=$tribIcms output=$tribIcms_names}
@@ -278,7 +309,7 @@
 
                         </div>
                     </div>
-        </form>
+        </div>
 
 
         <div class="x_panel">
@@ -304,6 +335,9 @@
                     </li>
                     <li role="presentation" class=""><a href="#tab_content7" role="tab" id="dados-tab" role="tab"
                             data-toggle="tab" aria-expanded="false">Tabela de Preço</a>
+                    </li>
+                    <li role="presentation" class=""><a href="#tab_content9" role="tab" id="impostos-tab" role="tab"
+                            data-toggle="tab" aria-expanded="false">Nota Entrada</a>
                     </li>
                 </ul>
                 <div id="myTabContent" class="tab-content">
@@ -380,7 +414,10 @@
                         <div class="row">
 
                             <div class="col-md-3 col-sm-6 col-xs-6">
-                                <label for="custoCompra">&Uacute;ltima Compra</label>
+                                <label for="custoCompra">&Uacute;ltima Compra 
+                                    <i class="fa fa-info-circle text-info" data-toggle="tooltip" data-placement="top" 
+                                       title="Valor unitário da última entrada do produto."></i>
+                                </label>
                                 <div class="panel panel-default">
                                     <input class="form-control money has-feedback-left" type="money" id="custoCompra"
                                         name="custoCompra" maxlength="9" tabindex="15"
@@ -391,7 +428,10 @@
                             </div>
 
                             <div class="col-md-3 col-sm-6 col-xs-6">
-                                <label for="custoMedio">Custo M&eacute;dio</label>
+                                <label for="custoMedio">Custo M&eacute;dio 
+                                    <i class="fa fa-info-circle text-info" data-toggle="tooltip" data-placement="top" 
+                                       title="Cálculo automático na importação: calculo de impostos e custos, com base no estoque atual."></i>
+                                </label>
                                 <div class="panel panel-default">
                                     <input class="form-control money has-feedback-left" type="money" id="custoMedio"
                                         name="custoMedio" maxlength="9" onchange="javascript:calculaTotal();"
@@ -401,7 +441,10 @@
                                 </div>
                             </div>
                             <div class="col-md-2 col-sm-12 col-xs-12">
-                                <label for="custoReposicao">Custo Reposi&ccedil;&atilde;o</label>
+                                <label for="custoReposicao">Custo Reposi&ccedil;&atilde;o 
+                                    <i class="fa fa-info-circle text-info" data-toggle="tooltip" data-placement="top" 
+                                       title="Cálculo automático na importação: calcula impostos e custos, na entrada do produto, controlado por parametros."></i>
+                                </label>
                                 <input class="form-control money has-feedback-left" type="text" id="custoReposicao"
                                     name="custoReposicao" placeholder="Valor de reposição" tabindex="17"
                                     onchange="javascript:calculaTotal();" value={$custoReposicao}>
@@ -430,7 +473,10 @@
                         </div>
                         <div class="row">
                             <div class="col-md-3 col-sm-12 col-xs-12">
-                                <label for="precoBase">Pre&ccedil;o Base</label>
+                                <label for="precoBase">Pre&ccedil;o Base 
+                                    <i class="fa fa-info-circle text-info" data-toggle="tooltip" data-placement="top" 
+                                       title="Define qual valor será usado como base para cálculo de preço de venda"></i>
+                                </label>
                                 <select class="form-control money" name="precoBase" tabindex="20"
                                     onchange="javascript:calculaTotal();">
                                     {html_options values=$precoBase_ids selected=$precoBase_id output=$precoBase_names}
@@ -549,13 +595,13 @@
                     <!-- TAB EQUIVALENCIA -->
                     <div role="tabpanel" class="tab-pane fade small" id="tab_content6" aria-labelledby="profile-tab">
 
-                        <div class="col-md-2 small col-sm-6 col-xs-6">
+                        <div class="col-md-1-5 small col-sm-6 col-xs-6">
                             <label for="codEquivalente">Código Equivalente</label>
                             <input class="form-control input-sm" type="text" maxlength="25" id="codEquivalente"
                                 tabindex="1" name="codEquivalente" required="required" value={$codEquivalente}>
                         </div>
 
-                        <div class="col-md-4 small col-sm-12 col-xs-12">
+                        <div class="col-md-3 small col-sm-12 col-xs-12">
                             <label for="nomeEquiv">Fabricante / Fornecedor</label>
                             <div class="input-group" input-sm>
                                 <input type="text" class="form-control input-sm" id="nomeEquivalente"
@@ -576,35 +622,59 @@
                                 value={$nfUltimaCompraEquiv}>
                         </div>
 
-                        <div class="col-md-2 small col-sm-12 col-xs-12 has-feedback">
+                        <div class="col-md-1-5 small col-sm-12 col-xs-12 has-feedback">
                             <label for="dataUltimaCompraEquiv">Data Ultima Compra</label>
                             <input class="form-control input-sm" type="text" id="dataUltimaCompraEquiv"
                                 name="dataUltimaCompraEquiv" data-inputmask="'mask': '99/99/9999'" tabindex="4"
                                 value={$dataUltimaCompraEquiv}>
                         </div>
 
-                        <div class="col-md-2 small col-sm-12 col-xs-12">
+                        <div class="col-md-1 small col-sm-12 col-xs-12">
                             <label for="quantUltimaCompraEquiv">Quantidade</label>
                             <input class="form-control input-sm money" type="money" maxlength="11"
                                 id="quantUltimaCompraEquiv" name="quantUltimaCompraEquiv" required="required"
                                 tabindex="5" placeholder="Quantidade Ultima Compra." value={$quantUltimaCompraEquiv}>
                         </div>
+                        <div class="col-md-1 small col-sm-12 col-xs-12">
+                            <label for="precoUnitarioEquiv">Preço Unitário</label>
+                            <input class="form-control input-sm money" type="money" maxlength="11"
+                                id="precoUnitarioEquiv" name="precoUnitarioEquiv" required="required"
+                                tabindex="6" placeholder="0.00" value={$precoUnitarioEquiv}>
+                        </div>
+                       <div class="col-md-2 small col-sm-12 col-xs-12" style="width: 110px !important;">
+                            <label for="marcaEquivalente" style="display: block;">Marca</label>
+                            <select class="js-example-basic-single form-control input-sm" name="marcaEquivalente" id="marcaEquivalente"
+                                tabindex="6">
+                                {html_options values=$marca_ids selected=$marcaEquivalente output=$marca_names}
+                            </select>
+                        </div>
 
                         <div class="col-md-1 col-sm-12 col-xs-12 small" id="btnAdd">
-                            <button type="button" class="btn btn-success" tabindex="6"
-                                onClick="javascript:submitConfirmarEquivalencia();">
-                                <span class="glyphicon glyphicon-plus" aria-hidden="true"></span><span>
-                                </span></button>
+                            <div class="btn-group btn-group-sm btn-xs" aria-label="Equivalencia actions">
+                                <button type="button" id="btnEquivalenciaSalvar" class="btn btn-success" tabindex="7"
+                                    title="Salvar equivalência" onclick="javascript:submitConfirmarEquivalencia();">
+                                    <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+                                </button>
+                            </div>
+                            <div class="btn-group btn-group-sm btn-xs" aria-label="Equivalencia actions">
+                                <button type="button" id="btnEquivalenciaCancelar" class="btn btn-warning" tabindex="8"
+                                    title="Cancelar edição" onclick="javascript:submitCancelarEquivalencia();">
+                                    <span class="glyphicon glyphicon-erase" aria-hidden="true"></span>
+                                </button>
+                            </div>
                         </div>
 
                         <div class="row">
-                            <div class="col-md-12 col-sm-12 col-xs-12 has-feedback">
-                                <table id="datatable-buttons" class="table table-bordered jambo_table">
+                        <div class="col-md-12 col-sm-12 col-xs-12 has-feedback">
+                            <div id="equivalenciasContainer">
+                            <table id="datatable-buttons" class="table table-bordered jambo_table">
                                     <thead>
-                                        <tr style="background: #2A3F54; color: white;">
+                                    <tr class="headings">
                                             <th>Código Equivalente</th>
                                             <th>Conta</th>
+                                            <th>Marca</th>
                                             <th>Numero NF</th>
+                                            <th>Preço Unitário</th>
                                             <th>Data Ultima Compra</th>
                                             <th>Quantidade</th>
                                             <th style="width: 120px;">Excluir</th>
@@ -616,14 +686,20 @@
                                             <tr>
                                                 <td> {$equiv[i].CODEQUIVALENTE} </td>
                                                 <td> {$equiv[i].NOME} </td>
+                                                <td> {$equiv[i].NOMEMARCA|default:''} </td>
                                                 <td> {$equiv[i].NFULTIMACOMPRA} </td>
+                                                <td> {$equiv[i].PRECOUNITARIO} </td>
                                                 <td> {$equiv[i].DATAULTIMACOMPRA|date_format:"%d/%m/%Y"} </td>
                                                 <td> {$equiv[i].QUANTULTIMACOMPRA} </td>
                                                 <td>
+                                                    <button type="button" title="Alterar" class="btn btn-warning btn-xs btn-alter-equivalencia"
+                                                        onclick="javascript:AlterarEquivalencia('{$equiv[i].ID}', '{$equiv[i].CODEQUIVALENTE}', '{$equiv[i].CONTA}', '{$equiv[i].NOME|escape:'html'}', '{$equiv[i].MARCA}', '{$equiv[i].NFULTIMACOMPRA}', '{$equiv[i].DATAULTIMACOMPRA|date_format:'%d/%m/%Y'}', '{$equiv[i].QUANTULTIMACOMPRA}', '{$equiv[i].PRECOUNITARIO|number_format:2:',':'.'}');">
+                                                        <span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>
+                                                    </button>
                                                     <button type="button" title="Deletar" class="btn btn-danger btn-xs"
-                                                        onclick="javascript:submitExcluirEquivalencia('{$equiv[i].ID}');"><span
-                                                            class="glyphicon glyphicon-trash" aria-hidden="true"></span>
-                                                        </button-->
+                                                        onclick="javascript:submitExcluirEquivalencia('{$equiv[i].ID}');">
+                                                        <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
+                                                    </button>
                                                 </td>
                                             </tr>
                                         {/section}
@@ -633,8 +709,8 @@
 
                             </div>
                         </div>
+            </div>
                     </div>
-
                     <!-- REPAROS -->
                     <div role="tabpanel" class="tab-pane fade small" id="tab_content8" name="tab_content8"
                         aria-labelledby="profile-tab">
@@ -689,9 +765,9 @@
                         </div>
 
                         <div class="col-md-12 col-sm-12 col-xs-12 has-feedback" id="divAllReparo">
-                            <table id="datatable-buttons" class="table table-bordered jambo_table">
+                        <table id="datatable-buttons" class="table table-bordered jambo_table">
                                 <thead>
-                                    <tr style="background: #2A3F54; color: white;">
+                                    <tr class="headings">
                                         <th>Código Produto</th>
                                         <th>Código Fabrcante</th>
                                         <th>Descrição</th>
@@ -726,35 +802,105 @@
                     <div role="tabpanel" class="tab-pane fade" id="tab_content7" aria-labelledby="profile-tab">
                         <div class="form-group">
                             <div class="col-md-12 col-sm-12 col-xs-12 has-feedback">
-                                <table id="datatable-buttons" class="table table-bordered jambo_table">
+                            <table id="datatable-buttons" class="table table-bordered jambo_table">
                                     <thead>
-                                        <tr style="background: #2A3F54; color: white;">
-                                            <th>Tabela</th>
+                                        <tr class="headings">
+                                            <th>Tabela -  <button type="button" title="Cadastrar item na Tabela" class="btn btn-success btn-xs"
+                                                        onclick="abrirCadastrarItemTabela('{$id}','null');">
+                                                        <span class="glyphicon glyphicon-plus" title="Novo produto na Tabela" aria-hidden="true"></span>
+                                                    </button></th>
                                             <th>Validade</th>
+                                            <th>Código fabricante</th>
+                                            <th>Marca</th>
+                                            <th>Grupo</th>
                                             <th>Preço Base</th>
                                             <th>Margem</th>
                                             <th>Preço Final</th>
-                                            <th style="width: 120px;">Alterar</th>
+                                            <th style="width: 120px;">Alterar
+                                             </th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {section name=i loop=$tabela}
                                             <tr>
+                                                <td hidden> {$tabela[i].ID} </td>
+                                                <td hidden> {$tabela[i].ID_TABELA_PRECO} </td>
                                                 <td> {$tabela[i].NOME} </td>
-                                                <td> {$tabela[i].VALIDADE} </td>
-                                                <td> {$tabela[i].PRECOBASE} </td>
-                                                <td> {$tabela[i].MARGEM} </td>
-                                                <td> {$tabela[i].PRECOFINAL} </td>
-                                                <td>
-                                                    <button type="button" title="Alterar" class="btn btn-danger btn-xs"
-                                                        onclick="javascript:submitAlterarItemTabela('{$tabela[i].ID}','{$tabela[i].CODIGO}');"><span
-                                                            class="glyphicon glyphicon-pencil"
-                                                            aria-hidden="true"></span></button>
+                                                <td> {$tabela[i].VALIDADE|date_format:"%d/%m/%Y"} </td>
+                                                <td> {$tabela[i].CODIGOFABRICANTE} </td>
+                                                <td> {$tabela[i].NOMEMARCA} </td>
+                                                <td> {$tabela[i].NOMEGRUPO} </td>
+                                                <td> {$tabela[i].PRECOBASE|number_format:2:",":"."} </td>
+                                                <td> {$tabela[i].MARGEM|number_format:2:",":"."} </td>
+                                                <td> {$tabela[i].PRECOFINAL|number_format:2:",":"."} </td>
+                                                <td style="text-align: center;">
+                                                    <button type="button" title="Cadastrar item na Tabela" class="btn btn-success btn-xs"
+                                                        onclick="abrirCadastrarItemTabela('{$tabela[i].CODIGO}','{$tabela[i].ID_TABELA_PRECO}');">
+                                                        <span class="glyphicon glyphicon-plus" aria-hidden="true"></span>
+                                                    </button>
+                                                    <button type="button" title="Alterar item na Tabela" class="btn btn-danger btn-xs"
+                                                        onclick="abrirAlterarItemTabela('{$tabela[i].ID}','{$tabela[i].ID_TABELA_PRECO}','{$tabela[i].CODIGO}');">
+                                                        <span class="glyphicon glyphicon-pencil" aria-hidden="true"></span>
+                                                    </button>
                                                 </td>
                                             </tr>
                                         {/section}
                                     </tbody>
                                 </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB IMPOSTOS NOTA ENTRADA -->
+                    <div role="tabpanel" class="tab-pane fade" id="tab_content9" aria-labelledby="profile-tab">
+                        <div class="form-group">
+                            <div class="col-md-12 col-sm-12 col-xs-12 has-feedback">
+                                {if isset($impostosNotaEntrada) && count($impostosNotaEntrada) > 0}
+                                    <table id="datatable-impostos" class="table table-bordered jambo_table">
+                                        <thead>
+                                            <tr class="headings">
+                                                <th>Nº Nota</th>
+                                                <th>Fornecedor</th>
+                                                <th>Data Entrada</th>
+                                                <th>Quantidade</th>
+                                                <th>Valor Unitário</th>
+                                                <th>Valor Total</th>
+                                                <th>ICMS</th>
+                                                <th>IPI</th>
+                                                <th>PIS</th>
+                                                <th>COFINS</th>
+                                                <th>ICMS ST</th>
+                                                <th>BC ST</th>
+                                                <th>Alíq. ST</th>
+                                                <th>Total Impostos</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {section name=i loop=$impostosNotaEntrada}
+                                                <tr>
+                                                    <td>{$impostosNotaEntrada[i].NUMERO}</td>
+                                                    <td>{$impostosNotaEntrada[i].FORNECEDOR_NOME}</td>
+                                                    <td>{$impostosNotaEntrada[i].DATA_ENTRADA|date_format:"%d/%m/%Y"}</td>
+                                                    <td style="text-align: right;">{$impostosNotaEntrada[i].QUANTIDADE}</td>
+                                                    <td style="text-align: right;">R$ {$impostosNotaEntrada[i].VALOR_UNITARIO}</td>
+                                                    <td style="text-align: right;">R$ {$impostosNotaEntrada[i].VALOR_TOTAL}</td>
+                                                    <td style="text-align: right;">R$ {$impostosNotaEntrada[i].VALOR_ICMS}</td>
+                                                    <td style="text-align: right;">R$ {$impostosNotaEntrada[i].VALOR_IPI}</td>
+                                                    <td style="text-align: right;">R$ {$impostosNotaEntrada[i].VALOR_PIS}</td>
+                                                    <td style="text-align: right;">R$ {$impostosNotaEntrada[i].VALOR_COFINS}</td>
+                                                    <td style="text-align: right;">R$ {$impostosNotaEntrada[i].VALOR_ICMSST}</td>
+                                                    <td style="text-align: right;">R$ {$impostosNotaEntrada[i].VALOR_BCST}</td>
+                                                    <td style="text-align: right;">{$impostosNotaEntrada[i].ALIQ_ICMSST}%</td>
+                                                    <td style="text-align: right; font-weight: bold;">R$ {$impostosNotaEntrada[i].TOTAL_IMPOSTOS}</td>
+                                                </tr>
+                                            {/section}
+                                        </tbody>
+                                    </table>
+                                {else}
+                                    <div class="alert alert-info" style="margin-top: 20px;">
+                                        <strong>Informação:</strong> Nenhuma nota de entrada encontrada para este produto.
+                                    </div>
+                                {/if}
                             </div>
                         </div>
                     </div>
@@ -772,9 +918,38 @@
 {include file="template/form.inc"}
 <script src="{$bootstrap}/select2-master/dist/js/select2.full.min.js"></script>
 
+{if isset($fecharAposCadastro) && $fecharAposCadastro}
+<script>
+    $(document).ready(function() {
+        Swal.fire({
+            icon: 'success',
+            title: 'Sucesso',
+            width: 510,
+            text: '{$msgSucesso}',
+            confirmButtonText: 'OK',
+            timer: 1500,
+            timerProgressBar: true,
+            allowOutsideClick: false,
+            allowEscapeKey: false
+        }).then(() => {
+            if (window.opener) {
+                window.opener.location.reload();
+            }
+            window.close();
+        });
+    });
+</script>
+{/if}
+
 <script>
     $("#grupo.js-example-basic-single").select2({
         placeholder: "Selecione o grupo",
+        language: "pt-br",
+        allowClear: true
+    });
+    
+    $("#marcaEquivalente").select2({
+        placeholder: "Selecione a marca",
         language: "pt-br",
         allowClear: true
     });
@@ -783,24 +958,48 @@
 <script>
     $(document).ready(function() {
         $("#ncm.js-example-basic-single").select2({});
+        $("#cclasstrib.js-example-basic-single").select2({});
     });
 
     $(function() {
-        $('#dataForaLinha').daterangepicker({
+        var dataForaLinhaValue = $('#dataForaLinha').val();
+        var daterangepickerOptions = {
             singleDatePicker: true,
             calender_style: "picker_1",
+            parentEl: 'body',
+            opens: 'center', // left | right | center
+            drops: 'up',     // força abrir acima do input
+            autoUpdateInput: false, 
             locale: {
                 format: 'DD/MM/YYYY',
                 daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
                 monthNames: ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho',
                     'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
                 ],
+                cancelLabel: 'Limpar'
             }
-
+        };
+        
+        if (dataForaLinhaValue && dataForaLinhaValue.trim() !== '') {
+            daterangepickerOptions.startDate = dataForaLinhaValue;
+            daterangepickerOptions.autoUpdateInput = true;
+        }
+        
+        $('#dataForaLinha').daterangepicker(daterangepickerOptions);
+        
+        $('#dataForaLinha').on('apply.daterangepicker', function(ev, picker) {
+            $(this).val(picker.startDate.format('DD/MM/YYYY'));
+        });
+        
+        $('#dataForaLinha').on('cancel.daterangepicker', function(ev, picker) {
+            $(this).val('');
         });
         $('#inicioPromocao').daterangepicker({
             singleDatePicker: true,
             calender_style: "picker_1",
+            parentEl: 'body',
+            opens: 'center', // left | right | center
+            drops: 'up',     // força abrir acima do input
             locale: {
                 format: 'DD/MM/YYYY',
                 daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
@@ -813,6 +1012,9 @@
         $('#fimPromocao').daterangepicker({
             singleDatePicker: true,
             calender_style: "picker_1",
+            parentEl: 'body',
+            opens: 'center', // left | right | center
+            drops: 'up',     // força abrir acima do input
             locale: {
                 format: 'DD/MM/YYYY',
                 daysOfWeek: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'],
@@ -836,18 +1038,6 @@
                 $('#quantAtual').val(quantidade);
             });
         });
-
-        $('#inicioPromocao').on('blur', function() {
-            $('.daterangepicker').hide();
-        });
-
-        $('#fimPromocao').on('blur', function() {
-            $('.daterangepicker').hide();
-        });
-
-        $('#dataForaLinha').on('blur', function() {
-            $('.daterangepicker').hide();
-        });
     });
 </script>
 
@@ -866,6 +1056,12 @@
             if (value === "") {
                 $(this).val("0,00");
             }
+        });
+        
+        // Inicializa tooltips do Bootstrap
+        $('[data-toggle="tooltip"]').tooltip({
+            html: true,
+            container: 'body'
         });
     });
 </script>
@@ -910,4 +1106,5 @@
             }
         }
     });
+</script>
 </script>

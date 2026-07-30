@@ -10,9 +10,13 @@
  */
 $dir = dirname(__FILE__);
 include_once($dir . "/../../bib/c_database_pdo.php");
+require_once($dir . "/../../../smarty/libs/Smarty.class.php");
 
 //Class c_anuncio_mkp
 Class c_servico extends c_user {
+
+    /** @var Smarty|null */
+    private $smartyPed = null;
 /**
  * TABLE NAME CAT_SERVICO
  */    
@@ -97,7 +101,7 @@ public function select_servico_geral($status = NULL){
         }
 
         $this->banco->execute();
-        return $this->banco->fetchAll(PDO::FETCH_ASSOC);
+        return $this->banco->fetchAll();
 
     } catch (PDOException $e) {
         echo "Erro na consulta: " . $e->getMessage();
@@ -176,6 +180,125 @@ public function excluiServico(){
 	}
 	
 }  // fim excluiServico
+
+    /**
+     * Smarty para templates AJAX em telas de pedido (lista de serviços).
+     *
+     * @return Smarty
+     */
+    private function obterSmartyPed()
+    {
+        if ($this->smartyPed === null) {
+            $this->smartyPed = new Smarty();
+            $this->smartyPed->template_dir = ADMraizFonte . '/template/ped';
+            $this->smartyPed->compile_dir = ADMraizCliente . '/smarty/templates_c/';
+            $this->smartyPed->config_dir = ADMraizCliente . '/smarty/configs/';
+            $this->smartyPed->cache_dir = ADMraizCliente . '/smarty/cache/';
+        }
+        return $this->smartyPed;
+    }
+
+    /**
+     * Busca serviços ativos por código (exato/prefixo) e descrição.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function buscarServicosPorTermo(string $termo): array
+    {
+        $termo = trim($termo);
+        if ($termo === '') {
+            return [];
+        }
+
+        $likePrefix = $termo . '%';
+        $filtro = 'S.STATUS = 1 AND (CAST(S.ID AS CHAR) = :termo OR CAST(S.ID AS CHAR) LIKE :likePrefix';
+        $params = [
+            ':termo' => $termo,
+            ':likePrefix' => $likePrefix,
+            ':ordTermo' => $termo,
+            ':ordLike' => $likePrefix,
+        ];
+
+        if (strlen($termo) > 3) {
+            $filtro .= ' OR S.DESCRICAO LIKE :likeDesc';
+            $params[':likeDesc'] = '%' . $termo . '%';
+        }
+        $filtro .= ')';
+
+        $sql = "SELECT S.ID, S.DESCRICAO, S.UNIDADE, S.VALORUNITARIO,
+                       (CASE WHEN CAST(S.ID AS CHAR) = :termo THEN 1 ELSE 0 END) AS MATCH_EXATO
+                FROM CAT_SERVICO S
+                WHERE {$filtro}
+                ORDER BY
+                    CASE
+                        WHEN CAST(S.ID AS CHAR) = :ordTermo THEN 0
+                        WHEN CAST(S.ID AS CHAR) LIKE :ordLike THEN 1
+                        ELSE 2
+                    END,
+                    LENGTH(CAST(S.ID AS CHAR)),
+                    CAST(S.ID AS CHAR)
+                LIMIT 50";
+
+        $banco = new c_banco_pdo();
+        $banco->prepare($sql);
+        $banco->execute($params);
+        $rows = $banco->fetchAll();
+
+        return is_array($rows) ? $rows : [];
+    }
+
+    /**
+     * Retorna JSON com HTML da lista de serviços (Pedido PS e demais telas).
+     */
+    public function retornaHtmlServicos($termoPesquisa)
+    {
+        $rows = $this->buscarServicosPorTermo((string) $termoPesquisa);
+
+        header('Content-Type: application/json; charset=utf-8');
+
+        if ($rows === []) {
+            echo json_encode(['success' => false, 'servico' => null, 'htmlServicos' => ''], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $autoSelect = (int) ($rows[0]['MATCH_EXATO'] ?? 0) === 1 || count($rows) === 1
+            ? (string) ($rows[0]['ID'] ?? '')
+            : null;
+
+        $servicos = [];
+        foreach ($rows as $row) {
+            $id = (string) ($row['ID'] ?? '');
+            $vlr = $row['VALORUNITARIO'] ?? 0;
+            $servicos[] = [
+                'ID' => $id,
+                'DESCRICAO' => $row['DESCRICAO'] ?? '',
+                'UNIDADE' => $row['UNIDADE'] ?? '',
+                'VALORUNITARIO' => is_numeric($vlr) ? number_format((float) $vlr, 2, ',', '.') : '0,00',
+                'SELECIONADO' => $autoSelect !== null && $id === $autoSelect,
+            ];
+        }
+
+        $p = $rows[0];
+        $smarty = $this->obterSmartyPed();
+        $smarty->assign('servicos', $servicos);
+        $smarty->assign('mostrarMensagemRefinar', count($servicos) >= 50);
+
+        echo json_encode([
+            'success' => true,
+            'totalServicos' => count($servicos),
+            'preencherAutomatico' => $autoSelect !== null,
+            'servico' => [
+                'codServico' => (string) ($p['ID'] ?? ''),
+                'descricaoServico' => $p['DESCRICAO'] ?? '',
+                'unidadeServico' => $p['UNIDADE'] ?? '',
+                'vlrUnitarioServico' => is_numeric($p['VALORUNITARIO'] ?? null)
+                    ? number_format((float) $p['VALORUNITARIO'], 2, ',', '.')
+                    : '0,00',
+            ],
+            'htmlServicos' => $smarty->fetch('pedido_ps_servicos_lista.tpl'),
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 
 }	//	END OF THE CLASS
 ?>

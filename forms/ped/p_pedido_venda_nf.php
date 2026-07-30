@@ -19,14 +19,12 @@ require_once($dir . "/../../class/est/c_produto.php");
 require_once($dir . "/../../class/est/c_produto_estoque.php");
 require_once($dir . "/../../forms/est/p_nfephp_40.php");
 require_once($dir . "/../../forms/est/p_nfephp_imprime_danfe.php");
+require_once($dir . "/../../forms/est/p_nfe_json_espelho.php");
+require_once($dir . "/../../forms/est/p_espelho_nfe.php");
 require_once($dir . "/../../class/est/c_nota_fiscal.php");
 require_once($dir . "/../../class/est/c_nota_fiscal_produto.php");
 require_once($dir . "/../../class/fin/c_lancamento.php");
 require_once($dir . "/../../class/crm/c_conta.php");
-require_once($dir . "/../../forms/ped/p_pedido_venda_telhas.php");
-require_once($dir . "/../../class/ped/c_pedido_venda_tools.php");
-require_once($dir . "/../../class/ped/c_pedido_aprovacao.php");
-require_once($dir . "/../../class/ped/c_pedido_venda.php");
 
 //Class P_situacao
 Class p_pedido_venda_nf extends c_pedidoVendaNf {
@@ -152,7 +150,7 @@ Class p_pedido_venda_nf extends c_pedidoVendaNf {
         $this->smarty->assign('disableSort', "[ 4 ]"); 
         $this->smarty->assign('numLine', "50"); 
 
-        // include do javascript
+        // include do javascriptL
         // include ADMjs . "/ped/s_pedido_venda_nf.js";
     }
 
@@ -475,11 +473,18 @@ Class p_pedido_venda_nf extends c_pedidoVendaNf {
                             $objNfProduto->setCest($arrItemPedido[$i]['CEST']);
                             $objNfProduto->setFrete($arrItemPedido[$i]['FRETE'],true);
 
+                            $difalContext = [
+                                'ie' => trim($arrPedido[0]['INSCESTRG'] ?? ''),
+                                'vendaPresencial' => 'N',
+                            ];
+
                             $result = $this->calculaImpostosNfe($objNfProduto, 
                                         $objNotaFiscal->getIdNatop(), 
                                         $objNotaFiscal->getUfPessoa(), 
                                         $objNotaFiscal->getTipoPessoa(), 
-                                        $this->m_empresacentrocusto); 
+                                        $this->m_empresacentrocusto,
+                                        null,
+                                        $difalContext); 
 
                             if (!$result):
                                 $this->m_msg = "Tributos não localizado ".$objNfProduto->getDescricao()." Nat. Operação:".$objNotaFiscal->getIdNatop().
@@ -497,18 +502,14 @@ Class p_pedido_venda_nf extends c_pedidoVendaNf {
                             $objNfProduto->setDataFabricacao($arrItemPedido[$i]['FABDATAFABRICACAO']);
 
                             $objNfProduto->setOrdem($arrItemPedido[$i]['NUMEROOC']);
+                            if (!empty($arrItemPedido[$i]['NITEMPED'])){
+                                $objNfProduto->setNItemPed($arrItemPedido[$i]['NITEMPED']);
+                            }else{
+                                $objNfProduto->setNItemPed($arrItemPedido[$i]['NRITEM']);
+                            }
                             $objNfProduto->setProjeto($arrItemPedido[$i]['PROJETO']);
                             $objNfProduto->setDataConferencia($arrItemPedido[$i]['DATACONFERENCIA']);
                             
-                            $objNfProduto->setBcFcpUfDest('0');
-                            $objNfProduto->setAliqFcpUfDest('0');
-                            $objNfProduto->setValorFcpUfDest('0');
-                            $objNfProduto->setBcIcmsUfDest('0');
-                            $objNfProduto->setAliqIcmsUfDest('0');
-                            $objNfProduto->setAliqIcmsInter('0');
-                            $objNfProduto->setAliqIcmsInterPart('0');
-                            $objNfProduto->setValorIcmsUfDest('0');
-                            $objNfProduto->setValorIcmsUFRemet('0');
                             $objNfProduto->setCodigoNota($arrItemPedido[$i]['CODIGONOTA']);
                             $objNfProduto->setDespAcessorias($arrItemPedido[$i]['DESPACESSORIAS'], true);
                             
@@ -547,10 +548,11 @@ Class p_pedido_venda_nf extends c_pedidoVendaNf {
                                     $transaction->commit($transaction->id_connection);
 
                                     $printDanfe = new p_nfephp_imprime_danfe();
-                                    if ($this->m_opcao ==''):
+                                    if ($this->m_opcao == ''):
                                         $printDanfe->printDanfe($idGerado, $objNotaFiscal->getDoc(), $objNotaFiscal->getOrigem(), $result['cDanfe'], $objNotaFiscal->getDoc(), 'pedido_venda_nf');
-                                    else:    
-                                        $printDanfe->printDanfe($idGerado, $objNotaFiscal->getDoc(), $objNotaFiscal->getOrigem(), $result['cDanfe'], $objNotaFiscal->getDoc(), $this->m_opcao);
+                                    else:
+                                        $this->processaBoletoApi($this->getId());
+                                        $this->redirecionaTelaNotaBoletoGerente($idGerado);
                                     endif;
                                 else:    
                                     // $transaction->rollback($transaction->id_connection);    
@@ -584,7 +586,17 @@ Class p_pedido_venda_nf extends c_pedidoVendaNf {
                                 if ($this->m_opcao ==''):
                                     $printDanfe->printDanfe($idGerado, $objNotaFiscal->getDoc(), $objNotaFiscal->getOrigem(), $result['cDanfe'], $objNotaFiscal->getDoc(), 'pedido_venda_nf');
                                 else:    
-                                    $printDanfe->printDanfe($idGerado, $objNotaFiscal->getDoc(), $objNotaFiscal->getOrigem(), $result['cDanfe'], $objNotaFiscal->getDoc(), $this->m_opcao);
+                                    //OLD 
+                                    //$printDanfe->printDanfe($idGerado, $objNotaFiscal->getNumero(), $objNotaFiscal->getSerie(), $result['cDanfe'], $objNotaFiscal->getDoc(), $this->m_opcao);
+
+                                    //NEW - Abre impressão em nova janela e redireciona
+                                    echo "<script>";
+                                    echo "function printDanfe(id) {";
+                                    echo "    window.open('index.php?mod=est&origem=imprimeDanfe&opcao=imprimir&form=nfephp_imprime_danfe&id='+id, 'DANFE', 'toolbar=no,location=no,resizable=yes,menubar=yes,width=950,height=900,scrollbars=yes');";
+                                    echo "}";
+                                    echo "printDanfe(" . $idGerado . ");";
+                                    echo "window.location.href = 'index.php?mod=est&form=nota_fiscal&id=" . $idGerado . "';";
+                                    echo "</script>";
                                 endif;
                             else:    
                                 $transaction->rollback($transaction->id_connection);    
@@ -1048,11 +1060,18 @@ Class p_pedido_venda_nf extends c_pedidoVendaNf {
                         $objNfProduto->setNcm($arrItemPedido[$i]['NCM']);
                         $objNfProduto->setCest($arrItemPedido[$i]['CEST']);
 
+                        $difalContext = [
+                            'ie' => trim($arrPedido[0]['INSCESTRG'] ?? ''),
+                            'vendaPresencial' => 'N',
+                        ];
+
                         $result = $this->calculaImpostosNfe($objNfProduto, 
                                       $objNotaFiscal->getIdNatop(), 
                                       $objNotaFiscal->getUfPessoa(), 
                                       $objNotaFiscal->getTipoPessoa(), 
-                                      $this->m_empresacentrocusto); 
+                                      $this->m_empresacentrocusto,
+                                      null,
+                                      $difalContext); 
 
                         if (!$result):
                             $this->m_msg = "Tributos não localizado ".$objNfProduto->getDescricao()." Nat. Operação:".$objNotaFiscal->getIdNatop().
@@ -1070,18 +1089,14 @@ Class p_pedido_venda_nf extends c_pedidoVendaNf {
                         $objNfProduto->setDataFabricacao($arrItemPedido[$i]['FABDATAFABRICACAO']);
 
                         $objNfProduto->setOrdem($arrItemPedido[$i]['NUMEROOC']);
+                        // Se existir o campo NITEMPED no pedido, usar ele, senão usar NRITEM
+                        if (!empty($arrItemPedido[$i]['NITEMPED'])){
+                            $objNfProduto->setNItemPed($arrItemPedido[$i]['NITEMPED']);
+                        }else{
+                            $objNfProduto->setNItemPed($arrItemPedido[$i]['NRITEM']);
+                        }
                         $objNfProduto->setProjeto($arrItemPedido[$i]['PROJETO']);
                         $objNfProduto->setDataConferencia($arrItemPedido[$i]['DATACONFERENCIA']);
-                        
-                        $objNfProduto->setBcFcpUfDest('0');
-                        $objNfProduto->setAliqFcpUfDest('0');
-                        $objNfProduto->setValorFcpUfDest('0');
-                        $objNfProduto->setBcIcmsUfDest('0');
-                        $objNfProduto->setAliqIcmsUfDest('0');
-                        $objNfProduto->setAliqIcmsInter('0');
-                        $objNfProduto->setAliqIcmsInterPart('0');
-                        $objNfProduto->setValorIcmsUfDest('0');
-                        $objNfProduto->setValorIcmsUFRemet('0');
                         
                         $result = $objNfProduto->incluiNotaFiscalProduto($transaction->id_connection);
                         // verificar inclusao item
@@ -1165,10 +1180,12 @@ Class p_pedido_venda_nf extends c_pedidoVendaNf {
                             $transaction->commit($transaction->id_connection);
 
                             $printDanfe = new p_nfephp_imprime_danfe();
-                            if ($this->m_opcao ==''):
+                            if ($this->m_opcao == ''):
                                 $printDanfe->printDanfe($idGerado, $objNotaFiscal->getDoc(), $objNotaFiscal->getOrigem(), $result['cDanfe'], $objNotaFiscal->getDoc(), 'pedido_venda_nf');
-                            else:    
-                                $printDanfe->printDanfe($idGerado, $objNotaFiscal->getDoc(), $objNotaFiscal->getOrigem(), $result['cDanfe'], $objNotaFiscal->getDoc(), $this->m_opcao);
+                            else:
+                                // Registra boletos na API bancária; envio de e-mail pela tela nota_fiscal_boleto_bancario
+                                $this->processaBoletoApi($this->getId());
+                                $this->redirecionaTelaNotaBoletoGerente($idGerado);
                             endif;
                         else:    
                             // roollback transação
@@ -1191,7 +1208,8 @@ Class p_pedido_venda_nf extends c_pedidoVendaNf {
                 } catch (Error $e) {
                     throw new Exception($e->getMessage()."Nf Não foi gerado " );
 
-                } catch (Exception $e) {
+                }
+                catch (Exception $e) {
                     //echo 'Caught exception: ',  $e->getMessage(), "\n";
                     if ($this->nfAberto == true):
                         $transaction->commit($transaction->id_connection);
@@ -1213,11 +1231,95 @@ Class p_pedido_venda_nf extends c_pedidoVendaNf {
                     
                 }
                 break;
+            case 'geraEspelhoJson':
+                if (!$this->verificaDireitoUsuario('PedGeraNf', 'C')) {
+                    break;
+                }
+
+                try {
+                    $arrPedido   = $this->select_pedidoVenda();
+                    $arrProdutos = $this->select_pedido_item_id('1');
+
+                    if (!$arrPedido || !$arrProdutos) {
+                        $this->m_msg = "Erro ao gerar espelho JSON da NF-e";
+                        throw new Exception($this->m_msg);
+                    }
+
+                    $contexto = [
+                        'empresa_id' => $this->m_empresaid,
+                        'filial_id'  => $this->m_empresacentrocusto,
+                        'tp_amb'     => isset($this->m_tp_amb) ? $this->m_tp_amb : 2,
+                        'id_nf'      => null,
+                        'idNatop'    => $this->getIdNatop(),
+                    ];
+
+                    $nfeJsonTags = new c_nfe_json_tags();
+                    $json        = $nfeJsonTags->monta_json_espelho('PED', $arrPedido, $arrProdutos, $contexto);
+
+                    $espelho = new p_nfe_json_espelho();
+                    $espelho->monta_contexto($json);
+                    $xml = $espelho->processa_blocos([
+                        'ide',
+                        'emitente',
+                        'destinatario',
+                        'produtos',
+                        'totais',
+                        'transporte',
+                        'cobranca_pagamentos',
+                        'infAdic',
+                    ]);
+
+                    if (!preg_match('/<infNFe[^>]*Id="NFe(\d+)"/', $xml, $m)) {
+                        throw new Exception('Não foi possível obter a chave da NF-e do XML gerado.');
+                    }
+
+                    $espelhoNfe = new p_espelho_nfe();
+                    $pdfUrl     = $espelhoNfe->gera_DANFE($xml, $m[1], null);
+
+                    if (empty($pdfUrl)) {
+                        throw new Exception('Erro ao gerar DANFE de espelho.');
+                    }
+
+                    echo "<script type=\"text/javascript\">
+                            window.open('".$pdfUrl."', 'DANFE_ESPELHO',
+                                'toolbar=no,location=no,resizable=yes,menubar=no,width=950,height=900,scrollbars=yes');
+                          </script>";
+                    $this->desenhaCadastroPedido();
+                    exit;
+                } catch (Error $e) {
+                    $this->m_msg = $e->getMessage();
+                    $this->desenhaCadastroPedido($this->m_msg);
+                    break;
+                } catch (Exception $e) {
+                    $this->m_msg = $e->getMessage();
+                    $this->desenhaCadastroPedido($this->m_msg);
+                    break;
+                }
             default:
                 if ($this->verificaDireitoUsuario('PedGeraNf', 'C')) {
                     $this->mostraPedido('');
                 }
         }
+    }
+
+    /**
+     * Abre a tela unificada de NF/boletos e volta para a listagem de origem (gerente, etc.).
+     */
+    private function redirecionaTelaNotaBoletoGerente($idNotaFiscal)
+    {
+        $urlBoleto = "index.php?mod=est&opcao=imprimir&form=nota_fiscal_boleto_bancario&id=" . (int) $idNotaFiscal;
+        $formRetorno = preg_replace('/[^a-z0-9_]/i', '', (string) $this->m_opcao);
+        $urlRetorno = ($formRetorno !== '')
+            ? "index.php?mod=ped&form=" . $formRetorno
+            : '';
+
+        echo "<script>";
+        echo "window.open('" . $urlBoleto . "', '_blank');";
+        if ($urlRetorno !== '') {
+            echo "window.location.href='" . $urlRetorno . "';";
+        }
+        echo "</script>";
+        exit;
     }
 
     function desenhaCadastroPedido($mensagem = NULL, $tipoMsg = NULL, $tela = NULL) {
@@ -1267,6 +1369,7 @@ Class p_pedido_venda_nf extends c_pedidoVendaNf {
         $this->setContaDeposito(isset($this->parmPost['conta']) ? $this->parmPost['conta'] : $conta);
         $this->totalCredito = $this->parmPost['totalCredito'];
         
+        $this->smarty->assign('ADMcliente', ADMcliente);
         $this->smarty->assign('pathCliente', ADMhttpCliente);
         $this->smarty->assign('pathImagem', $this->img);
         $this->smarty->assign('subMenu', $this->m_submenu);
@@ -1392,7 +1495,7 @@ Class p_pedido_venda_nf extends c_pedidoVendaNf {
         // tipo documento
         $consulta = new c_banco();
         $sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='FIN_MENU') and (campo='TipoDoctoPgto') ";
-        $sql.= "and (( tipo = 'N') or ( tipo = 'B') or ( tipo = 'D') or ( tipo = 'C') or ( tipo = 'E') or ( tipo = 'A') or ( tipo = 'K') or ( tipo = 'X') or ( tipo = 'P'))";
+        $sql.= "and (( tipo = 'N') or ( tipo = 'B') or ( tipo = 'L') or ( tipo = 'D') or ( tipo = 'C') or ( tipo = 'E') or ( tipo = 'A') or ( tipo = 'K') or ( tipo = 'X') or ( tipo = 'P'))";
         $consulta->exec_sql($sql);
         $consulta->close_connection();
         $result = $consulta->resultado;
@@ -1695,7 +1798,7 @@ function desenhaCadastroFaturamentoLanc($mensagem = NULL, $tipoMsg = NULL, $tela
     // tipo documento
     $consulta = new c_banco();
     $sql = "select tipo as id, padrao as descricao from amb_ddm where (alias='FIN_MENU') and (campo='TipoDoctoPgto') ";
-    $sql.= "and (( tipo = 'N') or ( tipo = 'B') or ( tipo = 'D') or ( tipo = 'C') or ( tipo = 'E') or ( tipo = 'A') or ( tipo = 'K'))";
+    $sql.= "and (( tipo = 'N') or ( tipo = 'B') or ( tipo = 'L') or ( tipo = 'D') or ( tipo = 'C') or ( tipo = 'E') or ( tipo = 'A') or ( tipo = 'K'))";
     $consulta->exec_sql($sql);
     $consulta->close_connection();
     $result = $consulta->resultado;

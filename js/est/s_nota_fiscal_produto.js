@@ -47,21 +47,32 @@ function submitConfirmar(formulario) {
     f.mod.value = 'est';
     f.form.value = 'nota_fiscal_produto';
     //f.submenu.value = 'cadastrar';
-    if (confirm('Deseja realmente ' + f.submenu.value + ' este item') == true) {
-        //f.opcao.value = formulario;
+    Swal.fire({
+        title: 'Confirmar Ação',
+        text: 'Deseja realmente ' + f.submenu.value + ' este item?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não',
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            //f.opcao.value = formulario;
 
-        if (f.submenu.value == "cadastrar") {
-            f.submenu.value = 'inclui';
-        }
-        else if (f.submenu.value == "alterar") {
-            f.submenu.value = 'altera';
-        }
-        else if (f.submenu.value == "baixar") {
-            f.submenu.value = 'baixa';
-        }
+            if (f.submenu.value == "cadastrar") {
+                f.submenu.value = 'inclui';
+            }
+            else if (f.submenu.value == "alterar") {
+                f.submenu.value = 'altera';
+            }
+            else if (f.submenu.value == "baixar") {
+                f.submenu.value = 'baixa';
+            }
 
-        f.submit();
-    } // if
+            f.submit();
+        }
+    });
 } // fim submitConfirmar
 
 function submitConfirmarDevolucaoNf(id, idnf) {
@@ -79,21 +90,32 @@ function submitConfirmarDevolucaoNf(id, idnf) {
     var pessoaTeste = f.pessoa.value;
     //f.submenu.value = 'cadastrar';
     var submenu = f.submenu.value;
-    if (confirm('Deseja realmente alterar este item') == true) {
-        //f.opcao.value = formulario;
+    Swal.fire({
+        title: 'Confirmar Alteração',
+        text: 'Deseja realmente alterar este item?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não',
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            //f.opcao.value = formulario;
 
-        if (f.submenu.value == "cadastrar") {
-            f.submenu.value = 'inclui';
-        }
-        else if (f.submenu.value == "alterarDev") {
-            f.submenu.value = 'alterarDevolucaoNf';
-        }
-        else if (f.submenu.value == "baixar") {
-            f.submenu.value = 'baixa';
-        }
+            if (f.submenu.value == "cadastrar") {
+                f.submenu.value = 'inclui';
+            }
+            else if (f.submenu.value == "alterarDev") {
+                f.submenu.value = 'alterarDevolucaoNf';
+            }
+            else if (f.submenu.value == "baixar") {
+                f.submenu.value = 'baixa';
+            }
 
-        f.submit();
-    } // if
+            f.submit();
+        }
+    });
 } // fim submitConfirmar
 
 
@@ -114,39 +136,72 @@ function submitCadastro(id) {
 
 function submitAlterar(id) {
 
-    if (confirm('Deseja realmente Alterar este item') == true) {
-        f = document.mostra;
-        f.mod.value = 'est';
-        f.form.value = 'nota_fiscal_produto';
-        f.opcao.value = 'produto';
-        f.submenu.value = 'alterar';
-        f.id.value = id;
-        f.submit();
-    }
+    Swal.fire({
+        title: 'Confirmar Alteração',
+        text: 'Deseja realmente alterar este item?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim',
+        cancelButtonText: 'Não',
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.mostra;
+            f.mod.value = 'est';
+            f.form.value = 'nota_fiscal_produto';
+            f.opcao.value = 'produto';
+            f.submenu.value = 'alterar';
+            f.id.value = id;
+            f.submit();
+        }
+    });
 }
 
 function submitExcluir(id) {
-    if (confirm('Deseja realmente Excluir este item') == true) {
-        f = document.mostra;
-        f.mod.value = 'est';
-        f.form.value = 'nota_fiscal_produto';
-        f.opcao.value = 'produto';
-        f.submenu.value = 'excluir';
-        f.id.value = id;
-        f.submit();
-    }
+    Swal.fire({
+        title: 'Confirmar Exclusão',
+        text: 'Deseja realmente excluir este item?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, excluir!',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.mostra;
+            f.mod.value = 'est';
+            f.form.value = 'nota_fiscal_produto';
+            f.opcao.value = 'produto';
+            f.submenu.value = 'excluir';
+            f.id.value = id;
+            f.submit();
+        }
+    });
 }
 function submitBaixar(id) {
 
-    if (confirm('Deseja realmente Baixar este Produto') == true) {
-        f = document.mostra;
-        f.mod.value = 'est';
-        f.form.value = 'nota_fiscal_produto';
-        f.opcao.value = 'receber';
-        f.submenu.value = 'baixar'; // mostra tela para ajuste de campos
-        f.id.value = id;
-        f.submit();
-    }
+    Swal.fire({
+        title: 'Confirmar Baixa',
+        text: 'Deseja realmente baixar este produto?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, baixar!',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#28a745',
+        cancelButtonColor: '#3085d6'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            f = document.mostra;
+            f.mod.value = 'est';
+            f.form.value = 'nota_fiscal_produto';
+            f.opcao.value = 'receber';
+            f.submenu.value = 'baixar'; // mostra tela para ajuste de campos
+            f.id.value = id;
+            f.submit();
+        }
+    });
 }
 
 function submitCalcular() {

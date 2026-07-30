@@ -202,7 +202,7 @@
                             <td> {$lanc[i].MVA|number_format:2:",":"."} </td>
                             <td> {$lanc[i].ALIQSITTRIB|number_format:2:",":"."} </td>
                             <td> {$lanc[i].ISS|number_format:2:",":"."} </td>
-                            <td> {$lanc[i].IPI|number_format:2:",":"."} </td>
+                            <td> {$lanc[i].ALIQIPI|number_format:2:",":"."} </td>
 
                             <td class=" last">
                                 <button type="button" class="btn btn-primary btn-xs"

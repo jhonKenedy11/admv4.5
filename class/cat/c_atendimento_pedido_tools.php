@@ -45,11 +45,33 @@ public function incluiAtendimentoPedidoItensControle($conn=null, $arrItensPed, &
             $this->setCodigoNota($itemArr[1]);
             $this->setDescricaoItem($itemArr[2]);
 
-            $this->setQtSolicitada($itemArr[6]);
-            $this->setUnitario($itemArr[7]);
-            $this->setPercDescontoItem($itemArr[8]);
-            $this->setDescontoItem($itemArr[9]);
-            $this->setTotalItem($itemArr[10]);
+            // Converte quantidade para número se necessário
+            $qtSolicitada = isset($itemArr[6]) ? $itemArr[6] : 0;
+            if (is_string($qtSolicitada) && (strpos($qtSolicitada, ',') !== false || strpos($qtSolicitada, '.') !== false)) {
+                $qtSolicitada = c_tools::moedaBd($qtSolicitada);
+            }
+            $this->setQtSolicitada($qtSolicitada);
+            
+            // Converte unitário para número se necessário
+            $unitario = isset($itemArr[7]) ? $itemArr[7] : 0;
+            if (is_string($unitario) && (strpos($unitario, ',') !== false || strpos($unitario, '.') !== false)) {
+                $unitario = c_tools::moedaBd($unitario);
+            }
+            $this->setUnitario($unitario);
+            // Converte o percentual de desconto do item para número se necessário
+            $percDescontoItem = isset($itemArr[8]) ? $itemArr[8] : 0;
+            if (is_string($percDescontoItem) && strpos($percDescontoItem, ',') !== false) {
+                $percDescontoItem = c_tools::moedaBd($percDescontoItem);
+            }
+            $this->setPercDescontoItem($percDescontoItem);
+            // Converte o desconto do item para número se necessário
+            $descontoItem = isset($itemArr[9]) ? $itemArr[9] : 0;
+            if (is_string($descontoItem) && strpos($descontoItem, ',') !== false) {
+                $descontoItem = c_tools::moedaBd($descontoItem);
+            }
+            $this->setDescontoItem($descontoItem);
+            // Recalcula o total considerando o desconto (não usa o total do array para garantir que o desconto seja aplicado)
+            $this->setTotalItem();
             $this->setUsrFatura($usrFatura);
 
             $consulta = new c_banco;

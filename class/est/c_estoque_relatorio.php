@@ -14,6 +14,7 @@ include_once($dir . "/../../bib/c_user.php");
 include_once($dir . "/../../bib/c_date.php");
 include_once($dir . "/../../bib/c_tools.php");
 include_once($dir . "/../../class/est/c_produto.php");
+include_once($dir . "/../../class/est/c_produto_estoque.php");
 
 //Class c_estoque_relatorio
 class c_estoque_relatorio extends c_user
@@ -254,7 +255,7 @@ class c_estoque_relatorio extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return $banco->resultado ?? [];
     }
 
 
@@ -346,7 +347,7 @@ class c_estoque_relatorio extends c_user
         $banco = new c_banco();
         $banco->exec_sql($sql);
         $banco->close_connection();
-        $result = $banco->resultado;
+        $result = $banco->resultado ?? [];
         
         // Processa os dados para gerar a Curva ABC
         if (!empty($result)) {
@@ -431,7 +432,7 @@ class c_estoque_relatorio extends c_user
             }
         }
         
-        return $result;
+        return $result ?? [];
     }
 
     /**
@@ -454,7 +455,7 @@ class c_estoque_relatorio extends c_user
         $sql = "SELECT GRUPO as id, DESCRICAO as descricao FROM EST_GRUPO ORDER BY DESCRICAO";
         $consulta->exec_sql($sql);
         $consulta->close_connection();
-        $result = $consulta->resultado;
+        $result = $consulta->resultado ?? [];
         
         $grupo_ids[0] = '';
         $grupo_names[0] = 'Selecione um Grupo';
@@ -486,7 +487,7 @@ class c_estoque_relatorio extends c_user
         $consulta->exec_sql($sql);
         $consulta->close_connection();
         
-        return $consulta->resultado;
+        return $consulta->resultado ?? [];
     }
 
     /**
@@ -507,7 +508,7 @@ class c_estoque_relatorio extends c_user
         $consulta->exec_sql($sql);
         $consulta->close_connection();
         
-        return $consulta->resultado;
+        return $consulta->resultado ?? [];
     }
 
 
@@ -520,7 +521,7 @@ class c_estoque_relatorio extends c_user
         $sql = "SELECT DISTINCT LOCALIZACAO as id, LOCALIZACAO as descricao FROM EST_PRODUTO_ESTOQUE WHERE LOCALIZACAO IS NOT NULL AND LOCALIZACAO != '' ORDER BY LOCALIZACAO";
         $consulta->exec_sql($sql);
         $consulta->close_connection();
-        $result = $consulta->resultado;
+        $result = $consulta->resultado ?? [];
         
         $localizacao_ids[0] = '';
         $localizacao_names[0] = 'Selecione uma Localização';
@@ -551,7 +552,7 @@ class c_estoque_relatorio extends c_user
                 ORDER BY TIPO";
         $consulta->exec_sql($sql);
         $consulta->close_connection();
-        $result = $consulta->resultado;
+        $result = $consulta->resultado ?? [];
         
         $tipo_ids = array('');
         $tipo_names = array('Todos');
@@ -575,7 +576,7 @@ class c_estoque_relatorio extends c_user
         $sql = "SELECT CENTROCUSTO as id, DESCRICAO as descricao FROM FIN_CENTRO_CUSTO ORDER BY DESCRICAO";
         $consulta->exec_sql($sql);
         $consulta->close_connection();
-        $result = $consulta->resultado;
+        $result = $consulta->resultado ?? [];
         
         $centro_custo_ids = array('');
         $centro_custo_names = array('Todos');
@@ -647,7 +648,7 @@ class c_estoque_relatorio extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return $banco->resultado ?? [];
     }
 
     /**
@@ -766,7 +767,7 @@ class c_estoque_relatorio extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return $banco->resultado ?? [];
     }
 
     /**
@@ -784,6 +785,7 @@ class c_estoque_relatorio extends c_user
                     P.UNIDADE,
                     P.CODFABRICANTE,
                     P.CUSTOCOMPRA,
+                    P.PRECOINFORMADO,
                     P.VENDA,
                     G.DESCRICAO AS NOMEGRUPO,
                     COALESCE(ESTOQUE.QUANTIDADE, 0) as ESTOQUE, 
@@ -851,7 +853,63 @@ class c_estoque_relatorio extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return $banco->resultado ?? [];
+    }
+
+    /**
+     * Função para gerar dados no formato do Bloco H
+     * Colunas: código (SKU), produto, NCM, quantidade, unidade, valor unitário, valor total
+     * Quantidade e valores calculados SOMENTE pelas notas de SAÍDA no período
+     * Filtros aceitos: dataIni, dataFim
+     * @return array
+     */
+    public function selectEstoqueBlocoH()
+    {
+        $sql = "SELECT 
+                    P.CODIGO,
+                    P.DESCRICAO,
+                    P.NCM,
+                    P.UNIDADE,
+                    CASE 
+                        WHEN COALESCE(SUM(NFP.QUANT), 0) > 0 
+                        THEN COALESCE(SUM(NFP.TOTAL), 0) / SUM(NFP.QUANT)
+                        ELSE 0
+                    END AS VALOR_UNITARIO,
+                    COALESCE(SUM(NFP.QUANT), 0) AS QUANTIDADE,
+                    COALESCE(SUM(NFP.TOTAL), 0) AS VALOR_TOTAL
+                FROM EST_NOTA_FISCAL NF
+                INNER JOIN EST_NOTA_FISCAL_PRODUTO NFP ON (NFP.IDNF = NF.ID)
+                LEFT JOIN EST_PRODUTO P ON (P.CODIGO = NFP.CODPRODUTO)
+                LEFT JOIN EST_GRUPO G ON (G.GRUPO = P.GRUPO)
+                WHERE NF.SITUACAO = 'B'
+                  AND NF.SERIE <> 'INV'
+                  AND NF.TIPO = '1'
+                  AND P.CODIGO IS NOT NULL";
+
+        $dataIni = $this->getDataIni();
+        $dataFim = $this->getDataFim();
+
+        if (!empty($dataIni) && !empty($dataFim)) {
+            $sql .= " AND NF.EMISSAO BETWEEN '" . c_date::convertDateTxt($dataIni) . "' 
+                                            AND '" . c_date::convertDateTxt($dataFim) . "'";
+        } elseif (!empty($dataIni)) {
+            $sql .= " AND NF.EMISSAO >= '" . c_date::convertDateTxt($dataIni) . "'";
+        } elseif (!empty($dataFim)) {
+            $sql .= " AND NF.EMISSAO <= '" . c_date::convertDateTxt($dataFim) . "'";
+        }
+        $sql .= " GROUP BY 
+                    P.CODIGO,
+                    P.DESCRICAO,
+                    P.NCM,
+                    P.UNIDADE";
+
+        // Ordenação: sempre por código do produto
+        $sql .= " ORDER BY P.CODIGO";
+
+        $banco = new c_banco;
+        $banco->exec_sql($sql);
+        $banco->close_connection();
+        return $banco->resultado ?? [];
     }
 
     /**
@@ -948,7 +1006,7 @@ class c_estoque_relatorio extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return $banco->resultado ?? [];
     }
 
     /**
@@ -1022,7 +1080,7 @@ class c_estoque_relatorio extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return $banco->resultado ?? [];
     }
 
     /**
@@ -1080,7 +1138,7 @@ class c_estoque_relatorio extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return $banco->resultado ?? [];
     }
 
     /**
@@ -1195,7 +1253,7 @@ class c_estoque_relatorio extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return $banco->resultado ?? [];
     }
 
     /**
@@ -1344,7 +1402,7 @@ class c_estoque_relatorio extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return $banco->resultado ?? [];
     }
 
     /**
@@ -1395,7 +1453,7 @@ class c_estoque_relatorio extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return $banco->resultado ?? [];
     }
 
     /**
@@ -1418,11 +1476,15 @@ class c_estoque_relatorio extends c_user
                     NF.EMISSAO,
                     NFP.CFOP,
                     CP.DESCRICAO as COND_PAGAMENTO,
-                    NF.TOTALNF as VALOR_TOTAL
+                    NF.TOTALNF as VALOR_TOTAL,
+                    NF.DOC as NUMERO_PEDIDO,
+                    U.NOMEREDUZIDO as NOME_VENDEDOR
                 FROM EST_NOTA_FISCAL NF
                 INNER JOIN EST_NOTA_FISCAL_PRODUTO NFP ON (NFP.IDNF = NF.ID)
                 LEFT JOIN FIN_CLIENTE C ON (C.CLIENTE = NF.PESSOA)
                 LEFT JOIN FAT_COND_PGTO CP ON (CP.ID = NF.CONDPGTO)
+                LEFT JOIN FAT_PEDIDO PED ON (PED.ID = NF.DOC AND NF.ORIGEM = 'PED')
+                LEFT JOIN AMB_USUARIO U ON (U.USUARIO = PED.USRFATURA)
                 WHERE NF.SITUACAO = 'B' 
                 AND NF.SERIE != 'INV' 
                 AND NF.EMISSAO BETWEEN '$dataIni 00:00:00' AND '$dataFim 23:59:59'";
@@ -1452,7 +1514,7 @@ class c_estoque_relatorio extends c_user
         }
         
         // Agrupar por nota fiscal para evitar duplicatas
-        $sql .= " GROUP BY NF.ID, C.NOMEREDUZIDO, NF.NUMERO, NF.SERIE, NF.EMISSAO, NFP.CFOP, CP.DESCRICAO, NF.TOTALNF";
+        $sql .= " GROUP BY NF.ID, C.NOME, NF.NUMERO, NF.SERIE, NF.EMISSAO, NFP.CFOP, CP.DESCRICAO, NF.TOTALNF, NF.DOC, U.NOMEREDUZIDO";
         
         // Ordenar por data de emissão (mais recente primeiro)
         $sql .= " ORDER BY NF.EMISSAO DESC, NF.NUMERO DESC";
@@ -1460,7 +1522,7 @@ class c_estoque_relatorio extends c_user
         $banco = new c_banco;
         $banco->exec_sql($sql);
         $banco->close_connection();
-        return $banco->resultado;
+        return $banco->resultado ?? [];
     }
 
 } 

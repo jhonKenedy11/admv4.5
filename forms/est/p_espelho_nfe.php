@@ -24,6 +24,7 @@ include_once($dir . "/../../class/est/c_nota_fiscal.php");
 include_once($dir . "/../../class/est/c_nota_fiscal_produto.php");
 require_once($dir . "/../../class/fin/c_lancamento.php");
 require_once($dir . "/../../class/est/c_nat_operacao.php");
+require_once($dir . "/../../class/est/DanfeCustom.php");
 
 class p_espelho_nfe extends c_user{
   
@@ -39,7 +40,11 @@ class p_espelho_nfe extends c_user{
 
         // Cria uma instancia variaveis de sessao
         $this->from_array($_SESSION['user_array']);
-        
+
+        $slash = '/';
+        if (!defined('BASE_DIR_NFE_AMB')) {
+            define('BASE_DIR_NFE_AMB', ADMnfe . $slash . $this->m_empresaid . $slash . ADMambDesc);
+        }
     }
     
     /**
@@ -123,20 +128,39 @@ class p_espelho_nfe extends c_user{
             define( 'BASE_DIR_PDF', $path.$slash. 'pdf_temp'.$slash.$anomes.$slash.$chave.$nfExtPdf);
             define('BASE_HTTP_PDF', ADMhttpCliente . $slash . 'nfe' . $slash . $this->m_empresaid . $slash . ADMambDesc . $slash . 'pdf_temp' . $slash . $anomes . $slash . $chave . $nfExtPdf); 
 
-            $danfe = new NFePHP\DA\NFe\Danfe($xml, 'P', 'A4', $pathLogo, 'I', '');
-            $danfe->montaDANFE();
-            $res = $danfe->printDocument(BASE_DIR_PDF, 'F'); //Salva o PDF na pasta
+            if (!file_exists($pathLogo)) {
+                $pathLogo = '';
+            }
+            
+            // Usar DanfeCustom
+            $danfe = new DanfeCustom($xml);
+            
+            // Configurar parâmetros
+            $danfe->printParameters('P', 'A4');
+            
+            // Configurar logo
+            if (!empty($pathLogo) && file_exists($pathLogo)) {
+                $danfe->setLogoPath($pathLogo);
+            }
+            
+            // Renderizar
+            $pdf = $danfe->render();
+            
+            // Salvar
+            $res = file_put_contents(BASE_DIR_PDF, $pdf);
 
-            if($res == ''){
+            if($res !== false){
 
-                $sql = "UPDATE est_nota_fiscal SET ";
-                $sql .= "pathdanfe = '". BASE_HTTP_PDF."', ";
-                $sql .= "userchange = '" . $this->m_userid . "', ";
-                $sql .= "datechange = current_timestamp() ";
-                $sql .= "WHERE id = " . $idNf . ";";
-                $banco = new c_banco;
-                $banco->exec_sql($sql);
-                $banco->close_connection();
+                if (!empty($idNf)) {
+                    $sql = "UPDATE est_nota_fiscal SET ";
+                    $sql .= "pathdanfe = '". BASE_HTTP_PDF."', ";
+                    $sql .= "userchange = '" . $this->m_userid . "', ";
+                    $sql .= "datechange = current_timestamp() ";
+                    $sql .= "WHERE id = " . (int)$idNf . ";";
+                    $banco = new c_banco;
+                    $banco->exec_sql($sql);
+                    $banco->close_connection();
+                }
             }else{
                 throw new Exception($e->getMessage() );
             }
@@ -174,6 +198,7 @@ class p_espelho_nfe extends c_user{
         $vOutroTotal=0;
         $vNFTotal=0;
         $vTotTribTotal=0;
+        $vST = 0;
                         
         // CONSULTA DE DADOS DA NOTA FISCAL
         $nfOBJ = new c_nota_fiscal();
@@ -598,14 +623,18 @@ class p_espelho_nfe extends c_user{
 
             $vSeg = '';
             $vDesc = number_format($produtoArray[$i]['DESCONTO'], 2, '.', '');
-            $vDescTotal += $vDesc;
+            $vDescTotal += (float) $produtoArray[$i]['DESCONTO'];
             if ($produtoArray[$i]['DESPACESSORIAS'] > 0) {
                 $vOutro = number_format($produtoArray[$i]['DESPACESSORIAS'], 2, '.', '');
-                $vOutroTotal += $vOutro;
+                $vOutroTotal += (float) $produtoArray[$i]['DESPACESSORIAS'];
             }
             $indTot = '1';
             $xPed = $produtoArray[$i]['ORDEM'];
-            $nItemPed = '';
+            if (!empty($produtoArray[$i]['NITEMPED'])){
+                $nItemPed = $produtoArray[$i]['NITEMPED'];
+            }else{
+                $nItemPed = $produtoArray[$i]['NRITEM'];
+            }
             $nFCI = '';
             //nfe40 $resp = $nfe->tagprod($nItem, $cProd, $cEAN, $xProd, $NCM, $EXTIPI, $CFOP, $uCom, $qCom, $vUnCom, $vProd, $cEANTrib, $uTrib, $qTrib, $vUnTrib, $vFrete, $vSeg, $vDesc, $vOutro, $indTot, $xPed, $nItemPed, $nFCI);
             
@@ -640,16 +669,15 @@ class p_espelho_nfe extends c_user{
             $std->xPed = $xPed;
             $std->nItemPed = $nItemPed;
             $std->nFCI = $nFCI;
-            $elem = $nfe->tagprod($std);            
-            
-            if (!$produtoArray[$i]['CEST']==''):
-                $std = new stdClass();
-                $std->item = $nItem; //item da NFe
+
+            // CEST deve ser incluído dentro do stdClass do tagprod(), não como elemento separado
+            if (!$produtoArray[$i]['CEST']==''){
                 $std->CEST = $produtoArray[$i]['CEST'];
                 $std->indEscala = 'S'; //incluido no layout 4.00
                 //$std->CNPJFab = '12345678901234'; //incluido no layout 4.00
-                $elem = $nfe->tagCEST($std);            
-            endif;
+            }
+
+            $elem = $nfe->tagprod($std);
 
             //$elem = $nfe->tagRastro($std);            
             if (!$produtoArray[$i]['LOTE']==''):
@@ -831,6 +859,16 @@ class p_espelho_nfe extends c_user{
                         //3=Lista Neutra (valor);
                         //4=Margem Valor Agregado (%);
                         //5=Pauta (valor); (v2.0)
+                        if ($produtoArray[$i]['PERCDIFERIDO'] > 0) {
+                            $pDif = $produtoArray[$i]['PERCDIFERIDO'];
+                            $vICMSOp = number_format(($vBC * ($pICMS / 100)), 2, '.', '');
+                            $vICMSDif = number_format(($vICMSOp * ($pDif / 100)), 2, '.', '');
+                            $vICMS = number_format(($vICMSOp - $vICMSDif), 2, '.', '');
+                            $produtoArray[$i]['VALORICMSOPERACAO'] = $vICMSOp;
+                            $produtoArray[$i]['VALORICMSDIFERIDO'] = $vICMSDif;
+                            $produtoArray[$i]['VALORICMS'] = $vICMS;
+                        }
+                        $vICMS = $produtoArray[$i]['VALORICMS'];
 
                         if (($produtoArray[$i]['VALORICMSST'] >0) and ($produtoArray[$i]['MODBCST'] !='')){
                             $modBCST = $produtoArray[$i]['MODBCST'];
@@ -1304,7 +1342,7 @@ class p_espelho_nfe extends c_user{
                 $vIPI = 0;
                 $vBC = '';
                 $pIPI = '';
-                $qUni = '';
+                $qUnid = '';
                 $vUnid = '';   
                 
                 $CST = $produtoArray[$i]['CSTIPI'];
@@ -1327,6 +1365,16 @@ class p_espelho_nfe extends c_user{
                     } else {
                         $cEnq = '999';
                         $CST = '53';
+                        // Mesmo para CST 53, se houver valores no banco, incluir
+                        if (!empty($produtoArray[$i]['BCIPI']) || $produtoArray[$i]['BCIPI'] > 0) {
+                            $vBC = $produtoArray[$i]['BCIPI'];
+                        }
+                        if (!empty($produtoArray[$i]['ALIQIPI']) || $produtoArray[$i]['ALIQIPI'] > 0) {
+                            $pIPI = $produtoArray[$i]['ALIQIPI'];
+                        }
+                        if (!empty($produtoArray[$i]['VALORIPI']) || $produtoArray[$i]['VALORIPI'] > 0) {
+                            $vIPI = $produtoArray[$i]['VALORIPI'];
+                        }
                     }
         
                     $std = new stdClass(); 
@@ -1337,9 +1385,9 @@ class p_espelho_nfe extends c_user{
                     if ($qSelo != 0)  {$std->qSelo = $qSelo;}
                     if ($cEnq != '')  {$std->cEnq = $cEnq;}
                     if ($CST != '')  {$std->CST = $CST;}
-                    if ($vIPI != '')  {$std->vIPI = $vIPI;}
-                    if ($vBC != '')  {$std->vBC = $vBC;}
-                    if ($pIPI != '')  {$std->pIPI = $pIPI;}
+                    if ($vIPI != '' && $vIPI > 0)  {$std->vIPI = $vIPI;}
+                    if ($vBC != '' && $vBC > 0)  {$std->vBC = $vBC;}
+                    if ($pIPI != '' && $pIPI > 0)  {$std->pIPI = $pIPI;}
                     if ($qUnid != '')  {$std->qUnid = $qUnid;}
                     if ($vUnid != '')  {$std->vUnid = $vUnid;}
         
@@ -1491,7 +1539,10 @@ class p_espelho_nfe extends c_user{
             $elem = $nfe->tagCOFINS($std);
             
             //Total Impostos
-            $vTotTrib = number_format($vICMS + $vICMSST + $vIPI + $vPIS + $vCOFINS, 2, '.', ''); // 226.80 ICMS + 51.50 ICMSST + 50.40 IPI + 39.36 PIS + 81.84 CONFIS
+            $vTotTrib = number_format(
+                (float) $vICMS + (float) $vICMSST + (float) $vIPI + (float) $vPIS + (float) $vCOFINS,
+                2, '.', ''
+            );
             //nfe40            $resp = $nfe->tagimposto($nItem, $vTotTrib);
             $std = new stdClass();                                       
             $std->item = $nItem; //item da NFe
@@ -1499,7 +1550,7 @@ class p_espelho_nfe extends c_user{
 
             $elem = $nfe->tagimposto($std);
             
-            $vST += $vICMSST; // Total de ICMS ST
+            $vST += (float) $vICMSST; // Total de ICMS ST
             
             $vBCTotal += $produtoArray[$i]['BCICMS'];
             $vICMSTotal += $produtoArray[$i]['VALORICMS'];
@@ -1513,9 +1564,9 @@ class p_espelho_nfe extends c_user{
             $vSegTotal=0;
 
             $vIITotal=0;
-            $vIPITotal += $vIPI;
-            $vPISTotal += $vPIS;
-            $vCOFINSTotal += $vCOFINS;
+            $vIPITotal += (float) $vIPI;
+            $vPISTotal += (float) $vPIS;
+            $vCOFINSTotal += (float) $vCOFINS;
             //$vOutroTotal=0;
             $vNFTotal=$nfArray[0]['TOTALNF'];
             $vTotTribTotal=0;
@@ -1551,7 +1602,7 @@ class p_espelho_nfe extends c_user{
             $vFrete = '';
         }
         $vSeg = '0.00';
-        $vDesc = $vDescTotal;
+        $vDesc = number_format($vDescTotal, 2, '.', '');
         $vII = '0.00';
         $vIPI = number_format($vIPITotal, 2, '.', '');
         // testar se é nf de devolução 
@@ -1563,8 +1614,16 @@ class p_espelho_nfe extends c_user{
             $vOutro = number_format($vOutroTotal, 2, '.', '');
         }
             
-        $vNF = number_format($vProd-$vDesc-$vICMSDeson+$vST+$vFrete+$vSeg+$vOutro+$vII+$vIPI, 2, '.', '');
-        $vTotTrib = number_format($vICMS+$vST+$vII+$vIPI+$vPIS+$vCOFINS+$vIOF+$vISS, 2, '.', '');
+        $vFreteCalc = ($nfArray[0]['FRETE'] != ' ') ? (float) $nfArray[0]['FRETE'] : 0;
+        $vOutroCalc = ($vOutroTotal > 0) ? (float) $vOutroTotal : 0;
+        $vNF = number_format(
+            (float) $vProdTotal - (float) $vDescTotal + (float) $vSTTotal + $vFreteCalc + (float) $vIPITotal + $vOutroCalc,
+            2, '.', ''
+        );
+        $vTotTrib = number_format(
+            (float) $vICMSTotal + (float) $vSTTotal + (float) $vIPITotal + (float) $vPISTotal + (float) $vCOFINSTotal,
+            2, '.', ''
+        );
         //nfe40        $resp = $nfe->tagICMSTot($vBC, $vICMS, $vICMSDeson, $vBCST, $vST, $vProd, $vFrete, $vSeg, $vDesc, $vII, $vIPI, $vPIS, $vCOFINS, $vOutro, $vNF, $vTotTrib);
         $std = new stdClass();
         $std->vBC = $vBC;
@@ -1867,13 +1926,16 @@ class p_espelho_nfe extends c_user{
         
 
         // Calculo de carga tributária similar ao IBPT - Lei 12.741/12
-        $federal = number_format($vII+$vIPI+$vIOF+$vPIS+$vCOFINS, 2, ',', '.');
-        $estadual = number_format($vICMS+$vST, 2, ',', '.');
-        $municipal = number_format($vISS, 2, ',', '.');
-        $totalT = number_format($federal+$estadual+$municipal, 2, ',', '.');
+        $federalVal = (float) $vII + (float) $vIPI + (float) $vIOF + (float) $vPIS + (float) $vCOFINS;
+        $estadualVal = (float) $vICMS + (float) $vST;
+        $municipalVal = (float) $vISS;
+        $federal = number_format($federalVal, 2, ',', '.');
+        $estadual = number_format($estadualVal, 2, ',', '.');
+        $municipal = number_format($municipalVal, 2, ',', '.');
+        $totalT = number_format($federalVal + $estadualVal + $municipalVal, 2, ',', '.');
         $textoIBPT = "Valor Aprox. Tributos R$ {$totalT} - {$federal} Federal, {$estadual} Estadual e {$municipal} Municipal.";
-
         
+
         //Informações Adicionais
         //$infAdFisco = "SAIDA COM SUSPENSAO DO IPI CONFORME ART 29 DA LEI 10.637";
         $infAdFisco = "";
